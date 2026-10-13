@@ -33,7 +33,9 @@ Current state, edited in place when a decision changes.
   their controls below it, bottom elements stay above the gesture bar
   (safe-area insets; Android forces edge-to-edge from version 15).
 - The archive keeps the main view's layout; only the background tint and
-  the back button instead of the archive button tell them apart.
+  the view button tell them apart: "Archive" in the main view turns into
+  "Notes" in the archive, in the same place and size, so one tap switches
+  back and forth (decided 2026-10-13 over a back button at the left).
 
 ## Input
 
@@ -64,6 +66,9 @@ Current state, edited in place when a decision changes.
   have done. While editing, the + button gives way to the toolbar.
 - Controls that act on the editor (toolbar, its menus) never take the
   focus, so the on-screen keyboard stays open.
+- The **caret stays visible** while editing: when the on-screen keyboard
+  opens, and while typing, the list scrolls so the edited line sits
+  between the top bar and the toolbar above the keyboard.
 - **Hold-to-record** follows Signal: hold the + button (350 ms) to start,
   release to finish, slide left to cancel, slide up onto the lock to
   record hands-free — then the button turns into a check to finish and a

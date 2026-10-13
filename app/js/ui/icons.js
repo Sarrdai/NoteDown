@@ -13,6 +13,7 @@ const PATHS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M16 3v4M8 3v4M3.5 10h17"/>',
   heading: '<path d="M6 4v16M18 4v16M6 12h12"/>',
+  notes: '<rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4"/>',
   list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
   checkbox: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M8.5 12.2l2.5 2.5 4.6-5"/>',
   indent: '<path d="M10 6h10M10 12h10M10 18h10M3.5 8.5 7 12l-3.5 3.5"/>',

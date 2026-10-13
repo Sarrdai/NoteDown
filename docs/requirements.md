@@ -131,9 +131,11 @@ before the first live test).
     grouped by people: it says who reads along and keeps one sorted list.
   - **Sync status** is a cloud icon in the top bar (synced, syncing,
     offline), hidden while sync is off; tapping it opens Sync & sharing.
-    A round that transferred something shows "syncing" for at least
-    0.8 s, so a sync is visible even when it is fast; how the icon moves
-    is still open (prototype variants, ⋮ → "Prototype: Sync animation").
+    A round that transferred something shows "syncing" (spinning arrows)
+    for at least 0.8 s, then the check draws itself in the accent color
+    and fades — a fast sync stays visible (decided 2026-10-13 over only
+    spinning, which doesn't mark the end, and a pulsing cloud, too easy
+    to miss).
   - **Syncing on request**, so the user can be sure to have the latest
     state: opening Sync & sharing (icon or ⋮, every tier) syncs, its
     footer shows "Syncing…" and then when it last synced; on phone and
@@ -174,7 +176,9 @@ before the first live test).
   line — distinct from the square task checkboxes inside the text. It
   moves to the archive, with "Note archived · Undo". *Prototype: round 1.*
 - The **archive button** in the main view shows how many notes were closed
-  today; the count resets at midnight. *Prototype: round 1.*
+  today; the count resets at midnight. In the archive the same button
+  reads **Notes** (no count) and leads back, so one place switches
+  between both views. *Prototype: round 1; Notes button 2026-10-13.*
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*

@@ -116,11 +116,10 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table.
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
-| `syncAnim` | `spin` (A) · `check` (B, default) · `pulse` (C) | **Open variant:** how the sync icon shows a round — arrows spin; arrows spin, then the check draws itself in; the cloud breathes, then pops once |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
