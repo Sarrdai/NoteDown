@@ -14,7 +14,8 @@ logic in `app/js/core/` with a unit test).
 
 ## 2. Tests and flows
 
-- `node --test` — all green.
+- `node --test` — all green; `scripts/test-server.sh` too when `server/`
+  changed.
 - Drive the changed flows in headless Chromium in the tiers they touch
   (tap/click, type, check the result in DOM and `localStorage`), plus the
   neighbouring flows the change could break: closing/reopening with

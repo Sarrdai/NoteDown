@@ -41,7 +41,7 @@ the live test setup is described in `docs/operations.md`.
 | `mobile/` | The Android app: a Capacitor shell around `app/` (see "Android app") |
 | `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
-| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`), `test-server.sh` (server tests) |
 
 ## Device tiers
 
@@ -173,11 +173,12 @@ Decided on 2026-10-13, once function and look stood:
 a real Postgres; `server/Dockerfile` is what Cloud Run runs.
 
 ```bash
-cd server && pip install -r requirements-dev.txt
-TEST_DATABASE_URL=postgresql://user@host/db pytest     # needs an empty test database
+scripts/test-server.sh      # venv + throwaway local Postgres, then pytest
 ```
 
-Run the tests when `server/` changed. `protocol.py` holds the encodings
+It uses `TEST_DATABASE_URL` instead when set (an empty test database);
+CI runs the same tests against a Postgres service. Run them when
+`server/` changed. `protocol.py` holds the encodings
 and device-list rules without I/O, `auth.py` challenges and tokens,
 `app.py` the endpoints, `schema.sql` the tables (applied at start, only
 additive statements).

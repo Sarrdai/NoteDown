@@ -38,6 +38,9 @@ Report the test pass count.
 A `page errors` line or a non-zero exit is a finding: fix it before
 pushing. The pictures themselves were reviewed in `orchestrate` phase 4.
 
+**Server check** (only when `server/` changed): `scripts/test-server.sh`
+— all green; report the pass count.
+
 ## 3. Docs check
 
 - `node scripts/doc-toc.js` — refreshes the table of contents of every
