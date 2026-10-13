@@ -1,0 +1,181 @@
+// NoteDown prototype: wires the store to the views.
+import { viewNotes, closedOn, SORT_KEYS } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, replaceFile, fileText } from "./store.js";
+import { loadSample } from "./sample.js";
+import { renderList, patchNote, startEdit } from "./ui/note-list.js";
+import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
+import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
+import { hideSnackbar } from "./ui/snackbar.js";
+import { today } from "./ui/format.js";
+import { icon } from "./ui/icons.js";
+
+const $ = id => document.getElementById(id);
+const app = $("app");
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
+const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
+const DIR_LABELS = {
+  title: ["A–Z", "Z–A"],
+  due: ["Soonest first", "Latest first"],
+  default: ["Oldest first", "Newest first"],
+};
+
+function currentNotes() {
+  const notes = viewNotes(state.file.notes, { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
+  const i = notes.findIndex(n => n.id === state.pinnedId);
+  if (i > 0) notes.unshift(...notes.splice(i, 1));
+  return notes;
+}
+
+function render() {
+  const s = state.settings;
+  const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
+  document.documentElement.dataset.flavor = flavor;
+  app.dataset.view = state.view;
+  app.classList.toggle("list-document", s.listStyle === "document");
+  app.classList.toggle("toc-drawer", s.phoneToc === "drawer");
+  app.classList.toggle("toc-sheet", s.phoneToc === "sheet");
+  app.classList.toggle("has-search", state.search !== "");
+
+  $("title").textContent = state.view === "open" ? "Notes" : "Archive";
+  const sort = s.sort[state.view];
+  $("sortLabel").textContent = SORT_KEYS[sort.key].label;
+  $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
+  const count = closedOn(state.file.notes, today());
+  $("archiveCount").textContent = count;
+  $("archiveCount").classList.toggle("has", count > 0);
+  $("archiveBtn").setAttribute("aria-label", `Archive, ${count} closed today`);
+  if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
+
+  const notes = currentNotes();
+  renderList(notes);
+  renderToc(notes);
+  const empty = $("empty");
+  empty.hidden = notes.length > 0;
+  empty.textContent = state.search ? `No notes match “${state.search}”.`
+    : state.view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
+}
+
+subscribe(kind => {
+  if (kind.startsWith("note:")) {
+    patchNote(kind.slice(5));
+    renderToc(currentNotes());
+  } else if (!state.editingId) {
+    render();
+  }
+});
+
+function setView(view) {
+  if (state.view === view) return;
+  hideSnackbar();
+  setUi({ view, search: "", pinnedId: null });
+  app.classList.remove("searching");
+  window.scrollTo(0, 0);
+}
+
+function newNote() {
+  if (state.view !== "open") setView("open");
+  if (state.search) setUi({ search: "" }, "silent");
+  const n = addNote("## ");
+  state.pinnedId = n.id;
+  render();
+  window.scrollTo(0, 0);
+  startEdit(n.id);
+}
+
+function sortMenu() {
+  const sort = state.settings.sort[state.view];
+  const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
+  const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
+  const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
+  openMenu($("sortBtn"), [
+    { section: "Sort by" },
+    ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
+    { separator: true },
+    { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
+    { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
+  ]);
+}
+
+function moreMenu() {
+  const s = state.settings;
+  openMenu($("moreBtn"), [
+    { section: "Theme" },
+    ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: list style" },
+    { label: "Cards (A)", checked: s.listStyle === "cards", onSelect: () => updateSettings({ listStyle: "cards" }) },
+    { label: "Document (B)", checked: s.listStyle === "document", onSelect: () => updateSettings({ listStyle: "document" }) },
+    { section: "Prototype: contents on phone" },
+    { label: "Drawer (A)", checked: s.phoneToc === "drawer", onSelect: () => updateSettings({ phoneToc: "drawer" }) },
+    { label: "Bottom sheet (B)", checked: s.phoneToc === "sheet", onSelect: () => updateSettings({ phoneToc: "sheet" }) },
+    { separator: true },
+    { label: "Download notes.md", onSelect: download },
+    { label: "Reset sample notes", onSelect: async () => replaceFile(await loadSample()) },
+  ]);
+}
+
+function download() {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([fileText()], { type: "text/markdown" }));
+  a.download = "notes.md";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function wire() {
+  for (const [id, name] of [["backBtn", "back"], ["tocBtn", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
+  $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
+  $("archiveBtn").querySelector(".btn-icon").innerHTML = icon("archive");
+  $("searchIcon").innerHTML = icon("search");
+
+  $("archiveBtn").addEventListener("click", () => setView("closed"));
+  $("backBtn").addEventListener("click", () => setView("open"));
+  $("fab").addEventListener("click", newNote);
+  $("sortBtn").addEventListener("click", sortMenu);
+  $("moreBtn").addEventListener("click", moreMenu);
+  $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
+  $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
+  $("searchClose").addEventListener("click", () => { app.classList.remove("searching"); setUi({ search: "" }); });
+  systemDark.addEventListener("change", render);
+  window.addEventListener("scroll", () => $("topbar").classList.toggle("scrolled", window.scrollY > 4), { passive: true });
+
+  // Desktop keys: "/" search, "n" new note, Esc closes panels and menus.
+  document.addEventListener("keydown", e => {
+    const typing = e.target.closest("input, textarea, [contenteditable]");
+    if (e.key === "Escape") {
+      closeMenu(); setTocOpen(false);
+      if (e.target === $("searchInput")) { app.classList.remove("searching"); setUi({ search: "" }); e.target.blur(); }
+      return;
+    }
+    if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "/") { e.preventDefault(); app.classList.add("searching"); $("searchInput").focus(); }
+    else if (e.key === "n") { e.preventDefault(); newNote(); }
+  });
+  initToc();
+  initMenu();
+}
+
+// URL parameters set prototype options, e.g. ?list=document&toc=sheet&flavor=mocha&view=closed
+function applyUrlOptions() {
+  const p = new URLSearchParams(location.search);
+  const patch = {};
+  if (p.get("list")) patch.listStyle = p.get("list");
+  if (p.get("toc")) patch.phoneToc = p.get("toc");
+  if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (Object.keys(patch).length) Object.assign(state.settings, patch);
+  if (p.get("view") === "closed") state.view = "closed";
+  if (p.get("reset") !== null) return true;
+  return false;
+}
+
+async function start() {
+  wire();
+  const hadFile = load();
+  const reset = applyUrlOptions();
+  if (!hadFile || reset) replaceFile(await loadSample());
+  render();
+  document.body.dataset.ready = "1";
+}
+
+start();

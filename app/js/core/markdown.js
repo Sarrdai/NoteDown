@@ -1,0 +1,88 @@
+// Markdown helpers on a note's body: rendering, headings for the table of
+// contents, the preview title, and toggling task checkboxes in the source.
+import { Marked } from "../../vendor/marked.esm.js";
+
+const marked = new Marked({ gfm: true, breaks: true });
+marked.use({
+  renderer: {
+    // Task checkboxes stay clickable; the view maps a click to taskIndex.
+    checkbox({ checked }) {
+      return `<input type="checkbox" class="task"${checked ? " checked" : ""}> `;
+    },
+    link({ href, title, tokens }) {
+      const text = this.parser.parseInline(tokens);
+      if (/^\s*(javascript|data|vbscript):/i.test(href)) href = "#";
+      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener"${title ? ` title="${escapeAttr(title)}"` : ""}>${text}</a>`;
+    },
+    // Raw HTML in a note is shown as text, never executed.
+    html({ text }) {
+      return escapeHtml(text);
+    },
+  },
+});
+
+export function renderMarkdown(body) {
+  return marked.parse(body);
+}
+
+/** Headings of a body in document order: [{ depth, text }]. */
+export function headings(body) {
+  const out = [];
+  marked.walkTokens(marked.lexer(body), t => {
+    if (t.type === "heading") out.push({ depth: t.depth, text: plain(t.text) });
+  });
+  return out;
+}
+
+/** The note's display title: first heading, else its first sentence. */
+export function noteTitle(body) {
+  const h = headings(body)[0];
+  if (h) return { text: h.text, fromHeading: true };
+  return { text: firstSentence(body), fromHeading: false };
+}
+
+export function firstSentence(body, max = 80) {
+  const text = plain(body).replace(/\s+/g, " ").trim();
+  const m = /^(.+?[.!?])(\s|$)/.exec(text);
+  const s = m ? m[1] : text;
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
+}
+
+/** Flips the n-th task checkbox (0-based, document order) in the source. */
+export function toggleTask(body, index) {
+  const lines = body.split("\n");
+  let fence = null;
+  let n = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const f = /^\s*(```|~~~)/.exec(lines[i]);
+    if (f) { fence = fence === null ? f[1] : fence === f[1] ? null : fence; continue; }
+    if (fence !== null) continue;
+    const m = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/.exec(lines[i]);
+    if (!m) continue;
+    if (n++ === index) {
+      lines[i] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + lines[i].slice(m[0].length);
+      return lines.join("\n");
+    }
+  }
+  return body;
+}
+
+// Markdown inline syntax stripped to plain text.
+function plain(md) {
+  return md
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?/gm, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_~`]+/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .trim();
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function escapeAttr(s) {
+  return escapeHtml(String(s)).replace(/"/g, "&quot;");
+}

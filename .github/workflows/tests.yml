@@ -1,0 +1,20 @@
+# Unit tests of the prototype's core logic (PROJECT.md → "Prototype").
+name: Tests
+
+on:
+  push:
+    branches: ["claude/**", "main"]
+    paths: ["app/**", "tests/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node --test

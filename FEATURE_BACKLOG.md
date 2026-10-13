@@ -1,9 +1,9 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 0
+LAST_ID: 2
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
-elaborated with the user, mocked, and then leaves this file for
+elaborated with the user, built into the prototype, and then leaves this file for
 `docs/requirements.md` (concept phase) — later, once there is app code, it
 leaves when it is implemented.
 
@@ -31,3 +31,5 @@ each priority. Re-sort after changing any priority.
 
 | Nr | Vorschlag | Begründung | Aufwand | Prio |
 |---|---|---|---|---|
+| 1 | Reminders / notifications for due dates | Came up while scoping due dates (2026-10-13): a due date is shown as a chip today, but nothing reminds the user. Open: time of day, per note or global, platform notifications in the web app. | mittel | 2 |
+| 2 | Home-screen widget for quick capture | Quick capture from the phone's home screen (2026-10-13); app shortcuts "New note" / "Dictate" are planned for the app phase, a widget would go further (e.g. showing open notes). | mittel | 3 |
