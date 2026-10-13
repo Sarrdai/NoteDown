@@ -19,7 +19,10 @@ QR code.
 
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on
-desktop, tablet and phone. The real app comes later.
+desktop, tablet and phone. The prototype is turning into the real app:
+Android (a Capacitor shell in `mobile/`) and the web come first, with a
+Python sync server in `server/`; the first milestone is sync between
+your own devices.
 
 ## Try the prototype
 
@@ -42,8 +45,13 @@ https; add `?dictation=demo` to try it without a microphone.
 - [`docs/file-format.md`](docs/file-format.md) — the Markdown file.
 - [`docs/sync-and-sharing.md`](docs/sync-and-sharing.md) — sync, sharing
   and encryption.
+- [`docs/server-api.md`](docs/server-api.md) — the protocol between app
+  and server.
+- [`docs/operations.md`](docs/operations.md) — the live test setup:
+  hosting, deployment, one-time setup.
 - [`FEATURE_BACKLOG.md`](FEATURE_BACKLOG.md) — ideas not yet decided.
 
 Themes use the [Catppuccin](https://catppuccin.com) palette (MIT);
-Markdown rendering uses [marked](https://github.com/markedjs/marked) and
-editing [CodeMirror](https://codemirror.net) (both MIT).
+Markdown rendering uses [marked](https://github.com/markedjs/marked),
+editing [CodeMirror](https://codemirror.net) (both MIT), and the Android
+app [Capacitor](https://capacitorjs.com) (MIT).

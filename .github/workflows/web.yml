@@ -1,0 +1,37 @@
+# Web app (app/) on GitHub Pages under the test subdomain, from main once
+# Pages is set up (docs/operations.md).
+name: Web
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/web.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Skipped until the repository variable WEB_HOST exists.
+    if: vars.WEB_HOST != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node --test
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: app
+      - id: deploy
+        uses: actions/deploy-pages@v5
