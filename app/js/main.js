@@ -6,6 +6,7 @@ import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
+import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { today } from "./ui/format.js";
@@ -15,6 +16,8 @@ const $ = id => document.getElementById(id);
 const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
+const SELECT_BARS = { top: "Top bar (A)", bottom: "Bottom bar (B)" };
+const SELECT_LOOKS = { check: "Check in the round button (A)", tint: "Tinted card (B)" };
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
 const DIR_LABELS = {
@@ -36,6 +39,8 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
+  app.dataset.selectBar = s.selectBar;
+  app.dataset.selectLook = s.selectLook;
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = s.sort[state.view];
@@ -49,6 +54,7 @@ function render() {
 
   const notes = currentNotes();
   renderList(notes);
+  syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
   empty.hidden = notes.length > 0;
@@ -67,6 +73,7 @@ subscribe(kind => {
 
 function setView(view) {
   if (state.view === view) return;
+  endSelection();
   hideSnackbar();
   setUi({ view, search: "", pinnedId: null });
   app.classList.remove("searching");
@@ -74,6 +81,7 @@ function setView(view) {
 }
 
 function newNote() {
+  endSelection();
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
   const n = addNote("## ");
@@ -95,6 +103,15 @@ function addDictatedNote(text) {
   showSnackbar("Dictated note added", () => removeNote(n.id));
 }
 
+// A merged note replaces its originals at the top of the list.
+function onMerged(n, undo) {
+  state.pinnedId = n.id;
+  render();
+  window.scrollTo(0, 0);
+  flashNote(n.id);
+  showSnackbar("Notes merged", undo);
+}
+
 function sortMenu() {
   const sort = state.settings.sort[state.view];
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
@@ -114,6 +131,10 @@ function moreMenu() {
   openMenu($("moreBtn"), [
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: selection actions" },
+    ...Object.entries(SELECT_BARS).map(([id, label]) => ({ label, checked: s.selectBar === id, onSelect: () => updateSettings({ selectBar: id }) })),
+    { section: "Prototype: selected note" },
+    ...Object.entries(SELECT_LOOKS).map(([id, label]) => ({ label, checked: s.selectLook === id, onSelect: () => updateSettings({ selectLook: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     { label: "Reset sample notes", onSelect: async () => replaceFile(await loadSample()) },
@@ -160,6 +181,7 @@ function wire() {
   initMenu();
   initToolbar();
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
+  initSelection({ viewNotes: currentNotes, onMerged });
 }
 
 // URL parameters set prototype options, e.g. ?flavor=mocha&view=closed
@@ -167,6 +189,8 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (SELECT_BARS[p.get("selectbar")]) patch.selectBar = p.get("selectbar");
+  if (SELECT_LOOKS[p.get("selectlook")]) patch.selectLook = p.get("selectlook");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   if (p.get("reset") !== null) return true;

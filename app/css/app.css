@@ -259,6 +259,98 @@ button { font: inherit; color: inherit; }
 @keyframes nudge { 50% { transform: translateY(-3px); } }
 .app.rec-locked .rec-lock { display: none; }
 
+/* ---------- multi-select (ui/selection.js) ---------- */
+.app.selecting .fab { display: none; }
+.app.selecting .note, .app.selecting .note-body { cursor: pointer; -webkit-user-select: none; user-select: none; }
+/* A held note shows no text selection or callout on touch screens. */
+@media (hover: none) {
+  .note:not(.editing) .note-body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+}
+.selectbar { display: flex; align-items: center; gap: 4px; }
+.sel-count { flex: 1; min-width: 0; margin: 0 6px; font-weight: 650; white-space: nowrap; }
+.sel-actions { display: flex; align-items: center; gap: 2px; }
+.sel-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: var(--tap); height: var(--tap); padding: 0 10px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.sel-action:hover { background: var(--surface-hover); }
+.sel-action:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.sel-action[data-action="trash"] { color: var(--danger); }
+.sel-label { font-size: 0.9rem; font-weight: 500; }
+
+/* Variant A: a contextual top bar replaces the normal one. */
+.app[data-select-bar="top"].selecting .topbar { display: none; }
+.app[data-select-bar="top"] .selectbar {
+  position: sticky; top: 0; z-index: 10; height: var(--topbar-h); padding: 0 8px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg)); border-bottom: 1px solid var(--border);
+}
+.app[data-select-bar="top"] .sel-count { font-size: 1.15rem; }
+.app[data-select-bar="top"] .sel-label { display: none; }
+
+/* Variant B: the actions sit in a bar at the bottom, the top bar stays. */
+.app[data-select-bar="bottom"] .selectbar {
+  position: fixed; z-index: 16; left: 0; right: 0; bottom: 0;
+  padding: 6px 8px calc(6px + var(--safe-bottom));
+  background: var(--ctp-base); border-top: 1px solid var(--ctp-surface0); box-shadow: 0 -2px 12px rgb(0 0 0 / 0.08);
+}
+.app[data-select-bar="bottom"] .sel-action { flex-direction: column; gap: 2px; height: 56px; min-width: 60px; border-radius: 12px; }
+.app[data-select-bar="bottom"] .sel-label { font-size: 0.75rem; }
+.app[data-select-bar="bottom"].selecting .snackbar { bottom: calc(84px + var(--safe-bottom)); }
+
+/* Variant A of the look: the round button turns into a selection check. */
+.app[data-select-look="check"].selecting .note .status { color: var(--text-faint); }
+.app[data-select-look="check"].selecting .note .status .ring { background: transparent; border-color: currentColor; }
+.app[data-select-look="check"].selecting .note .status .icon { opacity: 0; }
+.app[data-select-look="check"] .note.selected .status .ring { background: var(--accent); border-color: var(--accent); }
+.app[data-select-look="check"] .note.selected .status .icon { opacity: 1; color: var(--on-accent); }
+.app[data-select-look="check"] .note.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+
+/* Variant B of the look: a tinted card with a check badge, the round button stays. */
+.app[data-select-look="tint"].selecting .note .status { opacity: 0.4; }
+.app[data-select-look="tint"] .note.selected { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); border-color: var(--accent); }
+.app[data-select-look="tint"] .note.selected::after {
+  content: ""; position: absolute; top: -7px; right: -7px; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
+}
+.app[data-select-look="tint"] .note.selected::before {
+  content: ""; position: absolute; z-index: 1; top: 0; right: 0; width: 9px; height: 5px;
+  border: solid var(--on-accent); border-width: 0 0 2px 2px; transform: translate(-1.5px, 1px) rotate(-45deg);
+}
+
+/* Order dialog for Copy and Merge. */
+.dialog-scrim {
+  position: fixed; z-index: 45; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgb(0 0 0 / 0.4);
+}
+.dialog {
+  display: flex; flex-direction: column; width: min(460px, 100%); max-height: calc(100dvh - 32px);
+  padding: 20px 16px 12px; border-radius: 18px; background: var(--ctp-base); color: var(--text); box-shadow: var(--shadow-high);
+}
+.dialog-title { margin: 0 8px; font-size: 1.15rem; }
+.dialog-hint { margin: 4px 8px 12px; font-size: 0.88rem; color: var(--text-muted); }
+.order-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; counter-reset: order; }
+.order-item {
+  counter-increment: order; position: relative;
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 0 0 12px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg); margin-bottom: 6px;
+}
+.order-item::before { content: counter(order); flex: none; width: 20px; color: var(--text-faint); font-weight: 700; font-size: 0.85rem; }
+.order-item.dragging { z-index: 1; box-shadow: var(--shadow-high); border-color: var(--accent); }
+.order-text { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.order-text.plain { font-weight: 500; font-style: italic; color: var(--text-muted); }
+.order-grip {
+  flex: none; width: var(--tap); height: 50px; border: 0; background: transparent; color: var(--text-faint);
+  cursor: grab; touch-action: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px;
+}
+.order-grip:focus-visible { outline: 2px solid var(--accent); }
+.order-item.dragging .order-grip { cursor: grabbing; color: var(--accent); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.btn { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--accent); font-weight: 650; cursor: pointer; }
+.btn:hover { background: var(--surface-hover); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* ---------- rendered Markdown ---------- */
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
@@ -368,11 +460,21 @@ button { font: inherit; color: inherit; }
   :root { --toc-w: 248px; }
   .search { width: 190px; }
   .btn-label { display: none; }
+  .app[data-select-bar="bottom"] .selectbar { left: var(--toc-w); }
 }
 @media (min-width: 1024px) {
   .topbar { padding: 0 16px; }
   .list { padding-top: 12px; }
-  /* On the desktop the toolbar floats over the list column. */
+  .app[data-select-bar="top"] .selectbar { padding: 0 16px; }
+  .app[data-select-bar="top"] .sel-label { display: inline; }
+  .app[data-select-bar="bottom"] .sel-action { flex-direction: row; height: var(--tap); gap: 6px; padding: 0 14px; }
+  .app[data-select-bar="bottom"] .sel-label { font-size: 0.9rem; }
+  /* On the desktop the toolbar and the bottom selection bar float over the list column. */
+  .app[data-select-bar="bottom"] .selectbar {
+    left: calc(var(--toc-w) + (100% - var(--toc-w)) / 2); right: auto; bottom: 20px; transform: translateX(-50%);
+    width: min(720px, calc(100% - var(--toc-w) - 48px)); border: 1px solid var(--ctp-surface0); border-radius: 16px; box-shadow: var(--shadow-high);
+    padding: 6px 8px;
+  }
   .toolbar {
     left: calc(var(--toc-w) + (100% - var(--toc-w)) / 2); right: auto; bottom: 20px; transform: translateX(-50%);
     width: min(720px, calc(100% - var(--toc-w) - 48px)); border: 1px solid var(--ctp-surface0); border-radius: 16px; box-shadow: var(--shadow-high);

@@ -29,6 +29,7 @@ export function patchNote(id) {
 function noteElement(n) {
   const el = document.createElement("article");
   el.className = "note" + (n.status === "closed" ? " closed" : "");
+  if (state.selected.has(n.id)) el.classList.add("selected");
   el.dataset.id = n.id;
   if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 

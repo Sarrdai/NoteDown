@@ -26,6 +26,11 @@ const PATHS = {
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   chevronUp: '<path d="M6 15l6-6 6 6"/>',
   send: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  done: '<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.6 2.6 4.8-5.2"/>',
+  reopen: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4h4"/>',
+  copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/>',
+  merge: '<path d="M6 4v3.5a4.5 4.5 0 0 0 4.5 4.5h3A4.5 4.5 0 0 1 18 16.5V20M18 4v3.5a4.5 4.5 0 0 1-4.5 4.5M15 17l3 3 3-3"/>',
+  grip: '<circle cx="9" cy="6" r="0.9"/><circle cx="15" cy="6" r="0.9"/><circle cx="9" cy="12" r="0.9"/><circle cx="15" cy="12" r="0.9"/><circle cx="9" cy="18" r="0.9"/><circle cx="15" cy="18" r="0.9"/>',
 };
 
 export function icon(name, cls = "icon") {

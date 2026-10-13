@@ -39,6 +39,11 @@
         <button class="icon-btn labelled" id="archiveBtn"><span class="btn-icon"></span><span class="btn-label">Archive</span><span class="count" id="archiveCount">0</span></button>
         <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More"></button>
       </header>
+      <div class="selectbar keep-editing" id="selectBar" role="toolbar" aria-label="Selection" hidden>
+        <button class="icon-btn" id="selCancel" aria-label="Cancel selection"></button>
+        <span class="sel-count" id="selCount" aria-live="polite"></span>
+        <div class="sel-actions" id="selActions"></div>
+      </div>
       <div class="list" id="list"></div>
       <p class="empty" id="empty" hidden></p>
     </main>
@@ -65,6 +70,17 @@
       <button id="snackUndo">Undo</button>
     </div>
     <div class="menu keep-editing" id="menu" role="menu" hidden></div>
+    <div class="dialog-scrim keep-editing" id="orderDialog" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="orderTitle">
+        <h2 class="dialog-title" id="orderTitle"></h2>
+        <p class="dialog-hint">Drag to change the order.</p>
+        <ol class="order-list" id="orderList"></ol>
+        <div class="dialog-actions">
+          <button class="btn" id="orderCancel">Cancel</button>
+          <button class="btn primary" id="orderOk"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>

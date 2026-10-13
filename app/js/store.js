@@ -11,6 +11,8 @@ const SETTINGS_KEY = "notedown.settings";
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
+  selectBar: "top",          // prototype variant: top | bottom
+  selectLook: "check",       // prototype variant: check | tint
   sort: structuredClone(DEFAULT_SORT),
 };
 
@@ -21,6 +23,7 @@ export const state = {
   search: "",
   editingId: null,
   pinnedId: null,            // a new note stays on top until its first edit ends
+  selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting
 };
 
 const listeners = new Set();
@@ -101,22 +104,60 @@ export function addNote(body) {
 
 /** Removes a note; returns a function that restores it. */
 export function removeNote(id) {
-  const i = state.file.notes.findIndex(n => n.id === id);
-  if (i < 0) return () => {};
-  const [n] = state.file.notes.splice(i, 1);
+  return removeNotes([id]);
+}
+
+/** Removes several notes; returns a function that puts them back in place. */
+export function removeNotes(ids) {
+  const putBack = takeOut(ids);
   saveFile();
   emit("structure");
-  return () => { state.file.notes.splice(i, 0, n); saveFile(); emit("structure"); };
+  return () => { putBack(); saveFile(); emit("structure"); };
+}
+
+// Takes notes out of the file; the returned function reinserts them at
+// their old positions.
+function takeOut(ids) {
+  const removed = [];
+  state.file.notes.forEach((n, i) => { if (ids.includes(n.id)) removed.push([i, n]); });
+  state.file.notes = state.file.notes.filter(n => !ids.includes(n.id));
+  return () => { for (const [i, n] of removed) state.file.notes.splice(i, 0, n); };
 }
 
 /** Closes or reopens a note; returns a function that undoes it. */
 export function setStatus(id, status) {
-  const n = note(id);
-  if (!n || n.status === status) return () => {};
-  const before = { status: n.status, closed: n.closed };
-  n.status = status;
-  n.closed = status === "closed" ? timestamp() : null;
+  return setStatuses([id], status);
+}
+
+/** Closes or reopens several notes at once; returns a function that undoes it. */
+export function setStatuses(ids, status) {
+  const changed = ids.map(note).filter(n => n && n.status !== status);
+  if (!changed.length) return () => {};
+  const before = changed.map(n => [n, { status: n.status, closed: n.closed }]);
+  const now = timestamp();
+  for (const n of changed) { n.status = status; n.closed = status === "closed" ? now : null; }
   saveFile();
   emit("structure");
-  return () => { Object.assign(n, before); saveFile(); emit("structure"); };
+  return () => { for (const [n, b] of before) Object.assign(n, b); saveFile(); emit("structure"); };
+}
+
+/** Replaces notes by one new note built from `merged` ({ body, created, due },
+ *  core/selection.js) at the top of the file; returns { note, undo }. */
+export function mergeNotes(ids, merged) {
+  const putBack = takeOut(ids);
+  const n = createNote(merged.body, timestamp());
+  n.created = merged.created || n.created;
+  n.due = merged.due;
+  state.file.notes.unshift(n);
+  saveFile();
+  emit("structure");
+  return {
+    note: n,
+    undo: () => {
+      state.file.notes = state.file.notes.filter(x => x.id !== n.id);
+      putBack();
+      saveFile();
+      emit("structure");
+    },
+  };
 }

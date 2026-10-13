@@ -77,9 +77,9 @@ prototype with `?dictation=demo`, which replays
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`). No DOM access; covered by `tests/*.test.mjs` |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`). No DOM access; covered by `tests/*.test.mjs` |
 | `app/js/store.js` | App state and persistence (the notes file in `localStorage` for now), change events |
-| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), table of contents, menus, snackbar, icons, date labels |
+| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
 | `app/js/sample.js` | Prototype only: loads the sample notes |
 | `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `dictation.md`: the transcript `?dictation=demo` replays |
@@ -98,11 +98,14 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table. No variant is open right now.
+is deleted from code, menu and this table. Open now: the two multi-select
+questions (round 3).
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
+| `selectbar` | `top` (A, default) · `bottom` (B) | Variant: where the multi-select actions sit — contextual top bar or bottom bar |
+| `selectlook` | `check` (A, default) · `tint` (B) | Variant: a selected note — round button turns into a check + accent border, or tinted card with a check badge |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `reset` | — | Reload the sample notes |
