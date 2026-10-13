@@ -98,14 +98,11 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table. Open now: the two multi-select
-questions (round 3).
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
-| `selectbar` | `top` (A, default) · `bottom` (B) | Variant: where the multi-select actions sit — contextual top bar or bottom bar |
-| `selectlook` | `check` (A, default) · `tint` (B) | Variant: a selected note — round button turns into a check + accent border, or tinted card with a check badge |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `reset` | — | Reload the sample notes |

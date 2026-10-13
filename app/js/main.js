@@ -16,8 +16,6 @@ const $ = id => document.getElementById(id);
 const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
-const SELECT_BARS = { top: "Top bar (A)", bottom: "Bottom bar (B)" };
-const SELECT_LOOKS = { check: "Check in the round button (A)", tint: "Tinted card (B)" };
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
 const DIR_LABELS = {
@@ -39,8 +37,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.dataset.selectBar = s.selectBar;
-  app.dataset.selectLook = s.selectLook;
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = s.sort[state.view];
@@ -131,10 +127,6 @@ function moreMenu() {
   openMenu($("moreBtn"), [
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: selection actions" },
-    ...Object.entries(SELECT_BARS).map(([id, label]) => ({ label, checked: s.selectBar === id, onSelect: () => updateSettings({ selectBar: id }) })),
-    { section: "Prototype: selected note" },
-    ...Object.entries(SELECT_LOOKS).map(([id, label]) => ({ label, checked: s.selectLook === id, onSelect: () => updateSettings({ selectLook: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     { label: "Reset sample notes", onSelect: async () => replaceFile(await loadSample()) },
@@ -189,8 +181,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (SELECT_BARS[p.get("selectbar")]) patch.selectBar = p.get("selectbar");
-  if (SELECT_LOOKS[p.get("selectlook")]) patch.selectLook = p.get("selectlook");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   if (p.get("reset") !== null) return true;

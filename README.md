@@ -6,7 +6,9 @@ Every note is a Markdown section and at the same time a to-do: open or
 done, with an optional due date. Open notes form the main list, done ones
 move to a read-only archive. All notes live in one plain Markdown file.
 Notes are edited in place with an Obsidian-style live preview and a
-formatting toolbar; holding the + button dictates a new note.
+formatting toolbar; holding the + button dictates a new note. A
+long-press on a note starts multi-select to close, copy, merge or delete
+several notes at once.
 
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on

@@ -79,7 +79,7 @@ apart from existing apps beyond the points above.
   today; the count resets at midnight. *Prototype: round 1.*
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
-  (multi-select, round 3). *Prototype: reopen in round 1.*
+  (multi-select). *Prototype: reopen in round 1, delete in round 3.*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,
@@ -171,18 +171,38 @@ apart from existing apps beyond the points above.
 
 ### Multi-select
 
-- **Long-press on a note** selects it and starts multi-select; tapping
-  further notes adds them (tapping a selected one removes it). On the
-  desktop, Ctrl+click starts / extends the selection and Shift+click
-  selects a range.
-- Actions on the selection: **Close**, **Delete** (with Undo),
-  **Copy** (to the clipboard; keeps the selection) and **Merge** (one
-  new note replaces the originals; it keeps the earliest created and the
-  earliest due date).
-- Copy and Merge use the current sort order, shown in a confirmation
-  dialog where the order can be changed by drag and drop; each entry is
-  previewed by its first heading, or its first sentence if it has none.
-- *Prototype: round 3.*
+- **Long-press on a note** (450 ms) selects it and starts multi-select; a
+  finger that moves first scrolls instead. Then a tap anywhere on a card
+  adds it or removes it (task checkboxes, links and the round button
+  don't act meanwhile). On the desktop, Ctrl+click starts / extends the
+  selection and Shift+click selects a range. Long-press inside the note
+  being edited stays text selection. *Prototype: round 3.*
+- A selected note is marked only by the **accent border**; nothing else on
+  the card changes (decided 2026-10-13 over a check in the round button
+  and over a tinted card).
+- While selecting, a **contextual top bar** replaces the normal one: ✕,
+  "n selected" and the actions as icons (with labels on the desktop); the
+  + button is hidden (decided 2026-10-13 over a bottom action bar: the
+  thumb area and the list's bottom stay free, and search / archive can't
+  be hit by accident). *Prototype: round 3.*
+- Actions on the selection: **Close**, **Copy**, **Merge** (two or more
+  notes) and **Delete**. Close and Delete end the selection and offer
+  Undo. In the archive the actions are **Reopen**, Copy and Delete — no
+  Merge, closed notes are read-only. *Prototype: round 3.*
+- **Copy** puts the notes on the clipboard as plain Markdown, joined by a
+  blank line, without metadata; it keeps the selection.
+- **Merge** replaces the notes by one new open note: the bodies joined by
+  a blank line, created = the earliest created date, due = the earliest
+  due date, last edited = now. It appears at the top with "Notes merged ·
+  Undo", which brings back the originals in place.
+- Copy (with two or more notes) and Merge first show the notes in the
+  current sort order in a **confirmation dialog**, where the order can be
+  changed by dragging an entry's grip (arrow keys on the desktop); each
+  entry is previewed by its first heading, or its first sentence if it
+  has none. *Prototype: round 3.*
+- Multi-select ends with ✕, `Esc`, the Android back button, when the last
+  note is deselected, after Close / Delete / Merge, and on switching
+  between main view and archive.
 
 ### Quick capture
 

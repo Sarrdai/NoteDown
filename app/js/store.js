@@ -11,8 +11,6 @@ const SETTINGS_KEY = "notedown.settings";
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
-  selectBar: "top",          // prototype variant: top | bottom
-  selectLook: "check",       // prototype variant: check | tint
   sort: structuredClone(DEFAULT_SORT),
 };
 

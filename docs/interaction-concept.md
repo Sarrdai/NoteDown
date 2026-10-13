@@ -15,6 +15,7 @@ Current state, edited in place when a decision changes.
 | Table of contents | Bottom sheet, opened from the top bar | Fixed sidebar on the left | Fixed sidebar on the left |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
+| Multi-select | Contextual top bar: ✕, count, action icons | Same | Same, actions with labels |
 
 - One primary action per view, as a floating button at the bottom
   right: + in the main view; none in the archive (nothing is created
@@ -30,6 +31,14 @@ Current state, edited in place when a decision changes.
 - **Long-press** is reserved for secondary modes: on a note it starts
   multi-select, on + it starts dictation. Nothing essential is
   long-press-only on the desktop (Ctrl/Shift+click, keyboard).
+- **Selection mode** (multi-select): a contextual top bar replaces the
+  normal one and the primary action button is hidden; a tap anywhere on
+  an item toggles it, nothing inside the item acts. The back button and
+  `Esc` leave the mode first. A selected item is marked by the accent
+  border only.
+- Touch screens: rendered notes don't offer native text selection or
+  the long-press callout, so the long-press stays free for multi-select;
+  text is selected in the editor or copied with Copy.
 - No hover-only controls: everything reachable with the mouse is also
   visible and reachable by touch. Touch targets are at least 44 px
   (task checkboxes get an enlarged invisible target).
@@ -48,7 +57,7 @@ Current state, edited in place when a decision changes.
 - The list never reorders while the user works in it — only after
   view, sort or search changes (`docs/requirements.md` → "Sorting").
 - Keyboard on the desktop: `n` new note, `/` search, `Esc` ends editing,
-  closes menus and panels; Markdown shortcuts in the editor
+  closes menus, panels and dialogs and ends multi-select; Markdown shortcuts in the editor
   (`docs/requirements.md` → "Creating and editing").
 
 ## Feedback and undo
@@ -56,8 +65,8 @@ Current state, edited in place when a decision changes.
 - Changes that remove a note from view (close, reopen, delete) happen
   immediately and offer **Undo** in a snackbar for 5 seconds instead of
   asking for confirmation first.
-- Confirmation dialogs only where the user has something to adjust
-  (merge order, round 3).
+- Confirmation dialogs only where the user has something to adjust: the
+  order for Copy and Merge (drag an entry's grip).
 
 ## Visual language
 
