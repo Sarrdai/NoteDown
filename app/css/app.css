@@ -409,6 +409,7 @@ button { font: inherit; color: inherit; }
 .check-row { display: flex; align-items: center; gap: 12px; min-height: var(--tap); cursor: pointer; }
 .check-row input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
 
+.sheet-foot .sync-status { padding: 4px 0; background: none; color: var(--text-muted); }
 .sync-status { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--bg); font-size: 0.92rem; }
 .sync-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--done); }
 .sync-status[data-status="syncing"] .sync-dot { background: var(--accent); animation: pulse 0.9s ease-in-out infinite; }
@@ -499,12 +500,41 @@ button.shared-mark { cursor: pointer; }
 button.shared-mark::after { content: ""; position: absolute; inset: -11px -6px; }
 button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 999px; }
 
-/* Sync status: an icon in the top bar. */
+/* Sync status: an icon in the top bar. "syncing" lasts at least 0.8 s
+   (sync/client.js); the prototype variants (data-sync-anim) differ in how
+   it moves and how a finished round is marked (.just-synced). */
 #syncBtn[data-status="syncing"] { color: var(--accent); }
 #syncBtn[data-status="offline"] { color: var(--danger); }
 #syncBtn .spin { transform-box: fill-box; transform-origin: center; animation: spin 1.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { #syncBtn .spin { animation: none; } }
+/* B: after the spin, the check draws itself in the accent color, which fades. */
+.app[data-sync-anim="check"] #syncBtn.just-synced { animation: synced-tint 1.4s ease-out; }
+.app[data-sync-anim="check"] #syncBtn.just-synced path + path { stroke-dasharray: 9; stroke-dashoffset: 9; animation: draw 0.45s 0.05s ease-out forwards; }
+/* C: no arrows; the cloud breathes while syncing and pops once when done. */
+.app[data-sync-anim="pulse"] #syncBtn .spin { display: none; }
+.app[data-sync-anim="pulse"] #syncBtn[data-status="syncing"] .icon { animation: pulse 0.9s ease-in-out infinite; }
+.app[data-sync-anim="pulse"] #syncBtn.just-synced { animation: synced-tint 1.2s ease-out; }
+.app[data-sync-anim="pulse"] #syncBtn.just-synced .icon { animation: pop 0.45s ease-out; }
+@keyframes synced-tint { from { color: var(--accent); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pop { 40% { transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) {
+  #syncBtn .spin, #syncBtn .icon, #syncBtn path { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
+/* Pull to refresh (touch tiers): a round indicator below the top bar. */
+.pull-indicator {
+  position: fixed; z-index: 9; left: 50%; top: calc(var(--topbar-h) + var(--safe-top));
+  display: none; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-high);
+  transform: translate(-50%, -48px); opacity: 0;
+}
+.pull-indicator.pulling, .pull-indicator.spinning { display: flex; }
+.pull-indicator.ready { color: var(--accent); }
+.pull-indicator.spinning { transition: transform 0.15s; }
+.pull-indicator.spinning .icon { animation: spin 0.9s linear infinite; }
+.pull-indicator .icon { width: 22px; height: 22px; }
+@media (prefers-reduced-motion: reduce) { .pull-indicator.spinning .icon { animation: none; } }
 
 @media (max-width: 599px) {
   .foot-actions .btn { flex: 1; }

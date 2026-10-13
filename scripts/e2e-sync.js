@@ -189,6 +189,18 @@ async function main() {
       assert.ok((await bodies(b)).includes(sample.s02) && (await bodies(d)).includes(sample.s02));
     });
 
+    await step("B picks up a change on A by itself within the 5 s poll", async () => {
+      await addNote(a, sample.s08);
+      await sync(a);
+      await b.waitForFunction(body => window.__store.allNotes().some(n => n.body === body), sample.s08, { timeout: 8000 });
+      await converge(a, b, d);
+      // Opening Sync & sharing syncs too: "Syncing…", then the time at the bottom.
+      await openPanel(b);
+      await b.locator("#syncFoot", { hasText: "Syncing…" }).waitFor();
+      await b.locator("#syncFoot", { hasText: "Synced · just now" }).waitFor();
+      await b.keyboard.press("Escape");
+    });
+
     await step("notes added on both at once end up on both", async () => {
       await Promise.all([addNote(a, sample.s05), addNote(b, sample.s06)]);
       await converge(a, b);

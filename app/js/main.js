@@ -6,7 +6,8 @@ import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
-import { initSyncPanel, openSyncPanel, statusText } from "./ui/sync-panel.js";
+import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sync-panel.js";
+import { initPullRefresh } from "./ui/pull-refresh.js";
 import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
 import { initToolbar } from "./ui/toolbar.js";
@@ -23,6 +24,8 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
+// Prototype variants of the sync icon's animation (⋮ → "Prototype: Sync animation").
+const SYNC_ANIMS = { spin: "Spin (A)", check: "Spin + check (B)", pulse: "Pulse (C)" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
   due: ["Soonest first", "Latest first"],
@@ -43,8 +46,13 @@ function renderSyncStatus() {
   const btn = $("syncBtn");
   btn.hidden = !state.sync.enabled;
   if (!state.sync.enabled) return;
-  btn.dataset.status = state.sync.status;
-  btn.innerHTML = icon(SYNC_ICONS[state.sync.status]);
+  const { status } = state.sync;
+  if (btn.dataset.status !== status) {
+    // A round that transferred something ends with a short "just synced" accent.
+    btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
+    btn.dataset.status = status;
+    btn.innerHTML = icon(SYNC_ICONS[status]);
+  }
   btn.setAttribute("aria-label", statusText());
 }
 
@@ -53,6 +61,7 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
+  app.dataset.syncAnim = s.syncAnim;
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
@@ -157,6 +166,8 @@ function moreMenu() {
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: Sync animation" },
+    ...Object.entries(SYNC_ANIMS).map(([id, label]) => ({ label, checked: s.syncAnim === id, onSelect: () => updateSettings({ syncAnim: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -177,6 +188,7 @@ function wire() {
   $("archiveBtn").querySelector(".btn-icon").innerHTML = icon("archive");
   $("searchIcon").innerHTML = icon("search");
   $("syncBtn").addEventListener("click", openSyncPanel);
+  $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
   $("archiveBtn").addEventListener("click", () => setView("closed"));
   $("backBtn").addEventListener("click", () => setView("open"));
@@ -206,6 +218,11 @@ function wire() {
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged });
   initSyncPanel();
+  initPullRefresh({
+    canPull: target => state.sync.enabled && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+      && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
+    onRefresh: syncOnRequest,
+  });
 }
 
 // URL parameters set prototype options, e.g. ?flavor=mocha&view=closed
@@ -213,6 +230,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (p.get("syncAnim") && SYNC_ANIMS[p.get("syncAnim")]) patch.syncAnim = p.get("syncAnim");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

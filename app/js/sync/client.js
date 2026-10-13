@@ -3,7 +3,8 @@
 // on creates the identity, linking by QR code or restoring with the recovery
 // key adds this device, and each round downloads, merges and uploads the end-to-end encrypted file.
 // Rounds run shortly after a change, on start, when the app comes back to the
-// foreground or online, and every 30 s while it is visible. The sample
+// foreground, gets the focus or goes online, every 5 s while it is visible,
+// and when the user asks (opening Sync & sharing, pull to refresh). The sample
 // (`state.sync.simulated`) never reaches this module.
 import { state, setSync, setPrivateFile, fileText, onFilesChanged } from "../store.js";
 import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
@@ -15,15 +16,16 @@ import { createApi, ApiError, NetworkError } from "./api.js";
 import { getSecret, setSecret, clearSecrets } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
-const POLL_MS = 30000;
+const POLL_MS = 5000;
 const ATTEMPTS = 3;
+const MIN_BUSY_MS = 800;   // "syncing" stays long enough to be seen
 const SLOT_POLL_MS = 2000;
 
 let api = null;
 let keys = null;         // this device's { sign, enc } key pairs
 let fileKey = null;      // the private file's key (32 bytes)
 let caller = null;       // while restoring: the recovery device signs in
-let running = null, again = false, timer = null;
+let running = null, again = false, timer = null, busySince = 0;
 
 const active = () => api && state.sync.enabled && !state.sync.simulated;
 const emptyFile = () => parseNotesFile("");
@@ -34,6 +36,9 @@ export function initSync(apiUrl) {
   api = createApi(apiUrl, () => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
   onFilesChanged(() => schedule(AFTER_CHANGE_MS));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) schedule(0); });
+  // The Android app (Capacitor) reports coming back to the foreground as "resume".
+  for (const target of [document, window]) target.addEventListener("resume", () => schedule(0));
+  window.addEventListener("focus", () => schedule(0));
   window.addEventListener("online", () => schedule(0));
   setInterval(() => { if (!document.hidden) schedule(0); }, POLL_MS);
   schedule(0);
@@ -47,9 +52,11 @@ function schedule(ms) {
   timer = setTimeout(syncNow, ms);
 }
 
-/** Runs a sync round now (or once more after the running one). */
-export function syncNow() {
+/** Runs a sync round now (or once more after the running one); `show`: the
+ *  user asked for it, so it shows "syncing" even when nothing changed. */
+export function syncNow({ show = false } = {}) {
   if (!active()) return Promise.resolve();
+  if (show && !state.editingId) busy();
   if (running) { again = true; return running; }
   running = (async () => {
     do { again = false; await round(); } while (again);
@@ -64,6 +71,8 @@ async function round() {
     await loadKeys();
     let done = false;
     for (let i = 0; i < ATTEMPTS && !done; i++) done = await step();
+    const wait = busySince + MIN_BUSY_MS - Date.now();
+    if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
     setSync({ status: "synced", lastSync: Date.now(), error: "" });
   } catch (e) {
     fail(e);
@@ -77,7 +86,11 @@ function fail(e) {
   setSync({ status: "error", error: removed ? "This device was removed from sync" : e.message || e.name });
 }
 
-const busy = () => { if (state.sync.status !== "syncing") setSync({ status: "syncing" }); };
+function busy() {
+  if (state.sync.status === "syncing") return;
+  busySince = Date.now();
+  setSync({ status: "syncing" });
+}
 
 async function loadKeys() {
   keys ||= await getSecret("device");

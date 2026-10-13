@@ -10,7 +10,7 @@
 import { state, subscribe, setSync, replaceFiles } from "../store.js";
 import { syncNow } from "../sync-sim.js";
 import {
-  turnOn, restore, removeDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
+  syncNow as syncReal, turnOn, restore, removeDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
 import { deviceRows } from "../core/sync-state.js";
@@ -47,8 +47,17 @@ export function initSyncPanel() {
   loadSharingSample();   // warm the sample identity for the simulated scans
 }
 
+/** The sync icon and ⋮ → "Sync & sharing…": opening the panel also syncs. */
 export function openSyncPanel() {
   openPanel(state.sync.enabled ? "overview" : "off");
+  syncOnRequest();
+}
+
+/** A sync the user asked for (opening this panel, pull to refresh): shows
+ *  "syncing" even when nothing changed; resolves once it is over. */
+export function syncOnRequest() {
+  if (!state.sync.enabled) return Promise.resolve();
+  return real() ? syncReal({ show: true }) : syncNow();
 }
 
 /** Opens the panel's container on any page (the share dialog uses it too). */
@@ -210,8 +219,15 @@ export function statusText() {
   return lastSync ? `Synced · ${syncedAgo(lastSync)}` : "Synced";
 }
 
+// At the bottom of the overview: what sync is doing, or when it last ran.
+function statusLine() {
+  return h("div", { class: "sync-status", "data-sync-status": "", "data-status": state.sync.status },
+    h("span", { class: "sync-dot", "aria-hidden": "true" }),
+    h("span", { class: "sync-status-text", role: "status" }, statusText()));
+}
+
 function updateStatus() {
-  const el = isOpen && $("syncBody").querySelector("[data-sync-status]");
+  const el = isOpen && $("syncFoot").querySelector("[data-sync-status]");
   if (!el) return;
   el.dataset.status = state.sync.status;
   el.querySelector(".sync-status-text").textContent = statusText();
@@ -259,11 +275,20 @@ function addContact(name, via) {
 // The new device's QR code (real sync): a fresh relay slot, polled until a
 // linked device has answered; a new code once it has expired.
 function linkCodeView(data) {
+  data.view = linkCodeContent(data);
+  return data.view;
+}
+
+// Only the code is swapped when the slot arrives or fails, so a recovery key
+// being typed below it stays.
+const refreshLinkCode = data => { if (onScreen(data)) data.view.replaceWith(linkCodeView(data)); };
+
+function linkCodeContent(data) {
   const box = h("div", { class: "qr-wait" });
   if (data.failed) {
     box.append(text(data.failed, "sheet-text muted center"), button("New code", "outline", () => {
       data.failed = null;
-      render({ keepScroll: true });
+      refreshLinkCode(data);
     }));
     return box;
   }
@@ -271,7 +296,7 @@ function linkCodeView(data) {
     data.link = startLinking();
     data.link.then(link => {
       data.link = link;
-      if (onScreen(data)) render({ keepScroll: true });
+      refreshLinkCode(data);
       return waitForLink(link, () => !onScreen(data));
     }).then(linked => {
       if (!linked) return;
@@ -280,7 +305,7 @@ function linkCodeView(data) {
     }).catch(e => {
       data.link = null;
       data.failed = e instanceof ApiError && e.status === 404 ? "This code has expired." : `Couldn't link: ${e.message}`;
-      if (onScreen(data)) render({ keepScroll: true });
+      refreshLinkCode(data);
     });
   }
   if (data.link instanceof Promise) return h("div", { class: "qr-wait" }, text("Preparing the code…", "sheet-text muted center"));
@@ -387,6 +412,7 @@ const PAGES = {
   overview: {
     title: "Sync & sharing",
     render: data => real() ? realOverview(data) : simulatedOverview(),
+    footer: () => [statusLine()],
   },
 
   confirmLink: {
@@ -436,9 +462,6 @@ function realOverview(data) {
       .finally(() => { data.loading = false; if (isOpen && top().data === data) render({ keepScroll: true }); });
   }
   return [
-    h("div", { class: "sync-status", "data-sync-status": "", "data-status": state.sync.status },
-      h("span", { class: "sync-dot", "aria-hidden": "true" }),
-      h("span", { class: "sync-status-text", role: "status" }, statusText())),
     section("Devices"),
     data.rows
       ? h("ul", { class: "sheet-card" }, data.rows.map(d => row({
@@ -456,10 +479,6 @@ function realOverview(data) {
 function simulatedOverview() {
   const { devices, contacts } = state.sync;
   return [
-    h("div", { class: "sync-status", "data-sync-status": "", "data-status": state.sync.status },
-      h("span", { class: "sync-dot", "aria-hidden": "true" }),
-      h("span", { class: "sync-status-text", role: "status" }, statusText())),
-
     section("Devices"),
     h("ul", { class: "sheet-card" },
       row({ icon: "device", title: "This device", sub: deviceName() }),

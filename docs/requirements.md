@@ -131,6 +131,14 @@ before the first live test).
     grouped by people: it says who reads along and keeps one sorted list.
   - **Sync status** is a cloud icon in the top bar (synced, syncing,
     offline), hidden while sync is off; tapping it opens Sync & sharing.
+    A round that transferred something shows "syncing" for at least
+    0.8 s, so a sync is visible even when it is fast; how the icon moves
+    is still open (prototype variants, ⋮ → "Prototype: Sync animation").
+  - **Syncing on request**, so the user can be sure to have the latest
+    state: opening Sync & sharing (icon or ⋮, every tier) syncs, its
+    footer shows "Syncing…" and then when it last synced; on phone and
+    tablet, **pull to refresh** on the list syncs too (decided
+    2026-10-13 over a sync button: the icon already opens the panel).
   - Without sync, sharing explains that it needs sync and offers to turn
     it on. Notes in the archive aren't shared from there.
   - *Prototype: round 4. **Real sync of the private file** between the

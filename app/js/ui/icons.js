@@ -9,6 +9,7 @@ const PATHS = {
   minus: '<path d="M5 12h14"/>',
   more: '<circle cx="12" cy="5" r="0.8"/><circle cx="12" cy="12" r="0.8"/><circle cx="12" cy="19" r="0.8"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  refresh: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v3.8h-3.8"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M16 3v4M8 3v4M3.5 10h17"/>',
   heading: '<path d="M6 4v16M18 4v16M6 12h12"/>',

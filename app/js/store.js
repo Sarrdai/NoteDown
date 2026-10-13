@@ -16,6 +16,7 @@ const SETTINGS_KEY = "notedown.settings";
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
+  syncAnim: "check",         // prototype variant: spin | check | pulse
   sort: structuredClone(DEFAULT_SORT),
 };
 
