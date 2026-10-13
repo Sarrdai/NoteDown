@@ -7,6 +7,7 @@ import { selectedInOrder, rangeIds, copyText, mergedNote, previewLine } from "..
 import { state, note, removeNotes, setStatuses, mergeNotes } from "../store.js";
 import { endEdit } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
+import { openShareDialog } from "./share-dialog.js";
 import { icon } from "./icons.js";
 
 const HOLD_MS = 450;
@@ -152,9 +153,10 @@ function update() {
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close },
     { id: "copy", label: "Copy", run: copy },
+    !archive && { id: "share", label: "Share", run: share, entry: "select" },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: n < 2 },
     { id: "trash", label: "Delete", run: remove },
-  ].filter(Boolean);
+  ].filter(a => a && (!a.entry || state.settings.shareEntry === a.entry));
   $("selActions").replaceChildren(...actions.map(a => {
     const b = document.createElement("button");
     b.className = "sel-action";
@@ -180,6 +182,19 @@ function reopen() {
   const ids = [...state.selected];
   endSelection();
   showSnackbar(count(ids.length, "reopened"), setStatuses(ids, "open"));
+}
+
+// "Share entry" variant A. The selection ends first; its history entry is
+// gone before the dialog takes its own (the back key would close the dialog otherwise).
+function share() {
+  const ids = [...state.selected];
+  const onEntry = history.state && history.state.selecting;
+  endSelection();
+  if (!onEntry) return openShareDialog(ids);
+  let opened = false;
+  const open = () => { if (!opened) { opened = true; openShareDialog(ids); } };
+  window.addEventListener("popstate", open, { once: true });
+  setTimeout(open, 300);
 }
 
 function remove() {

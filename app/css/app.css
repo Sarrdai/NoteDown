@@ -35,10 +35,28 @@
   --done: var(--ctp-green);
   --link: var(--ctp-blue);
   --code-bg: var(--ctp-surface0);
+  /* One color per contact (avatars) and per circle (stripe); text on them. */
+  --person-1: var(--ctp-peach);
+  --person-2: var(--ctp-teal);
+  --person-3: var(--ctp-blue);
+  --person-4: var(--ctp-green);
+  --person-5: var(--ctp-pink);
+  --person-6: var(--ctp-yellow);
+  --on-person: var(--ctp-crust);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.05);
   --shadow-high: 0 4px 12px rgb(0 0 0 / 0.18), 0 12px 32px rgb(0 0 0 / 0.16);
 }
-[data-flavor="latte"] { --on-accent: #ffffff; }
+[data-flavor="latte"] {
+  --on-accent: #ffffff;
+  /* Latte's saturated colors need a darker shade to carry white initials. */
+  --person-1: color-mix(in srgb, var(--ctp-peach) 74%, #000);
+  --person-2: color-mix(in srgb, var(--ctp-teal) 82%, #000);
+  --person-3: color-mix(in srgb, var(--ctp-blue) 88%, #000);
+  --person-4: color-mix(in srgb, var(--ctp-green) 80%, #000);
+  --person-5: color-mix(in srgb, var(--ctp-pink) 72%, #000);
+  --person-6: color-mix(in srgb, var(--ctp-yellow) 70%, #000);
+  --on-person: #ffffff;
+}
 
 /* The archive keeps the same layout on a tinted background. */
 .app[data-view="closed"] {
@@ -341,6 +359,11 @@ button { font: inherit; color: inherit; }
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 20px calc(20px + var(--safe-bottom)); display: flex; flex-direction: column; gap: 14px; }
 .sheet-body > * { flex: none; }
 .sheet .btn { height: var(--tap); }
+.sheet-foot { flex: none; padding: 10px 20px calc(10px + var(--safe-bottom)); border-top: 1px solid var(--border); }
+.foot-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.foot-actions .btn { min-width: 112px; }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { background: var(--danger-soft); }
 .sheet-text { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
 .sheet-text.muted { color: var(--text-faint); }
 .sheet-text.center, .qr-name { text-align: center; }
@@ -433,6 +456,82 @@ button { font: inherit; color: inherit; }
 @media (max-width: 599px) {
   #syncPanel { padding: 0; }
   .sheet { width: 100%; height: 100dvh; max-height: none; border-radius: 0; }
+}
+
+/* ---------- share dialog, shared markers, share entry, sync status (open variants) ---------- */
+.share-list { overflow: hidden; }
+.share-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 14px;
+  border: 0; background: transparent; text-align: left; cursor: pointer;
+}
+.share-list .share-row + .share-row { border-top: 1px solid var(--border); }
+.share-row:hover { background: var(--surface-hover); }
+.share-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.share-row.add { border: 1px solid var(--border); border-radius: 12px; color: var(--accent); font-weight: 650; }
+.share-row.add .row-icon { color: var(--accent); }
+.share-row .row-title { flex: 1; }
+.check-box {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+  border: 2px solid var(--text-faint); border-radius: 7px; color: var(--on-accent);
+}
+.check-box[data-state="all"], .check-box[data-state="some"] { background: var(--accent); border-color: var(--accent); }
+.check-box .icon { width: 16px; height: 16px; stroke-width: 3.2; }
+
+.avatar.person { background: var(--c); color: var(--on-person); }
+.avatar.small { width: 22px; height: 22px; font-size: 0.64rem; }
+.avatar-stack { display: inline-flex; }
+.avatar-stack .avatar { box-shadow: 0 0 0 2px var(--surface); }
+.avatar-stack .avatar + .avatar { margin-left: -7px; }
+.avatar.more { background: var(--surface-hover); color: var(--text-muted); }
+.note.editing .avatar-stack .avatar, .note.selected .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--surface); }
+.shared-mark {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent;
+  font: inherit; font-weight: 600; color: var(--text-muted);
+}
+button.shared-mark { cursor: pointer; }
+button.shared-mark::after { content: ""; position: absolute; inset: -11px -6px; }
+button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 999px; }
+.shared-mark .icon { width: 16px; height: 16px; }
+
+/* Marker B: a colored stripe at the card's left edge. */
+.app[data-mark="stripe"] .note.shared { border-left: 4px solid var(--stripe); padding-left: 7px; }
+/* Marker C: sections per circle. */
+.group-head { margin: 10px 6px 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.group-head:first-child { margin-top: 2px; }
+
+/* Share entry C: a share button at the end of the card's meta line. */
+.note-share { display: none; }
+.app[data-share="card"] .note-meta { padding-right: 40px; }
+.app[data-share="card"] .note-share {
+  position: absolute; right: 8px; bottom: 8px;
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--text-faint); cursor: pointer;
+}
+.note-share:hover { background: var(--surface-hover); color: var(--text); }
+.note-share:focus-visible { outline: 2px solid var(--accent); }
+.note-share .icon { width: 18px; height: 18px; }
+/* Share entry B: a Share button in the editor toolbar after "Due date". */
+.tool[data-cmd="share"] { display: none; }
+.app[data-share="toolbar"] .tool[data-cmd="share"] { display: inline-flex; }
+
+/* Sync status A: an icon in the top bar; B: a status line at the top of the ⋮ menu. */
+#syncBtn[data-status="syncing"] { color: var(--accent); }
+#syncBtn[data-status="offline"] { color: var(--danger); }
+#syncBtn .spin { transform-box: fill-box; transform-origin: center; animation: spin 1.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #syncBtn .spin { animation: none; } }
+.menu-info { padding: 8px 10px 6px; font-size: 0.88rem; color: var(--text-muted); }
+.menu-info + .menu-item { border-top: 0; }
+
+@media (hover: none) {
+  /* Touch: the card's share button and the marker get 44 px targets without growing the line. */
+  .app[data-share="card"] .note-meta { padding-right: 44px; }
+  .app[data-share="card"] .note-share { width: var(--tap); height: var(--tap); right: 4px; bottom: 2px; }
+}
+@media (max-width: 599px) {
+  .app[data-mark="stripe"] .note.shared { padding-left: 5px; }
+  .foot-actions .btn { flex: 1; }
+  .app.searching #syncBtn { display: none; }
 }
 
 /* ---------- rendered Markdown ---------- */

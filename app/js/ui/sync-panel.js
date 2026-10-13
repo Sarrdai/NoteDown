@@ -9,8 +9,9 @@ import { state, subscribe, setSync, replaceFiles } from "../store.js";
 import { syncNow } from "../sync-sim.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
-  generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName,
+  generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
 } from "../core/sharing.js";
+import { h, text, button } from "./dom.js";
 import { qrFigure, scannerView } from "./qr.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
@@ -38,14 +39,32 @@ export function initSyncPanel() {
 }
 
 export function openSyncPanel() {
+  openPanel(state.sync.enabled ? "overview" : "off");
+}
+
+/** Opens the panel's container on any page (the share dialog uses it too). */
+export function openPanel(page, data = {}) {
   if (isOpen) return;
   isOpen = true;
   returnFocus = document.activeElement;
-  stack = [{ page: state.sync.enabled ? "overview" : "off", data: {} }];
+  stack = [{ page, data }];
   $("syncPanel").hidden = false;
   history.pushState({ syncPanel: true }, "");
   render();
 }
+
+/** Pages other modules add to the container: { title, render(data), footer?(data) }. */
+export function registerPage(name, def) {
+  PAGES[name] = def;
+}
+
+/** Replaces the page stack with [[page, data], …] (the last is shown). */
+export function setStack(entries) {
+  stack = entries.map(([page, data = {}]) => ({ page, data }));
+  render();
+}
+
+export function closePanel() { close(); }
 
 function close({ fromHistory = false } = {}) {
   if (!isOpen) return;
@@ -59,7 +78,7 @@ function back() {
   if (stack.length > 1) { stack.pop(); render(); } else close();
 }
 
-function go(page, data = {}) {
+export function go(page, data = {}) {
   stack.push({ page, data });
   render();
 }
@@ -75,13 +94,16 @@ const top = () => stack[stack.length - 1];
 function render({ keepScroll = false } = {}) {
   const { page, data } = top();
   const def = PAGES[page];
-  $("syncTitle").textContent = def.title;
+  $("syncTitle").textContent = typeof def.title === "function" ? def.title(data) : def.title;
   const nested = stack.length > 1;
   $("syncBack").innerHTML = icon(nested ? "back" : "close");
   $("syncBack").setAttribute("aria-label", nested ? "Back" : "Close");
   const scroll = $("syncBody").scrollTop;
-  $("syncBody").replaceChildren(...def.render(data));
+  $("syncBody").replaceChildren(...def.render(data).filter(Boolean));
   $("syncBody").scrollTop = keepScroll ? scroll : 0;
+  const footer = def.footer ? def.footer(data) : [];
+  $("syncFoot").replaceChildren(...footer);
+  $("syncFoot").hidden = footer.length === 0;
   $("syncTitle").focus({ preventScroll: true });
   const auto = $("syncBody").querySelector("[data-autofocus]");
   if (auto && matchMedia("(pointer: fine)").matches) auto.focus();
@@ -90,21 +112,6 @@ function render({ keepScroll = false } = {}) {
 
 // ---------- small DOM helpers ----------
 
-function h(tag, props = {}, ...kids) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (v == null || v === false) continue;
-    if (k === "class") el.className = v;
-    else if (k === "html") el.innerHTML = v;
-    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? "" : v);
-  }
-  el.append(...kids.flat().filter(k => k != null && k !== false));
-  return el;
-}
-
-const text = (s, cls = "sheet-text") => h("p", { class: cls }, s);
-const button = (label, cls, onclick) => h("button", { class: "btn " + cls, type: "button", onclick }, label);
 const section = title => h("h3", { class: "sheet-section" }, title);
 
 function field(label, input, hint) {
@@ -157,7 +164,7 @@ function deviceName() {
 
 // ---------- status line ----------
 
-function statusText() {
+export function statusText() {
   const { status, lastSync } = state.sync;
   if (status === "syncing") return "Syncing…";
   if (status === "offline") return "Offline — changes sync when you're back online";
@@ -198,8 +205,15 @@ function removeFromList(key, index, label) {
 
 function addContact(name, via) {
   const id = contactId(name, state.sync.contacts.map(c => c.id));
-  setSync({ contacts: [...state.sync.contacts, { id, name, via }] });
-  reset("overview");
+  const contact = { id, name, via, color: nextColor(state.sync.contacts) };
+  setSync({ contacts: [...state.sync.contacts, contact] });
+  // Opened from the share dialog: go back to it with the new contact listed.
+  const asker = stack.findLastIndex(e => e.data.onContactAdded);
+  if (asker >= 0) {
+    stack.length = asker + 1;
+    stack[asker].data.onContactAdded(contact);
+    render({ keepScroll: true });
+  } else reset("overview");
   showSnackbar(`${name} added`);
 }
 

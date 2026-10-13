@@ -17,6 +17,10 @@ export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
+  // Open UI decisions, switchable under ⋮ → "Prototype: …" (PROJECT.md → "Prototype options"):
+  shareEntry: "select",      // select | toolbar | card
+  sharedMark: "avatars",     // avatars | stripe | groups
+  syncStatus: "icon",        // icon | menu
 };
 
 // Sync and identity (prototype: simulated, see sync-sim.js). `devices` are

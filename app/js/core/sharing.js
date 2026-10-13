@@ -29,6 +29,46 @@ export function initials(name) {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => [...w][0].toUpperCase()).join("");
 }
 
+/** The first color slot 1–6 no contact uses yet (a new contact's color); wraps when all are taken. */
+export function nextColor(contacts) {
+  const used = new Set(contacts.map(c => c.color));
+  for (let i = 1; i <= 6; i++) if (!used.has(i)) return i;
+  return (contacts.length % 6) + 1;
+}
+
+/** A color slot 1–6 derived from a key, for circles of several people and
+ *  contacts without a stored color (the `--person-N` tokens). */
+export function colorIndex(key) {
+  let h = 5381;
+  for (const c of String(key)) h = (Math.imul(h, 33) + c.charCodeAt(0)) >>> 0;
+  return (h % 6) + 1;
+}
+
+/** The members an avatar row shows: the first `max`, and how many more there are. */
+export function visibleMembers(members, max = 3) {
+  return { shown: members.slice(0, max), more: Math.max(0, members.length - max) };
+}
+
+/**
+ * Groups already sorted notes by circle for the "groups" list: "Private"
+ * first, then one group per member set ordered by label. `membersOf(id)`
+ * gives a note's members, `nameOf(memberId)` a contact's name. Notes keep
+ * their order inside a group.
+ */
+export function circleGroups(notes, membersOf, nameOf) {
+  const groups = new Map();
+  for (const n of notes) {
+    const members = membersOf(n.id);
+    const key = circleKey(members);
+    if (!groups.has(key)) {
+      groups.set(key, { key, members, label: key ? "Shared with " + circleLabel(members.map(nameOf)) : "Private", notes: [] });
+    }
+    groups.get(key).notes.push(n);
+  }
+  const [priv, ...rest] = [...groups.values()].sort((a, b) => (a.key === "" ? -1 : b.key === "" ? 1 : a.label.localeCompare(b.label)));
+  return priv && priv.key === "" ? [priv, ...rest] : [priv, ...rest].filter(Boolean);
+}
+
 /** Splits `file` into the private file and the circle files named by
  *  `groups` ([{ members, notes: [ids] }]); groups with the same member set
  *  share one file. Used to build the sample state (no moved markers). */

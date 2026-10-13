@@ -8,6 +8,7 @@ import { openMenu } from "./menu.js";
 import { showSnackbar } from "./snackbar.js";
 import { today, addDays } from "./format.js";
 import { icon } from "./icons.js";
+import { openShareDialog } from "./share-dialog.js";
 
 const BUTTONS = [
   ["heading", "Heading", "heading"],
@@ -19,6 +20,7 @@ const BUTTONS = [
   ["italic", "Italic (Ctrl+I)", "italic"],
   ["link", "Link (Ctrl+K)", "link"],
   ["due", "Due date", "calendar"],
+  ["share", "Share", "share"],   // shown by the "toolbar" share entry only (CSS)
   ["mic", "Dictate at cursor", "mic"],
   ["undo", "Undo (Ctrl+Z)", "undo"],
   ["redo", "Redo (Ctrl+Shift+Z)", "redo"],
@@ -47,6 +49,12 @@ export function initToolbar() {
     const cmd = b.dataset.cmd;
     if (cmd === "due") return dueMenu(b);
     if (cmd === "mic") return toggleDictation(b);
+    if (cmd === "share") {
+      const id = state.editingId;
+      endEdit();
+      if (note(id)) openShareDialog([id]);
+      return;
+    }
     currentEditor()?.run(cmd);
   });
 

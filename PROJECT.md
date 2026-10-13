@@ -78,10 +78,10 @@ prototype with `?dictation=demo`, which replays
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names, recovery key, contacts, fake QR grid (`sharing.js`). No DOM access; covered by `tests/*.test.mjs` |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names and groups, share tri-state, recovery key, contacts and their colors, fake QR grid (`sharing.js`). No DOM access; covered by `tests/*.test.mjs` |
 | `app/js/store.js` | App state and persistence (the private file, the shared files and the sync state in `localStorage` for now), moving notes between files, change events |
 | `app/js/sync-sim.js` | Prototype only: simulates the server — sync status "syncing" → "synced" after each file change, offline |
-| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels, the "Sync & sharing" panel (`sync-panel.js`) with its fake QR code and scanner view (`qr.js`) |
+| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels, the "Sync & sharing" panel (`sync-panel.js`, whose container also holds the share dialog `share-dialog.js`) with its fake QR code and scanner view (`qr.js`), contact colors and avatars (`people.js`), small DOM helpers (`dom.js`) |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
 | `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity |
 | `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `sharing.json`: the sample user, devices, contacts and which notes are shared with whom; `dictation.md`: the transcript `?dictation=demo` replays |
@@ -100,13 +100,16 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table. No variant is open right now.
+is deleted from code, menu and this table. Three questions are open (sharing, step 2); the first value of each is the recommendation and the default.
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
+| `share` | `select` · `toolbar` · `card` | **Share entry** — where a note is shared from: A the "Share" action in the multi-select bar (main view), B a "Share" button in the editor toolbar after "Due date", C a share button on every open card. All variants: the shared marker opens the dialog too |
+| `mark` | `avatars` · `stripe` · `groups` | **Shared marker** — how shared notes show: A overlapping initials circles (max 3 and "+N") in the meta line, B a colored left stripe plus people icon and names, C the list grouped by circle ("Private" first, then "Shared with …"; the table of contents follows the order) |
+| `syncstatus` | `icon` · `menu` | **Sync status** — A a cloud icon in the top bar (synced / syncing / offline; hidden while sync is off), B a status line at the top of ⋮ plus a snackbar when going offline |
 | `reset` | — | Reload the sample notes |
 | `sync` | `off` | Start with sync off and no shared files, all sample notes private (reloads the sample notes, like `reset`; not a variant) |
 

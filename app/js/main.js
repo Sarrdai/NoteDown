@@ -1,9 +1,11 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, replaceFiles, fileText, allNotes } from "./store.js";
+import { circleGroups } from "./core/sharing.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, replaceFiles, fileText, allNotes, circleOf } from "./store.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
-import { initSyncPanel, openSyncPanel } from "./ui/sync-panel.js";
+import { initSyncPanel, openSyncPanel, statusText } from "./ui/sync-panel.js";
+import { nameOf } from "./ui/people.js";
 import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
 import { initToolbar } from "./ui/toolbar.js";
@@ -26,11 +28,41 @@ const DIR_LABELS = {
   default: ["Oldest first", "Newest first"],
 };
 
-function currentNotes() {
-  const notes = viewNotes(allNotes(), { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
-  const i = notes.findIndex(n => n.id === state.pinnedId);
-  if (i > 0) notes.unshift(...notes.splice(i, 1));
-  return notes;
+// The notes in view order. The "groups" shared marker lists them by circle
+// ("Private" first); the table of contents and multi-select follow this order.
+function viewModel() {
+  const sorted = viewNotes(allNotes(), { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
+  const i = sorted.findIndex(n => n.id === state.pinnedId);
+  if (i > 0) sorted.unshift(...sorted.splice(i, 1));
+  if (state.settings.sharedMark !== "groups") return { notes: sorted, groups: null };
+  const groups = circleGroups(sorted, circleOf, nameOf);
+  // Nothing shared in view: no headers.
+  return { notes: groups.flatMap(g => g.notes), groups: groups.length > 1 ? groups : null };
+}
+
+const currentNotes = () => viewModel().notes;
+
+// "Sync status" variants: A shows an icon in the top bar, B puts the status line into ⋮.
+const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloudOff" };
+
+function renderSyncStatus() {
+  const btn = $("syncBtn");
+  const show = state.sync.enabled && state.settings.syncStatus === "icon";
+  btn.hidden = !show;
+  if (!show) return;
+  btn.dataset.status = state.sync.status;
+  btn.innerHTML = icon(SYNC_ICONS[state.sync.status]);
+  btn.setAttribute("aria-label", statusText());
+}
+
+let lastStatus = null;
+function onSyncEvent() {
+  renderSyncStatus();
+  const status = state.sync.enabled ? state.sync.status : null;
+  if (status === "offline" && lastStatus !== "offline" && state.settings.syncStatus === "menu") {
+    showSnackbar("You're offline — changes sync later");
+  }
+  lastStatus = status;
 }
 
 function render() {
@@ -38,6 +70,8 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
+  app.dataset.share = s.shareEntry;
+  app.dataset.mark = s.sharedMark;
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
@@ -50,8 +84,9 @@ function render() {
   $("archiveBtn").setAttribute("aria-label", `Archive, ${count} closed today`);
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
 
-  const notes = currentNotes();
-  renderList(notes);
+  renderSyncStatus();
+  const { notes, groups } = viewModel();
+  renderList(notes, groups);
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
@@ -61,7 +96,7 @@ function render() {
 }
 
 subscribe(kind => {
-  if (kind === "sync") return;   // the sync panel follows these itself
+  if (kind === "sync") return onSyncEvent();   // the sync panel follows these itself
   if (kind.startsWith("note:")) {
     patchNote(kind.slice(5));
     renderToc(currentNotes());
@@ -135,11 +170,20 @@ async function resetSample() {
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
+  const pick = (key, entries) => entries.map(([value, label, letter]) => (
+    { label: `${label} (${letter})`, checked: s[key] === value, onSelect: () => updateSettings({ [key]: value }) }));
   openMenu($("moreBtn"), [
+    ...(sync.enabled && s.syncStatus === "menu" ? [{ info: statusText() }] : []),
     { label: "Sync & sharing…", onSelect: openSyncPanel },
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: Share entry" },
+    ...pick("shareEntry", [["select", "Selection bar", "A"], ["toolbar", "Editor toolbar", "B"], ["card", "Card button", "C"]]),
+    { section: "Prototype: Shared marker" },
+    ...pick("sharedMark", [["avatars", "Avatars", "A"], ["stripe", "Stripe + names", "B"], ["groups", "Groups", "C"]]),
+    { section: "Prototype: Sync status" },
+    ...pick("syncStatus", [["icon", "Top bar icon", "A"], ["menu", "In ⋮ menu", "B"]]),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -160,6 +204,7 @@ function wire() {
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("archiveBtn").querySelector(".btn-icon").innerHTML = icon("archive");
   $("searchIcon").innerHTML = icon("search");
+  $("syncBtn").addEventListener("click", openSyncPanel);
 
   $("archiveBtn").addEventListener("click", () => setView("closed"));
   $("backBtn").addEventListener("click", () => setView("open"));
@@ -196,6 +241,9 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  for (const [param, key, values] of [["share", "shareEntry", ["select", "toolbar", "card"]], ["mark", "sharedMark", ["avatars", "stripe", "groups"]], ["syncstatus", "syncStatus", ["icon", "menu"]]]) {
+    if (values.includes(p.get(param))) patch[key] = p.get(param);
+  }
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   syncOff = p.get("sync") === "off";

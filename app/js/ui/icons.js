@@ -35,6 +35,11 @@ const PATHS = {
   user: '<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
   qr: '<rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h3v3h-3zM20.5 17.5v3h-3"/>',
   download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
+  share: '<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/>',
+  people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0"/><circle cx="17" cy="9.5" r="2.4"/><path d="M17.5 14.2A4.8 4.8 0 0 1 21.5 19"/>',
+  cloudCheck: '<path d="M7.5 19h9.5a4 4 0 0 0 .7-7.9 5.5 5.5 0 0 0-10.6-1A4.5 4.5 0 0 0 7.5 19z"/><path d="M9.5 14l2 2 3.5-3.8"/>',
+  cloudSync: '<path d="M7.5 19h9.5a4 4 0 0 0 .7-7.9 5.5 5.5 0 0 0-10.6-1A4.5 4.5 0 0 0 7.5 19z"/><g class="spin"><path d="M9.6 13.6a2.7 2.7 0 0 1 4.6-.9M14.3 11.3v1.6h-1.6M14.4 15.4a2.7 2.7 0 0 1-4.6.9M9.7 17.7v-1.6h1.6"/></g>',
+  cloudOff: '<path d="M7.5 19h9.5a4 4 0 0 0 1.6-.35M5.5 17.4A4.5 4.5 0 0 1 7.2 9.6a5.5 5.5 0 0 1 8.2-3.1M20 14.6a4 4 0 0 0-2.3-3.5"/><path d="M4 4l16 16"/>',
   grip: '<circle cx="9" cy="6" r="0.9"/><circle cx="15" cy="6" r="0.9"/><circle cx="9" cy="12" r="0.9"/><circle cx="15" cy="12" r="0.9"/><circle cx="9" cy="18" r="0.9"/><circle cx="15" cy="18" r="0.9"/>',
 };
 

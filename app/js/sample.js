@@ -6,7 +6,7 @@
 // meaningful whenever the prototype is opened.
 import { today, addDays } from "./ui/format.js";
 import { parseNotesFile } from "./core/notes-file.js";
-import { splitIntoCircles, generateRecoveryKey } from "./core/sharing.js";
+import { splitIntoCircles, generateRecoveryKey, nextColor } from "./core/sharing.js";
 
 export async function loadSample() {
   const text = await (await fetch(new URL("../sample/notes.md", import.meta.url))).text();
@@ -40,7 +40,7 @@ export async function loadSampleState({ sync = true } = {}) {
     shared: split.shared,
     sync: {
       enabled: true, name: s.name, recoveryKey: generateRecoveryKey(),
-      devices: [...s.devices], contacts: s.contacts.map(c => ({ ...c })),
+      devices: [...s.devices], contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
       offline: false, status: "synced", lastSync: Date.now(),
     },
   };
