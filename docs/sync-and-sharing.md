@@ -73,22 +73,37 @@ rely on the operating system's own storage encryption for the local copy.
 
 ## Identity and devices
 
-- **Turning on sync** creates the identity on the device: a random
-  **recovery key** (≥ 128 bit, shown once as groups of letters and
-  digits, to print or store safely) from which the identity's key pairs
-  are derived — X25519 for encryption, Ed25519 for signing. Until then
-  the app works fully without sync.
-- **The server knows an identity only by a random ID and its public
-  keys.** A device proves who it is by signing a challenge from the
-  server; there is no login, code or password.
+- **Turning on sync** creates the identity: a random **recovery key**
+  (≥ 128 bit, shown once as groups of letters and digits, to print or
+  store safely) from which the **identity key** is derived, plus a key
+  pair for this device. Until then the app works fully without sync.
+- **Every device has its own keys** (X25519 for encryption, Ed25519 for
+  signing), created on the device and kept in the platform's key store
+  (Android Keystore, iOS Keychain, non-exportable WebCrypto keys in the
+  browser). The identity key itself stays on no device; it only signs the
+  start of the **device list**, and every later change to that list is
+  signed by a device that is on it at that point.
+- **The server knows an identity only by a random ID, its public keys
+  and its device list.** A device proves who it is by signing a challenge
+  with its own device key; there is no login, code or password.
 - **Linking a device:** the new device (e.g. the web app on the desktop)
-  shows a QR code with a one-time public key; a linked device (e.g. the
-  phone) scans it and hands over the identity, encrypted for that key,
-  through the server. The desktop needs no camera, and since the key
-  comes from the QR code, the server can't slip in its own.
-- **Removing a device** from another one ends its access to the server.
-- **Restoring:** entering the recovery key on a new device brings the
-  identity back — the only way when no linked device is left. All
+  shows a QR code with its public device key; a linked device (e.g. the
+  phone) scans it, adds the key to the device list and wraps the file
+  keys for it. The desktop needs no camera, and since the key comes from
+  the QR code, the server can't slip in its own.
+- **Removing a device** (lost, stolen, sold) from another one takes it
+  off the device list, so the server refuses it, and **renews the keys**:
+  the remaining device creates new file keys for every file the removed
+  one could read, re-encrypts those files and wraps the new keys only for
+  the devices still listed (the files are small; this takes seconds). The
+  removed device can't read anything changed afterwards; what it had
+  already decrypted can't be taken back. Neither the identity, the
+  recovery key nor the contacts change. (Decided over only blocking the
+  device, which leaves it able to decrypt later copies, and over a new
+  identity, which needs a new recovery key and warns every contact.)
+- **Restoring:** the recovery key counts as one more device — file keys
+  are always wrapped for it too — so entering it on a new device brings
+  everything back, the only way when no linked device is left. All
   devices and the recovery key lost means the server copies can't be
   decrypted any more (the price of end-to-end encryption); members of
   shared files keep those notes.
@@ -114,15 +129,17 @@ rely on the operating system's own storage encryption for the local copy.
 
 | Key | What for | Where |
 |---|---|---|
-| Recovery key | Seed of the identity's key pairs | Only with the user; never sent anywhere |
-| Identity key pairs (X25519, Ed25519) | Decrypting file keys; proving the identity to the server | Private keys only on linked devices; the server holds the public keys |
-| File key (AES-256-GCM), one per file | Encrypts that file | Stored on the server once per member, encrypted to that member's public key |
+| Recovery key | Seed of the identity key and of the recovery "device" key | Only with the user; never sent anywhere |
+| Identity key (Ed25519) | Who the user is: contacts remember it; signs the start of the device list | Derived from the recovery key when needed, stored on no device |
+| Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only in that device's key store |
+| File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; renewed when a device is removed |
 
 - **Sharing a note in a new set of people:** the device creates a random
-  file key, fetches nothing it has to trust (contacts' public keys are
-  already on the device), encrypts the key once for every member
-  including the user (X25519 + HKDF-SHA256 + AES-256-GCM, as in HPKE,
-  RFC 9180), encrypts the file with it and uploads both. Members' devices
+  file key, wraps it for every device on each member's device list,
+  including the user's own (X25519 + HKDF-SHA256 + AES-256-GCM, as in
+  HPKE, RFC 9180), encrypts the file with it and uploads both. A device
+  list counts only if its chain starts with the identity key the user's
+  app remembered for that contact, so the server can't add a device. Members' devices
   pick up their wrapped key with the file on their next sync.
 - Files are encrypted with AES-256-GCM, a fresh nonce per upload, which
   also detects any change to the ciphertext. All primitives are in
@@ -156,9 +173,10 @@ against the base:
 
 ## Server
 
-- Holds: anonymous identities (random ID, public keys), their devices,
-  files (ciphertext + version) and which identities may access which
-  file, and short-lived relay slots for linking devices and contacts.
+- Holds: anonymous identities (random ID, public keys, signed device
+  list), files (ciphertext + version, file keys wrapped per device) and
+  which identities may access which file, and short-lived relay slots
+  for linking devices and contacts.
 - Sees, unavoidably: which anonymous identities share files, file sizes,
   times of change and IP addresses — no names, emails or contents.
 - **Abuse protection** without accounts: a storage quota per identity
@@ -172,8 +190,8 @@ against the base:
 
 ## Open points
 
-- **A lost or stolen device:** removing it stops its access to the server,
-  but it still holds the identity keys; whether to then rotate the user key and
-  the file keys is decided in the app phase.
+- Until a lost device is removed, it can change or delete notes,
+  including shared ones; a version history on the server (backlog #7)
+  would let the user bring a file back.
 - The UI is decided and in the prototype (`docs/requirements.md` → "Sync
   and sharing" → "Where it is operated"); the server is simulated there.

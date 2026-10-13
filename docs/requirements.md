@@ -104,6 +104,10 @@ app phase.
   linked by scanning a QR code on the new device; **contacts** are added
   by scanning their QR code in person or by an invitation link. The
   server knows no names or emails. The app works fully without sync.
+- **Removing a lost device** from another one locks it out and renews the
+  keys of every file it could read, so it can't read anything changed
+  afterwards — without a new recovery key and without bothering contacts
+  (decided 2026-10-13 over only blocking it or a new identity).
 - The server is built to scale to many users (stateless API, database,
   object store).
 - **Where it is operated** (decided 2026-10-13):
