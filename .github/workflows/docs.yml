@@ -1,0 +1,22 @@
+# Every doc over 100 lines carries an up-to-date table of contents
+# (CLAUDE.md → "Run node scripts/doc-toc.js after changing any Markdown file").
+name: Docs
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["**/*.md", "scripts/doc-toc.js"]
+  pull_request:
+    branches: [main]
+    paths: ["**/*.md", "scripts/doc-toc.js"]
+  workflow_dispatch:
+
+jobs:
+  toc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node scripts/doc-toc.js --check
