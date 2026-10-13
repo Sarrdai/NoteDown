@@ -11,10 +11,13 @@ import { newId } from "./notes-file.js";
  * edited on one side while the other moved them to another file; the caller
  * re-applies each with applyDisplaced to the file the note moved to, or to
  * the private file when the user is no longer a member of that one.
+ * The result keeps the remote order and appends what only the local side has,
+ * so a merge that adds nothing returns the remote file unchanged and two
+ * devices don't re-upload the same notes in each other's order.
  */
 export function mergeNotesFiles(base, local, remote) {
   const [b, l, r] = [base, local, remote].map(states);
-  const ids = [...new Set([...l.keys(), ...r.keys(), ...b.keys()])];
+  const ids = [...new Set([...r.keys(), ...l.keys(), ...b.keys()])];
   const notes = [], moved = [], displaced = [];
   for (const id of ids) {
     const [sb, sl, sr] = [b.get(id), l.get(id), r.get(id)];

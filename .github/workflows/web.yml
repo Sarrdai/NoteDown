@@ -30,6 +30,9 @@ jobs:
         with:
           node-version: 22
       - run: node --test
+      # The app finds its sync server in app/config.json (empty in the repository).
+      - if: vars.API_HOST != ''
+        run: echo '{ "api": "https://${{ vars.API_HOST }}" }' > app/config.json
       - uses: actions/upload-pages-artifact@v5
         with:
           path: app

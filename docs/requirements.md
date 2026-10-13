@@ -99,8 +99,7 @@ before the first live test).
   invitation link first.
 - **Concurrent edits merge per note and per field;** when two devices
   changed the same text, both versions are kept (conflict copy) — nothing
-  is lost. *Prototype: merge logic in `app/js/core/merge.js` (no live
-  sync in the prototype).*
+  is lost. *Prototype: `app/js/core/merge.js`, used by real sync.*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
   anonymous identity with a **recovery key** shown once. Devices are
@@ -134,8 +133,12 @@ before the first live test).
     offline), hidden while sync is off; tapping it opens Sync & sharing.
   - Without sync, sharing explains that it needs sync and offers to turn
     it on. Notes in the archive aren't shared from there.
-  - *Prototype: round 4, with a simulated server (`?sync=off` starts
-    without sync, ⋮ → Go offline).*
+  - *Prototype: round 4. **Real sync of the private file** between the
+    user's own devices (2026-10-13): turning it on, linking a device with
+    the recovery key, the device list (numbered, backlog #14) and removing
+    a device run against the server. Linking by QR code, contacts and
+    sharing are only simulated, in the sample (`?sample`, `?sync=off`,
+    ⋮ → Go offline); outside it they are hidden until milestone 2.*
 
 ### Main view and archive
 

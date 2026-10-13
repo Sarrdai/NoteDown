@@ -132,8 +132,9 @@ Cloud Run serves a custom domain once Google knows the domain is yours.
 4. Google issues the certificate within 15–60 minutes;
    `gcloud beta run domain-mappings describe --domain
    notedown-api.example.com --region europe-west1` shows the status.
-5. Add the repository variable `API_HOST` = `notedown-api.example.com`
-   (the app will read it once real sync is built).
+5. Add the repository variable `API_HOST` = `notedown-api.example.com`:
+   the web and Android deploys write it into `app/config.json`, where the
+   app finds its sync server (without it, sync can't be turned on).
 
 ## 5. Android signing key
 

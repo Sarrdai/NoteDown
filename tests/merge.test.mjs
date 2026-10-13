@@ -28,6 +28,14 @@ test("merge: a change on one side is taken, unchanged notes stay", () => {
   assert.deepEqual(displaced, []);
 });
 
+test("merge: keeps the remote order and appends local-only notes, so nothing new means the remote file", () => {
+  const [a, b, c] = sample.notes;
+  const remote = file(b, a);
+  assert.deepEqual(mergeNotesFiles(file(a, b), file(a, b), remote).file.notes.map(n => n.id), [b.id, a.id]);
+  assert.equal(serializeNotesFile(mergeNotesFiles(file(a, b), file(a, b), remote).file), serializeNotesFile(remote));
+  assert.deepEqual(mergeNotesFiles(file(a, b), file(c, a, b), remote).file.notes.map(n => n.id), [b.id, a.id, c.id]);
+});
+
 test("merge: delete on one side wins over unchanged, an edit wins over delete", () => {
   const base = file(s01, s03);
   const deleted = mergeNotesFiles(base, file(s03), base).file;

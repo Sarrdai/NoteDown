@@ -21,8 +21,9 @@ Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on
 desktop, tablet and phone. The prototype is turning into the real app:
 Android (a Capacitor shell in `mobile/`) and the web come first, with a
-Python sync server in `server/`; the first milestone is sync between
-your own devices.
+Python sync server in `server/`. The first milestone, end-to-end
+encrypted sync between your own devices, works: turn it on under ⋮ →
+Sync & sharing and link further devices with the recovery key.
 
 ## Try the prototype
 

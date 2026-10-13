@@ -2,11 +2,15 @@
 // recovery key, linking a device, devices and contacts. Phone: a full-screen
 // sheet; tablet and desktop: a centered dialog. Pages stack inside the panel;
 // the back button, Esc and the Android back key go one page back, then close.
-// Prototype only: no network, no real keys, no camera — "Simulate scan"
-// stands in for scanning (docs/sync-and-sharing.md → "Identity and devices",
-// "Contacts").
+// Real sync (sync/client.js) covers turning on, restoring with the recovery
+// key and the device list; linking by QR code and contacts come later and are
+// only simulated for the sample (`state.sync.simulated`), where "Simulate
+// scan" stands in for scanning (docs/sync-and-sharing.md → "Identity and
+// devices", "Contacts").
 import { state, subscribe, setSync, replaceFiles } from "../store.js";
 import { syncNow } from "../sync-sim.js";
+import { turnOn, restore, removeDevice, loadDevices, syncAvailable } from "../sync/client.js";
+import { deviceRows } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
@@ -17,6 +21,7 @@ import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
 
 const $ = id => document.getElementById(id);
+const real = () => !state.sync.simulated;
 let stack = [];          // [{ page, data }]; the last entry is on screen
 let isOpen = false;
 let returnFocus = null;
@@ -157,6 +162,25 @@ function download(name, content) {
   URL.revokeObjectURL(a.href);
 }
 
+// A button that runs a real sync action: busy while it runs, its error shown below.
+function action(label, run, cls = "primary") {
+  const error = h("p", { class: "field-error", role: "alert", hidden: true });
+  const btn = button(label, cls, async () => {
+    btn.disabled = true;
+    btn.textContent = label + "…";
+    error.hidden = true;
+    try {
+      await run();
+    } catch (e) {
+      error.textContent = e.message;
+      error.hidden = false;
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+  return { btn, error };
+}
+
 function deviceName() {
   if (matchMedia("(min-width: 1024px)").matches) return "This browser";
   return matchMedia("(min-width: 600px)").matches ? "This tablet" : "This phone";
@@ -168,6 +192,7 @@ export function statusText() {
   const { status, lastSync } = state.sync;
   if (status === "syncing") return "Syncing…";
   if (status === "offline") return "Offline — changes sync when you're back online";
+  if (status === "error") return state.sync.error || "Sync failed";
   return lastSync ? `Synced · ${syncedAgo(lastSync)}` : "Synced";
 }
 
@@ -225,9 +250,11 @@ const PAGES = {
     render: () => [
       h("div", { class: "hero", html: icon("sync") }),
       text("Keep your notes in step on all your devices and share single notes with others. End-to-end encrypted — no account, no email."),
-      h("div", { class: "sheet-actions" },
-        button("Turn on sync", "primary", () => go("name")),
-        button("Link to an existing device", "", () => go("link", { seed: "link-" + Math.random() }))),
+      real() && !syncAvailable()
+        ? text("This copy of the app has no sync server.", "sheet-text muted")
+        : h("div", { class: "sheet-actions" },
+          button("Turn on sync", "primary", () => go("name")),
+          button("Link to an existing device", "", () => go("link", { seed: "link-" + Math.random() }))),
     ],
   },
 
@@ -250,9 +277,12 @@ const PAGES = {
     title: "Your recovery key",
     render: data => {
       const saved = h("input", { type: "checkbox", id: "keySaved" });
-      const done = button("Done", "primary", () => {
-        setSync({ enabled: true, name: data.name, recoveryKey: data.key, devices: [], contacts: [] });
-        syncNow();
+      const { btn: done, error } = action("Done", async () => {
+        if (real()) await turnOn(data.name, data.key);
+        else {
+          setSync({ enabled: true, name: data.name, recoveryKey: data.key, devices: [], contacts: [] });
+          syncNow();
+        }
         reset("overview");
         showSnackbar("Sync is on");
       });
@@ -273,6 +303,7 @@ const PAGES = {
           }, h("span", { html: icon("download") }), "Download")),
         h("label", { class: "check-row" }, saved, h("span", {}, "I've stored it somewhere safe")),
         h("div", { class: "sheet-actions" }, done),
+        error,
       ];
     },
   },
@@ -285,52 +316,114 @@ const PAGES = {
         type: "text", class: "input mono", autocomplete: "off", autocapitalize: "characters", spellcheck: "false",
         placeholder: "ABCD-EFGH-…", "aria-label": "Recovery key",
       });
-      const restore = () => {
+      const { btn: submit, error: failed } = action("Restore", async () => {
         const key = normalizeRecoveryKey(input.value);
         error.hidden = !!key;
         if (!key) { error.textContent = "That doesn't look like a recovery key. It has 26 letters and digits."; input.focus(); return; }
-        adoptIdentity(key, "Notes restored");
-      };
-      input.addEventListener("keydown", e => { if (e.key === "Enter") restore(); });
+        if (!real()) return adoptIdentity(key, "Notes restored");
+        await restore(key);
+        reset("overview");
+        showSnackbar("Device linked");
+      });
+      input.addEventListener("keydown", e => { if (e.key === "Enter") submit.click(); });
       return [
-        h("div", { class: "qr-wrap" }, qrFigure(data.seed, "QR code of this device")),
-        text("On a device that already syncs, open Sync & sharing → Link a device and scan this code."),
-        button("Simulate scan (prototype)", "", () => adoptIdentity(null, "Device linked")),
-        h("div", { class: "sheet-divider" }),
-        field("Or enter your recovery key", input),
+        !real() && h("div", { class: "qr-wrap" }, qrFigure(data.seed, "QR code of this device")),
+        !real() && text("On a device that already syncs, open Sync & sharing → Link a device and scan this code."),
+        !real() && button("Simulate scan (prototype)", "", () => adoptIdentity(null, "Device linked")),
+        !real() && h("div", { class: "sheet-divider" }),
+        real() && text("Enter the recovery key you got when you turned on sync on your first device. Your notes on both devices are combined."),
+        field(real() ? "Recovery key" : "Or enter your recovery key", input),
         error,
-        h("div", { class: "sheet-actions" }, button("Restore", "primary", restore)),
+        h("div", { class: "sheet-actions" }, submit),
+        failed,
       ];
     },
   },
 
   overview: {
     title: "Sync & sharing",
-    render: () => {
-      const { devices, contacts } = state.sync;
+    render: data => real() ? realOverview(data) : simulatedOverview(),
+  },
+
+  linkHelp: {
+    title: "Link a device",
+    render: () => [
+      text("On the new device, open NoteDown → ⋮ → Sync & sharing → Link to an existing device and enter your recovery key."),
+      text("Linking by QR code comes later.", "sheet-text muted"),
+    ],
+  },
+
+  removeDevice: {
+    title: "Remove device",
+    render: data => {
+      const { btn, error } = action("Remove", async () => {
+        await removeDevice(data.id);
+        reset("overview");
+        showSnackbar(`${data.label} removed`);
+      });
       return [
-        h("div", { class: "sync-status", "data-sync-status": "", "data-status": state.sync.status },
-          h("span", { class: "sync-dot", "aria-hidden": "true" }),
-          h("span", { class: "sync-status-text", role: "status" }, statusText())),
-
-        section("Devices"),
-        h("ul", { class: "sheet-card" },
-          row({ icon: "device", title: "This device", sub: deviceName() }),
-          devices.map((name, i) => row({ icon: "device", title: name, remove: () => removeFromList("devices", i, name) }))),
-        h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
-
-        section("Contacts"),
-        contacts.length
-          ? h("ul", { class: "sheet-card" }, contacts.map((c, i) =>
-              row({ avatar: initials(c.name), title: c.name, sub: c.via === "link" ? "Added by link" : null, remove: () => removeFromList("contacts", i, c.name) })))
-          : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
-        h("div", { class: "button-row" },
-          button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
-          button("My code", "outline", () => go("myCode"))),
+        text(`${data.label} can't sync any more and can't read notes changed from now on. What it already has stays on it.`),
+        h("div", { class: "sheet-actions" }, btn),
+        error,
       ];
     },
   },
+};
 
+// Real sync: this identity's devices (loaded from the server) and, until
+// sharing is built, a note instead of the contacts.
+function realOverview(data) {
+  if (!data.rows && !data.loading) {
+    data.loading = true;
+    loadDevices()
+      .then(devices => { data.rows = deviceRows(devices, state.sync.device); })
+      .catch(e => { data.failed = e.message; })
+      .finally(() => { data.loading = false; if (isOpen && top().data === data) render({ keepScroll: true }); });
+  }
+  return [
+    h("div", { class: "sync-status", "data-sync-status": "", "data-status": state.sync.status },
+      h("span", { class: "sync-dot", "aria-hidden": "true" }),
+      h("span", { class: "sync-status-text", role: "status" }, statusText())),
+    section("Devices"),
+    data.rows
+      ? h("ul", { class: "sheet-card" }, data.rows.map(d => row({
+          icon: "device", title: d.label, sub: d.own ? deviceName() : null,
+          remove: !d.own && (() => go("removeDevice", d)),
+        })))
+      : text(data.failed ? `Couldn't load the devices: ${data.failed}` : "Loading…", "sheet-text muted"),
+    h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkHelp"))),
+    section("Contacts"),
+    text("Sharing notes with contacts comes in the next step.", "sheet-text muted"),
+  ];
+}
+
+// The sample: simulated devices and contacts.
+function simulatedOverview() {
+  const { devices, contacts } = state.sync;
+  return [
+    h("div", { class: "sync-status", "data-sync-status": "", "data-status": state.sync.status },
+      h("span", { class: "sync-dot", "aria-hidden": "true" }),
+      h("span", { class: "sync-status-text", role: "status" }, statusText())),
+
+    section("Devices"),
+    h("ul", { class: "sheet-card" },
+      row({ icon: "device", title: "This device", sub: deviceName() }),
+      devices.map((name, i) => row({ icon: "device", title: name, remove: () => removeFromList("devices", i, name) }))),
+    h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
+
+    section("Contacts"),
+    contacts.length
+      ? h("ul", { class: "sheet-card" }, contacts.map((c, i) =>
+          row({ avatar: initials(c.name), title: c.name, sub: c.via === "link" ? "Added by link" : null, remove: () => removeFromList("contacts", i, c.name) })))
+      : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
+    h("div", { class: "button-row" },
+      button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
+      button("My code", "outline", () => go("myCode"))),
+  ];
+}
+
+// Pages only the sample reaches: linking by QR code and contacts.
+Object.assign(PAGES, {
   linkDevice: {
     title: "Link a device",
     render: () => [
@@ -398,4 +491,4 @@ const PAGES = {
       text("Let a contact scan this code to connect.", "sheet-text center"),
     ],
   },
-};
+});
