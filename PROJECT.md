@@ -28,6 +28,7 @@ the prototype is ported (see "Technology direction").
 | `docs/requirements.md` | The decided functional scope, by area, each item with its reason |
 | `docs/interaction-concept.md` | Cross-cutting operating rules: layout per tier, input, visual language |
 | `docs/file-format.md` | The Markdown file NoteDown reads and writes |
+| `docs/sync-and-sharing.md` | Sync across devices, sharing single notes, accounts and end-to-end encryption |
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
@@ -77,7 +78,7 @@ prototype with `?dictation=demo`, which replays
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`). No DOM access; covered by `tests/*.test.mjs` |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`). No DOM access; covered by `tests/*.test.mjs` |
 | `app/js/store.js` | App state and persistence (the notes file in `localStorage` for now), change events |
 | `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
@@ -137,6 +138,11 @@ prototype is built so that the likely path stays cheap:
   same `startDictation` interface (`app/js/ui/dictation.js`).
 - A UI framework, if any, is decided with the port; `app/js/core/` stays
   framework-free either way.
+- **Backend** for sync and sharing (`docs/sync-and-sharing.md`): a
+  stateless API with a database and an object store that holds only
+  encrypted files; language (Python/FastAPI or C#/ASP.NET Core) and
+  hosting are decided with the technology. Encryption uses WebCrypto,
+  which the browser and the Capacitor web view both offer.
 
 ## Where everything else lives
 
@@ -144,5 +150,6 @@ prototype is built so that the likely path stays cheap:
   questions that block a decision.
 - `docs/interaction-concept.md` — how NoteDown is operated across tiers.
 - `docs/file-format.md` — the notes file.
+- `docs/sync-and-sharing.md` — sync, sharing, accounts, encryption.
 - `FEATURE_BACKLOG.md` — what might come; entries leave it when their
   requirement is decided and in the prototype.

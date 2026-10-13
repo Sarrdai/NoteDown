@@ -5,6 +5,7 @@
 - [Platforms](#platforms)
 - [Functional areas](#functional-areas)
   - [Notes and storage](#notes-and-storage)
+  - [Sync and sharing](#sync-and-sharing)
   - [Main view and archive](#main-view-and-archive)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
@@ -29,8 +30,8 @@ without another source were decided with the user on 2026-10-13.
 ## Vision
 
 NoteDown is a notes app in which every note is also a to-do: quick to
-capture (typing or dictation), quick to tick off, and stored as one plain
-Markdown file that stays readable in any other editor.
+capture (typing or dictation), quick to tick off, and stored as plain
+Markdown that stays readable in any other editor.
 
 **Open** — who else it is for beyond the user's own use, and what sets it
 apart from existing apps beyond the points above.
@@ -56,16 +57,49 @@ apart from existing apps beyond the points above.
   either **open** or **closed**.
 - Each note has a **created** date, a **last-edited** date and an optional
   **due date**; a closed note also keeps the date it was closed.
-- All notes, open and closed, are stored locally in one Markdown file;
-  the metadata sits in an invisible comment per note so the file stays
-  clean in other editors (`docs/file-format.md`). *Prototype: round 1
+- All notes, open and closed, are stored locally as Markdown: one file
+  for the user's own notes, plus one per set of people notes are shared
+  with ("Sync and sharing"); the metadata sits in an invisible comment per
+  note so the files stay clean in other editors (`docs/file-format.md`). *Prototype: round 1
   (stored in browser storage, downloadable as `notes.md`).*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left
   empty is discarded silently. *Prototype: round 1.*
-- **Open** — where the file lives on each platform and whether it can be
-  synced or shared (app phase).
+- **Local first:** every device keeps the complete notes on the device
+  and works offline; in the app the files sit in the app's documents
+  folder (visible in the Files app), in the web app in browser storage
+  (`docs/sync-and-sharing.md` → "Where the files live"). *App phase.*
+
+### Sync and sharing
+
+Detailed in `docs/sync-and-sharing.md`; decided 2026-10-13, built in the
+app phase.
+
+- **Sync across devices** through NoteDown's own server, so notes written
+  on the phone show up in the web app on the desktop. It runs
+  automatically (after changes, on opening, on reconnect) with a status
+  indicator.
+- **End-to-end encrypted:** the server stores only encrypted files and
+  never holds a key that decrypts them — notes are private by default,
+  even from whoever runs the server.
+- **Single notes can be shared** with other people. All notes shared with
+  the same set of people live in one file for that set, encrypted so only
+  its members can read it; sharing with one more person or removing one
+  moves the note to the new set's file. All members are equal (edit,
+  close, share further, remove, leave), and the whole note including its
+  status is shared. People without an account are invited by email.
+- **Concurrent edits merge per note and per field;** when two devices
+  changed the same text, both versions are kept (conflict copy) — nothing
+  is lost. *Prototype: merge logic in `app/js/core/merge.js`, no UI yet.*
+- **Accounts** are an email address; **login without a password** by a
+  one-time code or sign-in link sent by email. The login only opens the
+  server: a new device also has to be confirmed on a device that is
+  already signed in, or with the recovery key shown once at sign-up.
+- The server is built to scale to many users (stateless API, database,
+  object store).
+- **Open** — the UI (share dialog, members on a note, sign-up and login,
+  device approval, sync status): next prototype round, as variants.
 
 ### Main view and archive
 
@@ -225,4 +259,4 @@ apart from existing apps beyond the points above.
 
 ### Not in scope (for now)
 
-Tags, folders / notebooks and sync — until there is a concrete need.
+Tags and folders / notebooks — until there is a concrete need.
