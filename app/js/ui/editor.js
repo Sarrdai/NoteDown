@@ -57,7 +57,10 @@ function mapLines(view, fn) {
       if (text !== line.text) changes.push(minimalChange(line.from, line.text, text));
     }
   }
-  if (changes.length) view.dispatch({ changes, scrollIntoView: true, userEvent: "input" });
+  if (!changes.length) return true;
+  // A cursor at an insertion point ends up after the inserted marker, ready to type.
+  const set = state.changes(changes);
+  view.dispatch({ changes: set, selection: state.selection.map(set, 1), scrollIntoView: true, userEvent: "input" });
   return true;
 }
 
