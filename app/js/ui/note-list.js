@@ -10,27 +10,19 @@ import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
-import { circleColor, membersLabel, avatarStackHtml, esc } from "./people.js";
+import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { openShareDialog } from "./share-dialog.js";
 
 const list = () => document.getElementById("list");
 
-/** Renders the notes; `groups` ([{ label, notes }]) puts a section header
- *  above each group (the "groups" shared marker), `notes` is then their flat order. */
-export function renderList(notes, groups = null) {
-  if (!groups) return list().replaceChildren(...notes.map(noteElement));
-  list().replaceChildren(...groups.flatMap(g => {
-    const head = document.createElement("h2");
-    head.className = "group-head";
-    head.textContent = g.label;
-    return [head, ...g.notes.map(noteElement)];
-  }));
+export function renderList(notes) {
+  list().replaceChildren(...notes.map(noteElement));
 }
 
-// Taps on the share button of a card and on the shared marker open the share dialog.
+// A tap on the shared marker opens the share dialog.
 // (While selecting, the selection's own click handler runs first and keeps the tap.)
 document.addEventListener("click", e => {
-  const hit = e.target.closest("#list .note-share, #list button.shared-mark");
+  const hit = e.target.closest("#list button.shared-mark");
   if (!hit) return;
   const id = hit.closest(".note").dataset.id;
   if (state.editingId) endEdit();
@@ -51,8 +43,6 @@ function noteElement(n) {
   el.className = "note" + (n.status === "closed" ? " closed" : "");
   if (state.selected.has(n.id)) el.classList.add("selected");
   el.dataset.id = n.id;
-  const members = circleOf(n.id);
-  if (members.length) { el.classList.add("shared"); el.style.setProperty("--stripe", circleColor(members)); }
   if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 
   const status = document.createElement("button");
@@ -75,15 +65,13 @@ function noteElement(n) {
   return el;
 }
 
-// The shared marker of the "avatars" and "stripe" variants; a button while
-// the note is open (opens the share dialog), plain info in the archive.
+// The shared marker: overlapping avatars of the members; a button while the
+// note is open (opens the share dialog), plain info in the archive.
 function markerHtml(n) {
-  const mark = state.settings.sharedMark;
   const members = circleOf(n.id);
-  if (!members.length || (mark !== "avatars" && mark !== "stripe")) return "";
-  const label = "Shared with " + membersLabel(members);
-  const inner = mark === "avatars" ? avatarStackHtml(members) : `${icon("people")}<span>${esc(membersLabel(members))}</span>`;
-  const attrs = `class="shared-mark ${mark}" aria-label="${esc(label)}"`;
+  if (!members.length) return "";
+  const attrs = `class="shared-mark" aria-label="${esc("Shared with " + membersLabel(members))}"`;
+  const inner = avatarStackHtml(members);
   return n.status === "open" ? `<button type="button" ${attrs}>${inner}</button>` : `<span role="img" ${attrs}>${inner}</span>`;
 }
 
@@ -98,8 +86,6 @@ function metaHtml(n) {
   const field = { created: "created", closed: "closed" }[key] || "modified";
   const label = { created: "Created", closed: "Closed", modified: "Edited" }[field];
   if (n[field]) parts.push(`<span>${label} ${relativeTime(n[field])}</span>`);
-  // "card" share entry: a share button at the end of the meta line (hidden in the other variants)
-  if (n.status === "open") parts.push(`<button type="button" class="note-share" aria-label="Share note">${icon("share")}</button>`);
   return parts.join("");
 }
 

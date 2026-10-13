@@ -6,7 +6,7 @@ import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
   circleKey, circleLabel, shareState, initials, splitIntoCircles, generateRecoveryKey,
   normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo, qrMatrix, QR_SIZE,
-  colorIndex, nextColor, visibleMembers, circleGroups,
+  colorIndex, nextColor, visibleMembers,
 } from "../app/js/core/sharing.js";
 
 const read = name => readFileSync(new URL("../app/sample/" + name, import.meta.url), "utf8");
@@ -120,7 +120,7 @@ test("qrMatrix: deterministic, finder squares in three corners, seed-dependent",
 });
 
 test("colorIndex: stable slot 1–6", () => {
-  for (const k of ["lea", "tom", "lea+tom", "x"]) assert.ok(colorIndex(k) >= 1 && colorIndex(k) <= 6);
+  for (const k of ["lea", "tom", "x"]) assert.ok(colorIndex(k) >= 1 && colorIndex(k) <= 6);
   assert.equal(colorIndex("lea"), colorIndex("lea"));
 });
 
@@ -134,17 +134,4 @@ test("nextColor: the first free slot, wrapping when all six are used", () => {
 test("visibleMembers: at most 3 shown, the rest counted", () => {
   assert.deepEqual(visibleMembers(["a", "b"]), { shown: ["a", "b"], more: 0 });
   assert.deepEqual(visibleMembers(["a", "b", "c", "d", "e"]), { shown: ["a", "b", "c"], more: 2 });
-});
-
-test("circleGroups: Private first, circles by label, order inside kept", () => {
-  const { shared, file } = splitIntoCircles(sample, sharing.shared);
-  const members = Object.fromEntries([[ "", file ], ...shared.map(s => [circleKey(s.members), s.file])].flatMap(([k, f]) => f.notes.map(n => [n.id, k ? k.split("+") : []])));
-  const names = { lea: "Lea", tom: "Tom" };
-  const all = [...shared[1].file.notes, ...file.notes.slice(0, 2), ...shared[0].file.notes];
-  const groups = circleGroups(all, id => members[id], id => names[id]);
-  assert.deepEqual(groups.map(g => g.label), ["Private", "Shared with Lea", "Shared with Lea & Tom"]);
-  assert.deepEqual(groups[0].notes.map(n => n.id), file.notes.slice(0, 2).map(n => n.id));
-  assert.deepEqual(groups[1].notes.map(n => n.id), ["s01", "s09"]);
-  assert.deepEqual(circleGroups(file.notes.slice(0, 2), id => members[id], id => names[id]).map(g => g.label), ["Private"]);
-  assert.deepEqual(circleGroups([shared[0].file.notes[0]], id => members[id], id => names[id]).map(g => g.label), ["Shared with Lea"]);
 });

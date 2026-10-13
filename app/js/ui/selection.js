@@ -153,10 +153,10 @@ function update() {
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close },
     { id: "copy", label: "Copy", run: copy },
-    !archive && { id: "share", label: "Share", run: share, entry: "select" },
+    !archive && { id: "share", label: "Share", run: share },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: n < 2 },
     { id: "trash", label: "Delete", run: remove },
-  ].filter(a => a && (!a.entry || state.settings.shareEntry === a.entry));
+  ].filter(Boolean);
   $("selActions").replaceChildren(...actions.map(a => {
     const b = document.createElement("button");
     b.className = "sel-action";
@@ -184,7 +184,7 @@ function reopen() {
   showSnackbar(count(ids.length, "reopened"), setStatuses(ids, "open"));
 }
 
-// "Share entry" variant A. The selection ends first; its history entry is
+// The selection ends first; its history entry is
 // gone before the dialog takes its own (the back key would close the dialog otherwise).
 function share() {
   const ids = [...state.selected];
