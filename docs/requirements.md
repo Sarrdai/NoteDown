@@ -57,7 +57,10 @@ apart from existing apps beyond the points above.
 - Every note is one Markdown section, and every note is a to-do: it is
   either **open** or **closed**.
 - Each note has a **created** date, a **last-edited** date and an optional
-  **due date**; a closed note also keeps the date it was closed.
+  **due date**; a closed note also keeps the date it was closed. Times
+  are stored in UTC and shown in each device's local time; a due date is
+  a calendar day (so devices and members of a shared file in different
+  time zones agree).
 - All notes, open and closed, are stored locally as Markdown: one file
   for the user's own notes, plus one per set of people notes are shared
   with ("Sync and sharing"); the metadata sits in an invisible comment per

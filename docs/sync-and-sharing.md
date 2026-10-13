@@ -175,8 +175,5 @@ against the base:
 - **A lost or stolen device:** removing it stops its access to the server,
   but it still holds the identity keys; whether to then rotate the user key and
   the file keys is decided in the app phase.
-- **Time zones:** `modified` is local time without a zone
-  (`docs/file-format.md`); the later-modified rule needs a zone once
-  members of a shared file live in different ones.
 - The UI is decided and in the prototype (`docs/requirements.md` → "Sync
   and sharing" → "Where it is operated"); the server is simulated there.

@@ -49,15 +49,23 @@ export function serializeNotesFile({ preamble = "", notes, moved = [] }) {
   return parts.join("\n\n") + "\n";
 }
 
-/** A new open note; `now` is a local timestamp "YYYY-MM-DDTHH:MM". */
+/** A new open note; `now` is a timestamp (see timestamp()). */
 export function createNote(body, now, id = newId()) {
   return { id, status: "open", created: now, modified: now, due: null, closed: null, body };
 }
 
-/** Local timestamp in the file's format. */
+/** Timestamp in the file's format: UTC, "YYYY-MM-DDTHH:MMZ". */
 export function timestamp(date = new Date()) {
+  return date.toISOString().slice(0, 16) + "Z";
+}
+
+/** A file timestamp in the device's local time, "YYYY-MM-DDTHH:MM", for
+ *  display and day comparisons; one without "Z" (older files) is local already. */
+export function localTime(ts) {
+  if (!ts || !ts.endsWith("Z")) return ts;
+  const d = new Date(ts);
   const p = n => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function parseAttrs(s) {
