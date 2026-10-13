@@ -11,11 +11,12 @@ Current state, edited in place when a decision changes.
 
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
-| Top bar | Title; icons for contents, search, sort, archive (with count), ⋮ | Title, search field, icons | Title, search field, sort and archive with labels, ⋮ |
+| Top bar | Title; icons for contents, search, sort, archive (with count), sync status, ⋮ | Title, search field, icons | Title, search field, sort and archive with labels, sync status icon, ⋮ |
 | Table of contents | Bottom sheet, opened from the top bar | Fixed sidebar on the left | Fixed sidebar on the left |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
 | Multi-select | Contextual top bar: ✕, count, action icons | Same | Same, actions with labels |
+| Panels (Sync & sharing, share dialog) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
 - One primary action per view, as a floating button at the bottom
   right: + in the main view; none in the archive (nothing is created
@@ -66,7 +67,11 @@ Current state, edited in place when a decision changes.
   immediately and offer **Undo** in a snackbar for 5 seconds instead of
   asking for confirmation first.
 - Confirmation dialogs only where the user has something to adjust: the
-  order for Copy and Merge (drag an entry's grip).
+  order for Copy and Merge (drag an entry's grip), the people for Share.
+- Panels with several pages (Sync & sharing) go one page back with the
+  back button, `Esc` or the system back gesture, and close from the
+  first page; the primary button of a page sits in a footer that stays
+  visible.
 
 ## Visual language
 
@@ -76,6 +81,9 @@ Current state, edited in place when a decision changes.
   tints the surfaces with teal.
 - Status marks: a **round** button for the note itself, **square**
   checkboxes for tasks inside the text.
+- People are shown as **initials avatars**, each contact in one stable
+  color from a set of six Catppuccin colors (peach, teal, blue, green,
+  pink, yellow).
 - Editing looks like reading: the live preview uses the same type sizes
   and list layout as the rendered note, so entering edit mode doesn't
   make the note jump; only the line with the cursor shows its Markdown.

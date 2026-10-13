@@ -28,10 +28,11 @@ the prototype is ported (see "Technology direction").
 | `docs/requirements.md` | The decided functional scope, by area, each item with its reason |
 | `docs/interaction-concept.md` | Cross-cutting operating rules: layout per tier, input, visual language |
 | `docs/file-format.md` | The Markdown file NoteDown reads and writes |
+| `docs/sync-and-sharing.md` | Sync across devices, sharing single notes, identity without accounts, end-to-end encryption |
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
-| `scripts/` | `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook) |
 
 ## Device tiers
 
@@ -52,14 +53,17 @@ that hold for all views are in `docs/interaction-concept.md`.
 
 ### Running it
 
-ES modules don't load from `file://`, so the prototype is served by any
-static file server from the repo root — no install, no build:
+ES modules don't load from `file://`, so the prototype is served from
+the repo root — no install, no build:
 
 ```bash
-python3 -m http.server 8000      # then open http://localhost:8000/app/
+python3 scripts/serve.py         # port 8000; or: python3 scripts/serve.py 8080
 ```
 
-On a phone in the same network, open `http://<computer-ip>:8000/app/`.
+It prints the addresses to open: `http://localhost:8000/app/` on this
+computer and `http://<computer-ip>:8000/app/` for a phone or tablet in
+the same network. Any other static file server from the repo root works
+too (e.g. `python3 -m http.server 8000`).
 The first start loads the sample notes; ⋮ → "Reset sample notes" brings
 them back.
 
@@ -77,12 +81,13 @@ prototype with `?dictation=demo`, which replays
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`). No DOM access; covered by `tests/*.test.mjs` |
-| `app/js/store.js` | App state and persistence (the notes file in `localStorage` for now), change events |
-| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names, share tri-state, recovery key, contacts and their colors, fake QR grid (`sharing.js`). No DOM access; covered by `tests/*.test.mjs` |
+| `app/js/store.js` | App state and persistence (the private file, the shared files and the sync state in `localStorage` for now), moving notes between files, change events |
+| `app/js/sync-sim.js` | Prototype only: simulates the server — sync status "syncing" → "synced" after each file change, offline |
+| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels, the "Sync & sharing" panel (`sync-panel.js`, whose container also holds the share dialog `share-dialog.js`) with its fake QR code and scanner view (`qr.js`), contact colors and avatars (`people.js`), small DOM helpers (`dom.js`) |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
-| `app/js/sample.js` | Prototype only: loads the sample notes |
-| `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `dictation.md`: the transcript `?dictation=demo` replays |
+| `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity |
+| `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `sharing.json`: the sample user, devices, contacts and which notes are shared with whom; `dictation.md`: the transcript `?dictation=demo` replays |
 | `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), each with its license (all MIT) |
 
 Rules: plain HTML/CSS/JS as ES modules, no framework, no external
@@ -106,6 +111,9 @@ is deleted from code, menu and this table. No variant is open right now.
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `reset` | — | Reload the sample notes |
+| `sync` | `off` | Start with sync off and no shared files, all sample notes private (reloads the sample notes, like `reset`; not a variant) |
+
+In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection (not a variant); "Reset sample notes" resets notes, shared files and sync state (sync on with the sample identity unless `sync=off`).
 
 ### Screenshots
 
@@ -137,6 +145,11 @@ prototype is built so that the likely path stays cheap:
   same `startDictation` interface (`app/js/ui/dictation.js`).
 - A UI framework, if any, is decided with the port; `app/js/core/` stays
   framework-free either way.
+- **Backend** for sync and sharing (`docs/sync-and-sharing.md`): a
+  stateless API with a database and an object store that holds only
+  encrypted files; language (Python/FastAPI or C#/ASP.NET Core) and
+  hosting are decided with the technology. Encryption uses WebCrypto,
+  which the browser and the Capacitor web view both offer.
 
 ## Where everything else lives
 
@@ -144,5 +157,6 @@ prototype is built so that the likely path stays cheap:
   questions that block a decision.
 - `docs/interaction-concept.md` — how NoteDown is operated across tiers.
 - `docs/file-format.md` — the notes file.
+- `docs/sync-and-sharing.md` — sync, sharing, identity, encryption.
 - `FEATURE_BACKLOG.md` — what might come; entries leave it when their
   requirement is decided and in the prototype.

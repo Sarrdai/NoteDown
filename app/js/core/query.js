@@ -1,6 +1,7 @@
 // What a view shows: which notes, in which order, and the table of contents
 // over them. Pure functions on the note objects from notes-file.js.
 import { headings, noteTitle } from "./markdown.js";
+import { localTime } from "./notes-file.js";
 
 export const SORT_KEYS = {
   modified: { label: "Last edited", field: "modified" },
@@ -59,5 +60,5 @@ export function tableOfContents(notes) {
 
 /** How many notes were closed on the given local day ("YYYY-MM-DD"). */
 export function closedOn(notes, day) {
-  return notes.filter(n => n.status === "closed" && n.closed && n.closed.startsWith(day)).length;
+  return notes.filter(n => n.status === "closed" && n.closed && localTime(n.closed).startsWith(day)).length;
 }

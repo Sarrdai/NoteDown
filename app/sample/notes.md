@@ -1,14 +1,14 @@
-<!-- note id=s01 status=open created=2026-10-13T08:05 modified=2026-10-13T08:40 due=2026-10-13 -->
+<!-- note id=s01 status=open created=2026-10-13T08:05Z modified=2026-10-13T08:40Z due=2026-10-13 -->
 ## Weekly groceries
 - [x] Oat milk
 - [ ] Coffee beans (the Ethiopian ones)
 - [ ] Tomatoes, basil, mozzarella
 - [ ] Dishwasher tablets
 
-<!-- note id=s02 status=open created=2026-10-12T19:22 modified=2026-10-13T07:55 -->
+<!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z -->
 Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks.
 
-<!-- note id=s03 status=open created=2026-10-02T10:00 modified=2026-10-12T21:10 due=2026-10-17 -->
+<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 -->
 ## Trip to Lisbon
 ### Before we go
 - [x] Book flights
@@ -25,20 +25,20 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 - [ ] Rain jacket
 - [ ] Power adapter? (no, same plug type)
 
-<!-- note id=s04 status=open created=2026-10-08T14:30 modified=2026-10-11T16:45 due=2026-10-10 -->
+<!-- note id=s04 status=open created=2026-10-08T14:30Z modified=2026-10-11T16:45Z due=2026-10-10 -->
 ## Tax return 2025
 The deadline was extended, but the accountant wants the papers this week.
 - [ ] Collect the craftsman invoices
 - [x] Download the annual bank statement
 - [ ] Find the donation receipts
 
-<!-- note id=s05 status=open created=2026-10-11T09:15 modified=2026-10-11T09:15 -->
+<!-- note id=s05 status=open created=2026-10-11T09:15Z modified=2026-10-11T09:15Z -->
 ## Book ideas
 - *The Overstory* — Richard Powers
 - *Piranesi* — Susanna Clarke
 - Something on the history of maps
 
-<!-- note id=s06 status=open created=2026-09-28T18:00 modified=2026-10-10T20:30 -->
+<!-- note id=s06 status=open created=2026-09-28T18:00Z modified=2026-10-10T20:30Z -->
 ## Garden plan for spring
 ### Raised bed
 - Move the strawberries to the sunny corner
@@ -47,14 +47,14 @@ The deadline was extended, but the accountant wants the papers this week.
 - [ ] Sharpen the hedge trimmer
 - [ ] New hose connector
 
-<!-- note id=s07 status=open created=2026-10-09T12:40 modified=2026-10-09T12:40 due=2026-10-21 -->
+<!-- note id=s07 status=open created=2026-10-09T12:40Z modified=2026-10-09T12:40Z due=2026-10-21 -->
 ## Call the dentist
 Six-month check-up is due. Ask whether Tuesday mornings are possible.
 
-<!-- note id=s08 status=open created=2026-10-07T07:10 modified=2026-10-09T08:00 -->
+<!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z -->
 Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.
 
-<!-- note id=s09 status=open created=2026-10-05T16:20 modified=2026-10-08T10:05 due=2026-10-24 -->
+<!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 -->
 ## Birthday party for Mia
 ### Guests
 - Grandparents, Lea's sister, the neighbours
@@ -66,39 +66,39 @@ Idea for the team meeting: start with the open questions from last week instead 
 - Treasure hunt in the garden
 - [Ideas from last year](https://example.com/party-games)
 
-<!-- note id=s10 status=open created=2026-10-04T11:00 modified=2026-10-06T19:30 -->
+<!-- note id=s10 status=open created=2026-10-04T11:00Z modified=2026-10-06T19:30Z -->
 ## Recipe: lentil soup
 1. Sweat onion, carrot and celery in olive oil
 2. Add red lentils, tomato paste and stock
 3. Simmer for 20 minutes, blend half of it
 4. Lemon juice and cumin at the end
 
-<!-- note id=s11 status=open created=2026-10-03T21:45 modified=2026-10-03T21:45 -->
+<!-- note id=s11 status=open created=2026-10-03T21:45Z modified=2026-10-03T21:45Z -->
 ## Wi-Fi at the cabin
 Network `Cabin-5G`, the password is on the router. Reset button only works when held for 10 seconds.
 
-<!-- note id=s12 status=open created=2026-09-30T08:30 modified=2026-10-02T17:00 due=2026-10-31 -->
+<!-- note id=s12 status=open created=2026-09-30T08:30Z modified=2026-10-02T17:00Z due=2026-10-31 -->
 ## Car
 - [ ] Winter tyres
 - [ ] Inspection sticker expires end of October
 
-<!-- note id=s13 status=closed created=2026-10-10T09:00 modified=2026-10-13T07:30 closed=2026-10-13T07:30 -->
+<!-- note id=s13 status=closed created=2026-10-10T09:00Z modified=2026-10-13T07:30Z closed=2026-10-13T07:30Z -->
 ## Pay the electricity bill
 Done by bank transfer, reference number in the banking app.
 
-<!-- note id=s14 status=closed created=2026-10-12T18:00 modified=2026-10-13T08:10 closed=2026-10-13T08:10 -->
+<!-- note id=s14 status=closed created=2026-10-12T18:00Z modified=2026-10-13T08:10Z closed=2026-10-13T08:10Z -->
 Return the parcel with the wrong shoe size. Drop-off point is the kiosk on the corner.
 
-<!-- note id=s15 status=closed created=2026-10-06T10:00 modified=2026-10-13T08:20 due=2026-10-14 closed=2026-10-13T08:20 -->
+<!-- note id=s15 status=closed created=2026-10-06T10:00Z modified=2026-10-13T08:20Z due=2026-10-14 closed=2026-10-13T08:20Z -->
 ## Library books
 - [x] *Atlas of Remote Islands*
 - [x] *The Little Prince* (for Mia)
 
-<!-- note id=s16 status=closed created=2026-10-01T15:00 modified=2026-10-11T12:00 closed=2026-10-11T12:00 -->
+<!-- note id=s16 status=closed created=2026-10-01T15:00Z modified=2026-10-11T12:00Z closed=2026-10-11T12:00Z -->
 ## Move the dentist appointment
 New date confirmed by mail.
 
-<!-- note id=s17 status=closed created=2026-09-25T08:00 modified=2026-10-09T18:30 due=2026-10-09 closed=2026-10-09T18:30 -->
+<!-- note id=s17 status=closed created=2026-09-25T08:00Z modified=2026-10-09T18:30Z due=2026-10-09 closed=2026-10-09T18:30Z -->
 ## Quarterly report
 ### Numbers
 - [x] Revenue per region
@@ -106,9 +106,9 @@ New date confirmed by mail.
 ### Text
 - [x] Summary for the board
 
-<!-- note id=s18 status=closed created=2026-09-20T20:00 modified=2026-10-04T09:00 closed=2026-10-04T09:00 -->
+<!-- note id=s18 status=closed created=2026-09-20T20:00Z modified=2026-10-04T09:00Z closed=2026-10-04T09:00Z -->
 ## Holiday photos
 Sorted and backed up to the external drive.
 
-<!-- note id=s19 status=closed created=2026-09-15T12:00 modified=2026-09-29T13:00 closed=2026-09-29T13:00 -->
+<!-- note id=s19 status=closed created=2026-09-15T12:00Z modified=2026-09-29T13:00Z closed=2026-09-29T13:00Z -->
 Cancel the old phone contract. Confirmation arrived, ends on 31 December.

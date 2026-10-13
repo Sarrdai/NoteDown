@@ -1,5 +1,6 @@
-// Date labels for the list. Inputs are the file's local timestamps
-// ("YYYY-MM-DDTHH:MM") and dates ("YYYY-MM-DD").
+// Date labels for the list. Inputs are the file's timestamps (UTC, shown
+// in the device's local time) and dates ("YYYY-MM-DD", calendar days).
+import { localTime } from "../core/notes-file.js";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function today(now = new Date()) {
@@ -23,6 +24,7 @@ export function shortDate(day, now = new Date()) {
 
 /** "Today 08:40", "Yesterday 19:22", "12 Oct", "12 Oct 2025". */
 export function relativeTime(ts, now = new Date()) {
+  ts = localTime(ts);
   const day = ts.slice(0, 10);
   const time = ts.slice(11, 16);
   const t = today(now);

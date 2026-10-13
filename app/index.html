@@ -37,6 +37,7 @@
         <button class="icon-btn" id="searchBtn" aria-label="Search"></button>
         <button class="icon-btn labelled" id="sortBtn" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="sortLabel"></span></button>
         <button class="icon-btn labelled" id="archiveBtn"><span class="btn-icon"></span><span class="btn-label">Archive</span><span class="count" id="archiveCount">0</span></button>
+        <button class="icon-btn" id="syncBtn" hidden></button>
         <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More"></button>
       </header>
       <div class="selectbar keep-editing" id="selectBar" role="toolbar" aria-label="Selection" hidden>
@@ -79,6 +80,16 @@
           <button class="btn" id="orderCancel">Cancel</button>
           <button class="btn primary" id="orderOk"></button>
         </div>
+      </div>
+    </div>
+    <div class="dialog-scrim keep-editing" id="syncPanel" hidden>
+      <div class="dialog sheet" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
+        <header class="sheet-head">
+          <button class="icon-btn" id="syncBack" aria-label="Close"></button>
+          <h2 class="sheet-title" id="syncTitle" tabindex="-1"></h2>
+        </header>
+        <div class="sheet-body" id="syncBody"></div>
+        <div class="sheet-foot" id="syncFoot" hidden></div>
       </div>
     </div>
   </div>

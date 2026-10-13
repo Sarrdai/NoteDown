@@ -5,6 +5,7 @@
 - [Platforms](#platforms)
 - [Functional areas](#functional-areas)
   - [Notes and storage](#notes-and-storage)
+  - [Sync and sharing](#sync-and-sharing)
   - [Main view and archive](#main-view-and-archive)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
@@ -23,14 +24,15 @@ not appended to.
 Each item says what NoteDown does (behavior terms) and, where it isn't
 obvious, why. **Prototype** says whether the item is in `app/` yet
 (round 1 = main view; round 2 = editor and dictation; round 3 =
-multi-select; "app phase" = only possible in the native app). **Open** names a question that blocks a decision. Items
+multi-select; round 4 = sync and sharing; "app phase" = only possible in
+the native app). **Open** names a question that blocks a decision. Items
 without another source were decided with the user on 2026-10-13.
 
 ## Vision
 
 NoteDown is a notes app in which every note is also a to-do: quick to
-capture (typing or dictation), quick to tick off, and stored as one plain
-Markdown file that stays readable in any other editor.
+capture (typing or dictation), quick to tick off, and stored as plain
+Markdown that stays readable in any other editor.
 
 **Open** — who else it is for beyond the user's own use, and what sets it
 apart from existing apps beyond the points above.
@@ -55,17 +57,82 @@ apart from existing apps beyond the points above.
 - Every note is one Markdown section, and every note is a to-do: it is
   either **open** or **closed**.
 - Each note has a **created** date, a **last-edited** date and an optional
-  **due date**; a closed note also keeps the date it was closed.
-- All notes, open and closed, are stored locally in one Markdown file;
-  the metadata sits in an invisible comment per note so the file stays
-  clean in other editors (`docs/file-format.md`). *Prototype: round 1
+  **due date**; a closed note also keeps the date it was closed. Times
+  are stored in UTC and shown in each device's local time; a due date is
+  a calendar day (so devices and members of a shared file in different
+  time zones agree).
+- All notes, open and closed, are stored locally as Markdown: one file
+  for the user's own notes, plus one per set of people notes are shared
+  with ("Sync and sharing"); the metadata sits in an invisible comment per
+  note so the files stay clean in other editors (`docs/file-format.md`). *Prototype: round 1
   (stored in browser storage, downloadable as `notes.md`).*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left
   empty is discarded silently. *Prototype: round 1.*
-- **Open** — where the file lives on each platform and whether it can be
-  synced or shared (app phase).
+- **Local first:** every device keeps the complete notes on the device
+  and works offline; in the app the files sit in the app's documents
+  folder (visible in the Files app), in the web app in browser storage
+  (`docs/sync-and-sharing.md` → "Where the files live"). *App phase.*
+
+### Sync and sharing
+
+Detailed in `docs/sync-and-sharing.md`; decided 2026-10-13, built in the
+app phase.
+
+- **Sync across devices** through NoteDown's own server, so notes written
+  on the phone show up in the web app on the desktop. It runs
+  automatically (after changes, on opening, on reconnect) with a status
+  indicator.
+- **End-to-end encrypted:** the server stores only encrypted files and
+  never holds a key that decrypts them — notes are private by default,
+  even from whoever runs the server.
+- **Single notes can be shared** with other people. All notes shared with
+  the same set of people live in one file for that set, encrypted so only
+  its members can read it; sharing with one more person or removing one
+  moves the note to the new set's file. All members are equal (edit,
+  close, share further, remove, leave), and the whole note including its
+  status is shared. Notes are shared with contacts; someone new gets an
+  invitation link first.
+- **Concurrent edits merge per note and per field;** when two devices
+  changed the same text, both versions are kept (conflict copy) — nothing
+  is lost. *Prototype: merge logic in `app/js/core/merge.js` (no live
+  sync in the prototype).*
+- **No accounts** (decided over email login: simpler, and keys come from
+  the other person instead of the server): turning on sync creates an
+  anonymous identity with a **recovery key** shown once. Devices are
+  linked by scanning a QR code on the new device; **contacts** are added
+  by scanning their QR code in person or by an invitation link. The
+  server knows no names or emails. The app works fully without sync.
+- **Removing a lost device** from another one locks it out and renews the
+  keys of every file it could read, so it can't read anything changed
+  afterwards — without a new recovery key and without bothering contacts
+  (decided 2026-10-13 over only blocking it or a new identity).
+- The server is built to scale to many users (stateless API, database,
+  object store).
+- **Where it is operated** (decided 2026-10-13):
+  - ⋮ → **"Sync & sharing…"** holds everything around sync: turning it on
+    (name, then the recovery key, which has to be confirmed as stored),
+    linking this device to an existing one (its QR code, or the recovery
+    key), the devices (link a device by scanning, remove one) and the
+    contacts (add by scanning or invitation link, show my code, remove).
+  - **Sharing starts from multi-select** (long-press → Share), so one or
+    several notes are shared at once; the share dialog lists the contacts
+    with a checkbox each (a dash when only some of the selected notes are
+    shared with that person), adds a contact on the spot, and offers
+    **Leave** for notes of one shared file. Undo in the snackbar. Chosen
+    over a toolbar or a per-card button: it follows the existing
+    long-press pattern and keeps the cards calm.
+  - **Shared notes show their members as initials avatars** in the meta
+    line (up to three, then "+n"), one stable color per contact; tapping
+    them opens the share dialog. Chosen over a colored stripe or a list
+    grouped by people: it says who reads along and keeps one sorted list.
+  - **Sync status** is a cloud icon in the top bar (synced, syncing,
+    offline), hidden while sync is off; tapping it opens Sync & sharing.
+  - Without sync, sharing explains that it needs sync and offers to turn
+    it on. Notes in the archive aren't shared from there.
+  - *Prototype: round 4, with a simulated server (`?sync=off` starts
+    without sync, ⋮ → Go offline).*
 
 ### Main view and archive
 
@@ -185,9 +252,9 @@ apart from existing apps beyond the points above.
   + button is hidden (decided 2026-10-13 over a bottom action bar: the
   thumb area and the list's bottom stay free, and search / archive can't
   be hit by accident). *Prototype: round 3.*
-- Actions on the selection: **Close**, **Copy**, **Merge** (two or more
-  notes) and **Delete**. Close and Delete end the selection and offer
-  Undo. In the archive the actions are **Reopen**, Copy and Delete — no
+- Actions on the selection: **Close**, **Copy**, **Share** ("Sync and
+  sharing"), **Merge** (two or more notes) and **Delete**. Close, Share
+  and Delete end the selection and offer Undo. In the archive the actions are **Reopen**, Copy and Delete — no
   Merge, closed notes are read-only. *Prototype: round 3.*
 - **Copy** puts the notes on the clipboard as plain Markdown, joined by a
   blank line, without metadata; it keeps the selection.
@@ -225,4 +292,4 @@ apart from existing apps beyond the points above.
 
 ### Not in scope (for now)
 
-Tags, folders / notebooks and sync — until there is a concrete need.
+Tags and folders / notebooks — until there is a concrete need.

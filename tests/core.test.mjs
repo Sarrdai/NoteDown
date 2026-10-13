@@ -57,3 +57,18 @@ test("query: closedOn counts notes closed on that day", () => {
   const notes = [n("a", { status: "closed", closed: "2026-10-13T08:00" }), n("b", { status: "closed", closed: "2026-10-12T08:00" }), n("c")];
   assert.equal(closedOn(notes, "2026-10-13"), 1);
 });
+
+test("time: timestamps are written in UTC and shown in the device's time zone", async () => {
+  const { timestamp, localTime } = await import("../app/js/core/notes-file.js");
+  const tz = process.env.TZ;
+  process.env.TZ = "Europe/Berlin";
+  try {
+    assert.equal(timestamp(new Date(Date.UTC(2026, 9, 13, 8, 5))), "2026-10-13T08:05Z");
+    assert.equal(localTime("2026-10-13T08:05Z"), "2026-10-13T10:05");
+    assert.equal(localTime("2026-10-13T08:05"), "2026-10-13T08:05"); // older local timestamp
+    const closed = n("a", { status: "closed", closed: "2026-10-12T23:30Z" });
+    assert.equal(closedOn([closed], "2026-10-13"), 1);
+  } finally {
+    if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
+  }
+});

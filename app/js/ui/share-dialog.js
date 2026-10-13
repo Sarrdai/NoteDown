@@ -1,0 +1,121 @@
+// The share dialog: pick the people a note (or several notes) is shared
+// with. It lives in the Sync & sharing panel's container (sync-panel.js).
+// A contact row is a tri-state checkbox: checked = every selected note is
+// shared with them, mixed = only some are, unchecked = none. Saving moves
+// each note into the file of its new set of people (docs/sync-and-sharing.md
+// → "Files").
+import { state, circleOf, shareNotes, removeNotes } from "../store.js";
+import { circleKey, circleLabel, shareState } from "../core/sharing.js";
+import { h, text, button } from "./dom.js";
+import { openPanel, registerPage, closePanel, go, setStack } from "./sync-panel.js";
+import { showSnackbar } from "./snackbar.js";
+import { avatarHtml, nameOf } from "./people.js";
+import { icon } from "./icons.js";
+
+const noun = n => n === 1 ? "Note" : "Notes";
+
+/** Opens the dialog for note ids. */
+export function openShareDialog(ids) {
+  if (!ids.length) return;
+  const page = state.sync.enabled ? "share" : "shareOff";
+  openPanel(page, { ids, states: initialStates(ids) });
+}
+
+function initialStates(ids) {
+  const sets = ids.map(circleOf);
+  return Object.fromEntries(state.sync.contacts.map(c => [c.id, shareState(sets, c.id)]));
+}
+
+// The member ids each note ends up with: its own members, plus the contacts
+// checked, minus the ones unchecked; "mixed" contacts stay as they are.
+function resultingSets(ids, states) {
+  return ids.map(id => {
+    const members = circleOf(id).filter(m => states[m] !== "none");
+    for (const [contactId, s] of Object.entries(states)) if (s === "all" && !members.includes(contactId)) members.push(contactId);
+    return members;
+  });
+}
+
+function save(data) {
+  const { ids, states } = data;
+  const sets = resultingSets(ids, states);
+  const before = ids.map(id => circleKey(circleOf(id)));
+  const changed = sets.some((m, i) => circleKey(m) !== before[i]);
+  closePanel();
+  if (!changed) return;
+  const undos = [];
+  if (new Set(sets.map(circleKey)).size === 1) undos.push(shareNotes(ids, sets[0]));
+  else ids.forEach((id, i) => undos.push(shareNotes([id], sets[i])));
+  const undo = () => undos.reverse().forEach(fn => fn());
+  const same = new Set(sets.map(circleKey)).size === 1;
+  const message = !same ? "Sharing updated"
+    : sets[0].length ? `Shared with ${circleLabel(sets[0].map(nameOf))}`
+    : ids.length === 1 ? "Note is private again" : "Notes are private again";
+  showSnackbar(message, undo);
+}
+
+function leave(data) {
+  const undo = removeNotes(data.ids);
+  closePanel();
+  showSnackbar(data.ids.length === 1 ? "You left the note" : "You left the notes", undo);
+}
+
+// Tri-state checkbox: a tap on "mixed" or unchecked checks it, on checked clears it.
+const MARK = { all: icon("check", "icon box-mark"), some: icon("minus", "icon box-mark"), none: "" };
+
+function contactRow(c, data) {
+  const row = h("button", {
+    class: "share-row", type: "button", role: "checkbox", "aria-checked": data.states[c.id] === "some" ? "mixed" : String(data.states[c.id] === "all"),
+    onclick: () => {
+      data.states[c.id] = data.states[c.id] === "all" ? "none" : "all";
+      paint(row, data.states[c.id]);
+    },
+  }, h("span", { html: avatarHtml(c.id) }), h("span", { class: "row-title" }, c.name), h("span", { class: "check-box", "data-state": data.states[c.id] }));
+  paint(row, data.states[c.id]);
+  return row;
+}
+
+function paint(row, s) {
+  row.setAttribute("aria-checked", s === "some" ? "mixed" : String(s === "all"));
+  const box = row.querySelector(".check-box");
+  box.dataset.state = s;
+  box.innerHTML = MARK[s];
+}
+
+const leavable = ids => {
+  const keys = new Set(ids.map(id => circleKey(circleOf(id))));
+  return keys.size === 1 && !keys.has("");
+};
+
+registerPage("share", {
+  title: data => data.ids.length === 1 ? "Share note" : `Share ${data.ids.length} notes`,
+  render: data => {
+    // A contact added from here comes back checked.
+    data.onContactAdded = c => { data.states[c.id] = "all"; };
+    return [
+      text("Only the people you pick can read it. Everyone you share with can edit, close and share it too."),
+      state.sync.contacts.length
+        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, state.sync.contacts.map(c => contactRow(c, data)))
+        : null,
+      h("button", { class: "share-row add", type: "button", onclick: () => go("addContact", { mode: "scan" }) },
+        h("span", { class: "row-icon", html: icon("plus") }), h("span", { class: "row-title" }, "Add contact")),
+      leavable(data.ids) ? h("div", { class: "button-row" }, button("Leave", "danger", () => leave(data))) : null,
+    ];
+  },
+  footer: data => [
+    h("div", { class: "foot-actions" }, button("Cancel", "", () => closePanel()), button("Save", "primary", () => save(data))),
+  ],
+});
+
+registerPage("shareOff", {
+  title: data => data.ids.length === 1 ? "Share note" : `Share ${data.ids.length} notes`,
+  render: () => [
+    h("div", { class: "hero", html: icon("sync") }),
+    text("Sharing needs sync. Turn it on to share notes with your contacts."),
+  ],
+  footer: () => [
+    h("div", { class: "foot-actions" },
+      button("Cancel", "", () => closePanel()),
+      button("Turn on sync", "primary", () => setStack([["off"], ["name"]]))),
+  ],
+});

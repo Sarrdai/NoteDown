@@ -5,17 +5,29 @@
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
 import { renderMarkdown, noteTitle, toggleTask } from "../core/markdown.js";
-import { state, note, setBody, setStatus, removeNote } from "../store.js";
+import { state, note, setBody, setStatus, removeNote, circleOf } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
+import { membersLabel, avatarStackHtml, esc } from "./people.js";
+import { openShareDialog } from "./share-dialog.js";
 
 const list = () => document.getElementById("list");
 
 export function renderList(notes) {
   list().replaceChildren(...notes.map(noteElement));
 }
+
+// A tap on the shared marker opens the share dialog.
+// (While selecting, the selection's own click handler runs first and keeps the tap.)
+document.addEventListener("click", e => {
+  const hit = e.target.closest("#list button.shared-mark");
+  if (!hit) return;
+  const id = hit.closest(".note").dataset.id;
+  if (state.editingId) endEdit();
+  if (note(id)) openShareDialog([id]);
+});
 
 export function patchNote(id) {
   const el = list().querySelector(`.note[data-id="${id}"]`);
@@ -53,8 +65,18 @@ function noteElement(n) {
   return el;
 }
 
+// The shared marker: overlapping avatars of the members; a button while the
+// note is open (opens the share dialog), plain info in the archive.
+function markerHtml(n) {
+  const members = circleOf(n.id);
+  if (!members.length) return "";
+  const attrs = `class="shared-mark" aria-label="${esc("Shared with " + membersLabel(members))}"`;
+  const inner = avatarStackHtml(members);
+  return n.status === "open" ? `<button type="button" ${attrs}>${inner}</button>` : `<span role="img" ${attrs}>${inner}</span>`;
+}
+
 function metaHtml(n) {
-  const parts = [];
+  const parts = [markerHtml(n)].filter(Boolean);
   if (n.due) {
     // A closed note's due date is history, not a warning.
     const d = n.status === "closed" ? { text: "Due " + shortDate(n.due), kind: "future" } : dueLabel(n.due);
