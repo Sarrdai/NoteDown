@@ -135,6 +135,9 @@ Cloud Run serves a custom domain once Google knows the domain is yours.
 5. Add the repository variable `API_HOST` = `notedown-api.example.com`:
    the web and Android deploys write it into `app/config.json`, where the
    app finds its sync server (without it, sync can't be turned on).
+   Both host variables hold the bare host name (no `https://`); the
+   deploys stop with an error on a URL or the `example.com` placeholder
+   (`scripts/check-host.sh`).
 
 ## 5. Android signing key
 

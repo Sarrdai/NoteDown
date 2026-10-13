@@ -52,6 +52,10 @@ jobs:
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/notedown/server:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
+      # A placeholder or a URL instead of a host name breaks the deployed app.
+      - run: scripts/check-host.sh WEB_HOST
+        env:
+          WEB_HOST: ${{ vars.WEB_HOST }}
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}

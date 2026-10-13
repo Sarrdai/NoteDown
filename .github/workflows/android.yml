@@ -22,6 +22,10 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v7
+      # A placeholder or a URL instead of a host name breaks the deployed app.
+      - run: ../scripts/check-host.sh API_HOST
+        env:
+          API_HOST: ${{ vars.API_HOST }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
