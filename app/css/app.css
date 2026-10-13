@@ -11,7 +11,10 @@
   --toc-w: 280px;
   --fab-size: 56px;
   --tap: 44px;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Safe areas: the Android shell draws edge-to-edge and also injects the
+   * insets as --safe-area-inset-* (Capacitor SystemBars), the browser has env(). */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   /* QR codes stay dark on light and the camera view stays dark in every flavor. */
   --qr-bg: #eff1f5;
   --qr-fg: #4c4f69;
@@ -106,7 +109,7 @@ button { font: inherit; color: inherit; }
 .topbar {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; gap: 4px;
-  height: var(--topbar-h); padding: 0 8px;
+  height: calc(var(--topbar-h) + var(--safe-top)); padding: var(--safe-top) 8px 0;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid transparent;
@@ -146,7 +149,7 @@ button { font: inherit; color: inherit; }
   padding: 14px 16px 12px 10px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow);
-  scroll-margin-top: calc(var(--topbar-h) + 12px);
+  scroll-margin-top: calc(var(--topbar-h) + var(--safe-top) + 12px);
 }
 .note.flash { animation: flash 1.2s ease-out; }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow); } }
@@ -305,7 +308,7 @@ button { font: inherit; color: inherit; }
 .app.selecting .topbar { display: none; }
 .selectbar {
   display: flex; align-items: center; gap: 4px;
-  position: sticky; top: 0; z-index: 10; height: var(--topbar-h); padding: 0 8px;
+  position: sticky; top: 0; z-index: 10; height: calc(var(--topbar-h) + var(--safe-top)); padding: var(--safe-top) 8px 0;
   background: color-mix(in srgb, var(--accent) 14%, var(--bg)); border-bottom: 1px solid var(--border);
 }
 .sel-label { display: none; }
@@ -321,10 +324,10 @@ button { font: inherit; color: inherit; }
 /* Order dialog for Copy and Merge. */
 .dialog-scrim {
   position: fixed; z-index: 45; inset: 0; display: flex; align-items: center; justify-content: center;
-  padding: 16px; background: rgb(0 0 0 / 0.4);
+  padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); background: rgb(0 0 0 / 0.4);
 }
 .dialog {
-  display: flex; flex-direction: column; width: min(460px, 100%); max-height: calc(100dvh - 32px);
+  display: flex; flex-direction: column; width: min(460px, 100%); max-height: 100%;
   padding: 20px 16px 12px; border-radius: 18px; background: var(--ctp-base); color: var(--text); box-shadow: var(--shadow-high);
 }
 .dialog-title { margin: 0 8px; font-size: 1.15rem; }
@@ -353,7 +356,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Sync & sharing panel ---------- */
 /* Centered dialog on tablet and desktop, full-screen sheet on the phone. */
-.sheet { width: min(480px, 100%); height: min(680px, calc(100dvh - 32px)); padding: 0; overflow: hidden; }
+.sheet { width: min(480px, 100%); height: min(680px, 100%); padding: 0; overflow: hidden; }
 .sheet-head { flex: none; display: flex; align-items: center; gap: 4px; height: var(--topbar-h); padding: 0 8px; }
 .sheet-title { margin: 0; font-size: 1.15rem; outline: none; }
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 20px calc(20px + var(--safe-bottom)); display: flex; flex-direction: column; gap: 14px; }
@@ -456,6 +459,7 @@ button { font: inherit; color: inherit; }
 @media (max-width: 599px) {
   #syncPanel { padding: 0; }
   .sheet { width: 100%; height: 100dvh; max-height: none; border-radius: 0; }
+  .sheet-head { height: calc(var(--topbar-h) + var(--safe-top)); padding-top: var(--safe-top); }
 }
 
 /* ---------- share dialog, shared marker, sync status ---------- */
@@ -507,7 +511,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 /* ---------- rendered Markdown ---------- */
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
-.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: 1em 0 0.35em; line-height: 1.3; scroll-margin-top: calc(var(--topbar-h) + 16px); }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: 1em 0 0.35em; line-height: 1.3; scroll-margin-top: calc(var(--topbar-h) + var(--safe-top) + 16px); }
 .md h1 { font-size: 1.45rem; }
 .md h2 { font-size: 1.25rem; }
 .md h3 { font-size: 1.06rem; }
@@ -539,7 +543,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 /* ---------- table of contents ---------- */
 .toc-panel {
   position: fixed; z-index: 20; top: 0; bottom: 0; left: 0; width: var(--toc-w);
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; padding-top: var(--safe-top);
   background: var(--bg); border-right: 1px solid var(--border);
 }
 .toc-handle { display: none; }
@@ -615,9 +619,9 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .btn-label { display: none; }
 }
 @media (min-width: 1024px) {
-  .topbar { padding: 0 16px; }
+  .topbar { padding-inline: 16px; }
   .list { padding-top: 12px; }
-  .selectbar { padding: 0 16px; }
+  .selectbar { padding-inline: 16px; }
   .sel-label { display: inline; }
   /* On the desktop the toolbar floats over the list column. */
   .toolbar {
@@ -632,7 +636,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 }
 @media (max-width: 599px) {
   .btn-label { display: none; }
-  .topbar { padding: 0 4px; gap: 0; }
+  .topbar { padding-inline: 4px; gap: 0; }
   .search { display: none; }
   #searchBtn { display: inline-flex; }
   .app.searching .search { display: flex; flex: 1; width: auto; }
@@ -650,7 +654,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .toc-panel {
     transition: transform 0.25s ease; box-shadow: var(--shadow-high); background: var(--ctp-base);
     top: auto; right: 0; width: auto; height: min(72dvh, 600px);
-    border-right: 0; border-radius: 18px 18px 0 0; padding-bottom: var(--safe-bottom);
+    border-right: 0; border-radius: 18px 18px 0 0; padding-top: 0; padding-bottom: var(--safe-bottom);
     transform: translateY(105%);
   }
   .app.toc-open .toc-panel { transform: none; }

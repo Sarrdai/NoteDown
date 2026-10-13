@@ -21,6 +21,10 @@ Current state, edited in place when a decision changes.
 - One primary action per view, as a floating button at the bottom
   right: + in the main view; none in the archive (nothing is created
   there).
+- The app draws edge-to-edge: top bars, the sidebar and full-screen
+  panels extend their background behind the system status bar and keep
+  their controls below it, bottom elements stay above the gesture bar
+  (safe-area insets; Android forces edge-to-edge from version 15).
 - The archive keeps the main view's layout; only the background tint and
   the back button instead of the archive button tell them apart.
 
