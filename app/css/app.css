@@ -402,7 +402,7 @@ button { font: inherit; color: inherit; }
 .input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
 
 .key-box {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 6px; padding: 16px 12px; border: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 6px; padding: 16px 12px; border: 1px solid var(--border);
   border-radius: 12px; background: var(--bg); font-family: var(--mono); font-size: 1.05rem; font-weight: 700; letter-spacing: 0.06em;
   text-align: center; -webkit-user-select: all; user-select: all;
 }
