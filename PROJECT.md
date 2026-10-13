@@ -2,11 +2,12 @@
 
 ## What this is
 
-NoteDown is a cross-platform notes app. The project is in its **concept
-phase**: the goal is to work out the functional scope and the operating
-concept (Bedienkonzept) with requirements and clickable HTML mockups
-before any app code is written. Turning the concept into an app — choice
-of technology, platforms, storage, sync — is a later phase and gets its
+NoteDown is a cross-platform notes app for Android, iOS and the web. The
+project is in its **concept phase**: the goal is to work out the
+functional scope and the operating concept (Bedienkonzept) with
+requirements and clickable HTML mockups before any app code is written.
+Turning the concept into an app — technology, storage, sync — is a later
+phase and gets its
 own decisions in `docs/requirements.md`.
 
 What the repo holds today:

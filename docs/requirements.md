@@ -15,9 +15,16 @@ existing notes apps.
 
 ## Platforms
 
-**Open** — target platforms for the later app (desktop OSes, iOS, Android,
-web) and whether all ship at once. The concept covers the three device
-tiers in `PROJECT.md` → "Device tiers" in any case.
+- **Android, iOS and web** are the target platforms of the app
+  (decided 2026-10-13, person-requested).
+- The web app runs in desktop and mobile browsers, so all three device
+  tiers in `PROJECT.md` → "Device tiers" stay in scope: phone and tablet
+  through the native apps and the mobile web, desktop through the web app
+  only.
+- No native desktop apps (Windows, macOS, Linux) are planned; the desktop
+  browser covers that use.
+- **Open** — whether all three platforms ship at once; the technology
+  (one shared codebase or not) is decided in the app phase.
 
 ## Functional areas
 

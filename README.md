@@ -1,6 +1,6 @@
 # NoteDown
 
-A cross-platform notes app — currently in the concept phase.
+A notes app for Android, iOS and the web — currently in the concept phase.
 
 Right now this repository holds requirements and clickable HTML mockups
 that work out what NoteDown does and how it is operated on desktop,
