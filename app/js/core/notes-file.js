@@ -6,20 +6,25 @@
 //   ## Shopping
 //   - [ ] Milk
 //
-// Text before the first marker is kept as the file's preamble.
+// Text before the first marker is kept as the file's preamble. A note that
+// was moved to another file (sharing) leaves a bodyless marker with `moved=`.
 
 const MARKER = /^<!-- note ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes }. */
+/** Parses a NoteDown file into { preamble, notes, moved }. */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
+  const moved = [];
+  const finish = c => c.meta.moved && c.meta.id
+    ? moved.push({ id: c.meta.id, moved: c.meta.moved })
+    : notes.push(finishNote(c));
   const preamble = [];
   let current = null;
   for (const line of lines) {
     const m = MARKER.exec(line.trim());
     if (m) {
-      if (current) notes.push(finishNote(current));
+      if (current) finish(current);
       current = { meta: parseAttrs(m[1]), body: [] };
     } else if (current) {
       current.body.push(line);
@@ -27,12 +32,12 @@ export function parseNotesFile(text) {
       preamble.push(line);
     }
   }
-  if (current) notes.push(finishNote(current));
-  return { preamble: preamble.join("\n").trim(), notes };
+  if (current) finish(current);
+  return { preamble: preamble.join("\n").trim(), notes, moved };
 }
 
-/** Writes { preamble, notes } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes }) {
+/** Writes { preamble, notes, moved } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [] }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) {
     const attrs = ["id=" + n.id, "status=" + n.status, "created=" + n.created, "modified=" + n.modified];
@@ -40,6 +45,7 @@ export function serializeNotesFile({ preamble = "", notes }) {
     if (n.closed) attrs.push("closed=" + n.closed);
     parts.push(`<!-- note ${attrs.join(" ")} -->\n${n.body.trim()}`);
   }
+  for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
   return parts.join("\n\n") + "\n";
 }
 
@@ -75,6 +81,7 @@ function finishNote({ meta, body }) {
   };
 }
 
-function newId() {
-  return "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+/** A new note id; random enough to stay unique across everyone sharing a file. */
+export function newId() {
+  return "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
