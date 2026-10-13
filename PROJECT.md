@@ -32,7 +32,7 @@ the prototype is ported (see "Technology direction").
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
-| `scripts/` | `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook) |
 
 ## Device tiers
 
@@ -53,14 +53,17 @@ that hold for all views are in `docs/interaction-concept.md`.
 
 ### Running it
 
-ES modules don't load from `file://`, so the prototype is served by any
-static file server from the repo root — no install, no build:
+ES modules don't load from `file://`, so the prototype is served from
+the repo root — no install, no build:
 
 ```bash
-python3 -m http.server 8000      # then open http://localhost:8000/app/
+python3 scripts/serve.py         # port 8000; or: python3 scripts/serve.py 8080
 ```
 
-On a phone in the same network, open `http://<computer-ip>:8000/app/`.
+It prints the addresses to open: `http://localhost:8000/app/` on this
+computer and `http://<computer-ip>:8000/app/` for a phone or tablet in
+the same network. Any other static file server from the repo root works
+too (e.g. `python3 -m http.server 8000`).
 The first start loads the sample notes; ⋮ → "Reset sample notes" brings
 them back.
 

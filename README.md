@@ -23,14 +23,14 @@ desktop, tablet and phone. The real app comes later.
 
 ## Try the prototype
 
-No install, no build — serve the repo with any static file server:
+No install, no build — serve the repo:
 
 ```bash
-python3 -m http.server 8000
+python3 scripts/serve.py
 ```
 
-Then open <http://localhost:8000/app/> (on a phone in the same network:
-`http://<computer-ip>:8000/app/`). Resize the window to see the tablet
+It prints the addresses: <http://localhost:8000/app/> on this computer,
+and `http://<computer-ip>:8000/app/` for a phone in the same network. Resize the window to see the tablet
 and phone layouts; ⋮ switches the theme. Dictation needs `localhost` or
 https; add `?dictation=demo` to try it without a microphone.
 
