@@ -32,6 +32,10 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      # The app finds its sync server in app/config.json (empty in the repository).
+      - if: vars.API_HOST != ''
+        run: |
+          echo '{ "api": "https://${{ vars.API_HOST }}" }' > ../app/config.json
       - run: npx cap sync android
 
       - name: Build signed release APK

@@ -19,11 +19,15 @@ export const DEFAULT_SETTINGS = {
   sort: structuredClone(DEFAULT_SORT),
 };
 
-// Sync and identity (prototype: simulated, see sync-sim.js). `devices` are
-// the other devices; status is "synced" | "syncing" | "offline", lastSync in ms.
+// Sync and identity. Real sync (sync/client.js) keeps `identity`,
+// `identityKey` (b64u), `device` (this device's ID) and `file` ({ id, version,
+// base text }) of the private file; the device keys live in IndexedDB.
+// `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
+// `recoveryKey`, `devices` (the other devices' names) and `contacts`.
+// status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
-  enabled: false, name: "", recoveryKey: "", devices: [], contacts: [],
-  offline: false, status: "synced", lastSync: null,
+  enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null,
+  recoveryKey: "", devices: [], contacts: [], offline: false, status: "synced", lastSync: null, error: "",
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
@@ -59,6 +63,8 @@ export function load() {
   } catch { /* keep defaults */ }
   try {
     const sync = { ...structuredClone(DEFAULT_SYNC), ...JSON.parse(read(SYNC_KEY) || "{}") };
+    // Stored before real sync existed: the sample's simulated identity.
+    if (sync.enabled && !sync.identity) sync.simulated = true;
     sync.status = sync.enabled && sync.offline ? "offline" : "synced";
     state.sync = sync;
   } catch { /* keep defaults */ }
@@ -84,7 +90,14 @@ export function replaceFiles({ file, shared = [], sync = null }) {
   emit("structure");
 }
 
-/** The private file as text (the "Download notes.md" prototype entry). */
+/** Replaces the private file with a synced version; no "files changed" event. */
+export function setPrivateFile(file) {
+  state.file = withMoved(file);
+  saveFiles({ notify: false });
+  emit("structure");
+}
+
+/** The private file as text (what sync uploads; ⋮ → "Download notes.md"). */
 export function fileText() {
   return serializeNotesFile(state.file);
 }

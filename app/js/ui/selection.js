@@ -153,7 +153,7 @@ function update() {
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close },
     { id: "copy", label: "Copy", run: copy },
-    !archive && { id: "share", label: "Share", run: share },
+    !archive && state.sync.simulated && { id: "share", label: "Share", run: share },   // real sharing: milestone 2
     !archive && { id: "merge", label: "Merge", run: merge, disabled: n < 2 },
     { id: "trash", label: "Delete", run: remove },
   ].filter(Boolean);

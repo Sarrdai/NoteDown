@@ -1,6 +1,6 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 13
+LAST_ID: 14
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
 elaborated with the user, built into the prototype, and then leaves this file for
@@ -31,6 +31,7 @@ each priority. Re-sort after changing any priority.
 
 | Nr | Vorschlag | Begründung | Aufwand | Prio |
 |---|---|---|---|---|
+| 14 | Device names in the device list | Real sync (2026-10-13): the server knows devices only by key, so the list shows "This device", "Device 1", "Device 2". Names ("Pixel 8", "Chrome on Windows") would have to travel encrypted, e.g. in a small encrypted file of the identity or inside the linking QR code. | klein | 1 |
 | 1 | Reminders / notifications for due dates | Came up while scoping due dates (2026-10-13): a due date is shown as a chip today, but nothing reminds the user. Open: time of day, per note or global, platform notifications in the web app. | mittel | 2 |
 | 4 | Verify a contact added by invitation link | Sync without accounts (2026-10-13): a contact scanned in person is verified, one added by link is only as safe as the messenger it came through. Scanning their code later, or comparing a short safety code, would verify it. | klein | 2 |
 | 8 | Rate limits per IP address on the server | Live test setup (2026-10-13): `docs/sync-and-sharing.md` → "Server" asks for them, but creating identities, relay slots and challenges is unlimited today. Open: a store shared across Cloud Run instances, or Google's load balancer / Cloud Armor (not free). | klein | 2 |

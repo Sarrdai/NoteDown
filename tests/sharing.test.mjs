@@ -68,18 +68,32 @@ test("splitIntoCircles: groups with the same member set share one file", () => {
   assert.deepEqual(shared[0].file.notes.map(n => n.id), ["s01", "s02"]);
 });
 
-test("recovery key: 6 groups of 4 from A–Z and 2–9, round-trips through normalize", () => {
+test("recovery key: 16 bytes as 26 base32 characters in groups, round-trips through normalize", () => {
   const key = generateRecoveryKey();
-  assert.match(key, /^([A-Z2-9]{4}-){5}[A-Z2-9]{4}$/);
+  assert.match(key, /^([A-Z2-7]{4}-){6}[A-Z2-7]{2}$/);
   assert.equal(normalizeRecoveryKey(key), key);
   assert.equal(normalizeRecoveryKey(key.toLowerCase().replaceAll("-", " ")), key);
-  assert.equal(generateRecoveryKey(() => 0), "AAAA-AAAA-AAAA-AAAA-AAAA-AAAA");
+  assert.equal(generateRecoveryKey(() => new Uint8Array(16)), "AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AA");
+  assert.equal(generateRecoveryKey(() => new Uint8Array(16).fill(255)), "7777-7777-7777-7777-7777-7777-74");
 });
 
-test("normalizeRecoveryKey: rejects wrong length and characters", () => {
+test("recovery key: RFC 4648 base32 of the bytes", () => {
+  const bytes = Uint8Array.from("0f1e2d3c4b5a69788796a5b4c3d2e1f0".match(/../g), h => parseInt(h, 16));
+  assert.equal(generateRecoveryKey(() => bytes), "B4PC-2PCL-LJUX-RB4W-UW2M-HUXB-6A");
+});
+
+test("normalizeRecoveryKey: maps the look-alikes 0 1 8 to O I B", () => {
+  assert.equal(normalizeRecoveryKey("1OB0-8888-1111-0000-AAAA-AAAA-AA"), "IOBO-BBBB-IIII-OOOO-AAAA-AAAA-AA");
+});
+
+test("normalizeRecoveryKey: rejects wrong length, characters and set unused bits", () => {
   assert.equal(normalizeRecoveryKey(""), null);
   assert.equal(normalizeRecoveryKey("ABCD-EFGH"), null);
-  assert.equal(normalizeRecoveryKey("ABCD-EFGH-JKLM-NPQR-STUV-WXY1"), null); // 1 is not in the alphabet
+  assert.equal(normalizeRecoveryKey("AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAA"), null); // too long
+  assert.equal(normalizeRecoveryKey("AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-A"), null); // too short
+  assert.equal(normalizeRecoveryKey("AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-A9"), null); // 9 is not base32
+  assert.equal(normalizeRecoveryKey("AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AB"), null); // unused bits set
+  assert.equal(normalizeRecoveryKey("AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AE"), "AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AE");
 });
 
 test("inviteLink: fixed prefix and a fragment", () => {

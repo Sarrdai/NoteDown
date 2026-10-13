@@ -78,9 +78,12 @@ rely on the operating system's own storage encryption for the local copy.
   store safely) from which the **identity key** is derived, plus a key
   pair for this device. Until then the app works fully without sync.
 - **Every device has its own keys** (X25519 for encryption, Ed25519 for
-  signing), created on the device and kept in the platform's key store
-  (Android Keystore, iOS Keychain, non-exportable WebCrypto keys in the
-  browser). The identity key itself stays on no device; it only signs the
+  signing), created on the device as **non-exportable WebCrypto keys**
+  in the app's browser storage (IndexedDB) — in the web app and in the
+  Android app's web view alike (decided 2026-10-13: one code path; the
+  Android Keystore would need a native plugin and Android 13+). The web
+  view needs Ed25519 and X25519 in WebCrypto (current Android System
+  WebView). The identity key itself stays on no device; it only signs the
   start of the **device list**, and every later change to that list is
   signed by a device that is on it at that point.
 - **The server knows an identity only by an ID, its public keys and its
@@ -132,7 +135,7 @@ rely on the operating system's own storage encryption for the local copy.
 |---|---|---|
 | Recovery key | Seed of the identity key and of the recovery "device" key | Only with the user; never sent anywhere |
 | Identity key (Ed25519) | Who the user is: contacts remember it; signs the start of the device list | Derived from the recovery key when needed, stored on no device |
-| Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only in that device's key store |
+| Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device, non-exportable (WebCrypto, IndexedDB) |
 | File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; renewed when a device is removed |
 
 - **Sharing a note in a new set of people:** the device creates a random
@@ -153,8 +156,14 @@ rely on the operating system's own storage encryption for the local copy.
   started from. If another device was faster, the device downloads,
   merges and uploads again.
 - Sync runs **automatically**: shortly after a change, when the app opens
-  or comes back to the foreground, and when it reconnects. A status
-  indicator shows synced, pending or offline (UI round).
+  or comes back to the foreground, when it reconnects, and every 30 s
+  while it is visible (the server has no push). While a note is being
+  edited, remote changes wait until the edit ends. A status indicator
+  shows synced, syncing, offline or an error (e.g. "This device was
+  removed from sync").
+- **Linking with the recovery key** combines the notes already on the new
+  device with the synced ones; an untouched welcome note is dropped, so
+  only one remains.
 - Each device keeps, per file, the last state it synced (the **base**).
   A device rejects a version older than the one it has seen, so the
   server can't roll a file back unnoticed.
@@ -171,6 +180,10 @@ against the base:
 | changed | changed | merged per field: status (with closed date), due date and text are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, where the other version is kept as a **conflict copy** (a separate note), so nothing is lost |
 | changed | deleted | the edit wins, the note stays |
 | changed | moved to another file | the edit follows the note into that file, or into the user's private file if the user is no longer a member there (`applyDisplaced`) |
+
+The merged file keeps the remote order and appends notes only the local
+side has, so a merge that adds nothing equals the remote file and two
+devices don't keep re-uploading the same notes in each other's order.
 
 ## Server
 
@@ -196,10 +209,12 @@ against the base:
 - Until a lost device is removed, it can change or delete notes,
   including shared ones; a version history on the server (backlog #7)
   would let the user bring a file back.
-- **Where device keys live in the app — open:** non-exportable WebCrypto
-  keys in the web view (the same code as the web app; proposed for
-  milestone 1) or the Android Keystore as stated under "Identity and
-  devices" (needs a native plugin and Android 13+ for Ed25519/X25519).
-  Decided before the client's crypto is built.
 - The UI is decided and in the prototype (`docs/requirements.md` → "Sync
-  and sharing" → "Where it is operated"); the server is simulated there.
+  and sharing" → "Where it is operated"). Real sync covers milestone 1
+  without linking by QR code (`app/js/sync/`); the rest is simulated in
+  the sample.
+- **Milestone 1 client details:** the private file is the identity's only
+  file on the server (milestone 2 needs a way to tell it from shared
+  files); the device list shows numbered devices, since the server knows
+  no names (backlog #14); the notes still sit in `localStorage`, only the
+  keys in IndexedDB.

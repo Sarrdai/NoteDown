@@ -41,7 +41,7 @@ the live test setup is described in `docs/operations.md`.
 | `mobile/` | The Android app: a Capacitor shell around `app/` (see "Android app") |
 | `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
-| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`), `test-server.sh` (server tests) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
 
 ## Device tiers
 
@@ -73,8 +73,9 @@ It prints the addresses to open: `http://localhost:8000/app/` on this
 computer and `http://<computer-ip>:8000/app/` for a phone or tablet in
 the same network. Any other static file server from the repo root works
 too (e.g. `python3 -m http.server 8000`).
-The first start loads the sample notes; ⋮ → "Reset sample notes" brings
-them back.
+The prototype holds real notes: the first start shows only the welcome
+note (`app/welcome.md`); `?sample` replaces whatever is stored with the
+sample notes, for screenshots and demos.
 
 **Dictation needs a secure context** (https or `localhost`): over
 `http://<computer-ip>` the browser blocks the microphone. To try it on
@@ -90,12 +91,15 @@ prototype with `?dictation=demo`, which replays
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names, share tri-state, recovery key, contacts and their colors, fake QR grid (`sharing.js`). No DOM access; covered by `tests/*.test.mjs` |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names, share tri-state, recovery key, contacts and their colors, fake QR grid (`sharing.js`), sync cryptography — encodings, canonical JSON, key derivation, the signed device list, challenge signing, file encryption and key wrapping, on WebCrypto (`crypto.js`), the sync client's small decisions — device rows, which keys to wrap, the untouched welcome note (`sync-state.js`). No DOM access; covered by `tests/*.test.mjs` |
 | `app/js/store.js` | App state and persistence (the private file, the shared files and the sync state in `localStorage` for now), moving notes between files, change events |
-| `app/js/sync-sim.js` | Prototype only: simulates the server — sync status "syncing" → "synced" after each file change, offline |
+| `app/js/sync/` | Real sync of the private file: the server API (`api.js`), device and file keys in IndexedDB (`keystore.js`), turning on, linking with the recovery key, sync rounds and removing a device (`client.js`) |
+| `app/js/sync-sim.js` | Prototype only: simulates the server for the sample (`?sample`) — sync status "syncing" → "synced" after each file change, offline |
+| `app/config.json` | The sync server's address; empty in the repository, written by the web and Android deploys from the `API_HOST` variable (`docs/operations.md`) |
 | `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels, the "Sync & sharing" panel (`sync-panel.js`, whose container also holds the share dialog `share-dialog.js`) with its fake QR code and scanner view (`qr.js`), contact colors and avatars (`people.js`), small DOM helpers (`dom.js`) |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
-| `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity |
+| `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity (`?sample`) |
+| `app/welcome.md` | The welcome note a first start shows (onboarding; the only note text outside `app/sample/`) |
 | `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `sharing.json`: the sample user, devices, contacts and which notes are shared with whom; `dictation.md`: the transcript `?dictation=demo` replays |
 | `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), each with its license (all MIT) |
 
@@ -119,10 +123,11 @@ is deleted from code, menu and this table. No variant is open right now.
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
-| `reset` | — | Reload the sample notes |
-| `sync` | `off` | Start with sync off and no shared files, all sample notes private (reloads the sample notes, like `reset`; not a variant) |
+| `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
+| `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
+| `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 
-In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection (not a variant); "Reset sample notes" resets notes, shared files and sync state (sync on with the sample identity unless `sync=off`).
+In ⋮ → "Prototype", "Download notes.md" saves the private file and "Go offline" / "Go online" simulates losing the connection (not variants).
 
 ### Screenshots
 
@@ -133,8 +138,8 @@ NODE_PATH="$(npm root -g)" node scripts/screenshot.js --device phone --theme dar
 ```
 
 The script serves the repo itself, starts each run with empty storage
-(so the sample notes load), lists page errors and exits non-zero on
-them. Options are documented in its header.
+and the sample notes (`--first-start` shows the welcome note instead),
+lists page errors and exits non-zero on them. Options are documented in its header.
 
 ## Technology direction
 
@@ -178,7 +183,13 @@ scripts/test-server.sh      # venv + throwaway local Postgres, then pytest
 
 It uses `TEST_DATABASE_URL` instead when set (an empty test database);
 CI runs the same tests against a Postgres service. Run them when
-`server/` changed. `protocol.py` holds the encodings
+`server/` changed. When the sync client (`app/js/sync/`, `crypto.js`,
+`merge.js`) or the server changed, also run the end-to-end test, which
+drives several browser "devices" against a local server:
+
+```bash
+scripts/test-sync.sh [--shots <dir>]   # screenshots of the sync pages
+``` `protocol.py` holds the encodings
 and device-list rules without I/O, `auth.py` challenges and tokens,
 `app.py` the endpoints, `schema.sql` the tables (applied at start, only
 additive statements).

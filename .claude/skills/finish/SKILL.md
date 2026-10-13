@@ -41,6 +41,10 @@ pushing. The pictures themselves were reviewed in `orchestrate` phase 4.
 **Server check** (only when `server/` changed): `scripts/test-server.sh`
 — all green; report the pass count.
 
+**Sync check** (when `server/` or the sync client changed — `app/js/sync/`,
+`crypto.js`, `merge.js`, `store.js`): `scripts/test-sync.sh` — every step
+`ok`, ending with "all sync steps passed".
+
 ## 3. Docs check
 
 - `node scripts/doc-toc.js` — refreshes the table of contents of every

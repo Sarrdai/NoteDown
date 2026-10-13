@@ -32,14 +32,14 @@ export function loadSharingSample() {
  */
 export async function loadSampleState({ sync = true } = {}) {
   const file = parseNotesFile(await loadSample());
-  if (!sync) return { file, shared: [], sync: null };
+  if (!sync) return { file, shared: [], sync: { simulated: true } };
   const s = await loadSharingSample();
   const split = splitIntoCircles(file, s.shared);
   return {
     file: split.file,
     shared: split.shared,
     sync: {
-      enabled: true, name: s.name, recoveryKey: generateRecoveryKey(),
+      enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
       devices: [...s.devices], contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
       offline: false, status: "synced", lastSync: Date.now(),
     },
