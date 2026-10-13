@@ -28,7 +28,7 @@ the prototype is ported (see "Technology direction").
 | `docs/requirements.md` | The decided functional scope, by area, each item with its reason |
 | `docs/interaction-concept.md` | Cross-cutting operating rules: layout per tier, input, visual language |
 | `docs/file-format.md` | The Markdown file NoteDown reads and writes |
-| `docs/sync-and-sharing.md` | Sync across devices, sharing single notes, accounts and end-to-end encryption |
+| `docs/sync-and-sharing.md` | Sync across devices, sharing single notes, identity without accounts, end-to-end encryption |
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
@@ -150,6 +150,6 @@ prototype is built so that the likely path stays cheap:
   questions that block a decision.
 - `docs/interaction-concept.md` — how NoteDown is operated across tiers.
 - `docs/file-format.md` — the notes file.
-- `docs/sync-and-sharing.md` — sync, sharing, accounts, encryption.
+- `docs/sync-and-sharing.md` — sync, sharing, identity, encryption.
 - `FEATURE_BACKLOG.md` — what might come; entries leave it when their
   requirement is decided and in the prototype.

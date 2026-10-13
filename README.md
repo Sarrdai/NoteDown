@@ -14,7 +14,8 @@ several notes at once.
 Notes stay on the device and work offline. Sync between phone, tablet
 and the web app, and sharing single notes with other people, run through
 an end-to-end encrypted server: it only ever stores encrypted files.
-Sign-in needs no password — just a one-time code by email.
+There are no accounts — devices and contacts are connected by scanning a
+QR code.
 
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on

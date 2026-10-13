@@ -88,18 +88,21 @@ app phase.
   its members can read it; sharing with one more person or removing one
   moves the note to the new set's file. All members are equal (edit,
   close, share further, remove, leave), and the whole note including its
-  status is shared. People without an account are invited by email.
+  status is shared. Notes are shared with contacts; someone new gets an
+  invitation link first.
 - **Concurrent edits merge per note and per field;** when two devices
   changed the same text, both versions are kept (conflict copy) — nothing
   is lost. *Prototype: merge logic in `app/js/core/merge.js`, no UI yet.*
-- **Accounts** are an email address; **login without a password** by a
-  one-time code or sign-in link sent by email. The login only opens the
-  server: a new device also has to be confirmed on a device that is
-  already signed in, or with the recovery key shown once at sign-up.
+- **No accounts** (decided over email login: simpler, and keys come from
+  the other person instead of the server): turning on sync creates an
+  anonymous identity with a **recovery key** shown once. Devices are
+  linked by scanning a QR code on the new device; **contacts** are added
+  by scanning their QR code in person or by an invitation link. The
+  server knows no names or emails. The app works fully without sync.
 - The server is built to scale to many users (stateless API, database,
   object store).
-- **Open** — the UI (share dialog, members on a note, sign-up and login,
-  device approval, sync status): next prototype round, as variants.
+- **Open** — the UI (share dialog, members on a note, sync status, turning
+  on sync, linking devices, contacts): prototype round in progress.
 
 ### Main view and archive
 
