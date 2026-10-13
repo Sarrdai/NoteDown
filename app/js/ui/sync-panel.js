@@ -288,7 +288,7 @@ const PAGES = {
       const restore = () => {
         const key = normalizeRecoveryKey(input.value);
         error.hidden = !!key;
-        if (!key) { error.textContent = "That doesn't look like a recovery key. It has 24 letters and digits."; input.focus(); return; }
+        if (!key) { error.textContent = "That doesn't look like a recovery key. It has 26 letters and digits."; input.focus(); return; }
         adoptIdentity(key, "Notes restored");
       };
       input.addEventListener("keydown", e => { if (e.key === "Enter") restore(); });

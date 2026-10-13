@@ -36,7 +36,7 @@ without changing it. The server is `server/` (`PROJECT.md` → "Server").
 
 | Key | Algorithm | Derived from |
 |---|---|---|
-| Recovery key | 16 random bytes, shown as 26 base32 characters in groups | — |
+| Recovery key | 16 random bytes, shown as 26 characters of RFC 4648 base32 (A–Z, 2–7, no padding) in groups of 4 with a last group of 2 (`XXXX-…-XX`); typed input is case-insensitive and reads 0, 1, 8 as O, I, B | — |
 | Identity signing key | Ed25519 | HKDF-SHA256(recovery key, salt `NoteDown`, info `identity-sign`) → 32-byte seed |
 | Recovery device keys | Ed25519 + X25519 | same, info `recovery-sign` / `recovery-enc` |
 | Device keys | Ed25519 + X25519 | generated on the device, never leave it |
@@ -48,8 +48,8 @@ plus the seed); exporting the key as JWK yields the public key.
 **Wrapped file key** (opaque to the server, at most 512 characters, as
 in HPKE, RFC 9180): `b64u(ephemeral X25519 public key ‖ nonce ‖
 AES-GCM(wrap key, file key))`, where the wrap key is HKDF-SHA256 over
-the X25519 shared secret with info `notedown-wrap` ‖ ephemeral public
-key ‖ recipient public key, and the nonce has 12 bytes. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
+the X25519 shared secret with an empty salt and info `notedown-wrap` ‖
+ephemeral public key ‖ recipient public key, and the nonce has 12 bytes. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
 the UTF-8 Markdown file, a fresh nonce per upload.
 
 ## Device list
