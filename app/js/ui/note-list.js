@@ -1,5 +1,6 @@
 // The note list: renders the notes of the current view, edits a note in
-// place, toggles task checkboxes and the note's own open/closed state.
+// place (editor.js), toggles task checkboxes and the note's own open/closed
+// state.
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
@@ -8,6 +9,7 @@ import { state, note, setBody, setStatus, removeNote } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
+import { createEditor } from "./editor.js";
 
 const list = () => document.getElementById("list");
 
@@ -18,8 +20,10 @@ export function renderList(notes) {
 export function patchNote(id) {
   const el = list().querySelector(`.note[data-id="${id}"]`);
   const n = note(id);
-  if (!el || !n || state.editingId === id) return;
-  el.replaceWith(noteElement(n));
+  if (!el || !n) return;
+  // The edited note keeps its editor; only its meta line follows.
+  if (state.editingId === id) el.querySelector(".note-meta").innerHTML = metaHtml(n);
+  else el.replaceWith(noteElement(n));
 }
 
 function noteElement(n) {
@@ -75,45 +79,46 @@ function onBodyClick(e, id) {
   }
   if (e.target.closest("a")) return;
   if (n.status === "closed") return; // closed notes are read-only
-  startEdit(id);
+  startEdit(id, { x: e.clientX, y: e.clientY });
 }
 
-/** Replaces the note's rendered body with a raw editor (round 1). */
-export function startEdit(id, { caretAtEnd = true } = {}) {
+// ---------- editing ----------
+// One note at a time is edited in place with the live-preview editor. The
+// text is saved on every change; editing ends with Done, Esc, or a tap /
+// click anywhere outside the note and its toolbar.
+
+let editing = null; // { id, editor }
+const editListeners = new Set();
+export function onEditingChange(fn) { editListeners.add(fn); }
+export function currentEditor() { return editing && editing.editor; }
+
+/** Starts editing; `at` = { x, y } of the tap puts the caret there. */
+export function startEdit(id, at = {}) {
+  if (editing) endEdit();
   const el = list().querySelector(`.note[data-id="${id}"]`);
   const n = note(id);
   if (!el || !n) return;
   state.editingId = id;
   el.classList.add("editing");
-  const ta = document.createElement("textarea");
-  ta.className = "editor";
-  ta.value = n.body;
-  ta.spellcheck = true;
-  ta.setAttribute("aria-label", "Note text");
-  const autosize = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
-  ta.addEventListener("input", autosize);
-  ta.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); ta.blur(); } });
-  ta.addEventListener("blur", () => endEdit(id, ta.value));
-
-  const actions = document.createElement("div");
-  actions.className = "edit-actions";
-  actions.innerHTML = "<button type=button>Done</button>";
-  // mousedown keeps focus in the editor until the click ends the edit.
-  actions.firstChild.addEventListener("mousedown", e => e.preventDefault());
-  actions.firstChild.addEventListener("click", () => ta.blur());
-
-  el.querySelector(".note-body").replaceWith(ta);
-  el.querySelector(".note-meta").after(actions);
-  ta.focus({ preventScroll: true });
-  if (caretAtEnd) ta.setSelectionRange(ta.value.length, ta.value.length);
-  autosize();
+  const host = document.createElement("div");
+  host.className = "note-body md editor-host";
+  el.querySelector(".note-body").replaceWith(host);
+  const editor = createEditor({ parent: host, doc: n.body, onChange: text => setBody(id, text), onEscape: () => endEdit() });
+  editing = { id, editor };
+  editor.focusAt(at.x, at.y);
+  editListeners.forEach(fn => fn(id));
 }
 
-function endEdit(id, text) {
-  if (state.editingId !== id) return;
+export function endEdit() {
+  if (!editing) return;
+  const { id, editor } = editing;
+  const text = editor.text();
+  editor.destroy();
+  editing = null;
   state.editingId = null;
   const wasPinned = state.pinnedId === id;
   if (wasPinned) state.pinnedId = null;
+  editListeners.forEach(fn => fn(null));
   if (/^\s*(#+\s*)?$/.test(text)) {
     // An empty note is not kept: a fresh one silently, an emptied one with undo.
     const undo = removeNote(id);
@@ -121,12 +126,24 @@ function endEdit(id, text) {
     return;
   }
   setBody(id, text.trim());
-  patchNote(id);
+  const el = list().querySelector(`.note[data-id="${id}"]`);
+  if (el) el.replaceWith(noteElement(note(id)));
 }
+
+// A click outside the edited note ends the edit before the click's own
+// handler runs; the clicked note is kept where it was on screen.
+document.addEventListener("click", e => {
+  if (!editing || e.target.closest(`.note[data-id="${editing.id}"], .keep-editing`)) return;
+  const other = e.target.closest(".note");
+  const top = other && other.getBoundingClientRect().top;
+  endEdit();
+  if (other && other.isConnected) window.scrollBy(0, other.getBoundingClientRect().top - top);
+}, true);
 
 function toggleStatus(id) {
   const n = note(id);
   if (!n) return;
+  if (state.editingId === id) endEdit();
   const closing = n.status === "open";
   const el = list().querySelector(`.note[data-id="${id}"]`);
   const apply = () => {

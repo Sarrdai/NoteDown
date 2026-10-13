@@ -2,7 +2,7 @@
 <html lang="en" data-flavor="latte">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>NoteDown</title>
   <link rel="stylesheet" href="css/catppuccin.css">
   <link rel="stylesheet" href="css/app.css">
@@ -43,12 +43,28 @@
       <p class="empty" id="empty" hidden></p>
     </main>
 
-    <button class="fab" id="fab" aria-label="New note"></button>
-    <div class="snackbar" id="snackbar" role="status" hidden>
+    <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"></button>
+    <div class="recorder keep-editing" id="recorder" hidden>
+      <div class="rec-preview" id="recPreview" aria-live="polite"></div>
+      <div class="rec-bar">
+        <button class="icon-btn rec-trash" id="recTrash" aria-label="Cancel dictation"></button>
+        <span class="rec-dot" aria-hidden="true"></span>
+        <span class="rec-time" id="recTime">0:00</span>
+        <span class="rec-level" id="recLevel" aria-hidden="true"></span>
+        <span class="rec-hint" id="recHint">‹ Slide to cancel</span>
+      </div>
+      <div class="rec-lock" id="recLock" aria-hidden="true"><span id="recLockIcon"></span></div>
+    </div>
+    <div class="toolbar keep-editing" id="toolbar" role="toolbar" aria-label="Formatting" hidden>
+      <div class="toolbar-scroll" id="toolbarButtons"></div>
+      <button class="toolbar-done" id="toolbarDone">Done</button>
+    </div>
+    <input type="date" id="dueInput" class="visually-hidden keep-editing" tabindex="-1" aria-hidden="true">
+    <div class="snackbar keep-editing" id="snackbar" role="status" hidden>
       <span id="snackText"></span>
       <button id="snackUndo">Undo</button>
     </div>
-    <div class="menu" id="menu" role="menu" hidden></div>
+    <div class="menu keep-editing" id="menu" role="menu" hidden></div>
   </div>
 </body>
 </html>

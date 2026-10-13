@@ -23,7 +23,7 @@ not appended to.
 Each item says what NoteDown does (behavior terms) and, where it isn't
 obvious, why. **Prototype** says whether the item is in `app/` yet
 (round 1 = main view; round 2 = editor and dictation; round 3 =
-multi-select). **Open** names a question that blocks a decision. Items
+multi-select; "app phase" = only possible in the native app). **Open** names a question that blocks a decision. Items
 without another source were decided with the user on 2026-10-13.
 
 ## Vision
@@ -124,20 +124,32 @@ apart from existing apps beyond the points above.
 - A **new note** starts in edit mode with the cursor after `## `, ready
   for a level-2 heading; it stays at the top of the list until editing
   ends. *Prototype: round 1.*
-- **Tapping into a note's text** starts editing it, except on task
-  checkboxes (they toggle) and links (they open). Closed notes don't
-  enter edit mode. *Prototype: round 1, with a plain-text editor as a
-  placeholder.*
+- **Tapping into a note's text** starts editing it with the cursor where
+  the user tapped, except on task checkboxes (they toggle) and links
+  (they open). Closed notes don't enter edit mode. *Prototype: round 2.*
 - The editor renders Markdown live like Obsidian's mobile app: only the
-  line being edited stays raw. *Prototype: round 2.*
-- A toolbar above the keyboard helps with typical actions (as in
-  Obsidian): heading, bullet list, task checkbox, indent / outdent, bold,
-  italic, link, due date, undo / redo, and a **microphone** that dictates
-  at the cursor. *Prototype: round 2.*
-- On the desktop the common Markdown shortcuts work in the editor
-  (round 2); outside it, `n` creates a note, `/` opens the search and
-  `Esc` ends editing or closes a panel. *Prototype: `n`, `/`, `Esc` in
-  round 1.*
+  lines the cursor or selection touch stay raw; headings, emphasis,
+  inline code, links, quotes, bullets and task checkboxes are rendered
+  on all other lines, and checkboxes can be ticked while editing.
+  *Prototype: round 2.*
+- Lists continue on Enter (bullets, numbers, tasks as open tasks); Enter
+  on an empty item ends the list. Bold / italic never wrap the list or
+  heading marker. *Prototype: round 2.*
+- The text is saved on every change. Editing ends with **Done**, `Esc`,
+  or a tap anywhere outside the note and its toolbar; the tapped target
+  then acts normally (e.g. starts editing that note). *Prototype: round 2.*
+- A **toolbar** helps with typical actions (as in Obsidian): heading
+  (cycles ## → ### → #### → none), bullet list, task checkbox, outdent /
+  indent, bold, italic, link, **due date** (today, tomorrow, in a week,
+  pick a date, remove), a **microphone** that dictates at the cursor,
+  undo / redo, and Done. On phone and tablet it sits above the on-screen
+  keyboard and scrolls sideways; on the desktop it floats at the bottom
+  of the list. *Prototype: round 2.*
+- On the desktop the editor has shortcuts: Ctrl/Cmd+B bold, +I italic,
+  +K link, +Enter tick / untick the task, Tab / Shift+Tab indent, Ctrl+Z
+  / Ctrl+Shift+Z undo / redo. Outside the editor, `n` creates a note, `/`
+  opens the search and `Esc` ends editing or closes a panel.
+  *Prototype: round 2.*
 
 ### Dictation
 
@@ -146,9 +158,16 @@ apart from existing apps beyond the points above.
   to cancel, slide up to lock for hands-free recording, then tap to
   finish. While recording, the + button shows a microphone, a bar shows
   the audio input level and the live transcript appears as a preview.
-  The finished transcript becomes its own note. *Prototype: round 2.*
-- The editor toolbar's microphone dictates at the cursor position.
-  *Prototype: round 2.*
+  The finished transcript becomes its own note (no heading — its first
+  sentence serves as title), shown at the top with "Dictated note added
+  · Undo". *Prototype: round 2.*
+- The editor toolbar's microphone dictates at the cursor position: the
+  not yet final words appear greyed at the cursor, final ones are
+  inserted; tapping it again stops. *Prototype: round 2.*
+- Speech is recognized in the device language. The prototype uses the
+  browser's speech recognition (Chrome, Edge, Safari; needs https or
+  localhost) and replays a sample transcript with `?dictation=demo`;
+  the app uses the platform's recognizer (app phase).
 
 ### Multi-select
 

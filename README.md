@@ -5,6 +5,8 @@ A notes app for Android, iOS and the web — currently in the concept phase.
 Every note is a Markdown section and at the same time a to-do: open or
 done, with an optional due date. Open notes form the main list, done ones
 move to a read-only archive. All notes live in one plain Markdown file.
+Notes are edited in place with an Obsidian-style live preview and a
+formatting toolbar; holding the + button dictates a new note.
 
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on
@@ -20,8 +22,8 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000/app/> (on a phone in the same network:
 `http://<computer-ip>:8000/app/`). Resize the window to see the tablet
-and phone layouts; ⋮ switches the theme and the design variants still
-under discussion.
+and phone layouts; ⋮ switches the theme. Dictation needs `localhost` or
+https; add `?dictation=demo` to try it without a microphone.
 
 ## Where to look
 
@@ -32,4 +34,5 @@ under discussion.
 - [`FEATURE_BACKLOG.md`](FEATURE_BACKLOG.md) — ideas not yet decided.
 
 Themes use the [Catppuccin](https://catppuccin.com) palette (MIT);
-Markdown rendering uses [marked](https://github.com/markedjs/marked) (MIT).
+Markdown rendering uses [marked](https://github.com/markedjs/marked) and
+editing [CodeMirror](https://codemirror.net) (both MIT).

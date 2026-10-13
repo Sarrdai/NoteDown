@@ -83,6 +83,15 @@ export function setBody(id, body) {
   emit("note:" + id);
 }
 
+/** Sets or clears (null) a note's due date. */
+export function setDue(id, due) {
+  const n = note(id);
+  if (!n || n.due === due) return;
+  n.due = due;
+  saveFile();
+  emit("note:" + id);
+}
+
 export function addNote(body) {
   const n = createNote(body, timestamp());
   state.file.notes.unshift(n);

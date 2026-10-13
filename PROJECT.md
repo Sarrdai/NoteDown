@@ -63,6 +63,13 @@ On a phone in the same network, open `http://<computer-ip>:8000/app/`.
 The first start loads the sample notes; ⋮ → "Reset sample notes" brings
 them back.
 
+**Dictation needs a secure context** (https or `localhost`): over
+`http://<computer-ip>` the browser blocks the microphone. To try it on
+a phone, either add the address under Chrome's
+`chrome://flags/#unsafely-treat-insecure-origin-as-secure`, or open the
+prototype with `?dictation=demo`, which replays
+`app/sample/dictation.md` instead of listening.
+
 ### Structure
 
 | Path | Content |
@@ -70,17 +77,20 @@ them back.
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`). No DOM access; covered by `tests/core.test.mjs` |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`). No DOM access; covered by `tests/*.test.mjs` |
 | `app/js/store.js` | App state and persistence (the notes file in `localStorage` for now), change events |
-| `app/js/ui/` | Views: note list and in-place editing, table of contents, menus, snackbar, icons, date labels |
+| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), table of contents, menus, snackbar, icons, date labels |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
 | `app/js/sample.js` | Prototype only: loads the sample notes |
-| `app/sample/notes.md` | The sample notes, in the real file format — the only source of example content (CLAUDE.md) |
-| `app/vendor/` | Third-party code, committed as released files: `marked` (Markdown rendering, MIT) |
+| `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `dictation.md`: the transcript `?dictation=demo` replays |
+| `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), each with its license (all MIT) |
 
 Rules: plain HTML/CSS/JS as ES modules, no framework, no external
 requests at runtime; third-party code only as a vendored file with its
-license. New logic that doesn't touch the DOM goes into `app/js/core/`
+license. The CodeMirror bundle is the one generated vendor file: to add
+an export or update it, edit `scripts/vendor/codemirror.entry.js` /
+`package.json` and run `npm install && npm run build` in `scripts/vendor/`
+(only needed when changing it — the app itself never needs a build). New logic that doesn't touch the DOM goes into `app/js/core/`
 with a unit test.
 
 ### Prototype options (variants)
@@ -94,6 +104,7 @@ is deleted from code, menu and this table. No variant is open right now.
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
+| `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `reset` | — | Reload the sample notes |
 
 ### Screenshots
@@ -118,8 +129,12 @@ prototype is built so that the likely path stays cheap:
   HTML/CSS/ES modules would carry over almost as they are; native
   features (files, speech recognition, app shortcuts) come from Capacitor
   plugins. Obsidian's mobile app is built the same way.
-- **Editor:** the Obsidian-style live preview (round 2) points to
-  CodeMirror 6, which Obsidian uses for exactly that.
+- **Editor:** the Obsidian-style live preview is built on CodeMirror 6
+  (round 2), which Obsidian uses for exactly that; it carries over to
+  the app as it is.
+- **Speech:** the prototype uses the browser's Web Speech API; in the
+  app a Capacitor speech-recognition plugin takes its place behind the
+  same `startDictation` interface (`app/js/ui/dictation.js`).
 - A UI framework, if any, is decided with the port; `app/js/core/` stays
   framework-free either way.
 

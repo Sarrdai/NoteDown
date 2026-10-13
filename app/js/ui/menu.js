@@ -16,6 +16,8 @@ export function openMenu(anchor, items) {
     if (item.checked !== undefined) b.setAttribute("aria-checked", String(item.checked));
     b.innerHTML = (item.checked !== undefined ? icon("check", "icon check") : "") + `<span></span>`;
     b.lastChild.textContent = item.label;
+    // No focus change: a menu opened from the editor toolbar keeps the keyboard up.
+    b.addEventListener("pointerdown", e => e.preventDefault());
     b.addEventListener("click", e => { e.stopPropagation(); closeMenu(); item.onSelect(); });
     return b;
   }));
@@ -23,7 +25,10 @@ export function openMenu(anchor, items) {
   openFor = anchor;
   const r = anchor.getBoundingClientRect();
   const w = menu.offsetWidth;
-  menu.style.top = Math.min(r.bottom + 6, window.innerHeight - menu.offsetHeight - 8) + "px";
+  const h = menu.offsetHeight;
+  // Below the anchor, or above it when it sits at the bottom (the toolbar).
+  const below = r.bottom + 6 + h <= window.innerHeight - 8;
+  menu.style.top = (below ? r.bottom + 6 : Math.max(8, r.top - 6 - h)) + "px";
   menu.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + "px";
 }
 

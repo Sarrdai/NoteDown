@@ -33,10 +33,23 @@ Current state, edited in place when a decision changes.
 - No hover-only controls: everything reachable with the mouse is also
   visible and reachable by touch. Touch targets are at least 44 px
   (task checkboxes get an enlarged invisible target).
+- **Editing** happens in place: the tapped note turns into the editor,
+  the rest of the list stays as it is. One note is edited at a time;
+  any tap outside it ends the edit first and then does what it would
+  have done. While editing, the + button gives way to the toolbar.
+- Controls that act on the editor (toolbar, its menus) never take the
+  focus, so the on-screen keyboard stays open.
+- **Hold-to-record** follows Signal: hold the + button (350 ms) to start,
+  release to finish, slide left to cancel, slide up onto the lock to
+  record hands-free — then the button turns into a check to finish and a
+  bin appears to cancel. A level bar, the elapsed time and the live
+  transcript show that it is listening. Short vibration on start, lock
+  and cancel where the device supports it.
 - The list never reorders while the user works in it — only after
   view, sort or search changes (`docs/requirements.md` → "Sorting").
 - Keyboard on the desktop: `n` new note, `/` search, `Esc` ends editing,
-  closes menus and panels.
+  closes menus and panels; Markdown shortcuts in the editor
+  (`docs/requirements.md` → "Creating and editing").
 
 ## Feedback and undo
 
@@ -54,6 +67,11 @@ Current state, edited in place when a decision changes.
   tints the surfaces with teal.
 - Status marks: a **round** button for the note itself, **square**
   checkboxes for tasks inside the text.
+- Editing looks like reading: the live preview uses the same type sizes
+  and list layout as the rendered note, so entering edit mode doesn't
+  make the note jump; only the line with the cursor shows its Markdown.
+- Recording is red (Catppuccin `red`): the + button, the blinking dot and
+  the active microphone in the toolbar.
 - Dates are shown relative where it helps ("Today 08:40", "Yesterday"),
   otherwise as "12 Oct"; the meta line under a note shows the date the
   list is sorted by.

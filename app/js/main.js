@@ -1,11 +1,13 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, replaceFile, fileText } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, replaceFile, fileText } from "./store.js";
 import { loadSample } from "./sample.js";
-import { renderList, patchNote, startEdit } from "./ui/note-list.js";
+import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
+import { initToolbar } from "./ui/toolbar.js";
+import { initRecorder } from "./ui/recorder.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
-import { hideSnackbar } from "./ui/snackbar.js";
+import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -81,6 +83,18 @@ function newNote() {
   startEdit(n.id);
 }
 
+// A dictated note: no heading, the transcript is its text.
+function addDictatedNote(text) {
+  if (state.view !== "open") setView("open");
+  if (state.search) setUi({ search: "" }, "silent");
+  const n = addNote(text);
+  state.pinnedId = n.id;
+  render();
+  window.scrollTo(0, 0);
+  flashNote(n.id);
+  showSnackbar("Dictated note added", () => removeNote(n.id));
+}
+
 function sortMenu() {
   const sort = state.settings.sort[state.view];
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
@@ -122,7 +136,6 @@ function wire() {
 
   $("archiveBtn").addEventListener("click", () => setView("closed"));
   $("backBtn").addEventListener("click", () => setView("open"));
-  $("fab").addEventListener("click", newNote);
   $("sortBtn").addEventListener("click", sortMenu);
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
@@ -145,6 +158,8 @@ function wire() {
   });
   initToc();
   initMenu();
+  initToolbar();
+  initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
 }
 
 // URL parameters set prototype options, e.g. ?flavor=mocha&view=closed
