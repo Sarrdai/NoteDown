@@ -9,6 +9,8 @@
   - [Prototype options (variants)](#prototype-options-variants)
   - [Screenshots](#screenshots)
 - [Technology direction](#technology-direction)
+- [Server](#server)
+- [Android app](#android-app)
 - [Where everything else lives](#where-everything-else-lives)
 <!-- /toc -->
 
@@ -16,12 +18,14 @@
 
 NoteDown is a cross-platform notes app for Android, iOS and the web, in
 which every note is a Markdown section and at the same time a to-do.
-The project is in its **concept phase**: functional scope and operating
-concept (Bedienkonzept) are worked out in `docs/` and in a clickable
-**prototype** in `app/` — a real web app, built like the later app would
-be, but without a build step, so it can be opened and tested right away.
-Once function and look are settled, the target technology is decided and
-the prototype is ported (see "Technology direction").
+Functional scope and operating concept (Bedienkonzept) are worked out in
+`docs/` and in a clickable **prototype** in `app/` — a real web app,
+built like the later app would be, but without a build step, so it can
+be opened and tested right away. The technology is decided (see
+"Technology direction"): `app/` grows into the real app, wrapped for
+Android in `mobile/`, with the sync server in `server/`. The first
+milestone is sync between the user's own devices on Android and the web;
+the live test setup is described in `docs/operations.md`.
 
 | Path | Content |
 |---|---|
@@ -29,10 +33,15 @@ the prototype is ported (see "Technology direction").
 | `docs/interaction-concept.md` | Cross-cutting operating rules: layout per tier, input, visual language |
 | `docs/file-format.md` | The Markdown file NoteDown reads and writes |
 | `docs/sync-and-sharing.md` | Sync across devices, sharing single notes, identity without accounts, end-to-end encryption |
+| `docs/server-api.md` | The server API and protocol byte for byte: encodings, keys, device list, authentication, endpoints, limits |
+| `docs/operations.md` | Live test setup: hosting, the owner's one-time setup steps, deployments |
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
+| `server/` | The sync server (see "Server") |
+| `mobile/` | The Android app: a Capacitor shell around `app/` (see "Android app") |
+| `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
-| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`), `test-server.sh` (server tests) |
 
 ## Device tiers
 
@@ -129,27 +138,62 @@ them. Options are documented in its header.
 
 ## Technology direction
 
-Not decided yet — that happens once function and look stand. The
-prototype is built so that the likely path stays cheap:
+Decided on 2026-10-13, once function and look stood:
 
-- **Favorite: web code in a native shell (Capacitor)** for Android and
-  iOS, the same code as a web app / PWA for the browser. The prototype's
-  HTML/CSS/ES modules would carry over almost as they are; native
-  features (files, speech recognition, app shortcuts) come from Capacitor
-  plugins. Obsidian's mobile app is built the same way.
-- **Editor:** the Obsidian-style live preview is built on CodeMirror 6
-  (round 2), which Obsidian uses for exactly that; it carries over to
-  the app as it is.
-- **Speech:** the prototype uses the browser's Web Speech API; in the
-  app a Capacitor speech-recognition plugin takes its place behind the
+- **Web code in a native shell (Capacitor)** for Android and iOS, the
+  same code as a web app / PWA for the browser — the prototype's
+  HTML/CSS/ES modules carry over as they are; native features (files,
+  speech recognition, app shortcuts) come from Capacitor plugins.
+  Obsidian's mobile app is built the same way. No build step for the web
+  code; plugin modules are vendored like the other third-party files.
+- **Android and web first**, iOS later (needs an Apple developer account
+  and signing).
+- **Milestone 1: sync between the user's own devices** (identity,
+  recovery key, linking and removing devices, the private file);
+  contacts and sharing follow in milestone 2. The UI for both stays in
+  the prototype.
+- **Editor:** CodeMirror 6, as in the prototype.
+- **Speech:** the browser's Web Speech API on the web; on Android (whose
+  web view has none) a Capacitor speech-recognition plugin behind the
   same `startDictation` interface (`app/js/ui/dictation.js`).
-- A UI framework, if any, is decided with the port; `app/js/core/` stays
+- A UI framework, if any, is decided later; `app/js/core/` stays
   framework-free either way.
-- **Backend** for sync and sharing (`docs/sync-and-sharing.md`): a
-  stateless API with a database and an object store that holds only
-  encrypted files; language (Python/FastAPI or C#/ASP.NET Core) and
-  hosting are decided with the technology. Encryption uses WebCrypto,
-  which the browser and the Capacitor web view both offer.
+- **Backend:** Python with FastAPI, a stateless API
+  (`docs/server-api.md`) with Postgres — for the test phase Postgres also
+  holds the encrypted files; an object store comes when size calls for
+  it. Encryption uses WebCrypto, which the browser and the Capacitor web
+  view both offer.
+- **Hosting for the live test:** GitHub Pages (web app), Google Cloud
+  Run (server), Neon (Postgres), APKs as a GitHub pre-release — free
+  tiers, HTTPS on the owner's subdomains (`docs/operations.md`).
+
+## Server
+
+`server/` is a FastAPI app (`notedown_server/`) with pytest tests against
+a real Postgres; `server/Dockerfile` is what Cloud Run runs.
+
+```bash
+scripts/test-server.sh      # venv + throwaway local Postgres, then pytest
+```
+
+It uses `TEST_DATABASE_URL` instead when set (an empty test database);
+CI runs the same tests against a Postgres service. Run them when
+`server/` changed. `protocol.py` holds the encodings
+and device-list rules without I/O, `auth.py` challenges and tokens,
+`app.py` the endpoints, `schema.sql` the tables (applied at start, only
+additive statements).
+
+## Android app
+
+`mobile/` holds the Capacitor configuration (`webDir` is `../app`) and
+the generated Android project in `mobile/android/`; the copied web files
+are not committed. The APK is built by CI (`.github/workflows/android.yml`);
+locally it needs Node, JDK 21 and the Android SDK:
+
+```bash
+cd mobile && npm ci && npx cap sync android
+cd android && ./gradlew assembleDebug
+```
 
 ## Where everything else lives
 
@@ -158,5 +202,7 @@ prototype is built so that the likely path stays cheap:
 - `docs/interaction-concept.md` — how NoteDown is operated across tiers.
 - `docs/file-format.md` — the notes file.
 - `docs/sync-and-sharing.md` — sync, sharing, identity, encryption.
+- `docs/server-api.md` — the protocol between app and server.
+- `docs/operations.md` — hosting and deployment of the live test.
 - `FEATURE_BACKLOG.md` — what might come; entries leave it when their
   requirement is decided and in the prototype.

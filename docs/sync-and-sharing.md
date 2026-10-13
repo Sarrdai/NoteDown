@@ -83,8 +83,9 @@ rely on the operating system's own storage encryption for the local copy.
   browser). The identity key itself stays on no device; it only signs the
   start of the **device list**, and every later change to that list is
   signed by a device that is on it at that point.
-- **The server knows an identity only by a random ID, its public keys
-  and its device list.** A device proves who it is by signing a challenge
+- **The server knows an identity only by an ID, its public keys and its
+  device list.** The ID is a hash of the public identity key, so a
+  restoring device finds it from the recovery key alone. A device proves who it is by signing a challenge
   with its own device key; there is no login, code or password.
 - **Linking a device:** the new device (e.g. the web app on the desktop)
   shows a QR code with its public device key; a linked device (e.g. the
@@ -173,7 +174,7 @@ against the base:
 
 ## Server
 
-- Holds: anonymous identities (random ID, public keys, signed device
+- Holds: anonymous identities (ID, public keys, signed device
   list), files (ciphertext + version, file keys wrapped per device) and
   which identities may access which file, and short-lived relay slots
   for linking devices and contacts.
@@ -184,14 +185,21 @@ against the base:
   anonymous (an account number instead of an email).
 - Creating a file for a member set that already has one returns the
   existing file, so two devices sharing at the same time don't split it.
-- Built to scale as a stateless API with a database for identities and
-  access and an object store for the files; the language and hosting are
-  decided with the technology (`PROJECT.md` → "Technology direction").
+- Built to scale as a stateless API (Python, FastAPI) with Postgres for
+  identities and access; for the test phase Postgres holds the encrypted
+  files too, an object store follows when size calls for it (`PROJECT.md`
+  → "Technology direction"). The protocol byte for byte is
+  `docs/server-api.md`; rate limits per IP are not built yet (backlog).
 
 ## Open points
 
 - Until a lost device is removed, it can change or delete notes,
   including shared ones; a version history on the server (backlog #7)
   would let the user bring a file back.
+- **Where device keys live in the app — open:** non-exportable WebCrypto
+  keys in the web view (the same code as the web app; proposed for
+  milestone 1) or the Android Keystore as stated under "Identity and
+  devices" (needs a native plugin and Android 13+ for Ed25519/X25519).
+  Decided before the client's crypto is built.
 - The UI is decided and in the prototype (`docs/requirements.md` → "Sync
   and sharing" → "Where it is operated"); the server is simulated there.

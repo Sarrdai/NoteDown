@@ -17,11 +17,11 @@ ideas not yet decided. History lives in git, not in a changelog.
 
 ## What this is
 
-NoteDown: a cross-platform notes app (Android, iOS, web), currently in the
-**concept phase**: requirements plus a clickable prototype in `app/` — a
-real web app without a build step (`PROJECT.md` → "What this is",
-"Prototype"). The target technology is decided once function and look
-stand; until then nothing here is released or versioned.
+NoteDown: a cross-platform notes app (Android, iOS, web): requirements
+plus a clickable prototype in `app/` (a web app without a build step)
+growing into the real app — Android shell in `mobile/`, sync server in
+`server/` (`PROJECT.md` → "Technology direction"). Nothing is released
+yet; a live test setup deploys from `main` (`docs/operations.md`).
 
 ## Session workflow
 
@@ -49,7 +49,8 @@ along in a feature branch: parallel sessions only see a rule once it is on
   build step, no runtime requests to other hosts, vendored third-party
   files only (`PROJECT.md` → "Prototype"). Logic without DOM access lives
   in `app/js/core/` and ships with a unit test in `tests/`; run
-  `node --test` when `app/js/` or `tests/` changed.
+  `node --test` when `app/js/` or `tests/` changed. Server changes bring
+  tests and update `docs/server-api.md`; run `scripts/test-server.sh`.
 - **Every decision lands in the repo in the same session**: the
   requirement in `docs/requirements.md`, cross-cutting operating rules in
   `docs/interaction-concept.md`, the file format in `docs/file-format.md`,

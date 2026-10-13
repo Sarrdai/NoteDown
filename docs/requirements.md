@@ -46,9 +46,9 @@ apart from existing apps beyond the points above.
   only.
 - No native desktop apps (Windows, macOS, Linux) are planned; the desktop
   browser covers that use.
-- **Open** — whether all three platforms ship at once; the technology is
-  decided once function and look stand (`PROJECT.md` → "Technology
-  direction").
+- **Android and web ship first**, iOS follows (decided 2026-10-13: iOS
+  needs an Apple developer account and signing, the first tests don't);
+  the technology is in `PROJECT.md` → "Technology direction".
 
 ## Functional areas
 
@@ -77,8 +77,11 @@ apart from existing apps beyond the points above.
 
 ### Sync and sharing
 
-Detailed in `docs/sync-and-sharing.md`; decided 2026-10-13, built in the
-app phase.
+Detailed in `docs/sync-and-sharing.md`, the protocol in
+`docs/server-api.md`; decided 2026-10-13, built in the app phase —
+**milestone 1** is sync between the user's own devices, **milestone 2**
+contacts and sharing (decided 2026-10-13, which halves what has to work
+before the first live test).
 
 - **Sync across devices** through NoteDown's own server, so notes written
   on the phone show up in the web app on the desktop. It runs
@@ -109,7 +112,7 @@ app phase.
   afterwards — without a new recovery key and without bothering contacts
   (decided 2026-10-13 over only blocking it or a new identity).
 - The server is built to scale to many users (stateless API, database,
-  object store).
+  later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
   - ⋮ → **"Sync & sharing…"** holds everything around sync: turning it on
     (name, then the recovery key, which has to be confirmed as stored),
