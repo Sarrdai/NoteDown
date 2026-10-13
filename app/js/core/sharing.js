@@ -1,7 +1,7 @@
 // Sync and sharing logic without DOM access (docs/sync-and-sharing.md): the
 // names of circles of people, the tri-state of the share dialog, recovery
 // keys, contact ids and the fake QR matrix the prototype draws.
-// The prototype simulates the server and uses no real cryptography.
+// The prototype simulates the server; the real cryptography is in crypto.js.
 
 /** Key of a file's member set: sorted ids joined with "+" ("" = private). */
 export function circleKey(memberIds) {
@@ -67,7 +67,8 @@ export function splitIntoCircles(file, groups) {
 
 // ---------- recovery key ----------
 
-const KEY_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789";
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const LOOK_ALIKES = { 0: "O", 1: "I", 8: "B" };
 
 function randomInt(n) {
   const c = globalThis.crypto;
@@ -75,17 +76,38 @@ function randomInt(n) {
   return Math.floor(Math.random() * n);
 }
 
-/** Random recovery key: 6 groups of 4 characters (A–Z, 2–9), "ABCD-…". */
-export function generateRecoveryKey(random = randomInt) {
-  const group = () => Array.from({ length: 4 }, () => KEY_ALPHABET[random(KEY_ALPHABET.length)]).join("");
-  return Array.from({ length: 6 }, group).join("-");
+function randomBytes(n) {
+  return globalThis.crypto.getRandomValues(new Uint8Array(n));
+}
+
+/** RFC 4648 base32 of `bytes` without padding (A–Z, 2–7). */
+function base32(bytes) {
+  let out = "", bits = 0, value = 0;
+  for (const b of bytes) {
+    value = (value << 8) | b;
+    bits += 8;
+    for (; bits >= 5; bits -= 5) out += BASE32[(value >> (bits - 5)) & 31];
+    value &= (1 << bits) - 1;
+  }
+  return bits ? out + BASE32[(value << (5 - bits)) & 31] : out;
+}
+
+/** "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX": groups of 4, a last group of 2. */
+function groupKey(chars) {
+  return chars.match(/.{1,4}/g).join("-");
+}
+
+/** Random recovery key: 16 random bytes as 26 base32 characters, "ABCD-…-AB". */
+export function generateRecoveryKey(bytes = randomBytes) {
+  return groupKey(base32(bytes(16)));
 }
 
 /** Canonical form of a typed recovery key, or null when it is not one. */
 export function normalizeRecoveryKey(input) {
-  const raw = input.toUpperCase().replace(/[\s-]+/g, "");
-  if (raw.length !== 24 || [...raw].some(c => !KEY_ALPHABET.includes(c))) return null;
-  return raw.match(/.{4}/g).join("-");
+  const raw = input.toUpperCase().replace(/[\s-]+/g, "").replace(/[018]/g, c => LOOK_ALIKES[c]);
+  if (raw.length !== 26 || [...raw].some(c => !BASE32.includes(c))) return null;
+  if (BASE32.indexOf(raw[25]) & 3) return null; // 26 × 5 = 130 bits, the last 2 are unused and zero
+  return groupKey(raw);
 }
 
 /** A fake invitation link; the real one carries a key fingerprint and a token. */
