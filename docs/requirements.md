@@ -24,7 +24,8 @@ not appended to.
 Each item says what NoteDown does (behavior terms) and, where it isn't
 obvious, why. **Prototype** says whether the item is in `app/` yet
 (round 1 = main view; round 2 = editor and dictation; round 3 =
-multi-select; "app phase" = only possible in the native app). **Open** names a question that blocks a decision. Items
+multi-select; round 4 = sync and sharing; "app phase" = only possible in
+the native app). **Open** names a question that blocks a decision. Items
 without another source were decided with the user on 2026-10-13.
 
 ## Vision
@@ -92,7 +93,8 @@ app phase.
   invitation link first.
 - **Concurrent edits merge per note and per field;** when two devices
   changed the same text, both versions are kept (conflict copy) — nothing
-  is lost. *Prototype: merge logic in `app/js/core/merge.js`, no UI yet.*
+  is lost. *Prototype: merge logic in `app/js/core/merge.js` (no live
+  sync in the prototype).*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
   anonymous identity with a **recovery key** shown once. Devices are
@@ -101,8 +103,29 @@ app phase.
   server knows no names or emails. The app works fully without sync.
 - The server is built to scale to many users (stateless API, database,
   object store).
-- **Open** — the UI (share dialog, members on a note, sync status, turning
-  on sync, linking devices, contacts): prototype round in progress.
+- **Where it is operated** (decided 2026-10-13):
+  - ⋮ → **"Sync & sharing…"** holds everything around sync: turning it on
+    (name, then the recovery key, which has to be confirmed as stored),
+    linking this device to an existing one (its QR code, or the recovery
+    key), the devices (link a device by scanning, remove one) and the
+    contacts (add by scanning or invitation link, show my code, remove).
+  - **Sharing starts from multi-select** (long-press → Share), so one or
+    several notes are shared at once; the share dialog lists the contacts
+    with a checkbox each (a dash when only some of the selected notes are
+    shared with that person), adds a contact on the spot, and offers
+    **Leave** for notes of one shared file. Undo in the snackbar. Chosen
+    over a toolbar or a per-card button: it follows the existing
+    long-press pattern and keeps the cards calm.
+  - **Shared notes show their members as initials avatars** in the meta
+    line (up to three, then "+n"), one stable color per contact; tapping
+    them opens the share dialog. Chosen over a colored stripe or a list
+    grouped by people: it says who reads along and keeps one sorted list.
+  - **Sync status** is a cloud icon in the top bar (synced, syncing,
+    offline), hidden while sync is off; tapping it opens Sync & sharing.
+  - Without sync, sharing explains that it needs sync and offers to turn
+    it on. Notes in the archive aren't shared from there.
+  - *Prototype: round 4, with a simulated server (`?sync=off` starts
+    without sync, ⋮ → Go offline).*
 
 ### Main view and archive
 
@@ -222,9 +245,9 @@ app phase.
   + button is hidden (decided 2026-10-13 over a bottom action bar: the
   thumb area and the list's bottom stay free, and search / archive can't
   be hit by accident). *Prototype: round 3.*
-- Actions on the selection: **Close**, **Copy**, **Merge** (two or more
-  notes) and **Delete**. Close and Delete end the selection and offer
-  Undo. In the archive the actions are **Reopen**, Copy and Delete — no
+- Actions on the selection: **Close**, **Copy**, **Share** ("Sync and
+  sharing"), **Merge** (two or more notes) and **Delete**. Close, Share
+  and Delete end the selection and offer Undo. In the archive the actions are **Reopen**, Copy and Delete — no
   Merge, closed notes are read-only. *Prototype: round 3.*
 - **Copy** puts the notes on the clipboard as plain Markdown, joined by a
   blank line, without metadata; it keeps the selection.

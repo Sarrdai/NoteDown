@@ -19,7 +19,7 @@ without accounts: the server knows no email, name or password, only
 anonymous identities and the relations created by scanning a code.
 Decided with the user on 2026-10-13; built in the app phase. The prototype
 carries the merge logic (`app/js/core/merge.js`, tested in
-`tests/merge.test.mjs`); the UI follows in its own prototype round.
+`tests/merge.test.mjs`) and the whole UI with a simulated server.
 
 ## Principles
 
@@ -178,5 +178,5 @@ against the base:
 - **Time zones:** `modified` is local time without a zone
   (`docs/file-format.md`); the later-modified rule needs a zone once
   members of a shared file live in different ones.
-- **The UI**: turning on sync, linking devices, contacts, the share dialog,
-  members on a note, sync status — prototype round in progress.
+- The UI is decided and in the prototype (`docs/requirements.md` → "Sync
+  and sharing" → "Where it is operated"); the server is simulated there.

@@ -8,8 +8,8 @@ move to a read-only archive. Notes live in plain Markdown files: one
 private file, plus one per group of people notes are shared with.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. A
-long-press on a note starts multi-select to close, copy, merge or delete
-several notes at once.
+long-press on a note starts multi-select to close, copy, share, merge
+or delete several notes at once.
 
 Notes stay on the device and work offline. Sync between phone, tablet
 and the web app, and sharing single notes with other people, run through
