@@ -1,0 +1,13 @@
+{
+  "name": "Alex",
+  "devices": ["Pixel 8", "Chrome on Windows"],
+  "contacts": [
+    { "id": "lea", "name": "Lea", "via": "scan" },
+    { "id": "tom", "name": "Tom", "via": "link" }
+  ],
+  "shared": [
+    { "members": ["lea"], "notes": ["s01", "s09"] },
+    { "members": ["lea", "tom"], "notes": ["s11"] }
+  ],
+  "scanSuggestion": "Grandma"
+}

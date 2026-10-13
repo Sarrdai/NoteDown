@@ -78,12 +78,13 @@ prototype with `?dictation=demo`, which replays
 | `app/index.html` | The single page |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
-| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`). No DOM access; covered by `tests/*.test.mjs` |
-| `app/js/store.js` | App state and persistence (the notes file in `localStorage` for now), change events |
-| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels |
+| `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents (`query.js`), editing commands (`md-commands.js`), multi-select order, copy text and merge (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names, recovery key, contacts, fake QR grid (`sharing.js`). No DOM access; covered by `tests/*.test.mjs` |
+| `app/js/store.js` | App state and persistence (the private file, the shared files and the sync state in `localStorage` for now), moving notes between files, change events |
+| `app/js/sync-sim.js` | Prototype only: simulates the server — sync status "syncing" → "synced" after each file change, offline |
+| `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels, the "Sync & sharing" panel (`sync-panel.js`) with its fake QR code and scanner view (`qr.js`) |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
-| `app/js/sample.js` | Prototype only: loads the sample notes |
-| `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `dictation.md`: the transcript `?dictation=demo` replays |
+| `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity |
+| `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `sharing.json`: the sample user, devices, contacts and which notes are shared with whom; `dictation.md`: the transcript `?dictation=demo` replays |
 | `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), each with its license (all MIT) |
 
 Rules: plain HTML/CSS/JS as ES modules, no framework, no external
@@ -107,6 +108,9 @@ is deleted from code, menu and this table. No variant is open right now.
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `reset` | — | Reload the sample notes |
+| `sync` | `off` | Start with sync off and no shared files, all sample notes private (reloads the sample notes, like `reset`; not a variant) |
+
+In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection (not a variant); "Reset sample notes" resets notes, shared files and sync state (sync on with the sample identity unless `sync=off`).
 
 ### Screenshots
 
