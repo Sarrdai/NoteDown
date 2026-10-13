@@ -275,24 +275,44 @@ export async function decryptFile(fileKey, ciphertext) {
   return new TextDecoder("utf-8", { fatal: true }).decode(plain);
 }
 
-async function wrapKey(privateKey, otherPublic, ephemeralPublic, recipientPublic) {
+async function wrapKey(label, privateKey, otherPublic, ephemeralPublic, recipientPublic) {
   const other = await subtle().importKey("raw", otherPublic, { name: "X25519" }, false, []);
   const shared = new Uint8Array(await subtle().deriveBits({ name: "X25519", public: other }, privateKey, 256));
-  return hkdf(shared, new Uint8Array(0), concat(utf8("notedown-wrap"), ephemeralPublic, recipientPublic));
+  return hkdf(shared, new Uint8Array(0), concat(utf8(label), ephemeralPublic, recipientPublic));
 }
 
-/** b64u of ephemeral X25519 public key ‖ nonce ‖ AES-GCM(wrap key, file key), for the recipient's `enc` key. */
-export async function wrapFileKey(fileKey, recipientEncPublic) {
+// Ephemeral X25519 to the recipient's `enc` key, HKDF with `label`, AES-GCM:
+// b64u of ephemeral public key ‖ nonce ‖ ciphertext.
+async function sealFor(label, recipientEncPublic, plain) {
   const ephemeral = await generatePair("X25519");
-  const key = await wrapKey(ephemeral.privateKey, recipientEncPublic, ephemeral.publicKey, recipientEncPublic);
-  const { nonce, sealed } = await seal(key, fileKey);
+  const key = await wrapKey(label, ephemeral.privateKey, recipientEncPublic, ephemeral.publicKey, recipientEncPublic);
+  const { nonce, sealed } = await seal(key, plain);
   return b64u(concat(ephemeral.publicKey, nonce, sealed));
 }
 
-/** The 32-byte file key from `wrapFileKey`'s output; `encKeyPair` is `{ privateKey, publicKey }`. */
-export async function unwrapFileKey(wrapped, encKeyPair) {
-  const raw = fromB64u(wrapped);
+async function openFor(label, text, encKeyPair) {
+  const raw = fromB64u(text);
   const ephemeralPublic = raw.subarray(0, 32);
-  const key = await wrapKey(encKeyPair.privateKey, ephemeralPublic, ephemeralPublic, encKeyPair.publicKey);
+  const key = await wrapKey(label, encKeyPair.privateKey, ephemeralPublic, ephemeralPublic, encKeyPair.publicKey);
   return open(key, raw.subarray(32, 32 + NONCE_BYTES), raw.subarray(32 + NONCE_BYTES));
+}
+
+/** b64u of ephemeral X25519 public key ‖ nonce ‖ AES-GCM(wrap key, file key), for the recipient's `enc` key. */
+export function wrapFileKey(fileKey, recipientEncPublic) {
+  return sealFor("notedown-wrap", recipientEncPublic, fileKey);
+}
+
+/** The 32-byte file key from `wrapFileKey`'s output; `encKeyPair` is `{ privateKey, publicKey }`. */
+export function unwrapFileKey(wrapped, encKeyPair) {
+  return openFor("notedown-wrap", wrapped, encKeyPair);
+}
+
+/** The relay payload for a new device: `message` (JSON-able) sealed like a file key, label `notedown-relay`. */
+export function sealRelayMessage(message, recipientEncPublic) {
+  return sealFor("notedown-relay", recipientEncPublic, utf8(JSON.stringify(message)));
+}
+
+/** The message of `sealRelayMessage`'s output; throws when it wasn't sealed for `encKeyPair`. */
+export async function openRelayMessage(payload, encKeyPair) {
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-relay", payload, encKeyPair)));
 }

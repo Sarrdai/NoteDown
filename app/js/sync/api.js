@@ -57,6 +57,9 @@ export function createApi(baseUrl, who) {
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),
+    createSlot: () => call("POST", "/v1/relay"),
+    fillSlot: (slot, payload) => call("PUT", `/v1/relay/${slot}`, { payload }, true),
+    readSlot: slot => call("GET", `/v1/relay/${slot}`).then(r => r && r.payload),   // null while empty
     forgetToken: () => { token = null; },
   };
 }

@@ -1,8 +1,11 @@
 {
   "private": true,
-  "description": "Pinned sources of app/vendor/codemirror.esm.js — rebuild with `npm install && npm run build` here (PROJECT.md → \"Prototype\").",
+  "description": "Pinned sources of the generated files in app/vendor/ (codemirror.esm.js, jsqr.esm.js, qrcode.esm.js) — rebuild with `npm install && npm run build` here (PROJECT.md → \"Prototype\").",
   "scripts": {
-    "build": "esbuild codemirror.entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=../../app/vendor/codemirror.esm.js"
+    "build": "npm run build:codemirror && npm run build:jsqr && npm run build:qrcode",
+    "build:codemirror": "esbuild codemirror.entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=../../app/vendor/codemirror.esm.js",
+    "build:jsqr": "esbuild jsqr.entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=../../app/vendor/jsqr.esm.js && cp node_modules/jsqr/LICENSE ../../app/vendor/jsqr.LICENSE",
+    "build:qrcode": "cp node_modules/qrcode-generator/dist/qrcode.mjs ../../app/vendor/qrcode.esm.js"
   },
   "devDependencies": {
     "@codemirror/commands": "6.11.1",
@@ -12,6 +15,8 @@
     "@lezer/common": "1.5.3",
     "@lezer/highlight": "1.2.5",
     "@lezer/markdown": "1.8.0",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "jsqr": "1.4.0",
+    "qrcode-generator": "2.0.4"
   }
 }

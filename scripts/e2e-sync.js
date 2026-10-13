@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // End-to-end test of real sync, run by scripts/test-sync.sh against a local
 // server on 127.0.0.1:8765. Browser contexts stand in for devices: A turns
-// sync on, B joins with the recovery key, both edit (also the same note at
-// once), A removes B, and C restores. Every step checks that the devices end
-// up with the same file. Note texts come from app/sample/notes.md.
+// sync on, B joins with the recovery key, D links by QR code (A really scans
+// it: Chromium's fake camera plays a video of D's code), all edit (also the
+// same note at once), A removes B, and C restores. Every step checks that the
+// devices end up with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
 "use strict";
@@ -17,6 +18,14 @@ const ROOT = path.join(__dirname, "..");
 const API = "http://127.0.0.1:8765";
 const PORT = 8766;   // the origin the server allows (CORS_ORIGINS in test-sync.sh)
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".md": "text/markdown", ".json": "application/json", ".svg": "image/svg+xml" };
+const CAMERA = path.join(require("os").tmpdir(), `notedown-e2e-camera-${process.pid}.y4m`);   // read when a camera opens
+// User agents, so each device suggests its own name (core/linking.js → deviceLabel).
+const AGENTS = {
+  A: "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
+  B: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  C: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  D: "Mozilla/5.0 (Linux; Android 14; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
+};
 const shots = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : null;
 
 // Bodies of the sample notes, by id.
@@ -36,7 +45,7 @@ function serve() {
 const errors = [];
 
 async function device(browser, name, viewport, api = true) {
-  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 600, isMobile: viewport.width < 600 });
+  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 600, isMobile: viewport.width < 600, userAgent: AGENTS[name] });
   const page = await context.newPage();
   page.on("pageerror", e => errors.push(`${name}: ${e.message}`));
   page.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`${name}: ${m.text()}`); });
@@ -65,6 +74,21 @@ async function shot(page, name) {
   if (shots) await page.screenshot({ path: path.join(shots, `sync-${name}.png`) });
 }
 
+// The fake camera's video: one still frame of the QR code of `text`.
+async function showToCamera(text) {
+  const { default: qrcode } = await import(path.join(ROOT, "app/vendor/qrcode.esm.js"));
+  const code = qrcode(0, "M");
+  code.addData(text);
+  code.make();
+  const n = code.getModuleCount(), W = 640, H = 480, px = 6, left = (W - n * px) >> 1, top = (H - n * px) >> 1;
+  const y = Buffer.alloc(W * H, 235);
+  for (let r = 0; r < n * px; r++) for (let x = 0; x < n; x++) {
+    if (code.isDark(Math.floor(r / px), x)) y.fill(16, (top + r) * W + left + x * px, (top + r) * W + left + x * px + px);
+  }
+  const frame = Buffer.concat([Buffer.from("FRAME\n"), y, Buffer.alloc(W * H / 2, 128)]);
+  fs.writeFileSync(CAMERA, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F10:1 Ip A1:1 C420jpeg\n`), frame, frame]));
+}
+
 async function converge(...pages) {
   for (const p of [...pages, ...pages]) await sync(p);
   const texts = await Promise.all(pages.map(fileText));
@@ -80,7 +104,10 @@ async function step(name, fn) {
 
 async function main() {
   const server = await serve();
-  const browser = await chromium.launch(process.env.PLAYWRIGHT_BROWSERS_PATH ? {} : { executablePath: "/opt/pw-browsers/chromium" });
+  const browser = await chromium.launch({
+    ...(process.env.PLAYWRIGHT_BROWSERS_PATH ? {} : { executablePath: "/opt/pw-browsers/chromium" }),
+    args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", "--use-file-for-fake-video-capture=" + CAMERA],
+  });
   let key;
   try {
     const a = await device(browser, "A", { width: 390, height: 844 });
@@ -110,17 +137,56 @@ async function main() {
       await shot(b, "link-desktop");
       await b.fill("#syncBody input", key.toLowerCase().replaceAll("-", " "));
       await b.getByRole("button", { name: "Restore" }).click();
-      await b.getByText("Device 1").waitFor();   // A, as seen from B
+      await b.getByText("Chrome on Android").waitFor();   // A, as seen from B
       await shot(b, "overview-desktop");
       await b.keyboard.press("Escape");
       await converge(a, b);
       assert.deepEqual(await bodies(b), [welcomeA], "B keeps only one welcome note");
     });
 
+    let d;
+    await step("D links by QR code: A scans D's code and confirms", async () => {
+      d = await device(browser, "D", { width: 390, height: 844 });
+      await addNote(d, sample.s04);   // D's own note joins the synced ones
+      await openPanel(d);
+      await d.getByRole("button", { name: "Link to an existing device" }).click();
+      const code = await d.locator(".qr[data-code]").getAttribute("data-code");
+      assert.match(code, /^notedown:link\?v=1&slot=[\w-]{22}&sign=[\w-]{43}&enc=[\w-]{43}&name=NoteDown\+app\+on\+Android$/);
+      await shot(d, "link-qr-phone");
+      await showToCamera("https://example.org");   // first some other QR code: refused
+      await openPanel(a);
+      await a.getByRole("button", { name: "Link a device" }).click();
+      await a.getByText("That's not the code of a new NoteDown device.").waitFor({ timeout: 15000 });
+      await shot(a, "scan-wrong-phone");
+      await a.keyboard.press("Escape");
+      await showToCamera(code);
+      await a.getByRole("button", { name: "Link a device" }).click();
+      await a.getByText("NoteDown app on Android").waitFor({ timeout: 15000 });   // scanned: the confirmation
+      await shot(a, "confirm-link-phone");
+      await a.getByRole("button", { name: "Link", exact: true }).click();
+      await a.getByText("Device linked").waitFor();
+      await d.getByText("This device", { exact: true }).waitFor({ timeout: 15000 });
+      await shot(d, "overview-linked-phone");
+      for (const p of [a, d]) await p.keyboard.press("Escape");
+      await converge(a, b, d);
+      const all = await bodies(d);
+      assert.ok(all.includes(sample.s04), "D's own note is synced");
+      assert.equal((await syncState(d)).name, "Sam", "the display name came with the relay message");
+      assert.match(await fileText(a), /<!-- device id=\S+ name=NoteDown%20app%20on%20Android -->/);
+    });
+
+    await step("a scanned code that expired or isn't a link code is refused", async () => {
+      await assert.rejects(a.evaluate(() => window.__sync.linkDevice("https://example.org")), /not the code/);
+      const used = await d.evaluate(() => document.querySelector(".qr[data-code]")?.dataset.code);
+      assert.equal(used, undefined, "D shows no code any more");
+      const stale = "notedown:link?v=1&slot=AAAAAAAAAAAAAAAAAAAAAA&sign=" + "A".repeat(43) + "&enc=" + "A".repeat(43) + "&name=x";
+      await assert.rejects(a.evaluate(t => window.__sync.linkDevice(t), stale), /expired/);
+    });
+
     await step("a note added on A arrives on B", async () => {
       await addNote(a, sample.s02);
-      await converge(a, b);
-      assert.ok((await bodies(b)).includes(sample.s02));
+      await converge(a, b, d);
+      assert.ok((await bodies(b)).includes(sample.s02) && (await bodies(d)).includes(sample.s02));
     });
 
     await step("notes added on both at once end up on both", async () => {
@@ -142,17 +208,18 @@ async function main() {
 
     await step("A removes B; B is locked out, A keeps syncing", async () => {
       await openPanel(a);
-      await a.getByRole("button", { name: "Remove Device 2" }).click();
+      await a.getByRole("button", { name: "Remove Chrome on Windows" }).click();
       await shot(a, "remove-phone");
       await a.getByRole("button", { name: "Remove", exact: true }).click();
-      await a.getByText("Device 2 removed").waitFor();
+      await a.getByText("Chrome on Windows removed").waitFor();
       await a.keyboard.press("Escape");
       await sync(b);
       const s = await syncState(b);
       assert.equal(s.status, "error");
       assert.match(s.error, /removed/, JSON.stringify(s));
       await addNote(a, sample.s07);
-      await converge(a);
+      await converge(a, d);
+      assert.doesNotMatch(await fileText(a), /name=Chrome%20on%20Windows/, "B's name is gone");
     });
 
     await step("C restores with the recovery key after the removal", async () => {
@@ -163,8 +230,9 @@ async function main() {
       await c.getByRole("button", { name: "Restore" }).click();
       await c.getByText("This device", { exact: true }).waitFor();
       await shot(c, "overview-tablet");
-      await converge(a, c);
+      await converge(a, c, d);
       assert.ok((await bodies(c)).includes(sample.s07));
+      for (const name of ["Chrome on Android", "NoteDown app on Android"]) await c.getByText(name).waitFor();
     });
 
     await step("without a server, sync can't be turned on", async () => {
@@ -176,6 +244,7 @@ async function main() {
   } finally {
     await browser.close();
     server.close();
+    fs.rmSync(CAMERA, { force: true });
   }
   if (errors.length) throw new Error("page errors:\n  " + errors.join("\n  "));
   console.log("all sync steps passed");

@@ -65,6 +65,23 @@ the note instead of reappearing here:
 `moved` is the time of the move (UTC); markers are written after the
 notes and dropped 30 days after the move. Other editors don't show them.
 
+## Device names
+
+The private file names the user's devices, one marker each after the
+moved markers, so every device of the identity shows the same names
+while the server knows none:
+
+```markdown
+<!-- device id=Qm9vS2V5SWQxMjM0NTY3OA name=Chrome%20on%20Windows -->
+```
+
+`id` is the device ID from the device list (`docs/server-api.md`), `name`
+is percent-encoded (`encodeURIComponent`). A device names itself when it
+turns on sync or restores; a linked device writes the name the new
+device's QR code suggests; removing a device drops its marker. Merging
+works per ID: the side that changed a name wins, a removal stays. Any
+text after a device marker is dropped, like after a moved marker.
+
 ## Open points
 
 - How external edits (another editor on the same device) are picked up —

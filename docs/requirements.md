@@ -134,11 +134,24 @@ before the first live test).
   - Without sync, sharing explains that it needs sync and offers to turn
     it on. Notes in the archive aren't shared from there.
   - *Prototype: round 4. **Real sync of the private file** between the
-    user's own devices (2026-10-13): turning it on, linking a device with
-    the recovery key, the device list (numbered, backlog #14) and removing
-    a device run against the server. Linking by QR code, contacts and
-    sharing are only simulated, in the sample (`?sample`, `?sync=off`,
-    ⋮ → Go offline); outside it they are hidden until milestone 2.*
+    user's own devices (2026-10-13): turning it on, linking a device by
+    QR code or with the recovery key, the device list and removing a
+    device run against the server. Contacts and sharing are only
+    simulated, in the sample (`?sample`, `?sync=off`, ⋮ → Go offline);
+    outside it they are hidden until milestone 2.*
+  - **Linking by QR code** (decided 2026-10-13): the new device shows its
+    code under "Link this device", with the recovery key below as the way
+    without a camera (e.g. two desktops). On a synced device, "Link a
+    device" opens the camera; a scanned code asks **"Link ‹device name›?"**
+    before anything changes (an accidentally scanned foreign code must
+    not add a stranger's device), then the new device joins by itself.
+    Scanning uses the camera in the browser and the Android app alike
+    (one code path, no native plugin).
+  - **Devices have names** (backlog #14): each device suggests one from
+    its browser and system ("Chrome on Windows", "NoteDown app on
+    Android"); it travels in the QR code and is kept, encrypted, in the
+    private file, so every device lists the same names. Devices linked
+    before names existed stay "Device n"; renaming is not built.
 
 ### Main view and archive
 
