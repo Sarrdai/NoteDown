@@ -33,9 +33,6 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
-  app.classList.toggle("list-document", s.listStyle === "document");
-  app.classList.toggle("toc-drawer", s.phoneToc === "drawer");
-  app.classList.toggle("toc-sheet", s.phoneToc === "sheet");
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
@@ -103,13 +100,7 @@ function moreMenu() {
   openMenu($("moreBtn"), [
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: list style" },
-    { label: "Cards (A)", checked: s.listStyle === "cards", onSelect: () => updateSettings({ listStyle: "cards" }) },
-    { label: "Document (B)", checked: s.listStyle === "document", onSelect: () => updateSettings({ listStyle: "document" }) },
-    { section: "Prototype: contents on phone" },
-    { label: "Drawer (A)", checked: s.phoneToc === "drawer", onSelect: () => updateSettings({ phoneToc: "drawer" }) },
-    { label: "Bottom sheet (B)", checked: s.phoneToc === "sheet", onSelect: () => updateSettings({ phoneToc: "sheet" }) },
-    { separator: true },
+    { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     { label: "Reset sample notes", onSelect: async () => replaceFile(await loadSample()) },
   ]);
@@ -156,12 +147,10 @@ function wire() {
   initMenu();
 }
 
-// URL parameters set prototype options, e.g. ?list=document&toc=sheet&flavor=mocha&view=closed
+// URL parameters set prototype options, e.g. ?flavor=mocha&view=closed
 function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
-  if (p.get("list")) patch.listStyle = p.get("list");
-  if (p.get("toc")) patch.phoneToc = p.get("toc");
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";

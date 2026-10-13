@@ -10,8 +10,6 @@ const SETTINGS_KEY = "notedown.settings";
 
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
-  listStyle: "cards",        // prototype variant: cards | document
-  phoneToc: "drawer",        // prototype variant: drawer | sheet
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
 };

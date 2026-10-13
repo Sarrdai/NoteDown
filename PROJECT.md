@@ -88,12 +88,10 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table.
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
-| `list` | `cards` (A) · `document` (B) | Notes as separate cards, or one continuous page with dividers |
-| `toc` | `drawer` (A) · `sheet` (B) | Table of contents on the phone: side drawer or bottom sheet |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
 | `reset` | — | Reload the sample notes |
@@ -102,7 +100,7 @@ is deleted from code, menu and this table.
 
 ```bash
 NODE_PATH="$(npm root -g)" node scripts/screenshot.js --device phone --theme dark \
-  --query "list=document" --out <scratchpad>/shot-phone-dark.png \
+  --query "view=closed" --out <scratchpad>/shot-phone-dark.png \
   [--eval "<js that opens the state to show>"]
 ```
 

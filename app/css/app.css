@@ -129,15 +129,6 @@ button { font: inherit; color: inherit; }
 .note.flash { animation: flash 1.2s ease-out; }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow); } }
 
-/* Variant "document": one continuous page, notes split by thin rules. */
-.app.list-document { --bg: var(--surface); }
-.app.list-document .list { gap: 0; }
-.app.list-document .note {
-  background: transparent; border: 0; border-radius: 0; box-shadow: none;
-  border-bottom: 1px solid var(--border); padding: 18px 4px 14px 0;
-}
-.app.list-document .note:last-child { border-bottom: 0; }
-
 .status {
   width: 32px; height: 32px; margin-top: -3px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -174,7 +165,6 @@ button { font: inherit; color: inherit; }
   font: 0.95rem/1.55 var(--mono); color: var(--text);
 }
 .note.editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
-.app.list-document .note.editing { box-shadow: inset 3px 0 0 var(--accent); padding-left: 0; }
 .edit-actions { grid-column: 2; display: flex; justify-content: flex-end; margin-top: 6px; }
 .edit-actions button {
   height: 34px; padding: 0 14px; border: 0; border-radius: 999px; cursor: pointer;
@@ -305,28 +295,22 @@ button { font: inherit; color: inherit; }
   .app.searching #moreBtn, .app.searching #tocBtn, .app.searching #backBtn { display: none; }
   .app.searching #searchClose { visibility: visible; }
   .list { padding-left: 12px; padding-right: 12px; gap: 10px; }
-  .app.list-document .list { padding-left: 14px; padding-right: 14px; }
   .note { padding: 12px 14px 10px 8px; column-gap: 8px; }
   .count { margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; }
   #archiveBtn { padding: 0 6px; }
 
   .scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.35); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
   .app.toc-open .scrim { opacity: 1; pointer-events: auto; }
-  .toc-panel { transition: transform 0.25s ease; box-shadow: var(--shadow-high); background: var(--ctp-base); }
-
-  /* Variant "drawer": from the left. */
-  .app.toc-drawer .toc-panel { width: min(320px, 85vw); transform: translateX(-105%); }
-  .app.toc-drawer.toc-open .toc-panel { transform: none; }
-
-  /* Variant "sheet": bottom sheet. */
-  .app.toc-sheet .toc-panel {
+  /* The contents open as a bottom sheet, within thumb reach. */
+  .toc-panel {
+    transition: transform 0.25s ease; box-shadow: var(--shadow-high); background: var(--ctp-base);
     top: auto; right: 0; width: auto; height: min(72dvh, 600px);
     border-right: 0; border-radius: 18px 18px 0 0; padding-bottom: var(--safe-bottom);
     transform: translateY(105%);
   }
-  .app.toc-sheet.toc-open .toc-panel { transform: none; }
-  .app.toc-sheet .toc-handle { display: block; width: 40px; height: 5px; margin: 8px auto 0; border-radius: 999px; background: var(--ctp-surface2); flex: none; }
-  .app.toc-sheet .toc-head { height: 48px; }
+  .app.toc-open .toc-panel { transform: none; }
+  .toc-handle { display: block; width: 40px; height: 5px; margin: 8px auto 0; border-radius: 999px; background: var(--ctp-surface2); flex: none; }
+  .toc-head { height: 48px; }
 }
 @media (hover: none) {
   .icon-btn:hover, .toc-entry:hover, .menu-item:hover { background: transparent; }

@@ -114,8 +114,10 @@ apart from existing apps beyond the points above.
   italic) at the top level.
 - Tapping an entry scrolls to that place in the note and briefly
   highlights the note.
-- **Open** — on the phone: side drawer or bottom sheet (prototype
-  variants). Tablet and desktop show it as a fixed sidebar.
+- On the phone it opens as a **bottom sheet** from the top bar's contents
+  button — within thumb reach, and the list stays visible above it
+  (decided 2026-10-13 over a side drawer). Tablet and desktop show it as
+  a fixed sidebar.
 
 ### Creating and editing
 
@@ -178,8 +180,9 @@ apart from existing apps beyond the points above.
   Macchiato, Mocha) can be chosen. Accent color: Mauve. *Prototype:
   round 1, under ⋮.*
 - App labels are English for now; a German translation can follow.
-- **Open** — notes as separate cards or as one continuous page with
-  dividers (prototype variants).
+- Notes are shown as **separate cards** (decided 2026-10-13 over one
+  continuous page): each note's boundary is clear for tapping into it and
+  for long-press selection.
 
 ### Not in scope (for now)
 

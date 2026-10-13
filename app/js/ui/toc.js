@@ -1,5 +1,5 @@
 // Table of contents over the notes in view order: a fixed sidebar on tablet
-// and desktop, a drawer or bottom sheet on the phone (prototype variant).
+// and desktop, a bottom sheet on the phone.
 import { tableOfContents } from "../core/query.js";
 import { state, updateSettings } from "../store.js";
 import { flashNote } from "./note-list.js";

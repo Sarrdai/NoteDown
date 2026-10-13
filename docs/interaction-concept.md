@@ -12,8 +12,8 @@ Current state, edited in place when a decision changes.
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
 | Top bar | Title; icons for contents, search, sort, archive (with count), ⋮ | Title, search field, icons | Title, search field, sort and archive with labels, ⋮ |
-| Table of contents | Opened from the top bar — drawer or bottom sheet (**open**, prototype variant) | Fixed sidebar on the left | Fixed sidebar on the left |
-| Note list | Full width | Next to the sidebar | Next to the sidebar, at most 780 px wide |
+| Table of contents | Bottom sheet, opened from the top bar | Fixed sidebar on the left | Fixed sidebar on the left |
+| Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
 
 - One primary action per view, as a floating button at the bottom
@@ -57,5 +57,3 @@ Current state, edited in place when a decision changes.
 - Dates are shown relative where it helps ("Today 08:40", "Yesterday"),
   otherwise as "12 Oct"; the meta line under a note shows the date the
   list is sorted by.
-- **Open** — notes as cards or as one continuous page (prototype
-  variant).
