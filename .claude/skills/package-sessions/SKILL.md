@@ -27,26 +27,27 @@ Entry points that lead here: `from-backlog`, `from-request`.
 - **One session** (`orchestrate` alone): one coherent area, or two small
   ones that touch each other. Cheapest: no start prompts, no reports.
 - **A round** (this skill): three or more packages, or parts that wait
-  on the user at different times (a variant decision in one, a mockup fix
+  on the user at different times (a variant decision in one, a bug fix
   that can go ahead in another). Each package keeps its own context small
   and the user can decide one package while another runs.
 - Packages on different areas may run in parallel, each on its own branch
   off the round's branch (`<round-branch>-<package>`); the orchestrator
   merges them into the round's branch one at a time as they report `DONE`.
-  Packages that both change `mockups/shared/` or
-  `docs/interaction-concept.md` in the same place run one after another.
+  Packages that both change shared code (`store.js`, `main.js`,
+  `app/js/core/`, the tokens) or the same docs section run one after
+  another.
 
 **Session or subagent per package.** A package that needs nothing from
 the user can run as a subagent of the orchestrator instead of a session:
 
 | Package | Runs as |
 |---|---|
-| A mockup fix or a page build from an already decided variant, no questions expected | **Subagent** (`implementer`, background): no container start, and its report returns by itself |
+| A bug fix with known cause, or building an already decided view, no questions expected | **Subagent** (`implementer`, background): no container start, and its report returns by itself |
 | Needs a variant decision or answers from the user | **Session**: it can wait for the user, who talks to it directly |
 
 - The subagent's prompt is the package start prompt below, with "Report
-  back" replaced by: commit on the round's branch after verifying the
-  screenshots, then report in the package format.
+  back" replaced by: commit on the round's branch after `node --test` and
+  verifying the screenshots, then report in the package format.
 - It shares the orchestrator's container: a subagent package that runs
   next to another one gets `isolation: "worktree"` and commits on its
   worktree branch, which the orchestrator merges like a package branch.
@@ -62,7 +63,7 @@ The session tools may be deferred: load them with ToolSearch
   "Before starting or waking work".
 - `create_session` with `source_url`, `source_revision` = the round's
   branch, `model` per `orchestrate` → "Model choice" (Opus when the
-  package starts with a variant mockup, Sonnet when the decision is made),
+  package starts with variants to design, Sonnet when the decision is made),
   and a title that names round and package.
 - The package starts cold. Everything you already know goes into the
   start prompt:
@@ -72,7 +73,7 @@ The session tools may be deferred: load them with ToolSearch
 <what the user gets, in behavior terms>
 
 ## Decided
-<variant mockup link + chosen variant, exact labels, defaults you picked>
+<chosen variants, exact labels, defaults you picked>
 
 ## Out of scope
 
@@ -126,6 +127,6 @@ At the end of each round check `get_session` →
 `external_metadata.context_usage.used_tokens`. Above ~250k: start no new
 round; once no package is running, start a new orchestrator
 (`create_session`, Opus) whose start prompt carries the open items,
-decisions with their mockup links, branches, finished packages with
+decisions, branches, finished packages with
 commits and the rules the user set during the round. Tell the user the
 new session's title and stop working in the old one.

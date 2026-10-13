@@ -24,16 +24,16 @@ short handover, not a resumed big context**.
 
 ## Before starting or waking work (orchestrator, lead)
 
-Start a package, wake a waiting one (`send_message`, e.g. a mockup
+Start a package, wake a waiting one (`send_message`, e.g. a variant
 decision) or delegate the next step only if
 `five_hour.utilization + estimate ≤ 0.85` and `seven_day.utilization <
 0.90`. The 15 % margin is for the orchestrator itself and verification.
 
 | Work | Estimate (five-hour window) |
 |---|---|
-| Mockup fix or a small page change with a clear brief (Sonnet package or subagent) | 5–10 % |
-| Variant mockup up to the user's decision (Opus) | 5–10 % |
-| Decision record + repo mockup after the decision, incl. verification + `finish` | 10–15 % |
+| Bug fix with known cause or a small change with a clear brief (Sonnet package or subagent) | 5–10 % |
+| Variants in the prototype up to the user's decision (Opus) | 10–15 % |
+| Decision record + clean-up + remaining build, incl. verification + `finish` | 10–15 % |
 | Waking a session idle > 1 h | + 2 % per 100k tokens of its context (`get_session` → `context_usage.used_tokens`) |
 
 - The estimates come from PhiLogg's measured rounds; plan with the upper
@@ -41,7 +41,7 @@ decision) or delegate the next step only if
 - Parallel packages add up. Doesn't fit: start only what fits (smallest
   or most urgent first) and hold the rest.
 - Held work: one `send_later` at `five_hour.resetsAt` + 5 min, and one
-  line to the user: what is held and when it continues. A held mockup
+  line to the user: what is held and when it continues. A held variant
   decision is passed on at that check-in, not before.
 - Record `utilization` at a package's start and at its report; tell the
   user the difference in the round summary. Estimates that are off by
@@ -54,7 +54,7 @@ At a step boundary with `five_hour.utilization ≥ 0.85`, start no new step:
 
 1. Commit and push the current state on your branch, unfinished or not
    (message `WIP: <step>`, unprefixed so it moves no version).
-2. Write a handover: goal, decisions (mockup link + variant), what is done
+2. Write a handover: goal, decisions (chosen variants), what is done
    (commits), the remaining plan steps verbatim (the scratchpad does not
    survive the container), open questions.
 3. Package session: send it to the orchestrator as `[<package>] PAUSED`

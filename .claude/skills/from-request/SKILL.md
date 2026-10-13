@@ -1,6 +1,6 @@
 ---
 name: from-request
-description: 'Entry point for a new idea, feature or change the user describes in the prompt — classifies it, clarifies it in one round of questions, decides between elaborating it now and parking it in the backlog, then runs it through orchestrate or package-sessions. Use when the user brings a new request that is not a backlog number ("ich hätte gern…", "Idee: …", "das Mockup sollte…"), and whenever the user invokes /from-request.'
+description: 'Entry point for a new idea, feature, change or prototype bug the user describes in the prompt — classifies it, clarifies it in one round of questions, decides between elaborating it now and parking it in the backlog, then runs it through orchestrate or package-sessions. Use when the user brings a new request that is not a backlog number ("ich hätte gern…", "Idee: …", "im Prototyp fehlt…"), and whenever the user invokes /from-request.'
 ---
 
 # From a new request to a decided concept
@@ -14,7 +14,7 @@ user's confirmation if it is not Opus.
 | Kind | Sign | Next |
 |---|---|---|
 | **Feature / change** | new or different behavior or UI | step 2a |
-| **Mockup defect** | an existing mockup doesn't do what `docs/requirements.md` says, or breaks in a tier | step 2b |
+| **Prototype bug** | the prototype doesn't do what `docs/requirements.md` says, or breaks in a tier | step 2b |
 | **Idea for later** | "irgendwann", "notier dir", no urgency | step 2c |
 
 Unsure whether something is a defect or a new wish: check
@@ -27,15 +27,16 @@ decided and ask with that in hand.
   existing entry (then continue with `from-backlog`) and the docs for what
   is decided today.
 - Ask everything open in one message with your recommended answers; pick
-  defaults for the rest. UI changes then go to the mockup (`orchestrate`,
-  phase 2).
+  defaults for the rest. Open UI questions then become variants in the
+  prototype (`orchestrate`, phase 2).
 
-## 2b. Mockup defect: find the cause
+## 2b. Prototype bug: find the cause
 
-Reproduce it with a screenshot in the named tier (`scripts/screenshot.js`),
-find the cause, tell the user in a few sentences. A fix with no design
-decision goes ahead without waiting; one that changes what the user sees
-beyond the decided state waits for the go.
+Reproduce it in the named tier (a failing unit test for core logic, a
+browser run or screenshot for the UI), find the root cause, tell the user
+in a few sentences; core logic bugs get the failing test first. A fix
+with no design decision goes ahead without waiting; one that changes what
+the user sees beyond the decided state waits for the go.
 
 ## 2c. Idea for later: park it
 
