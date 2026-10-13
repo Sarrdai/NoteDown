@@ -1,6 +1,7 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS } from "./core/query.js";
 import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, replaceFiles, fileText, allNotes } from "./store.js";
+import { parseNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSyncPanel, openSyncPanel, statusText } from "./ui/sync-panel.js";
@@ -138,11 +139,12 @@ function sortMenu() {
   ]);
 }
 
-// With ?sync=off the sample starts without sync and shared files.
-let syncOff = false;
-
-async function resetSample() {
-  replaceFiles(await loadSampleState({ sync: !syncOff }));
+// The first start holds only the welcome note (app/welcome.md), sync off.
+async function loadWelcome() {
+  const body = await (await fetch(new URL("../welcome.md", import.meta.url))).text();
+  const file = parseNotesFile("");
+  file.notes.push(createNote(body.trim(), timestamp()));
+  replaceFiles({ file });
 }
 
 function moreMenu() {
@@ -156,7 +158,6 @@ function moreMenu() {
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
-    { label: "Reset sample notes", onSelect: resetSample },
   ]);
 }
 
@@ -212,15 +213,18 @@ function applyUrlOptions() {
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
-  syncOff = p.get("sync") === "off";
-  return p.get("reset") !== null || syncOff;
+  // ?sample replaces the stored notes with the sample notes (screenshots,
+  // demos); with sync=off they come without the sample identity.
+  const syncOff = p.get("sync") === "off";
+  return p.get("sample") !== null || syncOff ? { sync: !syncOff } : null;
 }
 
 async function start() {
   wire();
   const hadFile = load();
-  const reset = applyUrlOptions();
-  if (!hadFile || reset) await resetSample();
+  const sample = applyUrlOptions();
+  if (sample) replaceFiles(await loadSampleState(sample));
+  else if (!hadFile) await loadWelcome();
   initSyncSim();
   render();
   document.body.dataset.ready = "1";

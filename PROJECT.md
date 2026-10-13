@@ -73,8 +73,9 @@ It prints the addresses to open: `http://localhost:8000/app/` on this
 computer and `http://<computer-ip>:8000/app/` for a phone or tablet in
 the same network. Any other static file server from the repo root works
 too (e.g. `python3 -m http.server 8000`).
-The first start loads the sample notes; ⋮ → "Reset sample notes" brings
-them back.
+The prototype holds real notes: the first start shows only the welcome
+note (`app/welcome.md`); `?sample` replaces whatever is stored with the
+sample notes, for screenshots and demos.
 
 **Dictation needs a secure context** (https or `localhost`): over
 `http://<computer-ip>` the browser blocks the microphone. To try it on
@@ -95,7 +96,8 @@ prototype with `?dictation=demo`, which replays
 | `app/js/sync-sim.js` | Prototype only: simulates the server — sync status "syncing" → "synced" after each file change, offline |
 | `app/js/ui/` | Views: note list (`note-list.js`, also starts / ends editing), editor (`editor.js` + `live-preview.js`, CodeMirror), toolbar (`toolbar.js`), speech input (`dictation.js`), the + button with hold-to-record (`recorder.js`), multi-select with its action bar and order dialog (`selection.js`), table of contents, menus, snackbar, icons, date labels, the "Sync & sharing" panel (`sync-panel.js`, whose container also holds the share dialog `share-dialog.js`) with its fake QR code and scanner view (`qr.js`), contact colors and avatars (`people.js`), small DOM helpers (`dom.js`) |
 | `app/js/main.js` | Wires store and views: top bar, sorting, search, keyboard, prototype options |
-| `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity |
+| `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity (`?sample`) |
+| `app/welcome.md` | The welcome note a first start shows (onboarding; the only note text outside `app/sample/`) |
 | `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `sharing.json`: the sample user, devices, contacts and which notes are shared with whom; `dictation.md`: the transcript `?dictation=demo` replays |
 | `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), each with its license (all MIT) |
 
@@ -119,10 +121,10 @@ is deleted from code, menu and this table. No variant is open right now.
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
-| `reset` | — | Reload the sample notes |
-| `sync` | `off` | Start with sync off and no shared files, all sample notes private (reloads the sample notes, like `reset`; not a variant) |
+| `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
+| `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
 
-In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection (not a variant); "Reset sample notes" resets notes, shared files and sync state (sync on with the sample identity unless `sync=off`).
+In ⋮ → "Prototype", "Download notes.md" saves the private file and "Go offline" / "Go online" simulates losing the connection (not variants).
 
 ### Screenshots
 
@@ -133,8 +135,8 @@ NODE_PATH="$(npm root -g)" node scripts/screenshot.js --device phone --theme dar
 ```
 
 The script serves the repo itself, starts each run with empty storage
-(so the sample notes load), lists page errors and exits non-zero on
-them. Options are documented in its header.
+and the sample notes (`--first-start` shows the welcome note instead),
+lists page errors and exits non-zero on them. Options are documented in its header.
 
 ## Technology direction
 

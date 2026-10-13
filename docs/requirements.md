@@ -139,6 +139,10 @@ before the first live test).
 
 ### Main view and archive
 
+- **First start:** the app holds only a **welcome note** (`app/welcome.md`)
+  that explains the basics as tasks to tick and close — onboarding with
+  the app's own means instead of a tour (decided 2026-10-13). *Prototype:
+  holds real notes from then on; the sample notes only with `?sample`.*
 - The **main view** shows the open notes; the **archive** shows the
   closed ones. Both look alike; the archive has a clearly different
   background tint. *Prototype: round 1.*

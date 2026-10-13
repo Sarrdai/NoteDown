@@ -6,11 +6,14 @@
 //   node scripts/screenshot.js [app/index.html] [--device desktop|tablet|phone]
 //        [--out shot.png] [--theme light|dark] [--query "list=document&toc=sheet"]
 //        [--eval "<js run in the page before the shot>"] [--wait <ms>] [--full]
+//        [--first-start]
 //
 // The repo is served over a throwaway local HTTP server (ES modules don't
-// load from file://). Each run starts with empty storage, so the app loads
-// its sample notes. --device sets viewport and input: desktop = 1440x900
-// mouse, tablet = 820x1180 touch, phone = 390x844 touch. --theme sets
+// load from file://). Each run starts with empty storage and adds `sample`
+// to the query, so the app shows the sample notes; --first-start leaves it
+// out and shows what a new user sees (the welcome note). --device sets
+// viewport and input: desktop = 1440x900 mouse, tablet = 820x1180 touch,
+// phone = 390x844 touch. --theme sets
 // prefers-color-scheme (the app's "System" theme follows it). --query is
 // appended to the page URL (app options: PROJECT.md → "Prototype options").
 // --eval may return a promise; the shot waits for it. Page errors are listed
@@ -44,12 +47,13 @@ function serve() {
 
 async function main() {
   const args = process.argv.slice(2);
-  const opt = { device: "desktop", out: "shot.png", theme: "light", query: "", eval: null, wait: 300, full: false };
+  const opt = { device: "desktop", out: "shot.png", theme: "light", query: "", eval: null, wait: 300, full: false, sample: true };
   let page = "app/index.html";
   for (let i = 0; i < args.length; i++) {
     const m = /^--(device|out|theme|query|eval|wait)$/.exec(args[i]);
     if (m) opt[m[1]] = args[++i];
     else if (args[i] === "--full") opt.full = true;
+    else if (args[i] === "--first-start") opt.sample = false;
     else page = path.relative(ROOT, path.resolve(args[i]));
   }
   if (!DEVICES[opt.device]) throw new Error("unknown device: " + opt.device);
@@ -61,7 +65,7 @@ async function main() {
     const tab = await browser.newPage(Object.assign({ colorScheme: opt.theme }, DEVICES[opt.device]));
     tab.on("pageerror", e => errors.push(e.message));
     tab.on("console", msg => { if (msg.type() === "error") errors.push(msg.text()); });
-    const url = `http://127.0.0.1:${server.address().port}/${page.split(path.sep).join("/")}` + (opt.query ? "?" + opt.query : "");
+    const url = `http://127.0.0.1:${server.address().port}/${page.split(path.sep).join("/")}` + "?" + [opt.sample && page.startsWith("app") ? "sample" : "", opt.query].filter(Boolean).join("&");
     await tab.goto(url);
     // The app marks itself ready once the notes are rendered.
     await tab.waitForFunction(() => document.body.dataset.ready === "1" || !document.querySelector("#app"), null, { timeout: 10000 }).catch(() => errors.push("app did not become ready"));

@@ -34,8 +34,10 @@ python3 scripts/serve.py
 
 It prints the addresses: <http://localhost:8000/app/> on this computer,
 and `http://<computer-ip>:8000/app/` for a phone in the same network. Resize the window to see the tablet
-and phone layouts; ⋮ switches the theme. Dictation needs `localhost` or
-https; add `?dictation=demo` to try it without a microphone.
+and phone layouts; ⋮ switches the theme. The prototype keeps real notes
+and starts with a welcome note; add `?sample` to the address to replace
+them with the sample notes. Dictation needs `localhost` or https; add
+`?dictation=demo` to try it without a microphone.
 
 ## Where to look
 
