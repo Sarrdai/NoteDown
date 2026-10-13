@@ -115,8 +115,21 @@ No accounts and no passwords: a device signs a challenge.
   QR code with its device keys and the slot. The linked device appends
   the new device to the list, adds its wrapped file keys and puts the
   identity ID and the display name, encrypted for the new device's
-  `enc` key, into the slot. The new device polls the slot, then
-  authenticates normally.
+  `enc` key, into the slot. The new device polls the slot (every 2 s),
+  then authenticates normally. Formats (client side,
+  `app/js/core/linking.js`):
+  - **QR code text:** `notedown:link?v=1&slot=<slot>&sign=<b64u>&enc=<b64u>&name=<name>`
+    — a URL query (form-encoded), the device's public Ed25519 and X25519
+    keys and its suggested name (at most 40 characters, may be empty).
+    About 170 characters: QR version 9 at error correction M.
+  - **Relay payload:** b64u of ephemeral X25519 public key ‖ nonce ‖
+    AES-256-GCM ciphertext, built like a wrapped file key but with the
+    HKDF label `notedown-relay` instead of `notedown-wrap`; the plaintext
+    is the UTF-8 JSON `{"v": 1, "identity": "<id>", "name": "<display name>"}`.
+  - The linked device first reads the slot (204 = still open) so an
+    expired code fails before the device list changes. The new device
+    joins only if its own device is active on the verified list of
+    that identity.
 - **Restoring with the recovery key:** derive the identity and recovery
   device keys, authenticate as the recovery device, append the new
   device, wrap the file keys for it.

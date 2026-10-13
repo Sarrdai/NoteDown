@@ -6,7 +6,7 @@
 import { newId } from "./notes-file.js";
 
 /**
- * Three-way merge of parsed notes files ({ preamble, notes, moved }).
+ * Three-way merge of parsed notes files ({ preamble, notes, moved, devices }).
  * Returns { file, displaced }: `displaced` lists { base, note } for notes
  * edited on one side while the other moved them to another file; the caller
  * re-applies each with applyDisplaced to the file the note moved to, or to
@@ -36,7 +36,19 @@ export function mergeNotesFiles(base, local, remote) {
     else if (out?.moved) moved.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved }, displaced };
+  return { file: { preamble, notes, moved, devices: mergeDevices(base, local, remote) }, displaced };
+}
+
+// Device names (private file): per device id, the side that changed it wins,
+// the remote one when both did; a name removed on one side stays removed.
+function mergeDevices(base, local, remote) {
+  const [b, l, r] = [base, local, remote].map(f => new Map((f.devices || []).map(d => [d.id, d.name])));
+  const out = [];
+  for (const id of new Set([...r.keys(), ...l.keys()])) {
+    const name = l.get(id) === b.get(id) ? r.get(id) : r.get(id) === b.get(id) ? l.get(id) : r.get(id) ?? l.get(id);
+    if (name !== undefined) out.push({ id, name });
+  }
+  return out;
 }
 
 /** Merges a displaced edit into the parsed file the note now lives in. */

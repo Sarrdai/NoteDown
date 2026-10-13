@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
   circleKey, circleLabel, shareState, initials, splitIntoCircles, generateRecoveryKey,
-  normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo, qrMatrix, QR_SIZE,
+  normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo,
   colorIndex, nextColor, visibleMembers,
 } from "../app/js/core/sharing.js";
 
@@ -119,18 +119,6 @@ test("syncedAgo: minutes, hours, days", () => {
   assert.equal(ago(5 * 60), "5 h ago");
   assert.equal(ago(24 * 60), "1 day ago");
   assert.equal(ago(3 * 24 * 60), "3 days ago");
-});
-
-test("qrMatrix: deterministic, finder squares in three corners, seed-dependent", () => {
-  const a = qrMatrix("alex");
-  assert.equal(a.length, QR_SIZE);
-  assert.ok(a.every(row => row.length === QR_SIZE));
-  assert.deepEqual(a, qrMatrix("alex"));
-  assert.notDeepEqual(a, qrMatrix("lea"));
-  for (const [ox, oy] of [[0, 0], [QR_SIZE - 7, 0], [0, QR_SIZE - 7]]) {
-    assert.ok(a[oy][ox] && a[oy + 6][ox + 6] && a[oy + 3][ox + 3]);
-    assert.ok(!a[oy + 1][ox + 1] && !a[oy + 1][ox + 5]);
-  }
 });
 
 test("colorIndex: stable slot 1–6", () => {

@@ -440,16 +440,19 @@ button { font: inherit; color: inherit; }
 .qr svg { display: block; width: 100%; height: auto; border-radius: 12px; box-shadow: var(--shadow); }
 .qr-bg { fill: var(--qr-bg); }
 .qr-fg { fill: var(--qr-fg); }
-.qr figcaption { margin-top: 8px; font-size: 0.8rem; color: var(--text-faint); }
+.qr-wait { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: min(260px, 100%); aspect-ratio: 1; border-radius: 12px; border: 1px dashed var(--border); }
 .qr-name { margin: -4px 0 0; font-size: 1.15rem; font-weight: 700; }
 
 .scanner-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .scanner {
   position: relative; display: flex; align-items: center; justify-content: center; width: min(280px, 100%); aspect-ratio: 1;
-  border-radius: 18px; background: var(--scan-bg); color: var(--ctp-overlay1);
+  border-radius: 18px; background: var(--scan-bg); color: var(--ctp-overlay1); overflow: hidden;
 }
 .scanner-icon { width: 56px; height: 56px; opacity: 0.35; }
-.corner { position: absolute; width: 38px; height: 38px; border: 0 solid var(--accent); }
+.scanner-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.scanner.live .scanner-icon, .scanner.off .corner { display: none; }
+.scanner.off .scanner-video { display: none; }
+.corner { position: absolute; z-index: 1; width: 38px; height: 38px; border: 0 solid var(--accent); }
 .corner.tl { top: 18px; left: 18px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 10px; }
 .corner.tr { top: 18px; right: 18px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 10px; }
 .corner.bl { bottom: 18px; left: 18px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 10px; }

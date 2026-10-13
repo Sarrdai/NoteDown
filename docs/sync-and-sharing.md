@@ -91,10 +91,14 @@ rely on the operating system's own storage encryption for the local copy.
   restoring device finds it from the recovery key alone. A device proves who it is by signing a challenge
   with its own device key; there is no login, code or password.
 - **Linking a device:** the new device (e.g. the web app on the desktop)
-  shows a QR code with its public device key; a linked device (e.g. the
-  phone) scans it, adds the key to the device list and wraps the file
-  keys for it. The desktop needs no camera, and since the key comes from
-  the QR code, the server can't slip in its own.
+  shows a QR code with its public device keys, a relay slot and its
+  suggested name; a linked device (e.g. the phone) scans it, asks for
+  confirmation, adds the key to the device list, wraps the file keys for
+  it and leaves the identity, sealed for the new device, in the slot
+  (format: `docs/server-api.md` → "Linking a device"). The desktop needs
+  no camera, and since the key comes from the QR code, the server can't
+  slip in its own; a forged slot answer fails, because the new device
+  only joins a verified device list that holds it.
 - **Removing a device** (lost, stolen, sold) from another one takes it
   off the device list, so the server refuses it, and **renews the keys**:
   the remaining device creates new file keys for every file the removed
@@ -211,10 +215,9 @@ devices don't keep re-uploading the same notes in each other's order.
   would let the user bring a file back.
 - The UI is decided and in the prototype (`docs/requirements.md` → "Sync
   and sharing" → "Where it is operated"). Real sync covers milestone 1
-  without linking by QR code (`app/js/sync/`); the rest is simulated in
-  the sample.
+  (`app/js/sync/`); the rest is simulated in the sample.
 - **Milestone 1 client details:** the private file is the identity's only
   file on the server (milestone 2 needs a way to tell it from shared
-  files); the device list shows numbered devices, since the server knows
-  no names (backlog #14); the notes still sit in `localStorage`, only the
-  keys in IndexedDB.
+  files); device names live in the private file (`docs/file-format.md` →
+  "Device names"), since the server knows none; the notes still sit in
+  `localStorage`, only the keys in IndexedDB.

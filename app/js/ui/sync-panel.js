@@ -2,21 +2,24 @@
 // recovery key, linking a device, devices and contacts. Phone: a full-screen
 // sheet; tablet and desktop: a centered dialog. Pages stack inside the panel;
 // the back button, Esc and the Android back key go one page back, then close.
-// Real sync (sync/client.js) covers turning on, restoring with the recovery
-// key and the device list; linking by QR code and contacts come later and are
+// Real sync (sync/client.js) covers turning on, linking a device by QR code
+// or with the recovery key and the device list; contacts come later and are
 // only simulated for the sample (`state.sync.simulated`), where "Simulate
-// scan" stands in for scanning (docs/sync-and-sharing.md → "Identity and
+// scan" stands in for the camera (docs/sync-and-sharing.md → "Identity and
 // devices", "Contacts").
 import { state, subscribe, setSync, replaceFiles } from "../store.js";
 import { syncNow } from "../sync-sim.js";
-import { turnOn, restore, removeDevice, loadDevices, syncAvailable } from "../sync/client.js";
+import {
+  turnOn, restore, removeDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
+} from "../sync/client.js";
+import { ApiError } from "../sync/api.js";
 import { deviceRows } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
 } from "../core/sharing.js";
 import { h, text, button } from "./dom.js";
-import { qrFigure, scannerView } from "./qr.js";
+import { qrFigure, scannerView, cameraScanner } from "./qr.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
 
@@ -25,6 +28,7 @@ const real = () => !state.sync.simulated;
 let stack = [];          // [{ page, data }]; the last entry is on screen
 let isOpen = false;
 let returnFocus = null;
+let leave = null;        // turns off what the page on screen started (camera)
 
 export function initSyncPanel() {
   $("syncBack").addEventListener("click", back);
@@ -74,6 +78,7 @@ export function closePanel() { close(); }
 function close({ fromHistory = false } = {}) {
   if (!isOpen) return;
   isOpen = false;
+  leavePage();
   $("syncPanel").hidden = true;
   if (!fromHistory && history.state && history.state.syncPanel) history.back();
   if (returnFocus && returnFocus.focus) returnFocus.focus();
@@ -96,9 +101,18 @@ function reset(page) {
 
 const top = () => stack[stack.length - 1];
 
+// True while `data`'s page is the one on screen (polling stops otherwise).
+const onScreen = data => isOpen && top().data === data;
+
+function leavePage() {
+  if (leave) leave();
+  leave = null;
+}
+
 function render({ keepScroll = false } = {}) {
   const { page, data } = top();
   const def = PAGES[page];
+  leavePage();
   $("syncTitle").textContent = typeof def.title === "function" ? def.title(data) : def.title;
   const nested = stack.length > 1;
   $("syncBack").innerHTML = icon(nested ? "back" : "close");
@@ -242,6 +256,37 @@ function addContact(name, via) {
   showSnackbar(`${name} added`);
 }
 
+// The new device's QR code (real sync): a fresh relay slot, polled until a
+// linked device has answered; a new code once it has expired.
+function linkCodeView(data) {
+  const box = h("div", { class: "qr-wait" });
+  if (data.failed) {
+    box.append(text(data.failed, "sheet-text muted center"), button("New code", "outline", () => {
+      data.failed = null;
+      render({ keepScroll: true });
+    }));
+    return box;
+  }
+  if (!data.link) {
+    data.link = startLinking();
+    data.link.then(link => {
+      data.link = link;
+      if (onScreen(data)) render({ keepScroll: true });
+      return waitForLink(link, () => !onScreen(data));
+    }).then(linked => {
+      if (!linked) return;
+      if (isOpen) reset("overview");
+      showSnackbar("Device linked");
+    }).catch(e => {
+      data.link = null;
+      data.failed = e instanceof ApiError && e.status === 404 ? "This code has expired." : `Couldn't link: ${e.message}`;
+      if (onScreen(data)) render({ keepScroll: true });
+    });
+  }
+  if (data.link instanceof Promise) return h("div", { class: "qr-wait" }, text("Preparing the code…", "sheet-text muted center"));
+  return qrFigure(data.link.code, "QR code of this device");
+}
+
 // ---------- pages ----------
 
 const PAGES = {
@@ -327,12 +372,11 @@ const PAGES = {
       });
       input.addEventListener("keydown", e => { if (e.key === "Enter") submit.click(); });
       return [
-        !real() && h("div", { class: "qr-wrap" }, qrFigure(data.seed, "QR code of this device")),
-        !real() && text("On a device that already syncs, open Sync & sharing → Link a device and scan this code."),
+        h("div", { class: "qr-wrap" }, real() ? linkCodeView(data) : qrFigure(data.seed, "QR code of this device")),
+        text("On a device that already syncs, open Sync & sharing → Link a device and scan this code."),
         !real() && button("Simulate scan (prototype)", "", () => adoptIdentity(null, "Device linked")),
-        !real() && h("div", { class: "sheet-divider" }),
-        real() && text("Enter the recovery key you got when you turned on sync on your first device. Your notes on both devices are combined."),
-        field(real() ? "Recovery key" : "Or enter your recovery key", input),
+        h("div", { class: "sheet-divider" }),
+        field("Or enter your recovery key", input),
         error,
         h("div", { class: "sheet-actions" }, submit),
         failed,
@@ -345,12 +389,23 @@ const PAGES = {
     render: data => real() ? realOverview(data) : simulatedOverview(),
   },
 
-  linkHelp: {
+  confirmLink: {
     title: "Link a device",
-    render: () => [
-      text("On the new device, open NoteDown → ⋮ → Sync & sharing → Link to an existing device and enter your recovery key."),
-      text("Linking by QR code comes later.", "sheet-text muted"),
-    ],
+    render: data => {
+      const { btn, error } = action("Link", async () => {
+        if (real()) await linkDevice(data.code);
+        else setSync({ devices: [...state.sync.devices, data.name] });
+        reset("overview");
+        showSnackbar("Device linked");
+      });
+      return [
+        h("div", { class: "hero", html: icon("device") }),
+        h("p", { class: "qr-name" }, data.name || "New device"),
+        text("Link this device to your notes? It can then read and change all of them. Only link devices you own.", "sheet-text center"),
+        h("div", { class: "sheet-actions" }, btn, button("Cancel", "", back)),
+        error,
+      ];
+    },
   },
 
   removeDevice: {
@@ -376,7 +431,7 @@ function realOverview(data) {
   if (!data.rows && !data.loading) {
     data.loading = true;
     loadDevices()
-      .then(devices => { data.rows = deviceRows(devices, state.sync.device); })
+      .then(devices => { data.rows = deviceRows(devices, state.sync.device, state.file.devices); })
       .catch(e => { data.failed = e.message; })
       .finally(() => { data.loading = false; if (isOpen && top().data === data) render({ keepScroll: true }); });
   }
@@ -387,11 +442,11 @@ function realOverview(data) {
     section("Devices"),
     data.rows
       ? h("ul", { class: "sheet-card" }, data.rows.map(d => row({
-          icon: "device", title: d.label, sub: d.own ? deviceName() : null,
+          icon: "device", title: d.label, sub: d.own ? (d.named ? "This device" : deviceName()) : null,
           remove: !d.own && (() => go("removeDevice", d)),
         })))
       : text(data.failed ? `Couldn't load the devices: ${data.failed}` : "Loading…", "sheet-text muted"),
-    h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkHelp"))),
+    h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     section("Contacts"),
     text("Sharing notes with contacts comes in the next step.", "sheet-text muted"),
   ];
@@ -422,19 +477,35 @@ function simulatedOverview() {
   ];
 }
 
-// Pages only the sample reaches: linking by QR code and contacts.
+// Linking a device from this one (both modes) and the pages only the sample reaches: contacts.
 Object.assign(PAGES, {
   linkDevice: {
     title: "Link a device",
-    render: () => [
-      scannerView("Scan the code shown on the new device."),
-      h("div", { class: "button-row center" }, button("Simulate scan (prototype)", "", () => {
-        const name = uniqueName("New device", state.sync.devices);
-        setSync({ devices: [...state.sync.devices, name] });
-        reset("overview");
-        showSnackbar("Device linked");
-      })),
-    ],
+    render: () => {
+      const hint = "Scan the code shown on the new device.";
+      if (!real()) {
+        return [
+          scannerView(hint),
+          h("div", { class: "button-row center" }, button("Simulate scan (prototype)", "", () =>
+            go("confirmLink", { name: uniqueName("New device", state.sync.devices) }))),
+        ];
+      }
+      const scanner = cameraScanner({
+        hint,
+        wrongCode: "That's not the code of a new NoteDown device.",
+        noCamera: "No camera found on this device.",
+        onCode: code => {
+          const found = readLinkCode(code);
+          if (found) go("confirmLink", { code, name: found.name });
+          return Boolean(found);
+        },
+      });
+      leave = scanner.stop;
+      return [
+        scanner.el,
+        text("No camera? Enter your recovery key on the new device instead.", "sheet-text muted center"),
+      ];
+    },
   },
 
   addContact: {

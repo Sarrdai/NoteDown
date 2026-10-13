@@ -1,7 +1,7 @@
 // Real sync of the private file with the server (docs/sync-and-sharing.md →
 // "Identity and devices", "Sync"; protocol: docs/server-api.md). Turning sync
-// on creates the identity, restoring with the recovery key adds this device,
-// and each round downloads, merges and uploads the end-to-end encrypted file.
+// on creates the identity, linking by QR code or restoring with the recovery
+// key adds this device, and each round downloads, merges and uploads the end-to-end encrypted file.
 // Rounds run shortly after a change, on start, when the app comes back to the
 // foreground or online, and every 30 s while it is visible. The sample
 // (`state.sync.simulated`) never reaches this module.
@@ -9,13 +9,15 @@ import { state, setSync, setPrivateFile, fileText, onFilesChanged } from "../sto
 import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
 import { mergeNotesFiles } from "../core/merge.js";
 import * as c from "../core/crypto.js";
-import { onlyUntouchedWelcome, keyHolders } from "../core/sync-state.js";
+import { onlyUntouchedWelcome, keyHolders, withDeviceName } from "../core/sync-state.js";
+import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel } from "../core/linking.js";
 import { createApi, ApiError, NetworkError } from "./api.js";
 import { getSecret, setSecret, clearSecrets } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
 const POLL_MS = 30000;
 const ATTEMPTS = 3;
+const SLOT_POLL_MS = 2000;
 
 let api = null;
 let keys = null;         // this device's { sign, enc } key pairs
@@ -193,7 +195,13 @@ export async function turnOn(name, recoveryKey) {
     throw e;
   }
   await adopt({ name, identity, identityKey: r.identity.publicKey, device });
+  nameThisDevice();
   await syncNow();
+}
+
+// This device's suggested name into the private file (docs/file-format.md → "Device names").
+function nameThisDevice() {
+  setPrivateFile(withDeviceName(state.file, state.sync.device, deviceLabel(navigator.userAgent)));
 }
 
 /**
@@ -249,7 +257,100 @@ export async function restore(recoveryKey) {
     setPrivateFile(mergeNotesFiles(emptyFile(), local, parseNotesFile(remote.text)).file);
     setSync({ file: { id: remote.id, version: remote.version, base: remote.text } });
   }
+  nameThisDevice();
   await syncNow();
+}
+
+/**
+ * The new device's side of linking by QR code: new device keys and a relay
+ * slot; `code` is the text of the QR code to show. Then `waitForLink`.
+ */
+export async function startLinking() {
+  const device = await c.generateDeviceKeys();
+  const { slot, expires } = await api.createSlot();
+  const code = linkCode({ slot, sign: c.b64u(device.sign.publicKey), enc: c.b64u(device.enc.publicKey), name: deviceLabel(navigator.userAgent) });
+  return { device, slot, code, expires: Date.parse(expires) };
+}
+
+/**
+ * Polls the slot of `startLinking` until a linked device has filled it, then
+ * joins that identity: checks that the verified device list holds this
+ * device, takes over the keys and merges the notes on the next sync round.
+ * Resolves false when `cancelled()` became true; throws when the slot
+ * expired (ApiError 404) or the answer doesn't add up.
+ */
+export async function waitForLink({ device, slot }, cancelled) {
+  let payload = null;
+  while (!payload) {
+    if (cancelled()) return false;
+    try {
+      payload = await api.readSlot(slot);
+    } catch (e) {
+      if (!(e instanceof NetworkError)) throw e;   // offline for a moment: keep polling
+    }
+    if (!payload) await new Promise(resolve => setTimeout(resolve, SLOT_POLL_MS));
+  }
+  let message;
+  try {
+    message = parseRelayMessage(await c.openRelayMessage(payload, device.enc));
+  } catch { /* not sealed for this device */ }
+  if (!message) throw new Error("The other device sent an answer this device can't read");
+  const { identity_key: identityKey, entries } = await api.getIdentity(message.identity);
+  const keyBytes = c.fromB64u(identityKey, 32);
+  if (await c.keyId(keyBytes) !== message.identity) throw new Error("The server answered with another identity");
+  const devices = await c.verifyChain(keyBytes, entries);
+  if (!devices.get(await c.keyId(device.sign.publicKey))?.active) throw new Error("This device isn't on the device list; scan the code again");
+  if (onlyUntouchedWelcome(state.file)) setPrivateFile(emptyFile());
+  await adopt({ name: message.name, identity: message.identity, identityKey: keyBytes, device });
+  await syncNow();
+  return true;
+}
+
+/** `{ name }` of a scanned code if it is a link code, else null (for the confirmation). */
+export function readLinkCode(text) {
+  const parsed = parseLinkCode(text);
+  return parsed && { name: parsed.name };
+}
+
+/**
+ * The linked device's side: appends the device of a scanned link code to the
+ * device list, wraps the file key for it, writes its name into the private
+ * file and leaves the identity ID and display name, sealed for the new
+ * device, in its relay slot.
+ */
+export async function linkDevice(text) {
+  const code = parseLinkCode(text);
+  if (!code) throw new Error("That's not the code of a NoteDown device");
+  const expired = new Error("The code has expired. Show a new one on the other device and scan again");
+  try {
+    await api.readSlot(code.slot);   // still open (204), before the device goes on the list
+  } catch (e) {
+    throw e instanceof ApiError && e.status === 404 ? expired : e;
+  }
+  await syncNow();
+  await loadKeys();
+  if (!state.sync.file || !fileKey) throw new Error("Sync first, then link the device");
+  const record = { id: await c.keyId(c.fromB64u(code.sign, 32)), kind: "device", sign: code.sign, enc: code.enc };
+  for (let entries = (await chain()).entries; ;) {
+    const body = await c.newEntry(state.sync.identity, entries, "add", record);
+    try {
+      await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      entries = (await chain()).entries;   // another device appended first
+    }
+  }
+  await api.addKeys(state.sync.file.id, { [record.id]: await c.wrapFileKey(fileKey, c.fromB64u(code.enc, 32)) });
+  if (code.name) {
+    setPrivateFile(withDeviceName(state.file, record.id, code.name));
+    await syncNow();
+  }
+  try {
+    await api.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name), c.fromB64u(code.enc, 32)));
+  } catch (e) {
+    throw e instanceof ApiError && e.status === 409 ? expired : e;
+  }
 }
 
 /**
@@ -263,6 +364,7 @@ export async function removeDevice(id) {
   const body = await c.newEntry(state.sync.identity, entries, "remove", { id });
   await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
   devices.get(id).active = false;
+  setPrivateFile(withDeviceName(state.file, id, null));
   const key = c.generateFileKey();
   for (let i = 0; i < ATTEMPTS; i++) {
     if (await upload(state.sync.file.version, fileText(), keyHolders(devices), key)) {
