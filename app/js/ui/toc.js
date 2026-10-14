@@ -1,7 +1,7 @@
 // Table of contents over the notes in view order: a fixed sidebar on tablet
 // and desktop, a bottom sheet on the phone whose handle always peeks out at
 // the bottom: a tap on it opens the sheet fully (or closes it), dragging it
-// leaves the sheet at any height. In the main view it is also a
+// leaves the sheet at any height; the Android back key closes it. In the main view it is also a
 // way into multi-select (ui/selection.js): a long-press (or Ctrl+click) on
 // an entry selects that section with everything below it, then taps add or
 // remove entries.
@@ -9,6 +9,7 @@ import { tableOfContents } from "../core/query.js";
 import { state, updateSettings } from "../store.js";
 import { flashNote } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
+import { pushEntry, leaveEntry } from "./dom.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -22,17 +23,19 @@ let press = null;     // { key, x, y, timer } while an entry is held
 let swallowClick = false;
 
 export function renderToc(notes) {
-  const { entries, maxLevel } = tableOfContents(notes);
+  const { maxLevel } = tableOfContents(notes);
   const depth = Math.min(state.settings.tocDepth, maxLevel);
   $("tocDepth").textContent = depth;
   $("tocLess").disabled = depth <= 1;
   $("tocMore").disabled = depth >= maxLevel;
+  $("tocList").replaceChildren(...tocItems(notes));
+}
 
-  const listEl = $("tocList");
-  if (!entries.length) {
-    listEl.innerHTML = `<p class="toc-empty">${state.search ? "No matches" : "No notes"}</p>`;
-    return;
-  }
+/** The entries' elements without placing them (also the view swipe's preview of the other view). */
+export function tocItems(notes, search = state.search) {
+  const { entries, maxLevel } = tableOfContents(notes);
+  const depth = Math.min(state.settings.tocDepth, maxLevel);
+  if (!entries.length) return [Object.assign(document.createElement("p"), { className: "toc-empty", textContent: search ? "No matches" : "No notes" })];
   const shown = [];
   entries.forEach((e, i) => {
     if (e.level > depth) return;
@@ -48,13 +51,16 @@ export function renderToc(notes) {
     if (hidden) b.insertAdjacentHTML("beforeend", ` <span class="toc-more">+${hidden}</span>`);
     shown.push(b);
   });
-  listEl.replaceChildren(...shown);
+  return shown;
 }
 
 export function initToc() {
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
   $("scrim").addEventListener("click", () => setTocOpen(false));
+  window.addEventListener("popstate", () => {
+    if (app().classList.contains("toc-open") && !history.state?.toc) setTocOpen(false, { fromHistory: true });
+  });
   initSheetDrag();
 
   const listEl = $("tocList");
@@ -98,10 +104,19 @@ function onClick(e) {
   else jump(key);
 }
 
-export function setTocOpen(open) {
-  app().classList.toggle("toc-open", open);
+/** Opens or closes the phone's sheet; `fromHistory` when the back key already left its entry. */
+export function setTocOpen(open, { fromHistory = false } = {}) {
   $("tocPanel").style.height = "";   // opening goes to the full height
+  markOpen(open, fromHistory);
+}
+
+// The open sheet sits on a history entry (phone only: elsewhere the contents are a sidebar).
+function markOpen(open, fromHistory = false) {
+  const was = app().classList.contains("toc-open");
+  app().classList.toggle("toc-open", open);
   $("tocHandle").setAttribute("aria-expanded", String(open));
+  if (open && !was && phone.matches) pushEntry({ toc: true });
+  else if (!open && was && !fromHistory) leaveEntry("toc");
 }
 
 // Phone: the handle (and the sheet's head, outside its controls) drags the
@@ -140,9 +155,7 @@ function initSheetDrag() {
     const h = panel.offsetHeight;
     if (v < -FLICK || h < min + (max - min) * CLOSE_BELOW) return setTocOpen(false);
     if (v > FLICK) return setTocOpen(true);
-    // Left where it was let go.
-    app().classList.add("toc-open");
-    $("tocHandle").setAttribute("aria-expanded", "true");
+    markOpen(true);   // left where it was let go
   };
   for (const el of [$("tocHandle"), panel.querySelector(".toc-head")]) {
     el.addEventListener("pointerdown", onDown);

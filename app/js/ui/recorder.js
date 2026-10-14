@@ -151,6 +151,9 @@ export function initRecorder({ onTap, onTranscript }) {
     press = null;
     if (rec && !rec.locked) cancel();
   });
+  // A touch tap's click comes after the new note's editor has hidden the
+  // button and would land on the note beneath it, ending the edit at once.
+  fab.addEventListener("touchend", e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
   // Keyboard activation (Enter / Space) creates a note like a tap.
   fab.addEventListener("click", e => { if (e.detail === 0 && !rec) onTap(); });
   $("recTrash").addEventListener("click", cancel);

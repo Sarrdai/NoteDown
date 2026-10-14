@@ -21,6 +21,7 @@ import { openShareDialog } from "./share-dialog.js";
 import { openMenu } from "./menu.js";
 import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { icon } from "./icons.js";
+import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -75,7 +76,7 @@ export function initSelection(options) {
   // back from the delete confirmation (its own entry) lands on it again.
   window.addEventListener("popstate", () => {
     if (!isSelecting() || (history.state && history.state.selecting)) return;
-    if (dialog) { closeDialog(); history.pushState({ selecting: true }, ""); return; }
+    if (dialog) { closeDialog(); pushEntry({ selecting: true }); return; }
     endSelection({ fromHistory: true });
   });
 }
@@ -166,7 +167,7 @@ function changed() {
 function begin() {
   if (state.editingId) endEdit();
   active = true;
-  history.pushState({ selecting: true }, "");
+  pushEntry({ selecting: true });
 }
 
 /** Ends multi-select; `fromHistory` when the back button already left the entry. */
@@ -177,7 +178,7 @@ export function endSelection({ fromHistory = false } = {}) {
   state.selected.clear();
   anchorNote = anchorKey = null;
   update();
-  if (!fromHistory && history.state && history.state.selecting) history.back();
+  if (!fromHistory) leaveEntry("selecting");
 }
 
 /** After a render: forget selected sections that are no longer in view. */
@@ -258,13 +259,8 @@ function reopen() {
 // gone before the dialog takes its own (the back key would close the dialog otherwise).
 function share() {
   const ids = noteIds();
-  const onEntry = history.state && history.state.selecting;
   endSelection();
-  if (!onEntry) return openShareDialog(ids);
-  let opened = false;
-  const open = () => { if (!opened) { opened = true; openShareDialog(ids); } };
-  window.addEventListener("popstate", open, { once: true });
-  setTimeout(open, 300);
+  afterLeave(() => openShareDialog(ids));
 }
 
 function protectNotes(on) {
