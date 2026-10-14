@@ -24,10 +24,11 @@ export const DEFAULT_SETTINGS = {
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
 // `identityKey` (b64u), `device` (this device's ID) and `file` ({ id, version,
-// base text }) of the private file and `files` ({ [circleKey]: { id, version, base } }) of the
-// shared files, matched to `state.shared` by the circle; `renew` lists the files (circleKey, ""
+// base text, server }) of the private file and `files` ({ [circleKey]: { server, id, version, base } }) of the
+// shared files (`server`: the server the file lives on), matched to `state.shared` by the circle; `renew` lists the files (circleKey, ""
 // = private) whose key still has to be renewed after a device was removed. The device keys and
-// file keys live in IndexedDB.
+// file keys live in IndexedDB. `server` is the identity's home server ("" = the default server, the
+// configured API address).
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
 // `recoveryKey`, `devices` (the other devices' names) and `contacts`; real
 // contacts are in the private file (`contacts()`). `requests` are the incoming
@@ -37,7 +38,7 @@ export const DEFAULT_SETTINGS = {
 // `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
-  enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null, files: {}, renew: [],
+  enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, renew: [],
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 

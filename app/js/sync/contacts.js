@@ -19,7 +19,7 @@ const DECLINE_UNDO_MS = 6000;     // a declined request is deleted on the server
 /** Shown when a code or link can't be used (any more). */
 export const GONE = "This code or link has expired or was already used";
 
-let ctx = null;                   // { api(), keys(), loadKeys(), chain(), web() }, from sync/client.js
+let ctx = null;                   // { api(server), home(), defaultServer(), keys(), loadKeys(), chain(), web() }, from sync/client.js
 let code = null;                  // promise of the open "My code" invitation
 const checked = new Map();        // "<invitation id>:<requester>" → the verified request, or null
 const declined = new Set();       // invitation ids declined and waiting for their DELETE
@@ -59,7 +59,7 @@ export async function createInvitation(kind) {
     }
     throw e;
   }
-  const text = invitationLink({ web, identity: state.sync.identity, secret: c.b64u(secret), name: state.sync.name });
+  const text = invitationLink({ web, identity: state.sync.identity, secret: c.b64u(secret), name: state.sync.name, server: ctx.home() });
   return { id, kind, text, expires: Date.parse(created.expires) };
 }
 
@@ -98,7 +98,7 @@ export async function sendRequest(text, name) {
   const known = contacts().find(x => x.id === invite.identity);
   if (known) throw new Error(known.pending ? `You already sent a request to ${known.name}.` : `${known.name} is already your contact.`);
   await ctx.loadKeys();
-  const api = ctx.api();
+  const api = ctx.api(invite.server || ctx.defaultServer());   // the inviter's home server
   const id = await c.invitationId(c.fromB64u(invite.secret, 16));
   let targets;
   try {
@@ -121,7 +121,7 @@ export async function sendRequest(text, name) {
     if (e instanceof ApiError && e.status === 403) throw new Error("That's your own code.");
     throw e;
   }
-  const contact = { id: invite.identity, name: cleanName(name), color: nextColor(contacts()), pending: timestamp() };
+  const contact = { id: invite.identity, name: cleanName(name), color: nextColor(contacts()), ...(invite.server && invite.server !== ctx.defaultServer() && { server: invite.server }), pending: timestamp() };
   setContacts([...contacts(), contact]);
   return contact;
 }

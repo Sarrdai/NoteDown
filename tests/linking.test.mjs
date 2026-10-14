@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, MAX_NAME, invitationLink, parseInvitationLink, contactCard, parseContactCard,
+  linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, MAX_NAME, invitationLink, parseInvitationLink, contactCard, parseContactCard, serverUrl,
 } from "../app/js/core/linking.js";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { mergeNotesFiles } from "../app/js/core/merge.js";
@@ -15,10 +15,10 @@ const slot = "AAAAAAAAAAAAAAAAAAAAAA";
 const sign = "S".repeat(43), enc = "E".repeat(43);
 
 test("link code: round-trips slot, keys and name; stays short enough for a phone camera", () => {
-  const text = linkCode({ slot, sign, enc, name: "Chrome on Windows" });
+  const text = linkCode({ slot, sign, enc, name: "Chrome on Windows", server: "" });
   assert.ok(text.startsWith("notedown:link?"));
   assert.ok(text.length < 200, text.length);
-  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, name: "Chrome on Windows" });
+  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, name: "Chrome on Windows", server: "" });
 });
 
 test("link code: anything else is rejected", () => {
@@ -40,7 +40,7 @@ test("relay message: sealed for the new device's enc key, unreadable for another
   const newDevice = await c.generateDeviceKeys(), other = await c.generateDeviceKeys();
   const identity = "I".repeat(22);
   const payload = await c.sealRelayMessage(relayMessage(identity, "Sam"), newDevice.enc.publicKey);
-  assert.deepEqual(parseRelayMessage(await c.openRelayMessage(payload, newDevice.enc)), { identity, name: "Sam" });
+  assert.deepEqual(parseRelayMessage(await c.openRelayMessage(payload, newDevice.enc)), { identity, name: "Sam", server: "" });
   await assert.rejects(c.openRelayMessage(payload, other.enc));
   // A wrapped file key is no relay message (separate HKDF labels).
   await assert.rejects(c.openRelayMessage(await c.wrapFileKey(c.generateFileKey(), newDevice.enc.publicKey), newDevice.enc));
@@ -80,7 +80,7 @@ test("invitation link: round-trips identity, secret and name; short enough for a
   const link = invitationLink({ web: "https://notedown.example.org/", identity, secret, name: "Lea Müller & Co" });
   assert.ok(link.startsWith("https://notedown.example.org/invite/#v=1&id="), link);
   assert.ok(link.length < 200, link.length);
-  assert.deepEqual(parseInvitationLink(link), { identity, secret, name: "Lea Müller & Co" });
+  assert.deepEqual(parseInvitationLink(link), { identity, secret, name: "Lea Müller & Co", server: "" });
   assert.equal(parseInvitationLink(invitationLink({ web: "http://127.0.0.1:8766/app", identity, secret, name: "" })).name, "");
 });
 
@@ -112,4 +112,43 @@ test("contact card: build and parse with validation", () => {
   assert.equal(parseContactCard({ ...card, secret: 5 }), null);
   assert.equal(parseContactCard(null), null);
   assert.equal(parseContactCard({ ...card, name: 7 }).name, "");
+});
+
+// ---------- servers (backlog #28) ----------
+
+const S = "https://notes.example.org/api";
+
+test("serverUrl: one written form, empty for none, null for anything but http(s)", () => {
+  assert.equal(serverUrl("https://notes.example.org/api/"), S);
+  assert.equal(serverUrl("http://127.0.0.1:8765"), "http://127.0.0.1:8765");
+  assert.equal(serverUrl(""), "");
+  assert.equal(serverUrl(undefined), "");
+  assert.equal(serverUrl("ftp://x.test"), null);
+  assert.equal(serverUrl("not a url"), null);
+  assert.equal(serverUrl(5), null);
+});
+
+test("link code: carries the server the slot is on; missing reads as the default server", () => {
+  const text = linkCode({ slot, sign, enc, name: "x", server: S + "/" });
+  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, name: "x", server: S });
+  assert.equal(parseLinkCode(linkCode({ slot, sign, enc, name: "x" })).server, "");
+  assert.equal(parseLinkCode(text.replace(encodeURIComponent(S), "ftp%3A%2F%2Fx")), null);
+});
+
+test("relay message: carries the identity's home server; old messages read as the default server", () => {
+  const identity = "A".repeat(22);
+  assert.deepEqual(relayMessage(identity, "Sam", S), { v: 1, identity, name: "Sam", server: S });
+  assert.deepEqual(parseRelayMessage(relayMessage(identity, "Sam", S)), { identity, name: "Sam", server: S });
+  assert.deepEqual(parseRelayMessage({ v: 1, identity, name: "Sam" }), { identity, name: "Sam", server: "" });
+  assert.equal("server" in relayMessage(identity, "Sam"), false);
+  assert.equal(parseRelayMessage({ v: 1, identity, name: "Sam", server: "javascript:1" }), null);
+});
+
+test("invitation link: carries the inviter's home server; old links read as the default server", () => {
+  const identity = "A".repeat(22), secret = "B".repeat(22);
+  const link = invitationLink({ web: "https://notedown.example/app", identity, secret, name: "Lea", server: S });
+  assert.deepEqual(parseInvitationLink(link), { identity, secret, name: "Lea", server: S });
+  const old = `https://notedown.example/app/invite/#v=1&id=${identity}&s=${secret}&name=Lea`;
+  assert.deepEqual(parseInvitationLink(old), { identity, secret, name: "Lea", server: "" });
+  assert.equal(parseInvitationLink(old + "&srv=gopher%3A%2F%2Fx"), null);
 });

@@ -91,7 +91,7 @@ first confirms (decided 2026-10-14: showing a code or sending a link
 alone doesn't add anyone). Code and link are the same text:
 
 ```
-https://<web app>/invite/#v=1&id=<identity id>&s=<secret>&name=<name>
+https://<web app>/invite/#v=1&id=<identity id>&s=<secret>&name=<name>&srv=<home server>
 ```
 
 - `id` is the inviter's identity ID, i.e. the fingerprint of its identity
@@ -99,8 +99,10 @@ https://<web app>/invite/#v=1&id=<identity id>&s=<secret>&name=<name>
   hashes to it, so the server can't slip in its own. `s` is 16 random
   bytes (`b64u`), the **invitation secret**; `name` the inviter's display
   name (form-encoded, at most 40 characters, may be empty). The fragment
-  never reaches a web server. As a QR code ("My code") it is about 150
-  characters; the in-app scanner reads it, and a phone's own camera
+  never reaches a web server. `srv` is the inviter's **home server**, the
+  API address the requester talks to (form-encoded; missing = the default
+  server, the app's configured API address, as in older links). As a QR
+  code ("My code") it is about 200 characters; the in-app scanner reads it, and a phone's own camera
   opens it like the link.
 - The **invitation ID** is `b64u` of the first 16 bytes of SHA-256 of
   the secret. The inviting device creates the invitation under that ID
@@ -194,14 +196,17 @@ No accounts and no passwords: a device signs a challenge.
   `enc` key, into the slot. The new device polls the slot (every 2 s),
   then authenticates normally. Formats (client side,
   `app/js/core/linking.js`):
-  - **QR code text:** `notedown:link?v=1&slot=<slot>&sign=<b64u>&enc=<b64u>&name=<name>`
+  - **QR code text:** `notedown:link?v=1&slot=<slot>&sign=<b64u>&enc=<b64u>&name=<name>&srv=<server>`
     — a URL query (form-encoded), the device's public Ed25519 and X25519
-    keys and its suggested name (at most 40 characters, may be empty).
-    About 170 characters: QR version 9 at error correction M.
+    keys, its suggested name (at most 40 characters, may be empty) and
+    `srv`, the server the slot is on (missing = the default server).
+    About 210 characters: QR version 10 at error correction M.
   - **Relay payload:** b64u of ephemeral X25519 public key ‖ nonce ‖
     AES-256-GCM ciphertext, built like a wrapped file key but with the
     HKDF label `notedown-relay` instead of `notedown-wrap`; the plaintext
-    is the UTF-8 JSON `{"v": 1, "identity": "<id>", "name": "<display name>"}`.
+    is the UTF-8 JSON `{"v": 1, "identity": "<id>", "name": "<display name>", "server": "<home server>"}`;
+    `server` is where the identity lives, where the new device signs in
+    (missing = the default server).
   - The linked device first reads the slot (204 = still open) so an
     expired code fails before the device list changes. The new device
     joins only if its own device is active on the verified list of

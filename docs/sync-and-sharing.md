@@ -4,6 +4,7 @@
 - [Principles](#principles)
 - [Files: one per circle of people](#files-one-per-circle-of-people)
 - [Where the files live](#where-the-files-live)
+- [Servers](#servers)
 - [Identity and devices](#identity-and-devices)
 - [Contacts](#contacts)
 - [Keys](#keys)
@@ -86,6 +87,21 @@ and the sample simulates everything without a server.
 
 A user-chosen folder (e.g. an Obsidian vault) can follow later. Devices
 rely on the operating system's own storage encryption for the local copy.
+
+## Servers
+
+Every reference to something on a server names the server: an identity
+has a **home server** (kept in the sync state; a linked device learns it
+from the linking message), an invitation link and a link code name the
+server they point to, a contact marker the contact's home server, and a
+file record and the stored file key the server the file lives on
+(`file:<server>/<id>`). Missing means the **default server**, the one
+the app is configured with (`app/config.json`, `?api=`); that is the
+only server in use today, so nothing changes for the user. A client
+keeps one API connection (and token) per server and sends each call to
+the server of its file or contact. Files and keys a device stored before
+servers were named are taken over as belonging to the default server on
+the first sync round.
 
 ## Identity and devices
 

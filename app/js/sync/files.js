@@ -15,12 +15,13 @@ import { circleKey } from "../core/sharing.js";
 import { matchFiles, fileMembers, allKeyHolders, hasContent } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
 import { ApiError, NetworkError } from "./api.js";
-import { getSecret, setSecret } from "./keystore.js";
+import { getSecret, setSecret, deleteSecret } from "./keystore.js";
 
 const PRIVATE = "";
 
-let ctx = null;                 // { api(), keys(), chain(), busy(), moved(), again() }, from sync/client.js
-const fileKeys = new Map();     // file ID → file key (32 bytes), read from IndexedDB on first use
+let ctx = null;                 // { api(server), home(), defaultServer(), keys(), chain(), busy(), moved() }, from sync/client.js
+const fileKeys = new Map();     // "<server>/<file ID>" → file key (32 bytes), read from IndexedDB on first use
+let migrated = false;
 
 /** Hands over what the sync client owns: the API, this device's keys, the verified own device list and the round's flags. */
 export function initFiles(context) {
@@ -53,17 +54,41 @@ export function unsynced() {
 
 // ---------- keys ----------
 
-async function keyOf(id) {
-  if (!fileKeys.has(id)) {
-    const key = await getSecret("file:" + id);
-    if (key) fileKeys.set(id, key);
+// A file is addressed by the server it lives on and its ID: records `{ server, id, version, base }`, keys
+// in IndexedDB as `file:<server>/<id>`.
+const keyName = (server, id) => `${server}/${id}`;
+
+async function keyOf(server, id) {
+  const name = keyName(server, id);
+  if (!fileKeys.has(name)) {
+    const key = await getSecret("file:" + name);
+    if (key) fileKeys.set(name, key);
   }
-  return fileKeys.get(id) || null;
+  return fileKeys.get(name) || null;
 }
 
-async function rememberKey(id, key) {
-  fileKeys.set(id, key);
-  await setSecret("file:" + id, key);
+async function rememberKey(server, id, key) {
+  fileKeys.set(keyName(server, id), key);
+  await setSecret("file:" + keyName(server, id), key);
+}
+
+// One time, on the first round after an update: what a device stored before files were addressed by server
+// (records without `server`, keys as `file:<id>`) belongs to the default server.
+async function migrateStored() {
+  if (migrated) return;
+  const server = ctx.defaultServer();
+  const stamp = r => (r && !r.server ? { ...r, server } : r);
+  const { file, files } = state.sync;
+  if (file && !file.server) setSync({ file: stamp(file) });
+  if (Object.values(files).some(r => !r.server)) setSync({ files: Object.fromEntries(Object.entries(files).map(([k, r]) => [k, stamp(r)])) });
+  for (const r of [state.sync.file, ...Object.values(state.sync.files)]) {
+    if (!r) continue;
+    const old = await getSecret("file:" + r.id);
+    if (!old) continue;
+    if (!await getSecret("file:" + keyName(r.server, r.id))) await setSecret("file:" + keyName(r.server, r.id), old);
+    await deleteSecret("file:" + r.id);
+  }
+  migrated = true;
 }
 
 // The verified device list of a member: its identity key must hash to its ID, the chain must check out.
@@ -72,7 +97,8 @@ function chainOf(identity, run) {
     run.chains.set(identity, (async () => {
       if (identity === state.sync.identity) return (await ctx.chain()).devices;
       try {
-        const { identity_key: identityKey, entries } = await ctx.api().getIdentity(identity);
+        const server = contacts().find(x => x.id === identity)?.server || ctx.defaultServer();   // the member's home server
+        const { identity_key: identityKey, entries } = await ctx.api(server).getIdentity(identity);
         const bytes = c.fromB64u(identityKey, 32);
         if (await c.keyId(bytes) !== identity) throw new c.ProtocolError("wrong identity key");
         return await c.verifyChain(bytes, entries);
@@ -99,8 +125,8 @@ async function wrapFor(devices, key) {
 export async function grantKeys(deviceId, enc) {
   for (const slot of slotKeys()) {
     const r = rec(slot);
-    const key = r && await keyOf(r.id);
-    if (key) await ctx.api().addKeys(r.id, { [deviceId]: await c.wrapFileKey(key, enc) });
+    const key = r && await keyOf(r.server, r.id);
+    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await c.wrapFileKey(key, enc) });
   }
 }
 
@@ -125,7 +151,9 @@ async function guarded(run, fn) {
  * meanwhile or a file was adopted: another pass is due), again (a file changed while uploading) }.
  */
 export async function filesRound() {
-  const api = ctx.api();
+  await migrateStored();
+  const server = ctx.home();   // the files listed here live on the home server
+  const api = ctx.api(server);
   const run = { done: true, again: false, problems: [], chains: new Map() };
   const { files, quota } = await api.listFiles();
   const used = files.reduce((sum, f) => sum + f.size, 0);
@@ -143,7 +171,7 @@ export async function filesRound() {
       run.problems.push(new Error(key ? "A shared file is missing on the server" : "The notes file is missing on the server"));
       continue;
     }
-    if (f && !r) setRec(key, { id: f.id, version: 0, base: "" });   // another device created it first: merge everything
+    if (f && !r) setRec(key, { server, id: f.id, version: 0, base: "" });   // another device created it first: merge everything
     slots.set(key, f || null);
   }
   for (const s of sharedFiles()) {
@@ -158,9 +186,9 @@ export async function filesRound() {
     if (!f) continue;
     await guarded(run, async () => {
       if (f.version < r.version) throw new Error("The server sent an older version than this device has seen");
-      if (f.version > r.version || !await keyOf(r.id)) {
+      if (f.version > r.version || !await keyOf(r.server, r.id)) {
         ctx.busy();
-        const got = await download(r.id);
+        const got = await download(r.server, r.id);
         if (got.version < r.version) throw new Error("The server sent an older version than this device has seen");
         remote.set(key, got);
       }
@@ -174,7 +202,7 @@ export async function filesRound() {
     const local = parseNotesFile(localText);
     const merged = mergeNotesFiles(parseNotesFile(rec(key).base), local, parseNotesFile(got.text));
     if (serializeNotesFile(merged.file) !== localText) putFile(key, merged.file);
-    setRec(key, { id: rec(key).id, version: got.version, base: got.text });
+    setRec(key, { ...rec(key), version: got.version, base: got.text });
     // A note this user left that another member moved on isn't an edit to follow.
     displaced.push(...merged.displaced.filter(d => !hasLeft(d.note, me)).map(d => ({ ...d, from: key })));
     // Another member deleted a note this device has protected: it becomes a private note here.
@@ -253,13 +281,13 @@ function writeMemberName(key) {
   putFile(key, { ...file, members: [...(file.members || []).filter(m => m.id !== me), { id: me, name }] });
 }
 
-async function download(id) {
+async function download(server, id) {
   ctx.moved();
-  const r = await ctx.api().getFile(id);
+  const r = await ctx.api(server).getFile(id);
   if (!r.key) throw new Error("No key for this device on the server");
   const key = await c.unwrapFileKey(r.key, ctx.keys().enc);
-  const have = await keyOf(id);
-  if (!have || c.b64u(key) !== c.b64u(have)) await rememberKey(id, key);   // renewed after a device was removed
+  const have = await keyOf(server, id);
+  if (!have || c.b64u(key) !== c.b64u(have)) await rememberKey(server, id, key);   // renewed after a device was removed
   return { version: r.version, text: await c.decryptFile(key, r.ciphertext) };
 }
 
@@ -267,17 +295,18 @@ async function download(id) {
 async function upload(key, run) {
   const r = rec(key), text = textAt(key);
   if (text === r.base) return true;
-  const fileKey = await keyOf(r.id);
+  const fileKey = await keyOf(r.server, r.id);
   if (!fileKey) throw new Error("No key for this device on the server");
   ctx.busy();
   const body = { base_version: r.version, ciphertext: await c.encryptFile(fileKey, text) };
-  if (await put(key, r.id, body, text, run)) return true;
+  if (await put(key, r.server, r.id, body, text, run)) return true;
   run.done = false;
   return false;
 }
 
 // The first upload of a file: its key wrapped for every device of every member.
 async function create(key, run) {
+  const server = ctx.home();   // a new file lives on the home server
   ctx.busy();
   const text = textAt(key);
   const id = c.b64u(globalThis.crypto.getRandomValues(new Uint8Array(16)));
@@ -288,8 +317,8 @@ async function create(key, run) {
   };
   if (key !== PRIVATE) body.members = fileMembers(state.sync.identity, circle(key));
   try {
-    if (await put(key, id, body, text, run)) {
-      await rememberKey(id, fileKey);
+    if (await put(key, server, id, body, text, run)) {
+      await rememberKey(server, id, fileKey);
       return true;
     }
     run.done = false;
@@ -299,7 +328,7 @@ async function create(key, run) {
     }
     if (e instanceof ApiError && e.status === 409 && e.body.detail === "file exists") {
       // Another device created the file of this set first: take it over, merging everything.
-      setRec(key, { id: e.body.id, version: 0, base: "" });
+      setRec(key, { server, id: e.body.id, version: 0, base: "" });
       run.done = false;
     } else throw e;
   }
@@ -307,11 +336,11 @@ async function create(key, run) {
 }
 
 // PUT of `body`; false on a version conflict. The record is made once the server has the version.
-async function put(key, id, body, text, run) {
+async function put(key, server, id, body, text, run) {
   try {
-    const { version } = await ctx.api().putFile(id, body);
+    const { version } = await ctx.api(server).putFile(id, body);
     ctx.moved();
-    setRec(key, { id, version, base: text });
+    setRec(key, { server, id, version, base: text });
     if (textAt(key) !== text) run.again = true;
     return true;
   } catch (e) {
@@ -340,8 +369,8 @@ async function renewPending(run) {
           base_version: r.version, ciphertext: await c.encryptFile(fileKey, text),
           keys: await wrapFor(await holdersFor(key, run), fileKey),
         };
-        if (!await put(key, r.id, body, text, run)) { run.done = false; return false; }
-        await rememberKey(r.id, fileKey);
+        if (!await put(key, r.server, r.id, body, text, run)) { run.done = false; return false; }
+        await rememberKey(r.server, r.id, fileKey);
         return true;
       });
       if (!renewed) continue;
@@ -357,7 +386,7 @@ async function renewPending(run) {
  * the key, wraps it for the new device and reads the text. → [{ id, members, version, key, text }]
  */
 export async function readForRestore(list, recoveryEnc, deviceId, deviceEnc) {
-  const api = ctx.api();
+  const api = ctx.api(ctx.home());
   const out = [];
   for (const f of list) {
     const got = await api.getFile(f.id);
@@ -373,14 +402,15 @@ export async function readForRestore(list, recoveryEnc, deviceId, deviceEnc) {
  *  (`local`) at once, the shared files are downloaded by the next round. */
 export async function installRestored(read, identity, local) {
   const { privateFile, shared } = matchFiles(read.map(f => ({ ...f })), identity);
+  const server = ctx.home();
   if (privateFile) {
-    await rememberKey(privateFile.id, privateFile.key);
+    await rememberKey(server, privateFile.id, privateFile.key);
     setPrivateFile(mergeNotesFiles(emptyFile(), local, parseNotesFile(privateFile.text)).file);
-    setRec(PRIVATE, { id: privateFile.id, version: privateFile.version, base: privateFile.text });
+    setRec(PRIVATE, { server, id: privateFile.id, version: privateFile.version, base: privateFile.text });
   }
   for (const [key, f] of shared) {
-    await rememberKey(f.id, f.key);
+    await rememberKey(server, f.id, f.key);
     if (!fileAt(key)) setSharedFile(circle(key), emptyFile());
-    setRec(key, { id: f.id, version: 0, base: "" });
+    setRec(key, { server, id: f.id, version: 0, base: "" });
   }
 }
