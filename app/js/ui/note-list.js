@@ -4,7 +4,7 @@
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
-import { renderMarkdown, noteTitle, toggleTask, sections } from "../core/markdown.js";
+import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
@@ -14,6 +14,7 @@ import { createEditor } from "./editor.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { openShareDialog } from "./share-dialog.js";
 import { openDueMenu } from "./toolbar.js";
+import { pushEntry, leaveEntry } from "./dom.js";
 
 const list = () => document.getElementById("list");
 
@@ -68,7 +69,6 @@ function noteElement(n, view = state.view) {
   const el = document.createElement("article");
   el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "");
   el.dataset.id = n.id;
-  if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 
   const status = document.createElement("button");
   status.className = "status";
@@ -87,7 +87,7 @@ function noteElement(n, view = state.view) {
   meta.className = "note-meta";
   meta.innerHTML = metaHtml(n, view);
 
-  // A shield under the round button of a protected note; a tap removes the protection.
+  // A shield left of the round button of a protected note; a tap removes the protection.
   const protect = document.createElement("button");
   protect.className = "protect-mark";
   protect.setAttribute("aria-label", "Protected from deletion, remove protection");
@@ -95,7 +95,7 @@ function noteElement(n, view = state.view) {
   protect.innerHTML = icon("protect");
   protect.addEventListener("click", () => setProtected([n.id], false));
 
-  el.append(status, body, meta, protect);
+  el.append(body, meta, protect, status);
   markSelected(el);
   return el;
 }
@@ -170,8 +170,9 @@ function onBodyClick(e, id) {
 
 // ---------- editing ----------
 // One note at a time is edited in place with the live-preview editor. The
-// text is saved on every change; editing ends with Done, Esc, or a tap /
-// click anywhere outside the note and its toolbar.
+// text is saved on every change; editing ends with Done, Esc, the Android
+// back key (editing sits on a history entry), or a tap / click anywhere
+// outside the note and its toolbar.
 
 let editing = null; // { id, editor }
 const editListeners = new Set();
@@ -180,10 +181,11 @@ export function currentEditor() { return editing && editing.editor; }
 
 /** Starts editing; `at` = { x, y } of the tap puts the caret there. */
 export function startEdit(id, at = {}) {
-  if (editing) endEdit();
+  const switching = !!editing;
+  if (editing) endEdit({ keepEntry: true });   // the next note takes over the entry
   const el = list().querySelector(`.note[data-id="${id}"]`);
   const n = note(id);
-  if (!el || !n) return;
+  if (!el || !n) { if (switching) leaveEntry("editing"); return; }
   state.editingId = id;
   el.classList.add("editing");
   const host = document.createElement("div");
@@ -192,11 +194,14 @@ export function startEdit(id, at = {}) {
   const editor = createEditor({ parent: host, doc: n.body, onChange: text => setBody(id, text), onEscape: () => endEdit() });
   editing = { id, editor };
   editor.focusAt(at.x, at.y);
+  if (!switching) pushEntry({ editing: true });
   editListeners.forEach(fn => fn(id));
 }
 
-export function endEdit() {
+/** Ends editing; `fromHistory` when the back key already left its entry. */
+export function endEdit({ fromHistory = false, keepEntry = false } = {}) {
   if (!editing) return;
+  if (!fromHistory && !keepEntry) leaveEntry("editing");
   const { id, editor } = editing;
   const text = editor.text();
   editor.destroy();
@@ -215,6 +220,10 @@ export function endEdit() {
   const el = list().querySelector(`.note[data-id="${id}"]`);
   if (el) el.replaceWith(noteElement(note(id)));
 }
+
+window.addEventListener("popstate", () => {
+  if (editing && !history.state?.editing) endEdit({ fromHistory: true });
+});
 
 // A click outside the edited note ends the edit before the click's own
 // handler runs; the clicked note is kept where it was on screen.

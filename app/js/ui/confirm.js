@@ -2,6 +2,8 @@
 // "Feedback and undo"): a title, a line of text, an optional checkbox with a
 // warning, Cancel and a red action button. It sits on its own history entry,
 // so the back button / gesture cancels it.
+import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
+
 const $ = id => document.getElementById(id);
 let current = null; // { onConfirm, check } while open
 
@@ -22,7 +24,7 @@ export function openConfirm({ title, text, check = null, okLabel, onConfirm }) {
   }
   refresh();
   $("confirmDialog").hidden = false;
-  history.pushState({ confirm: true }, "");
+  pushEntry({ confirm: true });
   $("confirmCancel").focus({ preventScroll: true, focusVisible: false });
 }
 
@@ -40,16 +42,7 @@ function close({ fromHistory = false } = {}) {
   if (!current) return;
   current = null;
   $("confirmDialog").hidden = true;
-  if (!fromHistory && history.state && history.state.confirm) history.back();
-}
-
-// Runs `fn` once the dialog's history entry is gone (or right away when there was none).
-function afterBack(fn) {
-  if (!(history.state && history.state.confirm)) return fn();
-  let done = false;
-  const run = () => { if (!done) { done = true; fn(); } };
-  window.addEventListener("popstate", run, { once: true });
-  setTimeout(run, 300);
+  if (!fromHistory) leaveEntry("confirm");
 }
 
 export function initConfirm() {
@@ -58,8 +51,8 @@ export function initConfirm() {
   $("confirmCheck").addEventListener("change", refresh);
   $("confirmOk").addEventListener("click", () => {
     const { onConfirm } = current, checked = $("confirmCheck").checked;
-    afterBack(() => onConfirm(checked));
     close();
+    afterLeave(() => onConfirm(checked));
   });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && current) { e.stopPropagation(); close(); } }, true);
   window.addEventListener("popstate", () => { if (current) close({ fromHistory: true }); });
