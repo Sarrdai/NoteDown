@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask } from "../app/js/core/markdown.js";
-import { viewNotes, sortNotes, tableOfContents, closedOn, pinnedFirst, deleteGroups } from "../app/js/core/query.js";
+import { viewNotes, sortNotes, tableOfContents, closedOn, protectedFirst, deleteGroups } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -74,15 +74,15 @@ test("time: timestamps are written in UTC and shown in the device's time zone", 
   }
 });
 
-test("query: pinned first keeps the order inside both groups", () => {
+test("query: protected first keeps the order inside both groups", () => {
   const notes = ["a", "b", "c", "d"].map(id => n(id));
-  const pinned = new Set(["c", "a"]);
-  assert.deepEqual(pinnedFirst(notes, id => pinned.has(id)).map(x => x.id), ["a", "c", "b", "d"]);
-  assert.deepEqual(pinnedFirst(notes, () => false).map(x => x.id), ["a", "b", "c", "d"]);
+  const marked = new Set(["c", "a"]);
+  assert.deepEqual(protectedFirst(notes, id => marked.has(id)).map(x => x.id), ["a", "c", "b", "d"]);
+  assert.deepEqual(protectedFirst(notes, () => false).map(x => x.id), ["a", "b", "c", "d"]);
 });
 
-test("query: delete groups keep pinned notes and split shared ones", () => {
+test("query: delete groups keep protected notes and split shared ones", () => {
   const notes = ["a", "b", "c", "d"].map(id => n(id));
-  const g = deleteGroups(notes, { isPinned: id => id === "b" || id === "d", isShared: id => id === "c" || id === "d" });
+  const g = deleteGroups(notes, { isProtected: id => id === "b" || id === "d", isShared: id => id === "c" || id === "d" });
   assert.deepEqual([g.kept, g.private, g.shared].map(xs => xs.map(x => x.id)), [["b", "d"], ["a"], ["c"]]);
 });
