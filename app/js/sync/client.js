@@ -100,13 +100,15 @@ async function round() {
     for (let i = 0; i < ATTEMPTS && !done; i++) done = await step();
     const wait = busySince + MIN_BUSY_MS - Date.now();
     if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-    setSync({ status: "synced", lastSync: Date.now(), error: "" });
+    setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false });
   } catch (e) {
     fail(e);
   }
 }
 
 function fail(e) {
+  const storageFull = e instanceof ApiError && e.status === 413 && e.body.detail === "storage quota exceeded";
+  if (state.sync.storageFull !== storageFull) setSync({ storageFull });
   if (e instanceof NetworkError) return setSync({ status: "offline", error: "" });
   // The server refuses a device that is no longer on the list (401 after a fresh token).
   const removed = e instanceof ApiError && (e.status === 401 || e.status === 403);

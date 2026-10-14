@@ -64,6 +64,8 @@ test("storageUsage: text, share and level of the storage bar", () => {
   const full = storageUsage({ used: 2 * MB, quota: 2 * MB });
   assert.deepEqual([full.level, full.fraction, full.text], ["full", 1, "2 MB of 2 MB used"]);
   assert.equal(storageUsage({ used: 3 * MB, quota: 2 * MB }).fraction, 1);
+  const refused = storageUsage({ used: 1.2 * MB, quota: 2 * MB }, true);
+  assert.deepEqual([refused.level, refused.percent, refused.text], ["full", 100, "1.2 MB of 2 MB used"]);
 });
 
 test("nextPollDelay: 5, 10, 20, 30 s while nothing changes, back to 5 s on a change", () => {

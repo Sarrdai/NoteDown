@@ -41,9 +41,11 @@ const mb = bytes => String(Math.round(bytes / MB * 10) / 10);
 /**
  * The sync storage bar from `{ used, quota }` in bytes: the text under it,
  * the filled share (0..1) and the level ("ok", "warn" from 80 %, "full" at 100 %).
+ * `refused`: the server just refused an upload for the quota, so the bar is full
+ * whatever the numbers say (the new file wouldn't fit).
  */
-export function storageUsage({ used, quota }) {
-  const fraction = quota > 0 ? Math.min(used / quota, 1) : 1;
+export function storageUsage({ used, quota }, refused = false) {
+  const fraction = refused || !(quota > 0) ? 1 : Math.min(used / quota, 1);
   const amount = used < 0.05 * MB ? "< 0.1" : mb(used);
   return {
     text: `${amount} MB of ${mb(quota)} MB used`,

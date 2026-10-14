@@ -26,11 +26,12 @@ export const DEFAULT_SETTINGS = {
 // base text }) of the private file; the device keys live in IndexedDB.
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
 // `recoveryKey`, `devices` (the other devices' names) and `contacts`.
-// `usage` ({ used, quota } in bytes) is the server storage, from each round's file list.
+// `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
+// `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null,
-  recoveryKey: "", devices: [], contacts: [], usage: null, offline: false, status: "synced", lastSync: null, error: "",
+  recoveryKey: "", devices: [], contacts: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
@@ -87,6 +88,7 @@ export function load() {
     // Stored before real sync existed: the sample's simulated identity.
     if (sync.enabled && !sync.identity) sync.simulated = true;
     sync.status = sync.enabled && sync.offline ? "offline" : "synced";
+    sync.storageFull = false;
     state.sync = sync;
   } catch { /* keep defaults */ }
   try {
