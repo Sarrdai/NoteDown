@@ -33,3 +33,13 @@ export const getSecret = key => run("readonly", s => s.get(key));
 export const setSecret = (key, value) => run("readwrite", s => s.put(value, key));
 
 export const clearSecrets = () => run("readwrite", s => s.clear());
+
+/** Deletes the whole database, device keys included (signing out). */
+export function deleteDatabase() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => resolve();   // deleted as soon as the other connection closes
+  });
+}

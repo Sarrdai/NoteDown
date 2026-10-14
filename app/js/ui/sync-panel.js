@@ -7,10 +7,10 @@
 // only simulated for the sample (`state.sync.simulated`), where "Simulate
 // scan" stands in for the camera (docs/sync-and-sharing.md → "Identity and
 // devices", "Contacts").
-import { state, subscribe, setSync, replaceFiles } from "../store.js";
+import { state, subscribe, setSync, replaceFiles, eraseStoredState } from "../store.js";
 import { syncNow } from "../sync-sim.js";
 import {
-  syncNow as syncReal, turnOn, restore, removeDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
+  syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
 import { deviceRows } from "../core/sync-state.js";
@@ -202,6 +202,16 @@ function action(label, run, cls = "primary") {
     }
   });
   return { btn, error };
+}
+
+// After an erase the page restarts at the first start. `?sample` / `?sync=off`
+// would load the sample again, so they are dropped from the address.
+function restart() {
+  const url = new URL(location.href);
+  url.searchParams.delete("sample");
+  url.searchParams.delete("sync");
+  if (url.href === location.href) location.reload();
+  else location.replace(url);
 }
 
 function deviceName() {
@@ -449,6 +459,35 @@ const PAGES = {
       ];
     },
   },
+
+  signOut: {
+    title: "Sign out this device",
+    render: data => {
+      // Signing out can fail (offline, server): then erasing alone is offered.
+      const forced = action("Erase without signing out", async () => {
+        await eraseDevice();
+        restart();
+      }, "outline danger");
+      const fallback = h("div", { class: "sheet-actions", hidden: true },
+        text("Changes not synced yet are lost, and this device stays on your device list until you remove it from another device."),
+        forced.btn, forced.error);
+      const { btn, error } = action("Sign out and erase", async () => {
+        if (real()) {
+          try { await signOut(); } catch (e) { fallback.hidden = false; throw e; }
+        } else eraseStoredState();
+        restart();
+      }, "primary danger");
+      const rest = data.others === false
+        ? " Your notes stay on the server, encrypted; you get them back on any device with your recovery key."
+        : data.others ? " Your notes stay on your other devices." : "";
+      return [
+        text("This device is taken off your device list, and all notes, settings and keys NoteDown keeps on it are erased." + rest),
+        h("div", { class: "sheet-actions" }, btn, button("Cancel", "", back)),
+        error,
+        fallback,
+      ];
+    },
+  },
 };
 
 // Real sync: this identity's devices (loaded from the server) and, until
@@ -470,6 +509,8 @@ function realOverview(data) {
         })))
       : text(data.failed ? `Couldn't load the devices: ${data.failed}` : "Loading…", "sheet-text muted"),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
+    h("div", { class: "button-row" }, button("Sign out this device", "outline danger",
+      () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
     section("Contacts"),
     text("Sharing notes with contacts comes in the next step.", "sheet-text muted"),
   ];
@@ -484,6 +525,7 @@ function simulatedOverview() {
       row({ icon: "device", title: "This device", sub: deviceName() }),
       devices.map((name, i) => row({ icon: "device", title: name, remove: () => removeFromList("devices", i, name) }))),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
+    h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
 
     section("Contacts"),
     contacts.length

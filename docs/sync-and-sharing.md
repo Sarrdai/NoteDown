@@ -119,6 +119,14 @@ rely on the operating system's own storage encryption for the local copy.
   recovery key nor the contacts change. (Decided over only blocking the
   device, which leaves it able to decrypt later copies, and over a new
   identity, which needs a new recovery key and warns every contact.)
+- **Signing out a device** (⋮ → Sync & sharing → "Sign out this device",
+  e.g. after using a public PC) syncs once, takes the device itself off
+  the device list and erases everything NoteDown stored on it: notes,
+  settings, sync state and keys. The file key is **not** renewed — a
+  device that erases itself needs no lock-out; one that may have been
+  copied is removed from another device instead, which renews. If
+  signing out fails (offline), "Erase without signing out" erases
+  alone; the device then stays listed until another one removes it.
 - **Restoring:** the recovery key counts as one more device — file keys
   are always wrapped for it too — so entering it on a new device brings
   everything back, the only way when no linked device is left. All
