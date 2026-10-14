@@ -12,7 +12,8 @@ marked.use({
     },
     link({ href, title, tokens }) {
       const text = this.parser.parseInline(tokens);
-      if (/^\s*(javascript|data|vbscript):/i.test(href)) href = "#";
+      // Browsers drop tabs, newlines and leading controls from a URL, so "java\tscript:" must count too.
+      if (/^(javascript|data|vbscript):/i.test(href.replace(/[\u0000-\u0020]/g, ""))) href = "#";
       return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener"${title ? ` title="${escapeAttr(title)}"` : ""}>${text}</a>`;
     },
     // Raw HTML in a note is shown as text, never executed.
