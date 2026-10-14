@@ -6,13 +6,13 @@
 // Copy and Merge first confirm the order in a dialog where it can be
 // changed by drag and drop. Ends with ✕, Esc, the back button, an empty
 // selection or an action that removes the notes from view. Delete asks
-// first (ui/confirm.js) and leaves pinned notes alone.
+// first (ui/confirm.js) and leaves protected notes alone.
 import { tableOfContents, deleteGroups } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge, isPinned, setPinned, circleOf } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, isProtected, setProtected, circleOf } from "../store.js";
 import { mergeCircle } from "../core/sharing.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
@@ -210,16 +210,16 @@ function update() {
   const archive = state.view === "closed";
   const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
     && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
-  // Close, Share, Pin and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  // Close, Share, Protect and Delete act on whole notes; `menu` = under ⋮ on the phone.
   const ids = byNote.map(([n]) => n.id);
-  const pin = ids.some(id => !isPinned(id));
+  const protect = ids.some(id => !isProtected(id));
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
     !archive && state.sync.simulated && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },   // real sharing: milestone 2
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
-    { id: pin ? "pin" : "unpin", label: pin ? "Pin" : "Unpin", run: () => pinNotes(pin), disabled: !whole, menu: !archive },
-    { id: "trash", label: "Delete", run: remove, disabled: !whole || ids.every(isPinned) },
+    { id: protect ? "protect" : "unprotect", label: protect ? "Protect" : "Unprotect", run: () => protectNotes(protect), disabled: !whole, menu: !archive },
+    { id: "trash", label: "Delete", run: remove, disabled: !whole || ids.every(isProtected) },
     !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },
     !archive && { id: "indent", label: "Demote headings", run: () => shift(1), disabled: !canShift(1), menu: true },
   ].filter(Boolean);
@@ -267,22 +267,22 @@ function share() {
   setTimeout(open, 300);
 }
 
-function pinNotes(on) {
+function protectNotes(on) {
   const ids = noteIds();
   endSelection();
-  showSnackbar(count(ids.length, on ? "pinned" : "unpinned"), setPinned(ids, on));
+  showSnackbar(count(ids.length, on ? "protected" : "unprotected"), setProtected(ids, on));
 }
 
-// Asks first; pinned notes stay, shared ones go for everyone in their circle.
+// Asks first; protected notes stay, shared ones go for everyone in their circle.
 // Cancel keeps the selection.
 function remove() {
-  const g = deleteGroups(noteIds().map(note), { isPinned, isShared: id => circleOf(id).length > 0 });
+  const g = deleteGroups(noteIds().map(note), { isProtected, isShared: id => circleOf(id).length > 0 });
   const ids = [...g.private, ...g.shared].map(n => n.id);
   const text = [
     ids.length === 1 ? "It is removed from all your devices." : "They are removed from all your devices.",
     g.shared.length && (g.shared.length === ids.length ? (ids.length === 1 ? "It is shared and is deleted for everyone." : "They are shared and are deleted for everyone.")
       : `${g.shared.length} of them ${g.shared.length === 1 ? "is" : "are"} shared and deleted for everyone.`),
-    g.kept.length && (g.kept.length === 1 ? "1 pinned note stays." : `${g.kept.length} pinned notes stay.`),
+    g.kept.length && (g.kept.length === 1 ? "1 protected note stays." : `${g.kept.length} protected notes stay.`),
   ].filter(Boolean).join(" ");
   openConfirm({
     title: ids.length === 1 ? "Delete note?" : `Delete ${ids.length} notes?`,

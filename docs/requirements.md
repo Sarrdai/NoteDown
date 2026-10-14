@@ -184,22 +184,25 @@ before the first live test).
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*
 - **Empty archive** (⋮ menu, only in the archive) deletes every closed
   note at once — the whole archive, whatever the search shows — after a
-  confirmation that says how many go and how many pinned ones stay.
+  confirmation that says how many go and how many protected ones stay.
   Shared closed notes go only when the dialog's "Also delete … shared
   with others" is ticked, which warns that they go for everyone; Undo
-  afterwards. Disabled when nothing but pinned notes is archived.
+  afterwards. Disabled when nothing but protected notes is archived.
   *Prototype: 2026-10-14.*
-- **Pinning** protects a note from deletion: Delete and Empty archive
-  leave pinned notes alone until they are unpinned. A pinned note shows
-  a pin at its top right, which unpins it with one tap; it stays pinned
-  when it is closed, reopened or moved to another circle, and a note
-  merged from a pinned one is pinned. Pins are a **setting of this
-  device**, not part of the file and not synced. An emptied note is
+- **Protected** notes can't be deleted: Delete and Empty archive leave
+  them alone until the protection is removed. Notes are protected with
+  **Protect / Unprotect** in the selection bar ("Multi-select"); a
+  protected note shows a **shield** under its round button, which
+  removes the protection with one tap (decided 2026-10-14 over a button
+  on every note: protecting is rare, the notes stay calm and keep their
+  full width). Named "protected" with a shield, not "pinned" (which
+  reads as "kept on top") nor "locked" with a lock (reads as read-only
+  or encrypted, and the lock already fixes the dictation). A note stays
+  protected when it is closed, reopened or moved to another circle, and
+  a note merged from a protected one is protected. Protection is a
+  **setting of this device**, not part of the file and not synced. An emptied note is
   still deleted when editing ends (with Undo) — the user just removed
-  its text. *Prototype: 2026-10-14.* Open: how a note is pinned —
-  variant A "Pin" / "Unpin" in the selection bar (whole notes, both
-  views), variant B additionally a pin button on every note (on hover
-  on the desktop); ⋮ → "Prototype: Pinning".
+  its text. *Prototype: 2026-10-14.*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,
@@ -217,8 +220,8 @@ before the first live test).
   last edited, newest first; in the archive closed, newest first.
   Notes without the sort value (no due date) always come last. The choice
   is remembered per view. *Prototype: round 1.*
-- **Pinned on top** (a switch in the sort menu, remembered per view, off
-  by default) shows pinned notes first, then the others, each group in
+- **Protected first** (a switch in the sort menu, remembered per view,
+  off by default) shows protected notes first, then the others, each group in
   the chosen order. It only orders the notes in the list; the table of
   contents keeps the plain sort order. *Prototype: 2026-10-14.*
 - A finished edit doesn't reorder the list right away, so a note never
@@ -328,16 +331,17 @@ before the first live test).
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Copy**, **Share** ("Sync and sharing"),
-  **Merge**, **Pin / Unpin**, **Delete**, **Promote / Demote headings**.
-  Close, Share, Pin and Delete act on whole notes (disabled while only
-  parts of a note are selected) and end the selection with Undo. In the
-  archive the actions are **Reopen**, Copy, Pin / Unpin and Delete —
-  closed notes are read-only. Pin pins the selected notes unless all
-  are pinned already, then it unpins them; on the phone it sits under ⋮.
+  **Merge**, **Protect / Unprotect**, **Delete**, **Promote / Demote
+  headings**. Close, Share, Protect and Delete act on whole notes
+  (disabled while only parts of a note are selected) and end the
+  selection with Undo. In the archive the actions are **Reopen**, Copy,
+  Protect / Unprotect and Delete — closed notes are read-only. Protect
+  protects the selected notes unless all are protected already, then it
+  removes the protection; on the phone it sits under ⋮.
 - **Delete** asks first: a confirmation names how many notes go, that
   they leave all the user's devices, which of them are shared and go
-  for everyone, and how many pinned ones stay (Delete is disabled when
-  only pinned notes are selected). Cancel keeps the selection; Undo
+  for everyone, and how many protected ones stay (Delete is disabled
+  when only protected notes are selected). Cancel keeps the selection; Undo
   after deleting. *Prototype: 2026-10-14.*
 - **Copy** puts the selection on the clipboard as plain Markdown, the
   parts joined by a blank line, without metadata; it keeps the selection.

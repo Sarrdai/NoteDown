@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, pinnedFirst, deleteGroups } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isPinned, circleOf } from "./store.js";
+import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -24,8 +24,6 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
-// Open decision: how a note is pinned (PROJECT.md → "Prototype options").
-const PIN_CONTROLS = { select: "Pin in the selection (A)", tile: "Pin on every note (B)" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
@@ -63,7 +61,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.classList.toggle("pin-tile", s.pinControl === "tile");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = s.sort[state.view];
@@ -77,8 +74,8 @@ function render() {
 
   renderSyncStatus();
   const notes = currentNotes();
-  // "Pinned on top" orders only the tiles; the contents keep the sort order.
-  renderList(s.pinnedFirst[state.view] ? pinnedFirst(notes, isPinned) : notes);
+  // "Protected first" orders only the tiles; the contents keep the sort order.
+  renderList(s.protectedFirst[state.view] ? protectedFirst(notes, isProtected) : notes);
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
@@ -144,7 +141,7 @@ function sortMenu() {
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
-  const pinnedOnTop = state.settings.pinnedFirst[state.view];
+  const onTop = state.settings.protectedFirst[state.view];
   openMenu($("sortBtn"), [
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
@@ -152,17 +149,17 @@ function sortMenu() {
     { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
     { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     { separator: true },
-    { label: "Pinned on top", checked: pinnedOnTop, onSelect: () => updateSettings({ pinnedFirst: { ...state.settings.pinnedFirst, [state.view]: !pinnedOnTop } }) },
+    { label: "Protected first", checked: onTop, onSelect: () => updateSettings({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
   ]);
 }
 
-// ⋮ → "Empty archive…": deletes every closed note except the pinned ones;
+// ⋮ → "Empty archive…": deletes every closed note except the protected ones;
 // shared notes only when ticked, as they go for everyone in their circle.
 function emptyArchive() {
   const closed = allNotes().filter(n => n.status === "closed");
-  const g = deleteGroups(closed, { isPinned, isShared: id => circleOf(id).length > 0 });
+  const g = deleteGroups(closed, { isProtected, isShared: id => circleOf(id).length > 0 });
   const notes = n => n === 1 ? "1 note" : `${n} notes`;
-  const kept = !g.kept.length ? "" : g.kept.length === 1 ? " 1 pinned note stays." : ` ${g.kept.length} pinned notes stay.`;
+  const kept = !g.kept.length ? "" : g.kept.length === 1 ? " 1 protected note stays." : ` ${g.kept.length} protected notes stay.`;
   const ids = withShared => [...g.private, ...(withShared ? g.shared : [])].map(n => n.id);
   openConfirm({
     title: "Empty archive?",
@@ -191,7 +188,7 @@ function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
   const archive = state.view === "closed";
-  const deletable = archive && allNotes().some(n => n.status === "closed" && !isPinned(n.id));
+  const deletable = archive && allNotes().some(n => n.status === "closed" && !isProtected(n.id));
   openMenu($("moreBtn"), [
     archive && { label: "Empty archive…", disabled: !deletable, onSelect: emptyArchive },
     archive && { separator: true },
@@ -199,8 +196,6 @@ function moreMenu() {
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: Pinning" },
-    ...Object.entries(PIN_CONTROLS).map(([id, label]) => ({ label, checked: s.pinControl === id, onSelect: () => updateSettings({ pinControl: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -265,7 +260,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (p.get("pin") && PIN_CONTROLS[p.get("pin")]) patch.pinControl = p.get("pin");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

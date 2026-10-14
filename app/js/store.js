@@ -12,14 +12,13 @@ const FILE_KEY = "notedown.file";
 const SHARED_KEY = "notedown.shared";
 const SYNC_KEY = "notedown.sync";
 const SETTINGS_KEY = "notedown.settings";
-const PINS_KEY = "notedown.pins";
+const PROTECTED_KEY = "notedown.protected";
 
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
-  pinnedFirst: { open: false, closed: false },   // "Pinned on top", per view
-  pinControl: "select",      // prototype variant: select (A) | tile (B)
+  protectedFirst: { open: false, closed: false }, // "Protected first", per view
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -44,7 +43,7 @@ export const state = {
   search: "",
   editingId: null,
   topId: null,               // a new note stays on top until its first edit ends
-  pins: new Set(),           // pinned note ids: a setting of this device, not synced
+  protectedIds: new Set(),   // ids protected from deletion: a setting of this device, not synced
   selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting
 };
 
@@ -66,10 +65,10 @@ export function load() {
     state.settings = {
       ...structuredClone(DEFAULT_SETTINGS), ...s,
       sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
-      pinnedFirst: { ...DEFAULT_SETTINGS.pinnedFirst, ...(s.pinnedFirst || {}) },
+      protectedFirst: { ...DEFAULT_SETTINGS.protectedFirst, ...(s.protectedFirst || {}) },
     };
   } catch { /* keep defaults */ }
-  try { state.pins = new Set(JSON.parse(read(PINS_KEY) || "[]")); } catch { state.pins = new Set(); }
+  try { state.protectedIds = new Set(JSON.parse(read(PROTECTED_KEY) || "[]")); } catch { state.protectedIds = new Set(); }
   try {
     const sync = { ...structuredClone(DEFAULT_SYNC), ...JSON.parse(read(SYNC_KEY) || "{}") };
     // Stored before real sync existed: the sample's simulated identity.
@@ -176,15 +175,16 @@ export function note(id) {
   return allNotes().find(n => n.id === id);
 }
 
-export const isPinned = id => state.pins.has(id);
+export const isProtected = id => state.protectedIds.has(id);
 
-/** Pins or unpins notes on this device; returns a function that undoes it.
+/** Protects notes from deletion on this device, or removes that (`on` false);
+ *  returns a function that undoes it.
  *  Each note is patched in place, so the list doesn't reorder. */
-export function setPinned(ids, on) {
-  const changed = ids.filter(id => state.pins.has(id) !== on);
+export function setProtected(ids, on) {
+  const changed = ids.filter(id => state.protectedIds.has(id) !== on);
   const apply = value => {
-    for (const id of changed) value ? state.pins.add(id) : state.pins.delete(id);
-    write(PINS_KEY, JSON.stringify([...state.pins]));
+    for (const id of changed) value ? state.protectedIds.add(id) : state.protectedIds.delete(id);
+    write(PROTECTED_KEY, JSON.stringify([...state.protectedIds]));
     changed.forEach(id => emit("note:" + id));
   };
   apply(on);
@@ -266,7 +266,7 @@ export function setStatuses(ids, status) {
  * of a file; returns { note, undo }. The file follows core/sharing.js →
  * mergeCircle: across circles, `mode` "copy" makes a private note and leaves
  * the shared sources untouched, "share" puts it into the circle of everyone
- * involved. The new note is pinned when one of the sources was.
+ * involved. The new note is protected when one of the sources was.
  */
 export function applyMerge(changes, merged, mode = "copy") {
   const ids = changes.map(c => c.id);
@@ -285,13 +285,13 @@ export function applyMerge(changes, merged, mode = "copy") {
   n.created = merged.created || n.created;
   n.due = merged.due;
   target.notes.unshift(n);
-  const unpin = ids.some(isPinned) ? setPinned([n.id], true) : () => {};
+  const unprotect = ids.some(isProtected) ? setProtected([n.id], true) : () => {};
   saveFiles();
   emit("structure");
   return {
     note: n,
     undo: () => {
-      unpin();
+      unprotect();
       target.notes = target.notes.filter(x => x.id !== n.id);
       putBack();
       for (const [x, before] of edited) Object.assign(x, before);

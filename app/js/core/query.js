@@ -68,16 +68,16 @@ export function closedOn(notes, day) {
   return notes.filter(n => n.status === "closed" && n.closed && localTime(n.closed).startsWith(day)).length;
 }
 
-/** The tile order with "Pinned on top": pinned notes first, each group in
+/** The tile order with "Protected first": protected notes first, each group in
  *  its given order. The contents keep the plain sort order. */
-export function pinnedFirst(notes, isPinned) {
-  return [...notes.filter(n => isPinned(n.id)), ...notes.filter(n => !isPinned(n.id))];
+export function protectedFirst(notes, isProtected) {
+  return [...notes.filter(n => isProtected(n.id)), ...notes.filter(n => !isProtected(n.id))];
 }
 
-/** What deleting `notes` does: pinned notes stay (`kept`); the rest splits
+/** What deleting `notes` does: protected notes stay (`kept`); the rest splits
  *  into private and shared ones, which go for everyone in their circle. */
-export function deleteGroups(notes, { isPinned, isShared }) {
+export function deleteGroups(notes, { isProtected, isShared }) {
   const out = { kept: [], private: [], shared: [] };
-  for (const n of notes) out[isPinned(n.id) ? "kept" : isShared(n.id) ? "shared" : "private"].push(n);
+  for (const n of notes) out[isProtected(n.id) ? "kept" : isShared(n.id) ? "shared" : "private"].push(n);
   return out;
 }

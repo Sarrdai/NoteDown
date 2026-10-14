@@ -1,12 +1,12 @@
 // The note list: renders the notes of the current view, edits a note in
 // place (editor.js), toggles task checkboxes, the note's own open/closed
-// state and its pin.
+// state and its protection from deletion.
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
 import { renderMarkdown, noteTitle, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, removeNote, circleOf, isPinned, setPinned } from "../store.js";
+import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -41,7 +41,7 @@ export function patchNote(id) {
 
 function noteElement(n) {
   const el = document.createElement("article");
-  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isPinned(n.id) ? " pinned" : "");
+  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "");
   el.dataset.id = n.id;
   if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 
@@ -62,16 +62,15 @@ function noteElement(n) {
   meta.className = "note-meta";
   meta.innerHTML = metaHtml(n);
 
-  const pinned = isPinned(n.id);
-  const pin = document.createElement("button");
-  pin.className = "pin";
-  pin.setAttribute("aria-label", pinned ? "Unpin" : "Pin");
-  pin.setAttribute("aria-pressed", String(pinned));
-  pin.title = pinned ? "Pinned · tap to unpin" : "Pin";
-  pin.innerHTML = icon("pin");
-  pin.addEventListener("click", () => setPinned([n.id], !isPinned(n.id)));
+  // A shield under the round button of a protected note; a tap removes the protection.
+  const protect = document.createElement("button");
+  protect.className = "protect-mark";
+  protect.setAttribute("aria-label", "Protected from deletion, remove protection");
+  protect.title = "Protected from deletion · tap to remove";
+  protect.innerHTML = icon("protect");
+  protect.addEventListener("click", () => setProtected([n.id], false));
 
-  el.append(status, body, meta, pin);
+  el.append(status, body, meta, protect);
   markSelected(el);
   return el;
 }
