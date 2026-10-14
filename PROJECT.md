@@ -118,18 +118,19 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table. No variant is open right now.
+is deleted from code, menu and this table.
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
+| `reminders` | `dialog` (A, default) · `menu` (B) · `due` (C) | Where the due-date reminder setting lives (backlog #1): ⋮ → "Reminders…" dialog, two rows in ⋮, or in the editor's due-date menu |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 
-In ⋮ → "Prototype", "Download notes.md" saves the private file and "Go offline" / "Go online" simulates losing the connection (not variants).
+In ⋮ → "Prototype", "Download notes.md" saves the private file and "Go offline" / "Go online" simulates losing the connection, and "Simulate reminder" shows today's due-date reminder as a notification banner (not variants).
 
 ### Screenshots
 

@@ -2,6 +2,7 @@
 // and Done. It sits above the on-screen keyboard on touch devices and
 // floats at the bottom of the list on the desktop.
 import { state, note, setDue } from "../store.js";
+import { reminders, setRemindersOn, pickReminderTime } from "./reminders.js";
 import { currentEditor, endEdit, onEditingChange } from "./note-list.js";
 import { dictationAvailable, startDictation } from "./dictation.js";
 import { openMenu } from "./menu.js";
@@ -96,7 +97,18 @@ function dueMenu(anchor) {
       try { input.showPicker(); } catch { input.focus(); input.click(); }
     } },
     ...(n.due ? [{ separator: true }, { label: "Remove due date", onSelect: () => pick(null) }] : []),
+    ...(state.settings.reminderUi === "due" ? reminderItems() : []),
   ]);
+}
+
+// Variant C (#1): the reminder setting offered where due dates are set.
+function reminderItems() {
+  const r = reminders();
+  return [
+    { separator: true },
+    { label: `Remind on due days · ${r.time}`, checked: r.on, onSelect: () => setRemindersOn(!r.on) },
+    ...(r.on ? [{ label: "Change time…", onSelect: pickReminderTime }] : []),
+  ];
 }
 
 function toggleDictation(button) {

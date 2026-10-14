@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
+  reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
+  reminderUi: "dialog",      // Prototype variant: where the setting lives — dialog (A) | menu (B) | due (C)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
