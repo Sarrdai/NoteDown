@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, deviceRows, keyHolders, withDeviceName, storageUsage, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
+import { onlyUntouchedWelcome, deviceRows, keyHolders, withDeviceName, storageUsage, nextPollDelay, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
 
 const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -64,4 +64,15 @@ test("storageUsage: text, share and level of the storage bar", () => {
   const full = storageUsage({ used: 2 * MB, quota: 2 * MB });
   assert.deepEqual([full.level, full.fraction, full.text], ["full", 1, "2 MB of 2 MB used"]);
   assert.equal(storageUsage({ used: 3 * MB, quota: 2 * MB }).fraction, 1);
+  const refused = storageUsage({ used: 1.2 * MB, quota: 2 * MB }, true);
+  assert.deepEqual([refused.level, refused.percent, refused.text], ["full", 100, "1.2 MB of 2 MB used"]);
+});
+
+test("nextPollDelay: 5, 10, 20, 30 s while nothing changes, back to 5 s on a change", () => {
+  const delays = [5000];
+  for (let i = 0; i < 5; i++) delays.push(nextPollDelay(delays.at(-1), false));
+  assert.deepEqual(delays, [5000, 10000, 20000, 30000, 30000, 30000]);
+  assert.equal(nextPollDelay(30000, true), 5000);
+  assert.equal(nextPollDelay(5000, true), 5000);
+  assert.equal(nextPollDelay(0, false), 5000, "never below the minimum");
 });

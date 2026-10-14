@@ -28,7 +28,7 @@ const real = () => !state.sync.simulated;
 let stack = [];          // [{ page, data }]; the last entry is on screen
 let isOpen = false;
 let returnFocus = null;
-let shownUsage = null;   // the `state.sync.usage` the overview was drawn with
+let shownUsage = null, shownFull = false;   // `state.sync.usage` / `storageFull` the overview was drawn with
 let leave = null;        // turns off what the page on screen started (camera)
 
 export function initSyncPanel() {
@@ -47,7 +47,7 @@ export function initSyncPanel() {
     if (kind !== "sync") return;
     updateStatus();
     // The first round after opening brings the usage: show it without a reopen.
-    if (isOpen && top().page === "overview" && state.sync.usage !== shownUsage) render({ keepScroll: true });
+    if (isOpen && top().page === "overview" && (state.sync.usage !== shownUsage || state.sync.storageFull !== shownFull)) render({ keepScroll: true });
   });
   setInterval(updateStatus, 20000);
   loadSharingSample();   // warm the sample identity for the simulated scans
@@ -500,8 +500,9 @@ const PAGES = {
 function storageSection() {
   const { usage } = state.sync;
   shownUsage = usage;
+  shownFull = state.sync.storageFull;
   if (!usage) return null;
-  const u = storageUsage(usage);
+  const u = storageUsage(usage, shownFull);
   return [
     section("Storage"),
     h("div", {
