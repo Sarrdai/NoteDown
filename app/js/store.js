@@ -5,18 +5,21 @@
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote } from "./core/merge.js";
-import { circleKey } from "./core/sharing.js";
+import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT } from "./core/query.js";
 
 const FILE_KEY = "notedown.file";
 const SHARED_KEY = "notedown.shared";
 const SYNC_KEY = "notedown.sync";
 const SETTINGS_KEY = "notedown.settings";
+const PINS_KEY = "notedown.pins";
 
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
+  pinnedFirst: { open: false, closed: false },   // "Pinned on top", per view
+  pinControl: "select",      // prototype variant: select (A) | tile (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -40,7 +43,8 @@ export const state = {
   view: "open",              // open | closed
   search: "",
   editingId: null,
-  pinnedId: null,            // a new note stays on top until its first edit ends
+  topId: null,               // a new note stays on top until its first edit ends
+  pins: new Set(),           // pinned note ids: a setting of this device, not synced
   selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting
 };
 
@@ -59,8 +63,13 @@ function write(key, value) {
 export function load() {
   try {
     const s = JSON.parse(read(SETTINGS_KEY) || "{}");
-    state.settings = { ...structuredClone(DEFAULT_SETTINGS), ...s, sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) } };
+    state.settings = {
+      ...structuredClone(DEFAULT_SETTINGS), ...s,
+      sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
+      pinnedFirst: { ...DEFAULT_SETTINGS.pinnedFirst, ...(s.pinnedFirst || {}) },
+    };
   } catch { /* keep defaults */ }
+  try { state.pins = new Set(JSON.parse(read(PINS_KEY) || "[]")); } catch { state.pins = new Set(); }
   try {
     const sync = { ...structuredClone(DEFAULT_SYNC), ...JSON.parse(read(SYNC_KEY) || "{}") };
     // Stored before real sync existed: the sample's simulated identity.
@@ -167,6 +176,21 @@ export function note(id) {
   return allNotes().find(n => n.id === id);
 }
 
+export const isPinned = id => state.pins.has(id);
+
+/** Pins or unpins notes on this device; returns a function that undoes it.
+ *  Each note is patched in place, so the list doesn't reorder. */
+export function setPinned(ids, on) {
+  const changed = ids.filter(id => state.pins.has(id) !== on);
+  const apply = value => {
+    for (const id of changed) value ? state.pins.add(id) : state.pins.delete(id);
+    write(PINS_KEY, JSON.stringify([...state.pins]));
+    changed.forEach(id => emit("note:" + id));
+  };
+  apply(on);
+  return () => apply(!on);
+}
+
 /** Changes a note's body; "note" events re-render that note in place. */
 export function setBody(id, body) {
   const n = note(id);
@@ -239,13 +263,16 @@ export function setStatuses(ids, status) {
  * Merge and "move to a new note" (core/selection.js → mergeParts): sets each
  * source note's remaining body from `changes` ([{ id, body }], body null =
  * the note goes) and adds the new note ({ body, created, due }) at the top
- * of a file; returns { note, undo }. The new note stays in the circle of the
- * source notes when they all share one, else it is private.
+ * of a file; returns { note, undo }. The file follows core/sharing.js →
+ * mergeCircle: across circles, `mode` "copy" makes a private note and leaves
+ * the shared sources untouched, "share" puts it into the circle of everyone
+ * involved. The new note is pinned when one of the sources was.
  */
-export function applyMerge(changes, merged) {
+export function applyMerge(changes, merged, mode = "copy") {
   const ids = changes.map(c => c.id);
-  const keys = new Set(ids.map(id => circleKey(circleOf(id))));
-  const target = fileFor(keys.size === 1 ? circleOf(ids[0]) : []);
+  const { members, keepShared } = mergeCircle(ids.map(circleOf), mode);
+  const target = fileFor(members);
+  if (keepShared) changes = changes.filter(c => !circleOf(c.id).length);
   const now = timestamp();
   const edited = changes.filter(c => c.body !== null).map(c => {
     const n = note(c.id);
@@ -258,11 +285,13 @@ export function applyMerge(changes, merged) {
   n.created = merged.created || n.created;
   n.due = merged.due;
   target.notes.unshift(n);
+  const unpin = ids.some(isPinned) ? setPinned([n.id], true) : () => {};
   saveFiles();
   emit("structure");
   return {
     note: n,
     undo: () => {
+      unpin();
       target.notes = target.notes.filter(x => x.id !== n.id);
       putBack();
       for (const [x, before] of edited) Object.assign(x, before);

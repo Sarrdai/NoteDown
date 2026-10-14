@@ -85,13 +85,18 @@ Current state, edited in place when a decision changes.
 
 ## Feedback and undo
 
-- Changes that remove a note from view (close, reopen, delete) happen
-  immediately and offer **Undo** in a snackbar for 5 seconds instead of
-  asking for confirmation first.
-- Confirmation dialogs only where the user has something to adjust: the
-  order for Copy and Merge (drag an entry's grip; Merge shows it even for
-  a single part, as the confirmation of what moves), the people for
-  Share.
+- Changes that remove a note from view (close, reopen, merge, an emptied
+  note) happen immediately and offer **Undo** in a snackbar for 5
+  seconds instead of asking for confirmation first.
+- **Deleting asks first** (Delete in the selection, Empty archive): it is
+  meant to be final, reaches all the user's devices and, for shared
+  notes, everyone in their circle. The dialog says what goes and what
+  stays (pinned notes), its action button is red, Cancel / `Esc` / back
+  close it; Undo still follows for 5 seconds (decided 2026-10-14).
+- Other confirmation dialogs only where the user has something to
+  adjust: the order for Copy and Merge (drag an entry's grip; Merge shows
+  it even for a single part, as the confirmation of what moves), the
+  people for Share.
 - Panels with several pages (Sync & sharing) go one page back with the
   back button, `Esc` or the system back gesture, and close from the
   first page; the primary button of a page (on the Sync & sharing

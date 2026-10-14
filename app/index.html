@@ -81,9 +81,25 @@
         <h2 class="dialog-title" id="orderTitle"></h2>
         <p class="dialog-hint" id="orderHint">Drag to change the order.</p>
         <ol class="order-list" id="orderList"></ol>
+        <div class="merge-choice" id="orderChoice" role="radiogroup" aria-label="Shared notes" hidden></div>
         <div class="dialog-actions">
           <button class="btn" id="orderCancel">Cancel</button>
           <button class="btn primary" id="orderOk"></button>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-scrim keep-editing" id="confirmDialog" hidden>
+      <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+        <h2 class="dialog-title" id="confirmTitle"></h2>
+        <p class="dialog-hint" id="confirmText"></p>
+        <label class="confirm-check" id="confirmCheckRow" hidden>
+          <input type="checkbox" id="confirmCheck">
+          <span id="confirmCheckLabel"></span>
+        </label>
+        <p class="confirm-warning" id="confirmWarning" hidden></p>
+        <div class="dialog-actions">
+          <button class="btn" id="confirmCancel">Cancel</button>
+          <button class="btn primary danger" id="confirmOk"></button>
         </div>
       </div>
     </div>

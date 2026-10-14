@@ -6,7 +6,7 @@ import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
   circleKey, circleLabel, shareState, initials, splitIntoCircles, generateRecoveryKey,
   normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo,
-  colorIndex, nextColor, visibleMembers,
+  colorIndex, nextColor, visibleMembers, mergeCircle,
 } from "../app/js/core/sharing.js";
 
 const read = name => readFileSync(new URL("../app/sample/" + name, import.meta.url), "utf8");
@@ -53,9 +53,9 @@ test("splitIntoCircles: notes leave the private file without markers", () => {
   assert.equal(shared.length, 2);
   assert.deepEqual(shared[0].members, ["lea"]);
   assert.deepEqual(shared[0].file.notes.map(n => n.id), ["s01", "s09"]);
-  assert.deepEqual(shared[1].file.notes.map(n => n.id), ["s11"]);
-  assert.equal(file.notes.length, sample.notes.length - 3);
-  assert.ok(!file.notes.some(n => ["s01", "s09", "s11"].includes(n.id)));
+  assert.deepEqual(shared[1].file.notes.map(n => n.id), ["s11", "s18"]);
+  assert.equal(file.notes.length, sample.notes.length - 4);
+  assert.ok(!file.notes.some(n => ["s01", "s09", "s11", "s18"].includes(n.id)));
   assert.deepEqual(file.moved, []);
 });
 
@@ -136,4 +136,11 @@ test("nextColor: the first free slot, wrapping when all six are used", () => {
 test("visibleMembers: at most 3 shown, the rest counted", () => {
   assert.deepEqual(visibleMembers(["a", "b"]), { shown: ["a", "b"], more: 0 });
   assert.deepEqual(visibleMembers(["a", "b", "c", "d", "e"]), { shown: ["a", "b", "c"], more: 2 });
+});
+
+test("mergeCircle: one circle stays, across circles a private copy or everyone involved", () => {
+  assert.deepEqual(mergeCircle([["lea"], ["lea"]], "copy"), { members: ["lea"], keepShared: false });
+  assert.deepEqual(mergeCircle([[], []], "share"), { members: [], keepShared: false });
+  assert.deepEqual(mergeCircle([[], ["lea"], ["tom", "lea"]], "copy"), { members: [], keepShared: true });
+  assert.deepEqual(mergeCircle([[], ["lea"], ["tom", "lea"]], "share"), { members: ["lea", "tom"], keepShared: false });
 });

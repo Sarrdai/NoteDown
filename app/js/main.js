@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, replaceFiles, fileText, allNotes } from "./store.js";
+import { viewNotes, closedOn, SORT_KEYS, pinnedFirst, deleteGroups } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isPinned, circleOf } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -15,6 +15,7 @@ import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
+import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -23,6 +24,8 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
+// Open decision: how a note is pinned (PROJECT.md → "Prototype options").
+const PIN_CONTROLS = { select: "Pin in the selection (A)", tile: "Pin on every note (B)" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
@@ -32,7 +35,7 @@ const DIR_LABELS = {
 
 function currentNotes() {
   const notes = viewNotes(allNotes(), { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
-  const i = notes.findIndex(n => n.id === state.pinnedId);
+  const i = notes.findIndex(n => n.id === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
   return notes;
 }
@@ -60,6 +63,7 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
+  app.classList.toggle("pin-tile", s.pinControl === "tile");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = s.sort[state.view];
@@ -73,7 +77,8 @@ function render() {
 
   renderSyncStatus();
   const notes = currentNotes();
-  renderList(notes);
+  // "Pinned on top" orders only the tiles; the contents keep the sort order.
+  renderList(s.pinnedFirst[state.view] ? pinnedFirst(notes, isPinned) : notes);
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
@@ -96,7 +101,7 @@ function setView(view) {
   if (state.view === view) return;
   endSelection();
   hideSnackbar();
-  setUi({ view, search: "", pinnedId: null });
+  setUi({ view, search: "", topId: null });
   app.classList.remove("searching");
   window.scrollTo(0, 0);
 }
@@ -106,7 +111,7 @@ function newNote() {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
   const n = addNote("## ");
-  state.pinnedId = n.id;
+  state.topId = n.id;
   render();
   window.scrollTo(0, 0);
   startEdit(n.id);
@@ -117,7 +122,7 @@ function addDictatedNote(text) {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
   const n = addNote(text);
-  state.pinnedId = n.id;
+  state.topId = n.id;
   render();
   window.scrollTo(0, 0);
   flashNote(n.id);
@@ -127,7 +132,7 @@ function addDictatedNote(text) {
 // A merged note (or one made from moved sections) appears at the top of the list.
 function onMerged(n, undo, message) {
   setTocOpen(false);
-  state.pinnedId = n.id;
+  state.topId = n.id;
   render();
   window.scrollTo(0, 0);
   flashNote(n.id);
@@ -139,13 +144,39 @@ function sortMenu() {
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
+  const pinnedOnTop = state.settings.pinnedFirst[state.view];
   openMenu($("sortBtn"), [
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
     { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
     { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
+    { separator: true },
+    { label: "Pinned on top", checked: pinnedOnTop, onSelect: () => updateSettings({ pinnedFirst: { ...state.settings.pinnedFirst, [state.view]: !pinnedOnTop } }) },
   ]);
+}
+
+// ⋮ → "Empty archive…": deletes every closed note except the pinned ones;
+// shared notes only when ticked, as they go for everyone in their circle.
+function emptyArchive() {
+  const closed = allNotes().filter(n => n.status === "closed");
+  const g = deleteGroups(closed, { isPinned, isShared: id => circleOf(id).length > 0 });
+  const notes = n => n === 1 ? "1 note" : `${n} notes`;
+  const kept = !g.kept.length ? "" : g.kept.length === 1 ? " 1 pinned note stays." : ` ${g.kept.length} pinned notes stay.`;
+  const ids = withShared => [...g.private, ...(withShared ? g.shared : [])].map(n => n.id);
+  openConfirm({
+    title: "Empty archive?",
+    text: (g.private.length ? `Deletes ${notes(g.private.length)} from all your devices.` : "No private notes to delete.") + kept,
+    check: g.shared.length ? {
+      label: `Also delete ${notes(g.shared.length)} shared with others`,
+      warning: g.shared.length === 1 ? "It is deleted for everyone it is shared with." : "They are deleted for everyone they are shared with.",
+    } : null,
+    okLabel: withShared => ids(withShared).length ? `Delete ${ids(withShared).length}` : null,
+    onConfirm: withShared => {
+      const del = ids(withShared);
+      showSnackbar(del.length === 1 ? "Note deleted" : `${del.length} notes deleted`, removeNotes(del));
+    },
+  });
 }
 
 // The first start holds only the welcome note (app/welcome.md), sync off.
@@ -159,11 +190,17 @@ async function loadWelcome() {
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
+  const archive = state.view === "closed";
+  const deletable = archive && allNotes().some(n => n.status === "closed" && !isPinned(n.id));
   openMenu($("moreBtn"), [
+    archive && { label: "Empty archive…", disabled: !deletable, onSelect: emptyArchive },
+    archive && { separator: true },
     { label: "Sync & sharing…", onSelect: openSyncPanel },
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: Pinning" },
+    ...Object.entries(PIN_CONTROLS).map(([id, label]) => ({ label, checked: s.pinControl === id, onSelect: () => updateSettings({ pinControl: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -211,6 +248,7 @@ function wire() {
   });
   initToc();
   initMenu();
+  initConfirm();
   initToolbar();
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
@@ -227,6 +265,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (p.get("pin") && PIN_CONTROLS[p.get("pin")]) patch.pinControl = p.get("pin");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

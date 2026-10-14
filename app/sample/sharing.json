@@ -7,7 +7,7 @@
   ],
   "shared": [
     { "members": ["lea"], "notes": ["s01", "s09"] },
-    { "members": ["lea", "tom"], "notes": ["s11"] }
+    { "members": ["lea", "tom"], "notes": ["s11", "s18"] }
   ],
   "scanSuggestion": "Grandma"
 }

@@ -1,12 +1,12 @@
 // The note list: renders the notes of the current view, edits a note in
-// place (editor.js), toggles task checkboxes and the note's own open/closed
-// state.
+// place (editor.js), toggles task checkboxes, the note's own open/closed
+// state and its pin.
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
 import { renderMarkdown, noteTitle, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, removeNote, circleOf } from "../store.js";
+import { state, note, setBody, setStatus, removeNote, circleOf, isPinned, setPinned } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -41,7 +41,7 @@ export function patchNote(id) {
 
 function noteElement(n) {
   const el = document.createElement("article");
-  el.className = "note" + (n.status === "closed" ? " closed" : "");
+  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isPinned(n.id) ? " pinned" : "");
   el.dataset.id = n.id;
   if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 
@@ -62,7 +62,16 @@ function noteElement(n) {
   meta.className = "note-meta";
   meta.innerHTML = metaHtml(n);
 
-  el.append(status, body, meta);
+  const pinned = isPinned(n.id);
+  const pin = document.createElement("button");
+  pin.className = "pin";
+  pin.setAttribute("aria-label", pinned ? "Unpin" : "Pin");
+  pin.setAttribute("aria-pressed", String(pinned));
+  pin.title = pinned ? "Pinned · tap to unpin" : "Pin";
+  pin.innerHTML = icon("pin");
+  pin.addEventListener("click", () => setPinned([n.id], !isPinned(n.id)));
+
+  el.append(status, body, meta, pin);
   markSelected(el);
   return el;
 }
@@ -164,13 +173,13 @@ export function endEdit() {
   editor.destroy();
   editing = null;
   state.editingId = null;
-  const wasPinned = state.pinnedId === id;
-  if (wasPinned) state.pinnedId = null;
+  const wasNew = state.topId === id;
+  if (wasNew) state.topId = null;
   editListeners.forEach(fn => fn(null));
   if (/^\s*(#+\s*)?$/.test(text)) {
     // An empty note is not kept: a fresh one silently, an emptied one with undo.
     const undo = removeNote(id);
-    if (!wasPinned) showSnackbar("Empty note deleted", undo);
+    if (!wasNew) showSnackbar("Empty note deleted", undo);
     return;
   }
   setBody(id, text.trim());

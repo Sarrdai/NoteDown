@@ -54,6 +54,16 @@ carries the merge logic (`app/js/core/merge.js`, tested in
   shared note, share it with further people, remove people, or leave.
   The whole note is shared, including status and due date — closed for
   one means closed for all.
+- **Merging across circles** never takes a shared note away from the
+  others silently: the user picks a private copy (the shared notes stay)
+  or sharing the result with everyone involved
+  (`docs/requirements.md` → "Multi-select").
+- **Pins stay local** (`docs/requirements.md` → "Main view and
+  archive"): when someone else deletes a shared note that this device
+  has pinned, the note isn't lost here — it becomes a private note on
+  this device, still pinned. A note deleted on another of the user's
+  own devices goes everywhere, as pins aren't synced. *Prototype: not
+  yet — shared files are simulated until milestone 2.*
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who

@@ -188,6 +188,29 @@ button { font: inherit; color: inherit; }
 
 .note.editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
 
+/* Pin (a setting of this device): a pinned note shows the pin top right,
+   which unpins it; variant B (.pin-tile) offers it on every note. */
+.pin {
+  position: absolute; top: 8px; right: 6px; width: 36px; height: 36px; padding: 0;
+  display: none; align-items: center; justify-content: center;
+  border: 0; border-radius: 999px; background: transparent; color: var(--text-faint); cursor: pointer;
+}
+.pin .icon { width: 18px; height: 18px; }
+.pin::after { content: ""; position: absolute; inset: -4px; }
+.pin:hover { background: var(--surface-hover); color: var(--text-muted); }
+.pin:focus-visible { outline: 2px solid var(--accent); }
+.note.pinned .pin { display: inline-flex; color: var(--accent); }
+.note.pinned .pin .icon { fill: currentColor; }
+.note.pinned, .app.pin-tile .note { padding-right: 40px; }
+.app.pin-tile .note:not(.editing) .pin { display: inline-flex; }
+.note.editing .pin { display: none; }
+@media (hover: hover) {
+  .app.pin-tile .note:not(.pinned) .pin { opacity: 0; }
+  .app.pin-tile .note:not(.pinned):hover .pin, .app.pin-tile .note:not(.pinned) .pin:focus-visible { opacity: 1; }
+}
+.app.selecting .pin { pointer-events: none; }
+.app.selecting .note:not(.pinned) .pin { visibility: hidden; }
+
 /* ---------- live-preview editor (CodeMirror, ui/live-preview.js) ---------- */
 .editor-host { cursor: text; }
 .editor-host .cm-editor { font: inherit; color: inherit; }
@@ -356,11 +379,36 @@ button { font: inherit; color: inherit; }
 .order-grip:focus-visible { outline: 2px solid var(--accent); }
 .order-item.dragging .order-grip { cursor: grabbing; color: var(--accent); }
 .order-item:only-child .order-grip { visibility: hidden; } /* one part: nothing to order */
+/* Merge across circles: private copy or shared with everyone involved. */
+.merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.choice {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 12px; cursor: pointer;
+}
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.choice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.choice-title { font-weight: 600; }
+.choice-hint { font-size: 0.85rem; color: var(--text-muted); }
+.choice .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--ctp-base); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .btn { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--accent); font-weight: 650; cursor: pointer; }
 .btn:hover { background: var(--surface-hover); }
 .btn.primary { background: var(--accent); color: var(--on-accent); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Confirmation dialog for permanent deletion (ui/confirm.js). */
+.dialog.confirm { width: min(400px, 100%); }
+.confirm-check {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0 0 4px; padding: 10px 8px;
+  border-radius: 10px; cursor: pointer; font-size: 0.95rem;
+}
+.confirm-check:hover { background: var(--surface-hover); }
+.confirm-check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--danger); }
+.confirm-warning { margin: 0 8px 4px 38px; font-size: 0.88rem; font-weight: 600; color: var(--danger); }
+.btn.primary.danger { background: var(--danger); color: var(--on-accent); }
+.btn.primary.danger:hover { background: color-mix(in srgb, var(--danger) 88%, var(--text)); }
+.btn.primary.danger:disabled:hover { background: var(--danger); }
 
 /* ---------- Sync & sharing panel ---------- */
 /* Centered dialog on tablet and desktop, full-screen sheet on the phone. */

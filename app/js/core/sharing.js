@@ -8,6 +8,18 @@ export function circleKey(memberIds) {
   return [...memberIds].sort().join("+");
 }
 
+/**
+ * Where a merge goes, from the member ids of each source note's file. One
+ * circle: the new note stays in it. Across circles the user picks: "copy"
+ * makes it private and leaves the shared sources as they are
+ * (`keepShared`), "share" puts it into the circle of everyone involved.
+ */
+export function mergeCircle(circles, mode) {
+  if (new Set(circles.map(circleKey)).size === 1) return { members: [...circles[0]], keepShared: false };
+  if (mode === "share") return { members: [...new Set(circles.flat())].sort(), keepShared: false };
+  return { members: [], keepShared: true };
+}
+
 /** "Lea" · "Lea & Tom" · "Lea, Tom & Grandma" ("" for nobody). */
 export function circleLabel(names) {
   if (names.length <= 1) return names[0] || "";
