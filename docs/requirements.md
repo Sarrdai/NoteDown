@@ -89,7 +89,16 @@ before the first live test).
   indicator.
 - **End-to-end encrypted:** the server stores only encrypted files and
   never holds a key that decrypts them — notes are private by default,
-  even from whoever runs the server.
+  even from whoever runs the server. Files are padded to 4 KiB steps
+  before encryption, so the server doesn't learn their exact size
+  either (backlog #17).
+- **Abuse protection without accounts** (backlog #8): the default server
+  keeps at most **2 MB** of encrypted files per identity — thousands of
+  notes; the user wants to raise it later as a paid option — and limits
+  per IP address how often identities and linking slots are created
+  (`docs/server-api.md` → "Limits"). Hitting a limit shows in the sync
+  status ("Sync storage is full (2 MB).", "Too many attempts. Try again
+  later.").
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one
