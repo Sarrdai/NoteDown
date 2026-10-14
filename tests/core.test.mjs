@@ -161,3 +161,11 @@ test("file format: a contact's verified time round-trips; absent means not verif
   assert.deepEqual(parseNotesFile(text).contacts, contacts);
   assert.equal("verified" in parseNotesFile("<!-- contact id=c name=C color=4 -->").contacts[0], false);
 });
+
+test("markdown: script links are disarmed, also with tabs or newlines in the scheme", async () => {
+  const { renderMarkdown } = await import("../app/js/core/markdown.js");
+  for (const src of ["[a](javascript:alert(1))", "[a](<java\tscript:alert(1)>)", "[a](<java\nscript:alert(1)>)", "[a](< javascript:alert(1)>)"]) {
+    assert.doesNotMatch(renderMarkdown(src), /href="(?!#")/, src);
+  }
+  assert.match(renderMarkdown("[a](https://example.com)"), /href="https:\/\/example.com"/);
+});

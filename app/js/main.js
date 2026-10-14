@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -24,6 +24,8 @@ import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
 import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
+import { initExport, openExport } from "./ui/export.js";
+import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -315,6 +317,7 @@ function moreMenu() {
     archive && { separator: true },
     { label: "Sync & sharing…", onSelect: openSyncPanel },
     { label: "Reminders…", onSelect: openReminderDialog },
+    { label: "Export…", onSelect: exportDialog },
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
@@ -324,6 +327,34 @@ function moreMenu() {
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
+}
+
+// ⋮ → "Export…": this view in the order the list shows it (filter and search
+// applied; the main view can add its archive below), or all files, one
+// Markdown file each, in the views' order.
+function exportDialog() {
+  const items = notes => notes.map(note => ({ note, text: note.body }));
+  const archive = (notes, search) => ({ label: "Archive", items: items(tilesOf("closed", inView(notes, "closed", search)).tiles) });
+  const files = [{ key: "", name: "Private" }, ...sharedFiles().map(f => ({ key: f.key, name: circleName(f.key) }))]
+    .filter(f => f.key === "" || circleNotes(f.key).length);
+  openExport({
+    count: tilesOf(state.view, currentNotes()).tiles.length,
+    fileCount: files.length,
+    archiveInView: state.view === "closed",
+    view: withArchive => [
+      { items: items(tilesOf(state.view, currentNotes()).tiles) },
+      ...(withArchive && state.view === "open" ? [archive(circleNotes(activeCircle()), state.search)] : []),
+    ],
+    files: withArchive => {
+      const taken = [];
+      return files.map(f => {
+        const name = exportFileName(f.name, taken);
+        taken.push(name);
+        const notes = circleNotes(f.key);
+        return { name, groups: [{ items: items(tilesOf("open", inView(notes, "open", "")).tiles) }, ...(withArchive ? [archive(notes, "")] : [])] };
+      });
+    },
+  });
 }
 
 // A tapped reminder shows its notes: the open notes, unfiltered, the first one scrolled into view.
@@ -448,6 +479,7 @@ async function start() {
   initInviteLinks(openInvite);
   // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
   initReminders({ open: showDue });
+  initExport();
   document.body.dataset.ready = "1";
 }
 

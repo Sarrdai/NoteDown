@@ -13,6 +13,7 @@
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
+  - [Export](#export)
   - [Quick capture](#quick-capture)
   - [Look](#look)
   - [Not in scope (for now)](#not-in-scope-for-now)
@@ -485,14 +486,14 @@ before the first live test).
   2026-10-13 over a bottom action bar (the thumb area and the list's
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
-- Actions: **Close**, **Copy**, **Share** ("Sync and sharing"),
-  **Merge**, **Protect / Unprotect**, **Delete**, **Promote / Demote
-  headings**. Close, Share, Protect and Delete act on whole notes
+- Actions: **Close**, **Copy**, **Export** ("Export"), **Share** ("Sync
+  and sharing"), **Merge**, **Protect / Unprotect**, **Delete**,
+  **Promote / Demote headings**. Close, Share, Protect and Delete act on whole notes
   (disabled while only parts of a note are selected) and end the
   selection with Undo. In the archive the actions are **Reopen**, Copy,
-  Protect / Unprotect and Delete — closed notes are read-only. Protect
+  Export, Protect / Unprotect and Delete — closed notes are read-only. Protect
   protects the selected notes unless all are protected already, then it
-  removes the protection; on the phone it sits under ⋮.
+  removes the protection; on the phone it and Export sit under ⋮.
 - **Delete** asks first: a confirmation names how many notes go, that
   they leave all the user's devices, which of them are shared and go
   for everyone, and how many protected ones stay (Delete is disabled
@@ -531,6 +532,37 @@ before the first live test).
   between main view and archive.
 - Open: whether merging should also offer keeping the original heading
   levels instead of aligning them — decided after trying the alignment.
+
+### Export
+
+Decided 2026-10-14 (user request): to pull content out in a structured
+way and to keep an independent local backup. No import for now — whether
+one is worth it is discussed separately (backlog #31).
+
+- **What:** ⋮ → **"Export…"** offers **This view** — the notes the list
+  shows (main view or archive, circle filter and search applied), in the
+  order it shows them — as one Markdown file, or **All files** — one
+  Markdown file per NoteDown file, private plus one per circle with notes
+  (named "Private.md", "Lea.md", "Lea & Tom.md"), packed into one ZIP.
+  **Export** in the selection bar exports the selected notes or sections
+  in contents order as one Markdown file; the selection stays. Why the
+  view's order: the export matches what the user sees, and the order in
+  the file itself carries no meaning (`docs/file-format.md`).
+- **Options**, remembered on this device:
+  - **Include archive** (off by default; All files, or This view in the
+    main view): the archived notes follow the open ones under a rule and
+    "**Archive**", in the archive's sort order.
+  - **Table of contents** (off by default): a linked list on top with as
+    many levels as the contents currently show; headings link to their
+    GitHub-style anchors, text without a heading is listed in italics.
+  - **Keep metadata** (on by default): each note keeps its hidden marker
+    (`docs/file-format.md`), so dates and status survive; off gives plain
+    Markdown to reuse anywhere. Contacts, device names and orders are
+    never exported (they are private and no content).
+- Only Markdown (`.md`, several as `.zip`), named
+  `NoteDown-YYYY-MM-DD`. The web app downloads the file; the Android app
+  hands it to the system's share sheet (save to Files, send) — *app
+  phase*. *Prototype: 2026-10-14 (download).*
 
 ### Quick capture
 

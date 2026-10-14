@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
+  exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

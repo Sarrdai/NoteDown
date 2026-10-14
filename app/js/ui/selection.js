@@ -21,6 +21,7 @@ import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
 import { openMenu } from "./menu.js";
 import { openConfirm, isConfirmOpen } from "./confirm.js";
+import { openExport } from "./export.js";
 import { icon } from "./icons.js";
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 
@@ -225,6 +226,7 @@ function update() {
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
+    { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
     { id: protect ? "protect" : "unprotect", label: protect ? "Protect" : "Unprotect", run: () => protectNotes(protect), disabled: !whole, menu: !archive },
@@ -315,6 +317,12 @@ function copy() {
   };
   if (parts.length === 1) done(parts);
   else openDialog(`Copy ${what(parts, whole)}`, "Copy", parts, notes, done);
+}
+
+// Export: the selected parts in contents order as one Markdown file; the selection stays.
+function exportParts() {
+  const { parts, notes, whole } = current();
+  openExport({ label: parts.length === 1 ? (whole ? "note" : "section") : what(parts, whole), items: parts.map(p => ({ note: notes[p.noteId], text: partText(notes[p.noteId].body, p) })) });
 }
 
 // Merge and "move to a new note" are one mechanism: the parts, in the

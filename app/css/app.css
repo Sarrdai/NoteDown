@@ -481,6 +481,12 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .switch:checked { background: var(--accent); }
 .switch:checked::after { transform: translateX(20px); }
 .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Export: what, then the options (ui/export.js). */
+.dialog.export { width: min(420px, 100%); }
+.dialog.export .merge-choice { margin: 0 0 8px; }
+.export-options { flex: 1; min-height: 0; overflow-y: auto; }
+.setting-text { display: flex; flex-direction: column; min-width: 0; }
+.setting-sub { font-size: 0.85rem; color: var(--text-muted); }
 .time-input {
   flex: none; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px;
   background: var(--bg); color: var(--text); font: inherit; color-scheme: light dark;
