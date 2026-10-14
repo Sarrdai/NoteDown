@@ -5,6 +5,9 @@
 - [Marker attributes](#marker-attributes)
 - [Moved notes](#moved-notes)
 - [Device names](#device-names)
+- [Leaving a shared note](#leaving-a-shared-note)
+- [Members](#members)
+- [Contacts](#contacts)
 - [Custom order](#custom-order)
 - [Open points](#open-points)
 <!-- /toc -->
@@ -50,6 +53,7 @@ Done by bank transfer, reference number in the banking app.
 | `modified` | yes | Time (UTC) of the last content change (closing or reopening doesn't count) |
 | `due` | no | Date `YYYY-MM-DD` |
 | `closed` | when closed | Time (UTC) the note was closed |
+| `left` | no | Shared files only: identity IDs of members who left the note, comma-separated (see "Leaving a shared note") |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of
 a shared file in different time zones agree on them; each device shows
@@ -91,9 +95,63 @@ device's QR code suggests; removing a device drops its marker. Merging
 works per ID: the side that changed a name wins, a removal stays. Any
 text after a device marker is dropped, like after a moved marker.
 
+## Leaving a shared note
+
+A member can't write the file of the remaining members (it isn't one of
+them), so leaving only marks the note in the shared file:
+
+```markdown
+<!-- note id=s11 status=open created=2026-10-12T10:00Z modified=2026-10-13T08:00Z left=VG9tSWRlbnRpdHkxMjM0NTY -->
+```
+
+The leaver's devices hide the note at once. The first device of a
+remaining member that syncs the file moves the note into the file of the
+members without everyone in `left` (created on first use, like sharing;
+with one member left it becomes that member's private note) and drops
+`left`; the old file keeps a moved marker as usual. Merging takes the
+union of both sides' `left`. Decided 2026-10-14 over a marker the leaver
+writes elsewhere: the note stays readable for the others until one of
+them moves it, which is the leaver's choice anyway.
+
+## Members
+
+A shared file names its members with their own display names, one
+marker each after the moved markers, so a member who isn't a contact of
+everyone still shows by name:
+
+```markdown
+<!-- member id=U2FtSWRlbnRpdHkxMjM0NTY name=Sam -->
+```
+
+Each member's devices write only their own marker (the user's display
+name, percent-encoded) and keep it current; merging works per ID like
+device names. A contact keeps the name the user gave them; a member who
+isn't a contact shows with this name in a neutral color (decided
+2026-10-14 over "Unknown").
+
+## Contacts
+
+The private file also holds the user's contacts, one marker each after
+the device markers, so every device of the identity has the same
+contacts and names while the server only knows pairs of identity IDs
+(`docs/server-api.md` → "Contacts and invitations"):
+
+```markdown
+<!-- contact id=TGVhSWRlbnRpdHkxMjM0NQ name=Lea color=2 -->
+<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z -->
+```
+
+`id` is the contact's identity ID, `name` the name the user gave the
+contact (percent-encoded; the contact's own display name is the
+suggestion), `color` the avatar color slot 1–6. `pending` marks a
+request this user sent that the other side hasn't confirmed yet (the
+time it was sent, UTC); it is dropped once the server lists the pair.
+Merging works per ID like device names: the side that changed a contact
+wins, a removal stays. Any text after a contact marker is dropped.
+
 ## Custom order
 
-A file can hold one order marker, after the device markers: the note ids
+A file can hold one order marker, after the device and contact markers: the note ids
 of a custom order, first to last (backlog #24):
 
 ```markdown

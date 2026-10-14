@@ -1,6 +1,7 @@
 """Pins protocol.py to tests/fixtures/crypto-vectors.json, which the client's
 tests/crypto.test.mjs reproduces too (scripts/crypto-vectors.py writes it)."""
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -10,7 +11,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from notedown_server import auth
 from notedown_server.protocol import (
-    ProtocolError, canonical, entry_hash, from_b64u, key_id, verify_chain, verify_signature,
+    ProtocolError, b64u, canonical, entry_hash, from_b64u, invitation_message, key_id, verify_chain, verify_signature,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +53,22 @@ def test_auth_signature_verifies_for_the_phone():
     assert auth.auth_message(auth_vector["challenge"]).decode() == auth_vector["message"]
     assert verify_signature(from_b64u(VECTORS["phone"]["sign"], 32), from_b64u(auth_vector["signature"], 64),
                             auth.auth_message(auth_vector["challenge"]))
+
+
+def test_invitation_id_and_signature_match():
+    invite = VECTORS["invite"]
+    assert b64u(hashlib.sha256(from_b64u(invite["secret"], 16)).digest()[:16]) == invite["id"]
+    assert invitation_message(invite["id"]).decode() == invite["message"]
+    assert verify_signature(from_b64u(VECTORS["phone"]["sign"], 32), from_b64u(invite["signature"], 64),
+                            invitation_message(invite["id"]))
+
+
+def test_sealed_contact_card_fits_the_limit_and_holds_the_secret():
+    card = VECTORS["contact_card"]
+    raw = from_b64u(card["sealed"])
+    assert len(card["sealed"]) <= 512
+    assert raw[:32] != from_b64u(card["recipient_enc"], 32)   # an ephemeral key first
+    assert card["card"]["secret"] == VECTORS["invite"]["secret"]
 
 
 def test_wrapped_key_fits_the_limit():

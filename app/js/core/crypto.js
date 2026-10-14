@@ -336,3 +336,46 @@ export function sealRelayMessage(message, recipientEncPublic) {
 export async function openRelayMessage(payload, encKeyPair) {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-relay", payload, encKeyPair)));
 }
+
+// ---------- contacts and invitations (docs/server-api.md → "Contacts and invitations") ----------
+
+const SECRET_BYTES = 16;
+
+/** A new invitation secret: 16 random bytes. */
+export function newInvitationSecret() {
+  return globalThis.crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
+}
+
+/** The invitation ID of a secret: b64u of the first 16 bytes of its SHA-256. */
+export async function invitationId(secretBytes) {
+  return b64u((await sha256(secretBytes)).subarray(0, 16));
+}
+
+/** What the inviting device signs: `notedown-invite-v1:<invitation id>`. */
+export function invitationMessage(id) {
+  return utf8(`notedown-invite-v1:${id}`);
+}
+
+/** b64u Ed25519 signature of the invitation message, for `POST /v1/invitations`. */
+export async function signInvitation(privateKey, id) {
+  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, privateKey, invitationMessage(id))));
+}
+
+/** Whether `sig` (b64u) is the signature of the device with public signing key `signKey` over invitation `id`. */
+export async function verifyInvitation(signKey, sig, id) {
+  try {
+    return await verifySignature(signKey, fromB64u(sig, 64), invitationMessage(id));
+  } catch {
+    return false;
+  }
+}
+
+/** A contact request's card (JSON-able) sealed like a relay payload for a device's `enc` key, label `notedown-contact`. */
+export function sealContactCard(card, recipientEncPublic) {
+  return sealFor("notedown-contact", recipientEncPublic, utf8(JSON.stringify(card)));
+}
+
+/** The card of `sealContactCard`'s output; throws when it wasn't sealed for `encKeyPair`. */
+export async function openContactCard(sealed, encKeyPair) {
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-contact", sealed, encKeyPair)));
+}

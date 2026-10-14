@@ -3,8 +3,15 @@
 // server on 127.0.0.1:8765. Browser contexts stand in for devices: A turns
 // sync on, B joins with the recovery key, D links by QR code (A really scans
 // it: Chromium's fake camera plays a video of D's code), all edit (also the
-// same note at once), A removes B, and C restores. Every step checks that the
-// devices end up with the same file. Note texts come from app/sample/notes.md.
+// same note at once), A removes B, and C restores. Then contacts: E (Lea) pastes
+// A's invitation link, A confirms the request on the card above the notes; F (Tom)
+// scans A's "My code" with the fake camera and A declines; stale, own and
+// repeated invitations are refused. Then shared files: A shares notes with Lea, both edit (also at once),
+// a protected note another member deletes stays private on that device, a restored device gets the shared
+// files and starts without protected notes, removing a device renews the keys of the shared files too,
+// a merge across circles creates the file of everyone involved, removing a person moves the note into a
+// new file and the removed person's concurrent edit lands in the private file. Every step checks that the devices end up
+// with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
 "use strict";
@@ -24,6 +31,9 @@ const AGENTS = {
   A: "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
   B: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
   C: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  E: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+  F: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+  G: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
   D: "Mozilla/5.0 (Linux; Android 14; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
 };
 const shots = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : null;
@@ -35,14 +45,25 @@ const sample = Object.fromEntries(fs.readFileSync(path.join(ROOT, "app/sample/no
 function serve() {
   const server = http.createServer((req, res) => {
     const file = path.join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname));
-    if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
-    fs.createReadStream(file).pipe(res);
+    const found = fs.existsSync(file) && fs.statSync(file).isDirectory() ? path.join(file, "index.html") : file;   // like a static host
+    if (!found.startsWith(ROOT) || !fs.existsSync(found) || fs.statSync(found).isDirectory()) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { "Content-Type": TYPES[path.extname(found)] || "application/octet-stream" });
+    fs.createReadStream(found).pipe(res);
   });
   return new Promise(resolve => server.listen(PORT, "127.0.0.1", () => resolve(server)));
 }
 
 const errors = [];
+
+// The app's modules, for the test to call (again after a page was loaded anew).
+const loadModules = page => page.evaluate(async () => {
+  window.__store = await import("/app/js/store.js");
+  window.__sync = await import("/app/js/sync/client.js");
+  window.__contacts = await import("/app/js/sync/contacts.js");
+  window.__notesFile = await import("/app/js/core/notes-file.js");
+  window.__crypto = await import("/app/js/core/crypto.js");
+  window.__keystore = await import("/app/js/sync/keystore.js");
+});
 
 async function device(browser, name, viewport, api = true) {
   const context = await browser.newContext({ viewport, hasTouch: viewport.width < 600, isMobile: viewport.width < 600, userAgent: AGENTS[name] });
@@ -51,10 +72,7 @@ async function device(browser, name, viewport, api = true) {
   page.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`${name}: ${m.text()}`); });
   await page.goto(`http://127.0.0.1:${PORT}/app/index.html` + (api ? `?api=${API}` : ""));
   await page.waitForFunction(() => document.body.dataset.ready === "1");
-  await page.evaluate(async () => {
-    window.__store = await import("/app/js/store.js");
-    window.__sync = await import("/app/js/sync/client.js");
-  });
+  await loadModules(page);
   page.label = name;
   return page;
 }
@@ -69,6 +87,29 @@ async function openPanel(page) {
   await page.click("#moreBtn");
   await page.locator(".menu-item", { hasText: "Sync & sharing" }).click();
 }
+
+// Turns sync on through the panel, as a new user does; closes the panel.
+async function turnOnSync(page, name) {
+  await openPanel(page);
+  await page.getByRole("button", { name: "Turn on sync" }).click();
+  await page.fill("#syncBody input", name);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.check("#keySaved");
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByText("This device", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+}
+
+// "Add contact" → "Paste link" with `link`; leaves the page on "Name the contact".
+async function pasteLink(page, link) {
+  await openPanel(page);
+  await page.getByRole("button", { name: "Add contact" }).click();
+  await page.fill('input[aria-label="Paste link"]', link);
+  await page.getByRole("button", { name: "Paste link", exact: true }).click();
+  await page.getByRole("heading", { name: "Name the contact" }).waitFor();
+}
+
+const contactLines = page => fileText(page).then(t => t.match(/<!-- contact .*-->/g) || []);
 
 async function shot(page, name) {
   if (shots) await page.screenshot({ path: path.join(shots, `sync-${name}.png`) });
@@ -96,6 +137,59 @@ async function converge(...pages) {
   for (const [i, t] of texts.entries()) assert.equal(t, texts[0], `${pages[i].label} differs from ${pages[0].label}`);
   for (const p of pages) assert.equal((await syncState(p)).status, "synced", `${p.label} is not synced`);
 }
+
+// ---------- shared files ----------
+
+const ident = async page => (page.ident ||= await page.evaluate(() => window.__store.state.sync.identity));
+const noteId = (page, body) => page.evaluate(b => window.__store.allNotes().find(n => n.body === b)?.id, body);
+const circleOfNote = (page, id) => page.evaluate(i => window.__store.circleOf(i), id);
+const noteBody = (page, id) => page.evaluate(i => window.__store.note(i)?.body, id);
+const setBody = (page, id, body) => page.evaluate(([i, b]) => window.__store.setBody(i, b), [id, body]);
+
+// The text of the shared file of `members` (pages, the viewer included), as `page` holds it; null if it has none.
+async function circleText(page, members) {
+  const mine = await ident(page);
+  const key = (await Promise.all(members.map(ident))).filter(m => m !== mine).sort().join("+");
+  return page.evaluate(k => {
+    const entry = window.__store.sharedFiles().find(x => x.key === k);
+    return entry ? window.__notesFile.serializeNotesFile(entry.file) : null;
+  }, key);
+}
+
+// The sync record of the shared file of `members`: { id, version, base }.
+async function circleRecord(page, members) {
+  const mine = await ident(page);
+  const key = (await Promise.all(members.map(ident))).filter(m => m !== mine).sort().join("+");
+  return page.evaluate(k => window.__store.state.sync.files[k], key);
+}
+
+// Syncs `pages` until they hold the same shared file of `members`.
+async function convergeShared(members, ...pages) {
+  for (const p of [...pages, ...pages]) await sync(p);
+  const texts = await Promise.all(pages.map(p => circleText(p, members)));
+  assert.notEqual(texts[0], null, "the shared file exists");
+  for (const [i, t] of texts.entries()) assert.equal(t, texts[0], `${pages[i].label} differs from ${pages[0].label} in the shared file`);
+  for (const p of pages) assert.equal((await syncState(p)).status, "synced", `${p.label} is not synced`);
+  return texts[0];
+}
+
+// `inviter` and `requester` become contacts, through the API instead of the panel (covered above).
+async function befriend(inviter, requester, nameForInviter, nameForRequester) {
+  const link = await inviter.evaluate(async () => (await window.__contacts.createInvitation("link")).text);
+  await requester.evaluate(([t, n]) => window.__contacts.sendRequest(t, n), [link, nameForInviter]);
+  await sync(inviter);
+  const request = await inviter.evaluate(() => window.__store.state.sync.requests[0].id);
+  await inviter.evaluate(([i, n]) => window.__contacts.confirmRequest(i, n), [request, nameForRequester]);
+  await sync(requester);
+}
+
+// Closes the panel and the snackbar a step left open, for a clean screenshot.
+const tidy = page => page.evaluate(async () => {
+  (await import("/app/js/ui/snackbar.js")).hideSnackbar();
+  (await import("/app/js/ui/sync-panel.js")).closePanel();
+});
+
+const fileKeyOf = (page, record) => page.evaluate(async id => window.__crypto.b64u(await window.__keystore.getSecret("file:" + id)), record.id);
 
 async function step(name, fn) {
   await fn();
@@ -290,6 +384,333 @@ async function main() {
       await addNote(a, sample.s03);
       await converge(a, d);
       assert.ok((await bodies(d)).includes(sample.s03));
+    });
+
+    // ---------- contacts ----------
+    let e, f, link;
+    await step("E (Lea) turns on sync and pastes A's invitation link; the request is pending", async () => {
+      e = await device(browser, "E", { width: 1440, height: 900 });
+      await turnOnSync(e, "Lea");
+      await openPanel(a);
+      await a.getByRole("button", { name: "Add contact" }).click();
+      await a.getByRole("tab", { name: "Invite by link" }).click();
+      link = await a.locator('input[aria-label="Invitation link"]').inputValue();
+      assert.match(link, /^http:\/\/127\.0\.0\.1:8766\/app\/invite\/#v=1&id=[\w-]{22}&s=[\w-]{22}&name=Sam$/);
+      await a.getByText("The link works once, for 7 days.").waitFor();
+      await shot(a, "invite-link-phone");
+      await a.keyboard.press("Escape");
+      await a.keyboard.press("Escape");
+      await openPanel(e);
+      await e.getByRole("button", { name: "Add contact" }).click();
+      await shot(e, "add-contact-desktop");
+      await e.keyboard.press("Escape");
+      await e.keyboard.press("Escape");
+      await pasteLink(e, "  " + link + "\n");
+      assert.equal(await e.locator('input[aria-label="Contact name"]').inputValue(), "Sam", "the inviter's name is the suggestion");
+      await shot(e, "name-contact-desktop");
+      await e.getByRole("button", { name: "Send request" }).click();
+      await e.getByText("Request sent to Sam").waitFor();
+      await e.getByText("Waiting for confirmation").waitFor();
+      await shot(e, "contact-pending-desktop");
+      assert.match((await contactLines(e)).join(), /name=Sam color=1 pending=\S+ -->/);
+      await e.keyboard.press("Escape");
+    });
+
+    await step("A sees the request card and confirms; both have each other as contacts", async () => {
+      await sync(a);
+      const card = a.locator("#requestCards .request-card");
+      await card.getByText("Lea wants to be your contact").waitFor();
+      await card.getByText("Opened your invitation link").waitFor();
+      await shot(a, "request-card-phone");
+      await card.getByRole("button", { name: "Confirm" }).click();
+      assert.equal(await a.locator('input[aria-label="Contact name"]').inputValue(), "Lea");
+      await shot(a, "request-page-phone");
+      await a.locator("#syncBody").getByRole("button", { name: "Confirm" }).click();
+      await a.getByText("Lea added").waitFor();
+      await a.locator("#syncBody").getByText("Lea", { exact: true }).waitFor();
+      await shot(a, "contacts-phone");
+      assert.equal(await a.locator("#requestCards .request-card").count(), 0, "the card is gone");
+      await a.keyboard.press("Escape");
+      await sync(e);
+      await e.getByText("Sam confirmed your request").waitFor();
+      assert.doesNotMatch((await contactLines(e)).join(), /pending/, "E's contact is confirmed");
+      await openPanel(e);
+      await e.getByText("Waiting for confirmation").waitFor({ state: "detached" });
+      await shot(e, "contacts-desktop");
+      await e.keyboard.press("Escape");
+      await converge(a, d);
+      await converge(e);
+      assert.match((await contactLines(a)).join(), /name=Lea color=1 -->/);
+      assert.match((await contactLines(d)).join(), /name=Lea color=1 -->/, "A's other device has Lea too");
+      assert.match((await contactLines(e)).join(), /name=Sam color=1 -->/);
+    });
+
+    await step("the invite page forwards a visited link into the app; a contact can't be added twice", async () => {
+      const again = await a.evaluate(async () => (await window.__contacts.createInvitation("link")).text);
+      await e.goto(again);
+      await e.waitForFunction(() => document.body.dataset.ready === "1");
+      await loadModules(e);   // the page was loaded anew
+      await e.getByRole("heading", { name: "Name the contact" }).waitFor();
+      assert.equal(await e.locator('input[aria-label="Contact name"]').inputValue(), "Sam");
+      assert.equal(new URL(e.url()).hash, "", "the fragment is taken out of the address");
+      await e.getByRole("button", { name: "Send request" }).click();
+      await e.getByText("Sam is already your contact.").waitFor();
+      await shot(e, "contact-error-desktop");
+      await e.keyboard.press("Escape");
+      await e.keyboard.press("Escape");
+    });
+
+    await step("F (Tom) scans A's My code; A sees the request at once and declines it", async () => {
+      f = await device(browser, "F", { width: 820, height: 1180 });
+      await turnOnSync(f, "Tom");
+      await openPanel(a);
+      await a.getByRole("button", { name: "My code" }).click();
+      const code = await a.locator(".qr[data-code]").getAttribute("data-code");
+      assert.match(code, /\/invite\/#v=1&id=/);
+      await a.getByText("The code works once, for 10 minutes.").waitFor();
+      await shot(a, "my-code-phone");
+      await showToCamera(code);
+      await openPanel(f);
+      await f.getByRole("button", { name: "Add contact" }).click();
+      await f.getByRole("heading", { name: "Name the contact" }).waitFor({ timeout: 15000 });   // scanned
+      assert.equal(await f.locator('input[aria-label="Contact name"]').inputValue(), "Sam");
+      await f.fill('input[aria-label="Contact name"]', "Samuel");
+      await f.getByRole("button", { name: "Send request" }).click();
+      await f.getByText("Request sent to Samuel").waitFor();
+      await shot(f, "contact-pending-tablet");
+      await sync(a);   // A is on "My code": the request opens by itself
+      await a.locator("#syncBody").getByText("Tom wants to be your contact").waitFor();
+      await a.locator("#syncBody").getByText("Scanned your code").waitFor();
+      await shot(a, "request-code-phone");
+      await a.locator("#syncBody").getByRole("button", { name: "Decline" }).click();
+      await a.getByText("Request declined").waitFor();
+      assert.equal(await a.locator("#requestCards .request-card").count(), 0);
+      assert.doesNotMatch((await contactLines(a)).join(), /name=Tom/, "declined: no contact");
+      await f.keyboard.press("Escape");
+    });
+
+    await step("a used, an own and a made-up invitation are refused", async () => {
+      // A declined request is never reported back: F's contact stays pending until F removes it.
+      await assert.rejects(f.evaluate(t => window.__contacts.sendRequest(t, "Sam"), link), /already sent a request to Samuel/);
+      await f.evaluate(() => window.__contacts.removeContact(window.__store.state.file.contacts[0].id));
+      await assert.rejects(f.evaluate(t => window.__contacts.sendRequest(t, "Sam"), link), /expired or was already used/);
+      const own = await f.evaluate(async () => (await window.__contacts.createInvitation("link")).text);
+      await assert.rejects(f.evaluate(t => window.__contacts.sendRequest(t, "Me"), own), /own code/);
+      await assert.rejects(f.evaluate(() => window.__contacts.sendRequest("hello", "x")), /not a NoteDown invitation/);
+      await pasteLink(f, link);
+      await f.getByRole("button", { name: "Send request" }).click();
+      await f.getByText("This code or link has expired or was already used").waitFor();
+      await shot(f, "contact-expired-tablet");
+      await f.keyboard.press("Escape");
+      assert.deepEqual(await contactLines(f), [], "nothing was added");
+    });
+
+    // ---------- shared files ----------
+    let g, noteN, noteM, noteK;
+    const stateOf = page => page.evaluate(() => window.__store.state.sync);
+    await step("A shares a note with Lea through the share dialog: the file is created, Lea sees it with Sam's avatar", async () => {
+      noteN = (await addNote(a, sample.s09)).id;
+      await tidy(a);
+      await a.evaluate(async id => (await import("/app/js/ui/share-dialog.js")).openShareDialog([id]), noteN);
+      await a.getByRole("checkbox", { name: "Lea" }).click();
+      await shot(a, "share-dialog-phone");
+      await a.getByRole("button", { name: "Save", exact: true }).click();
+      await a.getByText("Shared with Lea").waitFor();
+      assert.deepEqual(await circleOfNote(a, noteN), [await ident(e)]);
+      await sync(a);
+      assert.match(await fileText(a), new RegExp(`<!-- note id=${noteN} moved=\\S+ -->`), "a moved marker stays in the private file");
+      await sync(e);
+      assert.equal(await noteBody(e, noteN), sample.s09, "Lea has the note");
+      assert.deepEqual(await circleOfNote(e, noteN), [await ident(a)]);
+      assert.equal(await e.locator(`#list .note[data-id="${noteN}"] .shared-mark`).getAttribute("aria-label"), "Shared with Sam");
+      await tidy(a);
+      await a.locator(`#list .note[data-id="${noteN}"]`).scrollIntoViewIfNeeded();
+      await shot(a, "shared-list-phone");
+      await e.getByRole("tab", { name: "People" }).click();
+      await e.locator("#peopleList").getByText("Sam").first().click();
+      await shot(e, "people-filter-desktop");
+      await e.getByRole("tab", { name: "Contents" }).click().catch(() => {});
+      await convergeShared([a, e], a, e);
+      await converge(a, d);
+    });
+
+    await step("Lea edits the shared note and Sam sees it; both edit at once: one conflict copy, the same file", async () => {
+      await setBody(e, noteN, sample.s09 + "\n\nLea");
+      await convergeShared([a, e], a, e);
+      assert.equal(await noteBody(a, noteN), sample.s09 + "\n\nLea");
+      await Promise.all([setBody(a, noteN, sample.s09 + "\n\nLea\n\nSam"), setBody(e, noteN, sample.s09 + "\n\nLea\n\nLea again")]);
+      const text = await convergeShared([a, e], a, e);
+      assert.equal((text.match(/<!-- note /g) || []).length, 2, "a conflict copy");
+      assert.equal(await noteBody(a, noteN), await noteBody(e, noteN));
+    });
+
+    await step("a shared note another member deletes stays, protected, with the one who protects it; protection reaches no file", async () => {
+      const id = (await addNote(a, sample.s10)).id;
+      await a.evaluate(([i, m]) => window.__store.shareNotes([i], [m]), [id, await ident(e)]);
+      await convergeShared([a, e], a, e);
+      await e.evaluate(i => window.__store.setProtected([i], true), id);
+      await a.evaluate(i => window.__store.removeNote(i), id);
+      await convergeShared([a, e], a, e);
+      assert.equal(await noteBody(a, id), undefined, "gone for Sam");
+      assert.equal(await noteBody(e, id), sample.s10, "kept by Lea");
+      assert.deepEqual(await circleOfNote(e, id), [], "as a private note");
+      assert.equal(await e.evaluate(i => window.__store.isProtected(i), id), true, "still protected");
+      assert.match(await fileText(e), new RegExp(`<!-- note id=${id} status=open`), "it is in Lea's private file");
+      for (const text of [await fileText(e), await circleText(e, [a, e])]) assert.doesNotMatch(text, /protect/i);
+      await converge(e);
+    });
+
+    await step("a note deleted on another own device goes here too, protected or not", async () => {
+      const id = (await addNote(a, sample.s11)).id;
+      await converge(a, d);
+      await d.evaluate(i => window.__store.setProtected([i], true), id);
+      await a.evaluate(i => window.__store.removeNote(i), id);
+      await converge(a, d);
+      assert.equal(await noteBody(d, id), undefined, "gone on D although D protects it");
+    });
+
+    await step("a restored device gets the shared files and starts without protected notes", async () => {
+      await a.evaluate(i => window.__store.setProtected([i], true), noteN);
+      g = await device(browser, "G", { width: 820, height: 1180 });
+      await g.evaluate(k => window.__sync.restore(k), key);
+      assert.equal(await g.evaluate(() => window.__store.state.protectedIds.size), 0, "no protected notes");
+      await converge(a, d, g);
+      assert.equal(await noteBody(g, noteN), await noteBody(a, noteN), "G reads the shared note");
+      assert.deepEqual(await circleOfNote(g, noteN), [await ident(e)]);
+      await convergeShared([a, e], a, d, g, e);
+      await a.evaluate(i => window.__store.setProtected([i], false), noteN);
+    });
+
+    await step("A removes G: the keys of every file are renewed, Lea still reads and edits the shared file", async () => {
+      const shared = await circleRecord(a, [a, e]), priv = (await stateOf(a)).file;
+      const before = [await fileKeyOf(a, shared), await fileKeyOf(a, priv)];
+      const gDevice = (await stateOf(g)).device;
+      await a.evaluate(id => window.__sync.removeDevice(id), gDevice);
+      assert.deepEqual((await stateOf(a)).renew, [], "nothing left to renew");
+      const after = [await fileKeyOf(a, await circleRecord(a, [a, e])), await fileKeyOf(a, (await stateOf(a)).file)];
+      assert.notEqual(after[0], before[0], "the shared file has a new key");
+      assert.notEqual(after[1], before[1], "the private file has a new key");
+      await sync(g);
+      assert.match((await stateOf(g)).error, /removed/);
+      await sync(e);
+      assert.equal(await fileKeyOf(e, await circleRecord(e, [a, e])), after[0], "Lea unwrapped the new key");
+      await setBody(e, noteN, (await noteBody(e, noteN)) + "\n\nafter renewal");
+      await convergeShared([a, e], a, d, e);
+      assert.match(await noteBody(a, noteN), /after renewal$/);
+      await converge(a, d);
+    });
+
+    await step("a merge across circles with Share with ... creates the file of everyone involved; a private copy writes to no shared file", async () => {
+      await befriend(a, f, "Sam", "Tom");
+      await converge(a, d);
+      const q = (await addNote(a, sample.s12)).id;
+      await a.evaluate(([i, m]) => window.__store.shareNotes([i], [m]), [q, await ident(f)]);
+      await convergeShared([a, f], a, d, f);
+      // Private copy: the sources stay, nothing is written to a shared file.
+      const versions = async () => [(await circleRecord(a, [a, e])).version, (await circleRecord(a, [a, f])).version];
+      const before = await versions();
+      const copy = await a.evaluate(([x, y]) => window.__store.applyMerge([{ id: x, body: window.__store.note(x).body }, { id: y, body: window.__store.note(y).body }],
+        { body: "Copy", created: null, due: null }, "copy").note.id, [noteN, q]);
+      await converge(a, d);
+      assert.deepEqual(await versions(), before, "the shared files are untouched");
+      assert.deepEqual(await circleOfNote(a, copy), []);
+      // Share with ...: the merged note goes into the file of Lea, Tom and Sam, whose key is wrapped for all their devices.
+      noteM = await a.evaluate(([x, y]) => {
+        const body = [x, y].map(i => window.__store.note(i).body).join("\n\n");
+        return window.__store.applyMerge([{ id: x, body: null }, { id: y, body: null }], { body, created: null, due: null }, "share").note.id;
+      }, [noteN, q]);
+      assert.deepEqual(await circleOfNote(a, noteM), [await ident(e), await ident(f)].sort());
+      await convergeShared([a, e, f], a, d, e, f);
+      assert.equal(await noteBody(e, noteM), await noteBody(f, noteM));
+      assert.deepEqual(await circleOfNote(f, noteM), [await ident(a), await ident(e)].sort());
+      // Tom isn't Lea's contact: her name comes from the member marker she wrote into the shared file.
+      assert.equal(await f.evaluate(id => window.__store.memberName(id), await ident(e)), "Lea");
+      assert.match(await circleText(f, [a, e, f]), /<!-- member id=\S+ name=Lea -->/);
+      await tidy(f);
+      await f.evaluate(() => window.__store.setUi({ panelTab: "people" }));
+      await f.locator("#peopleList").getByText(/Lea/).waitFor();
+      await shot(f, "people-group-tablet");
+      await f.evaluate(() => window.__store.setUi({ panelTab: "toc" }));
+      await shot(f, "shared-list-tablet");
+    });
+
+    await step("removing Tom moves the note into a new file; Tom's concurrent edit lands in his private file", async () => {
+      const before = await noteBody(f, noteM);
+      await setBody(f, noteM, before + "\n\nTom, while being removed");
+      await a.evaluate(([i, m]) => window.__store.shareNotes([i], [m]), [noteM, await ident(e)]);
+      await sync(a);
+      await sync(f);
+      assert.deepEqual(await circleOfNote(f, noteM), [], "private on Tom's device");
+      assert.equal(await noteBody(f, noteM), before + "\n\nTom, while being removed");
+      assert.match(await fileText(f), new RegExp(`<!-- note id=${noteM} status=open`));
+      await sync(e);
+      assert.deepEqual(await circleOfNote(e, noteM), [await ident(a)]);
+      assert.equal(await noteBody(e, noteM), before, "Lea has the note without Tom's edit");
+      assert.match(await circleText(f, [a, e, f]), new RegExp(`<!-- note id=${noteM} moved=`), "the old file keeps the moved marker");
+      await convergeShared([a, e], a, d, e);
+      await converge(f);
+    });
+
+    await step("adding Tom again: Lea's concurrent edit follows the note into the new file", async () => {
+      const before = await noteBody(e, noteM);
+      await setBody(e, noteM, before + "\n\nLea, while Tom is added");
+      await a.evaluate(([i, m, n]) => window.__store.shareNotes([i], [m, n]), [noteM, await ident(e), await ident(f)]);
+      await sync(a);
+      await sync(e);
+      assert.deepEqual(await circleOfNote(e, noteM), [await ident(a), await ident(f)].sort());
+      assert.equal(await noteBody(e, noteM), before + "\n\nLea, while Tom is added");
+      await convergeShared([a, e, f], a, d, e, f);
+      assert.equal(await noteBody(f, noteM), before + "\n\nLea, while Tom is added");
+      // Tom's private copy from when he was removed is a note of its own now, not a second one with the same ID.
+      const copies = await f.evaluate(() => window.__store.allNotes().filter(n => /while being removed/.test(n.body)).map(n => n.id));
+      assert.equal(copies.length, 1);
+      assert.notEqual(copies[0], noteM);
+      assert.deepEqual(await circleOfNote(f, copies[0]), []);
+      await converge(f);
+    });
+
+    await step("Tom leaves a note shared with Sam and Lea: it disappears for him, Sam's device moves it into the file of the two", async () => {
+      await tidy(f);
+      await f.evaluate(async id => (await import("/app/js/ui/share-dialog.js")).openShareDialog([id]), noteM);
+      await shot(f, "leave-dialog-tablet");
+      await f.getByRole("button", { name: "Leave" }).click();
+      await f.getByText("You left the note").waitFor();
+      assert.equal(await noteBody(f, noteM), undefined, "hidden at once");
+      assert.match(await circleText(f, [a, e, f]), / left=\S+ -->/, "marked in the shared file");
+      await sync(f);
+      await sync(a);   // a remaining member moves it on
+      assert.deepEqual(await circleOfNote(a, noteM), [await ident(e)]);
+      assert.doesNotMatch(await circleText(a, [a, e]) , /left=/);
+      await convergeShared([a, e], a, d, e);
+      assert.deepEqual(await circleOfNote(e, noteM), [await ident(a)]);
+      assert.match(await circleText(a, [a, e, f]), new RegExp(`<!-- note id=${noteM} moved=`), "the old file keeps the moved marker");
+      await convergeShared([a, e, f], a, e, f);
+      assert.equal(await noteBody(f, noteM), undefined, "Tom doesn't see it any more");
+      assert.doesNotMatch(await fileText(f), new RegExp(`<!-- note id=${noteM} status`), "and it doesn't come back into his private file");
+      // Later edits go into the file of the two, which Tom isn't a member of.
+      await setBody(a, noteM, (await noteBody(a, noteM)) + "\n\nafter Tom left");
+      await convergeShared([a, e], a, e);
+      await sync(f);
+      assert.equal(await noteBody(f, noteM), undefined);
+      assert.equal(await f.evaluate(() => window.__store.allNotes().some(n => /after Tom left/.test(n.body))), false, "Tom can't read later edits");
+      assert.equal(await e.evaluate(() => window.__store.allNotes().some(n => /after Tom left/.test(n.body))), true);
+      noteK = (await addNote(a, sample.s13)).id;   // for the contact removal below
+      await a.evaluate(([i, m]) => window.__store.shareNotes([i], [m]), [noteK, await ident(e)]);
+      await convergeShared([a, e], a, d, e);
+    });
+
+    await step("removing a contact removes the pair on both sides", async () => {
+      await openPanel(e);
+      await e.getByRole("button", { name: "Remove Sam" }).click();
+      await e.getByRole("button", { name: "Remove", exact: true }).click();
+      await e.getByText("Sam removed").waitFor();
+      assert.deepEqual(await contactLines(e), []);
+      await converge(a, d);
+      await e.keyboard.press("Escape");
+      // The member set of a file never changes: the shared file still syncs.
+      await setBody(a, noteK, (await noteBody(a, noteK)) + "\n\nafter the contact was removed");
+      await convergeShared([a, e], a, d, e);
+      assert.match(await noteBody(e, noteK), /after the contact was removed$/);
     });
 
     await step("without a server, sync can't be turned on", async () => {

@@ -58,12 +58,22 @@ export function createApi(baseUrl, who) {
 
   return {
     createIdentity: (identityKey, entries) => call("POST", "/v1/identities", { identity_key: identityKey, entries }),
-    getIdentity: id => call("GET", `/v1/identities/${id}`),
+    // Authenticated; `invitation` names an open invitation of `id` (the way to read a stranger's list).
+    getIdentity: (id, invitation) => call(
+      "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
     listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota }) => ({ files, quota })),   // each file with its `size`
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),
+    // Contacts and invitations (docs/server-api.md → "Contacts and invitations").
+    createInvitation: (id, kind, sig) => call("POST", "/v1/invitations", { id, kind, sig }, true),   // → { expires }
+    listInvitations: () => call("GET", "/v1/invitations", undefined, true).then(r => r.invitations),
+    deleteInvitation: id => call("DELETE", `/v1/invitations/${id}`, undefined, true),
+    sendRequest: (id, cards) => call("POST", `/v1/invitations/${id}/request`, { cards }, true),
+    listContacts: () => call("GET", "/v1/contacts", undefined, true).then(r => r.contacts),
+    confirmContact: invitation => call("POST", "/v1/contacts", { invitation }, true),   // → { identity }
+    removeContact: id => call("DELETE", `/v1/contacts/${id}`, undefined, true),
     createSlot: () => call("POST", "/v1/relay"),
     fillSlot: (slot, payload) => call("PUT", `/v1/relay/${slot}`, { payload }, true),
     readSlot: slot => call("GET", `/v1/relay/${slot}`).then(r => r && r.payload),   // null while empty

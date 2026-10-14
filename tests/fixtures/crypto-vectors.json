@@ -175,6 +175,22 @@
     "recipient_enc": "kcpc-KZQUX-B8AeXt-5ZTGqDKLQ5Stpq03EY1vSdQyk",
     "wrapped": "sA0tf8m2x22pkwspWzzl7RBKN6huVuzOVm_i-8O_-HJCgz8ThsX3TBcpSi7LwcnvYzhGPx9YDLLgSJgUG0liJfA6JWSPAah7ldh2_4V3Sg3DHlXX4fVyZck2Bgo"
   },
+  "invite": {
+    "secret": "L-uJP6PMUhfmsTrhcZ_o2w",
+    "id": "9ulr5SM4wjs9JHwA1hoHhg",
+    "message": "notedown-invite-v1:9ulr5SM4wjs9JHwA1hoHhg",
+    "signature": "GIu4CpDGAU7cl_9CulB1E-j_cVNIX0iD-QfLCR8jurkclwK5Wm-Dwgn7fpumb_UYXWLWsT1p607kVF3KURV_Aw"
+  },
+  "contact_card": {
+    "recipient_enc": "kcpc-KZQUX-B8AeXt-5ZTGqDKLQ5Stpq03EY1vSdQyk",
+    "card": {
+      "v": 1,
+      "identity": "ek_ybOpta_Qz901AmSPa9A",
+      "name": "Zo\u00eb",
+      "secret": "L-uJP6PMUhfmsTrhcZ_o2w"
+    },
+    "sealed": "RV_EG7P1ue34kCP_YYoYKTwlhaoRQsBpZJgSxKKpbAR8CCSqIt7WFNrAiVRhpjIA6q63bNZ3g4FoprU4IvWz5MljEcm8F2huFZ6kIlgeG4cIAxsdntn8cmv3ebTTCBctrBJtQoIcJWnwlycEY5ImGUYdKKyjfZR-P_0mxjhOM7ywgHXS7nVdp3iTJ2RifQrgfnh17dUZfw"
+  },
   "file": {
     "key": "e3f5879d82b5d60d74c115328b5fa439f0d3e0be727d2ebb2d10e3fff1496b36",
     "text": "# Crypto test vector\n\n\u00c4\u00f6\u00fc \u2014 \ud83d\ude00 fixed text for tests/fixtures/crypto-vectors.json\n",

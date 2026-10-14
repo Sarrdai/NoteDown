@@ -4,7 +4,7 @@
 // always a valid NoteDown file. `state.file` is the private file, each entry
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
-import { moveNote } from "./core/merge.js";
+import { moveNote, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT } from "./core/query.js";
 
@@ -24,15 +24,21 @@ export const DEFAULT_SETTINGS = {
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
 // `identityKey` (b64u), `device` (this device's ID) and `file` ({ id, version,
-// base text }) of the private file; the device keys live in IndexedDB.
+// base text }) of the private file and `files` ({ [circleKey]: { id, version, base } }) of the
+// shared files, matched to `state.shared` by the circle; `renew` lists the files (circleKey, ""
+// = private) whose key still has to be renewed after a device was removed. The device keys and
+// file keys live in IndexedDB.
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
-// `recoveryKey`, `devices` (the other devices' names) and `contacts`.
+// `recoveryKey`, `devices` (the other devices' names) and `contacts`; real
+// contacts are in the private file (`contacts()`). `requests` are the incoming
+// contact requests, { id, name, via } (real: also `identity`), from the
+// server in each round (sync/contacts.js) or simulated.
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
-  enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null,
-  recoveryKey: "", devices: [], contacts: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
+  enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null, files: {}, renew: [],
+  recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
@@ -128,11 +134,25 @@ export function fileText() {
   return serializeNotesFile(state.file);
 }
 
+/** The shared files, as { key (circleKey), members, file }. */
+export const sharedFiles = () => state.shared.map(s => ({ key: circleKey(s.members), members: s.members, file: s.file }));
+
+/** Replaces the file of a set of people with a synced version, created on first use; no "files changed" event. */
+export function setSharedFile(memberIds, file) {
+  fileFor(memberIds);
+  state.shared.find(s => circleKey(s.members) === circleKey(memberIds)).file = withMoved(file);
+  saveFiles({ notify: false });
+  emit("structure");
+}
+
 const allFiles = () => [state.file, ...state.shared.map(s => s.file)];
 
-/** Every note of every file. */
+// A note this user left stays in the shared file until a remaining member moves it; no view shows it.
+const visible = n => !hasLeft(n, state.sync.identity);
+
+/** Every note of every file (the ones this user left excluded). */
 export function allNotes() {
-  return allFiles().flatMap(f => f.notes);
+  return allFiles().flatMap(f => f.notes).filter(visible);
 }
 
 // The file that holds a note, with its member ids ([] = the private file).
@@ -141,14 +161,36 @@ function holderOf(id) {
   return state.shared.find(s => s.file.notes.some(n => n.id === id)) || null;
 }
 
+/** The display name a shared file's markers give a member (someone who isn't a contact), or undefined. */
+export function memberName(id) {
+  for (const s of state.shared) {
+    const m = (s.file.members || []).find(x => x.id === id);
+    if (m) return m.name;
+  }
+  return undefined;
+}
+
 /** The member ids of every shared file. */
 export function sharedCircles() {
   return state.shared.map(s => [...s.members]);
 }
 
+/** The user's contacts, [{ id, name, color, pending? }]: the markers of the private file (synced; the
+ *  id is the contact's identity ID), in the sample the simulated list in the sync state. */
+export function contacts() {
+  return state.sync.simulated ? state.sync.contacts : state.file.contacts || [];
+}
+
+/** Replaces the contacts of the private file (real sync); saved, synced and shown like any change. */
+export function setContacts(list) {
+  state.file.contacts = list;
+  saveFiles();
+  emit("structure");
+}
+
 /** Whether the people overview (#23) shows: sync on and at least one contact. */
 export function hasPeople() {
-  return state.sync.enabled && state.sync.contacts.length > 0;
+  return state.sync.enabled && contacts().length > 0;
 }
 
 /** The people filter in effect: null (all) when the overview isn't shown. */
@@ -160,7 +202,7 @@ export function activeCircle() {
 export function circleNotes(key) {
   if (key === null) return allNotes();
   if (key === "") return state.file.notes;
-  return state.shared.find(s => circleKey(s.members) === key)?.file.notes || [];
+  return (state.shared.find(s => circleKey(s.members) === key)?.file.notes || []).filter(visible);
 }
 
 /** The member ids of the circle a note lives in ([] = private). */
@@ -382,6 +424,30 @@ function applyMove(from, to, id, now) {
   const moved = moveNote(from, to, id, now);
   Object.assign(from, moved.from);
   Object.assign(to, moved.to);
+}
+
+/** Leaves shared notes (real sync): marks them `left` with this user's identity ID; they disappear here and a
+ *  remaining member moves them on (docs/file-format.md → "Leaving a shared note"). Returns a function that undoes it. */
+export function leaveNotes(ids) {
+  const me = state.sync.identity;
+  const marked = [];
+  for (const id of ids) {
+    const holder = holderOf(id);
+    const n = holder?.members.length && holder.file.notes.find(x => x.id === id);
+    if (n && !hasLeft(n, me)) { n.left = [...(n.left || []), me]; marked.push(id); }
+  }
+  saveFiles();
+  emit("structure");
+  return () => {
+    for (const id of marked) {   // looked up again: a sync may have replaced the file, or a remaining member moved the note on
+      const n = holderOf(id)?.file.notes.find(x => x.id === id);
+      if (!n || !hasLeft(n, me)) continue;
+      n.left = n.left.filter(x => x !== me);
+      if (!n.left.length) delete n.left;
+    }
+    saveFiles();
+    emit("structure");
+  };
 }
 
 /** Moves notes into the file of exactly these people ([] = private), created

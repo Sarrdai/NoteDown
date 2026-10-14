@@ -3,16 +3,17 @@
 // sheet; tablet and desktop: a centered dialog. Pages stack inside the panel;
 // the back button, Esc and the Android back key go one page back, then close.
 // Real sync (sync/client.js) covers turning on, linking a device by QR code
-// or with the recovery key and the device list; contacts come later and are
-// only simulated for the sample (`state.sync.simulated`), where "Simulate
-// scan" stands in for the camera (docs/sync-and-sharing.md → "Identity and
-// devices", "Contacts").
-import { state, subscribe, setSync, replaceFiles, eraseStoredState } from "../store.js";
+// or with the recovery key, the device list and contacts (sync/contacts.js:
+// invitations, requests); the sample (`state.sync.simulated`) simulates them,
+// where "Simulate scan" stands in for the camera (docs/sync-and-sharing.md →
+// "Identity and devices", "Contacts").
+import { state, subscribe, setSync, replaceFiles, eraseStoredState, contacts } from "../store.js";
 import { syncNow } from "../sync-sim.js";
 import {
   syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
+import { createInvitation, myCode, readInvite, sendRequest, removeContact, onContactConfirmed } from "../sync/contacts.js";
 import { deviceRows, storageUsage } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
@@ -22,6 +23,7 @@ import { h, text, button } from "./dom.js";
 import { qrFigure, scannerView, cameraScanner } from "./qr.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
+import { requestAvatarHtml, requestHow } from "./people.js";
 
 const $ = id => document.getElementById(id);
 const real = () => !state.sync.simulated;
@@ -29,6 +31,8 @@ let stack = [];          // [{ page, data }]; the last entry is on screen
 let isOpen = false;
 let returnFocus = null;
 let shownUsage = null, shownFull = false;   // `state.sync.usage` / `storageFull` the overview was drawn with
+let shownContacts = "";  // the requests and contacts the overview was drawn with, as text
+let pendingInvite = null; // an invitation link opened while sync was off: continued once sync is on
 let leave = null;        // turns off what the page on screen started (camera)
 
 export function initSyncPanel() {
@@ -44,11 +48,13 @@ export function initSyncPanel() {
     else close({ fromHistory: true });
   });
   subscribe(kind => {
-    if (kind !== "sync") return;
-    updateStatus();
-    // The first round after opening brings the usage: show it without a reopen.
-    if (isOpen && top().page === "overview" && (state.sync.usage !== shownUsage || state.sync.storageFull !== shownFull)) render({ keepScroll: true });
+    if (kind !== "sync" && kind !== "structure") return;
+    if (kind === "sync") updateStatus();
+    // The first round after opening brings the usage, a later one a contact request: show them without a reopen.
+    if (isOpen && top().page === "overview" && (state.sync.usage !== shownUsage || state.sync.storageFull !== shownFull
+        || contactsKey() !== shownContacts)) render({ keepScroll: true });
   });
+  onContactConfirmed(contact => showSnackbar(`${contact.name} confirmed your request`));
   setInterval(updateStatus, 20000);
   loadSharingSample();   // warm the sample identity for the simulated scans
 }
@@ -90,9 +96,18 @@ export function setStack(entries) {
 
 export function closePanel() { close(); }
 
+export const isPanelOpen = () => isOpen;
+
+/** The page on screen while the panel is open. */
+export const panelPage = () => isOpen ? top().page : null;
+
+/** The data of the page on screen (`{}` while the panel is closed). */
+export const panelData = () => isOpen ? top().data : {};
+
 function close({ fromHistory = false } = {}) {
   if (!isOpen) return;
   isOpen = false;
+  pendingInvite = null;
   leavePage();
   $("syncPanel").hidden = true;
   if (!fromHistory && history.state && history.state.syncPanel) history.back();
@@ -192,7 +207,7 @@ function download(name, content) {
 }
 
 // A button that runs a real sync action: busy while it runs, its error shown below.
-function action(label, run, cls = "primary") {
+export function action(label, run, cls = "primary") {
   const error = h("p", { class: "field-error", role: "alert", hidden: true });
   const btn = button(label, cls, async () => {
     btn.disabled = true;
@@ -274,18 +289,61 @@ function removeFromList(key, index, label) {
   });
 }
 
-function addContact(name, via) {
+/** Adds a contact (the sample); `pending` while the other side hasn't confirmed this user's request. */
+export function addContact(name, via, { pending = false } = {}) {
   const id = contactId(name, state.sync.contacts.map(c => c.id));
-  const contact = { id, name, via, color: nextColor(state.sync.contacts) };
+  const contact = { id, name, via, color: nextColor(state.sync.contacts), ...(pending && { pending: true }) };
   setSync({ contacts: [...state.sync.contacts, contact] });
+  contactAdded(contact);
+  if (!pending) return;
+  // The sample: the other side confirms a moment later, as a later sync round would bring it.
+  setTimeout(() => {
+    if (!state.sync.contacts.some(c => c.id === id && c.pending)) return;
+    setSync({ contacts: state.sync.contacts.map(c => c.id === id ? { id, name, via, color: c.color } : c) });
+    if (isOpen && top().page === "overview") render({ keepScroll: true });
+    showSnackbar(`${name} confirmed your request`);
+  }, 4000);
+}
+
+/** What the panel shows once a contact is in the list (both modes): back to the share dialog that asked
+ *  for it, else the overview; "Request sent to …" while the contact is pending, else "… added". */
+export function contactAdded(contact) {
   // Opened from the share dialog: go back to it with the new contact listed.
   const asker = stack.findLastIndex(e => e.data.onContactAdded);
   if (asker >= 0) {
     stack.length = asker + 1;
     stack[asker].data.onContactAdded(contact);
     render({ keepScroll: true });
-  } else reset("overview");
-  showSnackbar(`${name} added`);
+  } else if (isOpen) reset("overview");
+  showSnackbar(contact.pending ? `Request sent to ${contact.name}` : `${contact.name} added`);
+}
+
+// A link opened in the app, from a tap on it, the Android App Link or the web page it forwards from.
+// Contacts need sync: without it the panel explains that first and continues once sync is on.
+export function openInvite(text) {
+  if (state.sync.simulated) return;
+  const found = readInvite(text);
+  if (!found) return showSnackbar("That's not a valid invitation link");
+  const invite = { text, name: found.name };
+  if (!state.sync.enabled) {
+    if (isOpen) closePanel();
+    pendingInvite = invite;
+    return openPanel("inviteOff", invite);
+  }
+  if (isOpen) return setStack([["overview"], ["nameContact", invite]]);
+  openPanel("overview");
+  go("nameContact", invite);
+  syncOnRequest();
+}
+
+// Sync was just turned on or this device linked: back to the overview, then on with an opened invitation.
+function enteredSync(message) {
+  reset("overview");
+  showSnackbar(message);
+  if (!pendingInvite) return;
+  const invite = pendingInvite;
+  pendingInvite = null;
+  go("nameContact", invite);
 }
 
 // The new device's QR code (real sync): a fresh relay slot, polled until a
@@ -316,8 +374,8 @@ function linkCodeContent(data) {
       return waitForLink(link, () => !onScreen(data));
     }).then(linked => {
       if (!linked) return;
-      if (isOpen) reset("overview");
-      showSnackbar("Device linked");
+      if (isOpen) enteredSync("Device linked");
+      else showSnackbar("Device linked");
     }).catch(e => {
       data.link = null;
       data.failed = e instanceof ApiError && e.status === 404 ? "This code has expired." : `Couldn't link: ${e.message}`;
@@ -369,8 +427,7 @@ const PAGES = {
           setSync({ enabled: true, name: data.name, recoveryKey: data.key, devices: [], contacts: [] });
           syncNow();
         }
-        reset("overview");
-        showSnackbar("Sync is on");
+        enteredSync("Sync is on");
       });
       done.disabled = true;
       saved.addEventListener("change", () => { done.disabled = !saved.checked; });
@@ -408,8 +465,7 @@ const PAGES = {
         if (!key) { error.textContent = "That doesn't look like a recovery key. It has 26 letters and digits."; input.focus(); return; }
         if (!real()) return adoptIdentity(key, "Notes restored");
         await restore(key);
-        reset("overview");
-        showSnackbar("Device linked");
+        enteredSync("Device linked");
       });
       input.addEventListener("keydown", e => { if (e.key === "Enter") submit.click(); });
       return [
@@ -514,8 +570,35 @@ function storageSection() {
   ];
 }
 
-// Real sync: this identity's devices (loaded from the server) and, until
-// sharing is built, a note instead of the contacts.
+// The requests waiting for a decision and the contacts, with the buttons to add one (both modes).
+// `removeRow(contact, index)` is what a row's remove button does.
+function contactsSections(removeRow) {
+  const { requests } = state.sync;
+  const list = contacts();
+  shownContacts = contactsKey();
+  return [
+    requests.length > 0 && [
+      section("Contact requests"),
+      h("ul", { class: "sheet-card" }, requests.map(r => h("li", { class: "sheet-row" },
+        h("span", { html: requestAvatarHtml(r) }).firstChild,
+        h("span", { class: "row-text" }, h("span", { class: "row-title" }, r.name), h("span", { class: "row-sub" }, requestHow(r))),
+        button("Review", "outline", () => go("contactRequest", { request: r }))))),
+    ],
+    section("Contacts"),
+    list.length
+      ? h("ul", { class: "sheet-card" }, list.map((c, i) =>
+          row({ avatar: initials(c.name), title: c.name, sub: c.pending ? "Waiting for confirmation" : c.via === "link" ? "Added by link" : null, remove: () => removeRow(c, i) })))
+      : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
+    h("div", { class: "button-row" },
+      button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
+      button("My code", "outline", () => go("myCode"))),
+  ].flat();
+}
+
+// What the overview was drawn from, to redraw it when a round changes the requests or contacts.
+const contactsKey = () => JSON.stringify([state.sync.requests, contacts()]);
+
+// Real sync: this identity's devices, loaded from the server, and the contacts.
 function realOverview(data) {
   if (!data.rows && !data.loading) {
     data.loading = true;
@@ -535,15 +618,14 @@ function realOverview(data) {
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger",
       () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
-    section("Contacts"),
-    text("Sharing notes with contacts comes in the next step.", "sheet-text muted"),
+    contactsSections(c => go("removeContact", { id: c.id, name: c.name })),
     storageSection(),
   ].flat();
 }
 
 // The sample: simulated devices and contacts.
 function simulatedOverview() {
-  const { devices, contacts } = state.sync;
+  const { devices } = state.sync;
   return [
     section("Devices"),
     h("ul", { class: "sheet-card" },
@@ -551,15 +633,7 @@ function simulatedOverview() {
       devices.map((name, i) => row({ icon: "device", title: name, remove: () => removeFromList("devices", i, name) }))),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
-
-    section("Contacts"),
-    contacts.length
-      ? h("ul", { class: "sheet-card" }, contacts.map((c, i) =>
-          row({ avatar: initials(c.name), title: c.name, sub: c.via === "link" ? "Added by link" : null, remove: () => removeFromList("contacts", i, c.name) })))
-      : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
-    h("div", { class: "button-row" },
-      button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
-      button("My code", "outline", () => go("myCode"))),
+    contactsSections((c, i) => removeFromList("contacts", i, c.name)),
     storageSection(),
   ].flat();
 }
@@ -599,54 +673,183 @@ Object.assign(PAGES, {
     title: "Add contact",
     render: data => {
       const tabs = segmented([["scan", "Scan code"], ["link", "Invite by link"]], data.mode, mode => { data.mode = mode; render(); });
-      if (data.mode === "link") {
-        data.link ||= inviteLink();
-        const field = h("input", { class: "input mono", type: "text", readonly: true, value: data.link, "aria-label": "Invitation link" });
-        field.addEventListener("focus", () => field.select());
+      if (data.mode === "link") return [tabs, ...(real() ? realInviteLink(data) : simulatedInviteLink(data))];
+      if (!real()) {
         return [
           tabs,
-          text("Send this link through any messenger. Whoever opens it becomes your contact."),
-          field,
-          h("div", { class: "sheet-actions" }, button("Copy link", "primary", async () => {
-            if (navigator.share && matchMedia("(pointer: coarse)").matches) {
-              try { await navigator.share({ url: data.link }); return; } catch (e) { if (e.name === "AbortError") return; }
-            }
-            if (await copyText(data.link)) showSnackbar("Link copied");
-            else { field.focus(); showSnackbar("Select the link and copy it"); }
+          scannerView("Scan the code on your contact's phone."),
+          h("div", { class: "button-row center" }, button("Simulate scan (prototype)", "", async () => {
+            const sample = await loadSharingSample();
+            go("nameContact", { name: sample.scanSuggestion });
           })),
+          pasteLink(),
         ];
       }
-      return [
-        tabs,
-        scannerView("Scan the code on your contact's phone."),
-        h("div", { class: "button-row center" }, button("Simulate scan (prototype)", "", async () => {
-          const sample = await loadSharingSample();
-          go("nameContact", { name: sample.scanSuggestion });
-        })),
-      ];
+      const scanner = cameraScanner({
+        hint: "Scan the code on your contact's phone.",
+        wrongCode: "That's not a NoteDown invitation.",
+        noCamera: "No camera found on this device.",
+        onCode: text => {
+          const found = readInvite(text);
+          if (found) go("nameContact", { text, name: found.name });
+          return Boolean(found);
+        },
+      });
+      leave = scanner.stop;
+      return [tabs, scanner.el, pasteLink()];
     },
   },
 
   nameContact: {
     title: "Name the contact",
     render: data => {
-      const add = button("Add", "primary", () => addContact(data.name.trim(), "scan"));
-      add.disabled = !data.name.trim();
+      data.suggested ??= Boolean(data.name);
+      data.name ||= "";
       const input = textInput({ value: data.name, maxlength: "40", "aria-label": "Contact name" },
-        v => { data.name = v; add.disabled = !v.trim(); }, () => { if (!add.disabled) add.click(); });
+        v => { data.name = v; send.btn.disabled = !v.trim(); }, () => { if (!send.btn.disabled) send.btn.click(); });
+      const send = action("Send request", async () => {
+        if (!real()) return addContact(data.name.trim(), "scan", { pending: true });
+        contactAdded(await sendRequest(data.text, data.name.trim()));
+      });
+      send.btn.disabled = !data.name.trim();
       return [
-        field("Name", input, "Only you see this name. Your contact suggested it."),
-        h("div", { class: "sheet-actions" }, add),
+        field("Name", input, data.suggested ? "Only you see this name. Your contact suggested it." : "Only you see this name."),
+        text("Your contact confirms the request on their device.", "sheet-text muted"),
+        h("div", { class: "sheet-actions" }, send.btn),
+        send.error,
       ];
     },
   },
 
   myCode: {
     title: "My code",
-    render: () => [
-      h("div", { class: "qr-wrap" }, qrFigure("me:" + state.sync.name + state.sync.recoveryKey, "Your contact code")),
-      h("p", { class: "qr-name" }, state.sync.name),
-      text("Let a contact scan this code to connect.", "sheet-text center"),
+    render: data => {
+      if (!real()) {
+        return [
+          h("div", { class: "qr-wrap" }, qrFigure("me:" + state.sync.name + state.sync.recoveryKey, "Your contact code")),
+          h("p", { class: "qr-name" }, state.sync.name),
+          text("Let a contact scan this code to connect. You confirm their request here.", "sheet-text center"),
+          h("div", { class: "button-row center" }, button("Simulate request (prototype)", "", () => import("./contact-requests.js").then(m => m.simulateRequest()))),
+        ];
+      }
+      // The code is an invitation, open for 10 minutes: a new one replaces it before it runs out.
+      if (!data.invite && !data.failed && !data.loading) {
+        data.loading = true;
+        myCode().then(invite => { data.invite = invite; }, e => { data.failed = e.message; })
+          .finally(() => { data.loading = false; if (onScreen(data)) render(); });
+      }
+      if (data.invite) {
+        const timer = setTimeout(() => { data.invite = null; if (onScreen(data)) render(); }, Math.max(data.invite.expires - Date.now() - 30000, 1000));
+        leave = () => clearTimeout(timer);
+      }
+      return [
+        data.invite
+          ? h("div", { class: "qr-wrap" }, qrFigure(data.invite.text, "Your contact code"))
+          : data.failed
+            ? h("div", { class: "qr-wait" }, text(data.failed, "field-error"), button("Try again", "outline", () => { data.failed = null; render(); }))
+            : h("div", { class: "qr-wait" }, text("Preparing the code…", "sheet-text muted center")),
+        h("p", { class: "qr-name" }, state.sync.name),
+        text("Let a contact scan this code to connect. You confirm their request here. The code works once, for 10 minutes.", "sheet-text center"),
+      ];
+    },
+  },
+
+  removeContact: {
+    title: "Remove contact",
+    render: data => {
+      const { btn, error } = action("Remove", async () => {
+        await removeContact(data.id);
+        reset("overview");
+        showSnackbar(`${data.name} removed`);
+      });
+      return [
+        text(`${data.name} is removed from your contacts. To connect again, one of you sends a new request.`),
+        h("div", { class: "sheet-actions" }, btn),
+        error,
+      ];
+    },
+  },
+
+  inviteOff: {
+    title: "Add contact",
+    render: data => [
+      h("div", { class: "hero", html: icon("sync") }),
+      text(`${data.name || "Someone"} invited you to be a contact. ` + (syncAvailable()
+        ? "Contacts need sync. Turn it on, then you can send your request."
+        : "Contacts need sync, but this copy of the app has no sync server."), "sheet-text center"),
+    ],
+    footer: () => [
+      h("div", { class: "foot-actions" },
+        button("Cancel", "", () => closePanel()),
+        syncAvailable() && button("Turn on sync", "primary", () => setStack([["off"], ["name"]]))),
     ],
   },
 });
+
+// "Invite by link" in the sample: a made-up link.
+function simulatedInviteLink(data) {
+  data.link ||= inviteLink();
+  const linkField = readonlyField(data.link);
+  return [inviteLinkText(), linkField, h("div", { class: "sheet-actions" }, button("Copy link", "primary", () => shareLink(data.link, linkField)))];
+}
+
+// "Invite by link": a link invitation (open 7 days, one request) made the first time the tab shows.
+function realInviteLink(data) {
+  if (!data.invite && !data.failed) {
+    data.invite = createInvitation("link");
+    data.invite.then(invite => { data.invite = invite; }, e => { data.invite = null; data.failed = e.message; })
+      .finally(() => { if (onScreen(data)) render(); });
+  }
+  if (data.failed) {
+    return [text(data.failed, "field-error"), h("div", { class: "button-row" }, button("Try again", "outline", () => { data.failed = null; render(); }))];
+  }
+  if (data.invite instanceof Promise) return [inviteLinkText(), h("div", { class: "qr-wait" }, text("Preparing the link…", "sheet-text muted center"))];
+  const linkField = readonlyField(data.invite.text);
+  return [inviteLinkText(), linkField, h("div", { class: "sheet-actions" }, button("Copy link", "primary", () => shareLink(data.invite.text, linkField)))];
+}
+
+function readonlyField(value) {
+  const input = h("input", { class: "input mono", type: "text", readonly: true, value, "aria-label": "Invitation link" });
+  input.addEventListener("focus", () => input.select());
+  return input;
+}
+
+const inviteLinkText = () => text("Send this link through any messenger. Whoever opens it can ask to become your contact; you confirm the request. The link works once, for 7 days.");
+
+// The system's share sheet on touch devices, else the clipboard.
+async function shareLink(link, field) {
+  if (navigator.share && matchMedia("(pointer: coarse)").matches) {
+    try { await navigator.share({ url: link }); return; } catch (e) { if (e.name === "AbortError") return; }
+  }
+  if (await copyText(link)) showSnackbar("Link copied");
+  else { field.focus(); showSnackbar("Select the link and copy it"); }
+}
+
+// "Paste link" under the camera: for a link that came in a message, where the app can't open it by itself.
+function pasteLink() {
+  const error = h("p", { class: "field-error", role: "alert", hidden: true });
+  const input = h("input", {
+    type: "text", class: "input mono", autocomplete: "off", autocapitalize: "off", spellcheck: "false",
+    placeholder: "https://…/invite/#…", "aria-label": "Paste link",
+    oninput: () => { error.hidden = true; },
+  });
+  const submit = async () => {
+    let value = input.value.trim();
+    if (!value) {   // nothing typed: take what is on the clipboard, where the browser allows reading it
+      try { value = (await navigator.clipboard.readText()).trim(); input.value = value; } catch { /* needs the user to paste */ }
+    }
+    const found = value && (real() ? readInvite(value) : /^https?:\/\/\S+$/.test(value) && {});
+    error.hidden = Boolean(found);
+    if (!found) {
+      error.textContent = value ? "That's not a NoteDown invitation link." : "Paste the link into the field first.";
+      input.focus();
+    } else if (real()) go("nameContact", { text: value, name: found.name });
+    else go("nameContact", { name: (await loadSharingSample()).scanSuggestion });
+  };
+  input.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  return h("div", { class: "paste-link" },
+    h("div", { class: "sheet-divider" }),
+    field("Or paste a link", input, "A link you got in a message."),
+    error,
+    h("div", { class: "button-row" }, button("Paste link", "outline", submit)));
+}

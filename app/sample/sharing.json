@@ -11,5 +11,6 @@
     { "members": ["lea"], "notes": ["s01", "s09"], "order": ["s09", "s01"] },
     { "members": ["lea", "tom"], "notes": ["s11", "s18"] }
   ],
-  "scanSuggestion": "Grandma"
+  "scanSuggestion": "Grandma",
+  "request": { "name": "Mia", "via": "link" }
 }

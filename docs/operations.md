@@ -37,9 +37,10 @@ identity federation (short-lived tokens, no stored key), limited to
 skipped, not failed.
 
 **Free-tier limits that matter:** Cloud Run 2 million requests per
-month (a synced app that is open polls every 5 s, about 130,000 requests
-a month for a device open all working day; while nothing changes the
-interval grows to 30 s, so a mostly idle device needs about 20,000), and the service is capped at 2 instances; Artifact Registry
+month (a synced app that is open polls every 5 s with two requests — the
+file list and the open invitations — about 260,000 requests a month for
+a device open all working day; while nothing changes the interval grows
+to 30 s, so a mostly idle device needs about 40,000), and the service is capped at 2 instances; Artifact Registry
 0.5 GB (the setup keeps the 5 newest images); Neon 0.5 GB of data and a
 database that sleeps after 5 idle minutes (the first request afterwards
 takes about a second; compute hours are limited on the free plan).
@@ -139,7 +140,9 @@ Cloud Run serves a custom domain once Google knows the domain is yours.
    notedown-api.example.com --region europe-west1` shows the status.
 5. Add the repository variable `API_HOST` = `notedown-api.example.com`:
    the web and Android deploys write it into `app/config.json`, where the
-   app finds its sync server (without it, sync can't be turned on).
+   app finds its sync server (without it, sync can't be turned on); the
+   same file holds `web`, the web app's address (`WEB_HOST`), which
+   invitation links start with.
    Both host variables hold the bare host name (no `https://`); the
    deploys stop with an error on a URL or the `example.com` placeholder
    (`scripts/check-host.sh`).
@@ -167,6 +170,20 @@ The key is created once, by you, and kept like a password.
    - `ANDROID_KEYSTORE_BASE64` = content of `notedown-release.b64`,
    - `ANDROID_KEYSTORE_PASSWORD` = the password.
 4. *Actions* → *Android* → *Run workflow* on `main`.
+
+5. **Invitation links open the app** (Android App Link): nothing to do
+   by hand. The web deploy reads the certificate fingerprint from the
+   same keystore secret (step 3) and publishes it as
+   `https://notedown.example.com/.well-known/assetlinks.json`, which is
+   how Android checks that the app may open links of that host; the
+   Android build takes the host from the repository variable `WEB_HOST`
+   (step 1). The file exists only while the secret is set. Run *Actions*
+   → *Web* → *Run workflow* once after adding the secrets (the deploy
+   otherwise runs on the next change of `app/`). Until then (and in debug
+   builds, which are signed with another key) an invitation link opens in
+   the browser, and "Add contact" → "Paste link" takes it. Check on the
+   phone after installing: `adb shell pm get-app-links
+   io.github.sarrdai.notedown` shows the host as `verified`.
 
 Without these secrets the workflow still builds a **debug** APK (as a
 workflow artifact) but publishes no release.

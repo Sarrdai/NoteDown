@@ -8,22 +8,28 @@
 //
 // Text before the first marker is kept as the file's preamble. A note that
 // was moved to another file (sharing) leaves a bodyless marker with `moved=`;
-// the private file also names the user's devices in `<!-- device … -->` markers.
+// the private file also names the user's devices in `<!-- device … -->` markers
+// and holds the user's contacts in `<!-- contact … -->` markers; a shared file names its
+// members in `<!-- member … -->` markers, and a note someone left carries `left=<ids>`.
 // An `<!-- order … -->` marker holds a custom note order: the user's own in
 // the private file, a circle's shared one in a shared file.
 
-const MARKER = /^<!-- (note|device|order) ((?:[a-z]+=\S+ ?)*)-->$/;
+const MARKER = /^<!-- (note|device|contact|member|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes, moved, devices, order }
- *  (`order`: { ids, modified } or null). */
+/** Parses a NoteDown file into { preamble, notes, moved, devices, contacts, members, order }
+ *  (`members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, pending? }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
   const moved = [];
   const devices = [];
+  const contacts = [];
+  const members = [];
   let order = null;
   const finish = c => {
     if (c.kind === "order") { if (c.meta.modified) order = { ids: c.meta.ids ? c.meta.ids.split(",") : [], modified: c.meta.modified }; }
+    else if (c.kind === "contact") { if (c.meta.id && c.meta.name) contacts.push(finishContact(c.meta)); }
+    else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "device") { if (c.meta.id && c.meta.name) devices.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved });
     else notes.push(finishNote(c));
@@ -42,20 +48,25 @@ export function parseNotesFile(text) {
     }
   }
   if (current) finish(current);
-  return { preamble: preamble.join("\n").trim(), notes, moved, devices, order };
+  return { preamble: preamble.join("\n").trim(), notes, moved, devices, contacts, members, order };
 }
 
-/** Writes { preamble, notes, moved, devices, order } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], order = null }) {
+/** Writes { preamble, notes, moved, devices, contacts, members, order } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], contacts = [], members = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) {
     const attrs = ["id=" + n.id, "status=" + n.status, "created=" + n.created, "modified=" + n.modified];
     if (n.due) attrs.push("due=" + n.due);
     if (n.closed) attrs.push("closed=" + n.closed);
+    if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
     parts.push(`<!-- note ${attrs.join(" ")} -->\n${n.body.trim()}`);
   }
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
+  for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id} name=${encodeURIComponent(d.name)} -->`);
+  for (const c of contacts) {
+    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.pending ? " pending=" + c.pending : ""} -->`);
+  }
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
 }
@@ -92,6 +103,15 @@ function decodeName(text) {
   try { return decodeURIComponent(text); } catch { return text; }
 }
 
+// A contact: `color` is a slot 1–6 (1 when missing or invalid), `pending` the time the request was sent.
+function finishContact(meta) {
+  const color = Number(meta.color);
+  return {
+    id: meta.id, name: decodeName(meta.name), color: Number.isInteger(color) && color >= 1 && color <= 6 ? color : 1,
+    ...(meta.pending && { pending: meta.pending }),
+  };
+}
+
 function finishNote({ meta, body }) {
   return {
     id: meta.id || newId(),
@@ -101,6 +121,7 @@ function finishNote({ meta, body }) {
     due: meta.due || null,
     closed: meta.closed || null,
     body: body.join("\n").trim(),
+    ...(meta.left && { left: meta.left.split(",").filter(Boolean) }),
   };
 }
 

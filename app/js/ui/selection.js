@@ -216,7 +216,7 @@ function update() {
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
-    !archive && state.sync.simulated && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },   // real sharing: milestone 2
+    !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
     { id: protect ? "protect" : "unprotect", label: protect ? "Protect" : "Unprotect", run: () => protectNotes(protect), disabled: !whole, menu: !archive },
     { id: "trash", label: "Delete", run: remove, disabled: !whole || ids.every(isProtected) },
