@@ -406,30 +406,63 @@ export function orderGrip(li) {
 }
 
 // Drag by the grip: the row follows the pointer and the others make room.
+// The row stays inside the list's visible area; near its top or bottom edge
+// the list scrolls along.
+const EDGE = 48; // px from the list's edge where it starts scrolling
 function startDrag(e, li) {
   e.preventDefault();
   const grip = e.currentTarget;
+  const list = li.parentElement;
   grip.setPointerCapture(e.pointerId);
   li.classList.add("dragging");
   let lastY = e.clientY;
-  let offset = 0;
-  const move = ev => {
-    offset += ev.clientY - lastY;
-    lastY = ev.clientY;
-    const prev = li.previousElementSibling;
-    const next = li.nextElementSibling;
-    if (prev && offset < -prev.offsetHeight / 2) { offset += prev.offsetHeight; prev.before(li); }
-    else if (next && offset > next.offsetHeight / 2) { offset -= next.offsetHeight; next.after(li); }
+  let offset = 0; // where the row should be, relative to its slot
+  let shown = 0;  // the translation currently applied
+  let frame = 0;
+  const slot = () => li.getBoundingClientRect().top - shown;
+  // Moves the row past a neighbour; the offset follows the slot's real shift.
+  const swap = move => { const t = slot(); move(); offset -= slot() - t; };
+  const place = () => {
+    // Past a neighbour's middle the row takes its place.
+    let prev, next;
+    while ((prev = li.previousElementSibling) && offset < (prev.getBoundingClientRect().top - slot()) / 2) swap(() => prev.before(li));
+    while ((next = li.nextElementSibling) && offset > (next.getBoundingClientRect().bottom - slot() - li.offsetHeight) / 2) swap(() => next.after(li));
+    if (!li.previousElementSibling) offset = Math.max(offset, 0);
+    if (!li.nextElementSibling) offset = Math.min(offset, 0);
+    const box = list.getBoundingClientRect();
+    const top = slot();
+    offset = Math.min(Math.max(offset, box.top - top), box.bottom - li.offsetHeight - top);
+    shown = offset;
     li.style.transform = `translateY(${offset}px)`;
   };
-  const up = () => {
+  const scroll = () => {
+    const box = list.getBoundingClientRect();
+    const step = lastY < box.top + EDGE ? -8 : lastY > box.bottom - EDGE ? 8 : 0;
+    const before = list.scrollTop;
+    list.scrollTop += step;
+    // The row moved with the content; keep it under the pointer.
+    offset += list.scrollTop - before;
+    if (step) place();
+    frame = step ? requestAnimationFrame(scroll) : 0;
+  };
+  const move = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    offset += ev.clientY - lastY;
+    lastY = ev.clientY;
+    place();
+    if (!frame) frame = requestAnimationFrame(scroll);
+  };
+  const up = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    cancelAnimationFrame(frame);
     li.classList.remove("dragging");
     li.style.transform = "";
-    grip.removeEventListener("pointermove", move);
-    grip.removeEventListener("pointerup", up);
-    grip.removeEventListener("pointercancel", up);
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
   };
-  grip.addEventListener("pointermove", move);
-  grip.addEventListener("pointerup", up);
-  grip.addEventListener("pointercancel", up);
+  // On the window: moving the row in the DOM ends the grip's pointer capture.
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
 }

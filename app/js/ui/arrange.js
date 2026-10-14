@@ -79,7 +79,9 @@ export function initArrange() {
     close();
     save(ids);
   });
-  // A drag or an arrow key may carry a row across the line.
-  for (const type of ["pointerup", "keyup"]) $("arrangeList").addEventListener(type, refresh);
+  // A drag or an arrow key may carry a row across the line; a drag may end
+  // outside the list.
+  $("arrangeList").addEventListener("keyup", refresh);
+  document.addEventListener("pointerup", () => { if (isOpen()) refresh(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && isOpen()) close(); });
 }

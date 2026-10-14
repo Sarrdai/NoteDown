@@ -13,6 +13,7 @@ import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { openShareDialog } from "./share-dialog.js";
+import { openDueMenu } from "./toolbar.js";
 
 const list = () => document.getElementById("list");
 
@@ -38,6 +39,15 @@ document.addEventListener("click", e => {
   const id = hit.closest(".note").dataset.id;
   if (state.editingId) endEdit();
   if (note(id)) openShareDialog([id]);
+});
+
+// A tap on the due chip opens the due-date menu; editing another note ends first.
+document.addEventListener("click", e => {
+  const hit = e.target.closest("#list button.due-chip");
+  if (!hit) return;
+  const id = hit.closest(".note").dataset.id;
+  if (state.editingId && state.editingId !== id) endEdit();
+  if (note(id)) openDueMenu(hit, id);
 });
 
 export function patchNote(id) {
@@ -120,10 +130,15 @@ function markerHtml(n) {
 
 function metaHtml(n) {
   const parts = [markerHtml(n)].filter(Boolean);
-  if (n.due) {
-    // A closed note's due date is history, not a warning.
-    const d = n.status === "closed" ? { text: "Due " + shortDate(n.due), kind: "future" } : dueLabel(n.due);
-    parts.push(`<span class="chip ${d.kind}">${icon("calendar")}${d.text}</span>`);
+  if (n.status === "closed") {
+    // A closed note's due date is history, not a warning, and read-only.
+    if (n.due) parts.push(`<span class="chip">${icon("calendar")}Due ${shortDate(n.due)}</span>`);
+  } else if (n.due) {
+    const d = dueLabel(n.due);
+    parts.push(`<button type="button" class="chip due-chip ${d.kind}" aria-label="${esc(d.text + ", change due date")}">${icon("calendar")}${d.text}</button>`);
+  } else {
+    // An empty slot to set one.
+    parts.push(`<button type="button" class="chip due-chip due-add">${icon("calendar")}Due date</button>`);
   }
   const key = state.settings.sort[state.view].key;
   const field = { created: "created", closed: "closed" }[key] || "modified";

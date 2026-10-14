@@ -230,8 +230,13 @@ before the first live test).
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,
   accent-colored when due today. In the archive the due date is shown
-  without warning colors. *Prototype: round 1 (display only; setting it
-  comes with the editor toolbar, round 2).*
+  without warning colors. *Prototype: round 1.*
+- On an open note the chip is a button: a tap opens the **due-date menu**
+  (today, tomorrow, in a week, pick a date, remove), without entering edit
+  mode; a note without a due date shows an empty outlined chip "Due date"
+  in its place. Archived notes show the date only (read-only). Why: the
+  toolbar button alone was hard to find — only visible while editing and
+  scrolled out of view on the phone. *Prototype: 2026-10-14.*
 - **Reminders for due dates** (backlog #1): on a note's due day, at one
   time of day for all notes (default 09:00), one notification lists the
   open notes due that day ("2 notes due today" and their titles); tapping
