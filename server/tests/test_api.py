@@ -9,10 +9,12 @@ from conftest import DATABASE_URL, Identity, Keys, token
 FILE = b64u(os.urandom(16))
 
 
-def upload(client, headers, base, data=b"cipher", keys=None, file_id=FILE):
+def upload(client, headers, base, data=b"cipher", keys=None, file_id=FILE, members=None):
     body = {"base_version": base, "ciphertext": b64u(data)}
     if keys is not None:
         body["keys"] = keys
+    if members is not None:
+        body["members"] = members
     return client.put(f"/v1/files/{file_id}", json=body, headers=headers)
 
 
@@ -30,8 +32,8 @@ def test_pool_replaces_connections_the_database_closed(client):
 
 
 def test_identity_is_created_once_and_readable(client, setup):
-    identity, _, _ = setup
-    got = client.get(f"/v1/identities/{identity.id}").json()
+    identity, phone, _ = setup
+    got = client.get(f"/v1/identities/{identity.id}", headers=token(client, identity, phone)).json()
     assert got["entries"] == identity.entries
     again = client.post("/v1/identities", json={"identity_key": got["identity_key"], "entries": identity.entries})
     assert again.status_code == 409
@@ -46,6 +48,7 @@ def test_genesis_needs_a_recovery_device(client):
 
 def test_requests_without_valid_token_are_refused(client, setup):
     assert client.get("/v1/files").status_code == 401
+    assert client.get(f"/v1/identities/{setup[0].id}").status_code == 401
     assert client.get("/v1/files", headers={"Authorization": "Bearer x.y"}).status_code == 401
 
 
@@ -142,3 +145,6 @@ def test_cors_allows_the_app_origin(client):
     r = client.options("/v1/files", headers={
         "Origin": "https://localhost", "Access-Control-Request-Method": "GET"})
     assert r.headers["access-control-allow-origin"] == "https://localhost"
+    r = client.options("/v1/contacts/x", headers={
+        "Origin": "https://localhost", "Access-Control-Request-Method": "DELETE"})
+    assert r.status_code == 200 and "DELETE" in r.headers["access-control-allow-methods"]

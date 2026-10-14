@@ -13,29 +13,31 @@ from test_api import upload
 # --- storage quota ---
 
 
-def test_storage_quota_counts_all_files_of_the_identity(client, setup):
-    identity, phone, _ = setup
-    h = token(client, identity, phone)
-    keys = {phone.id: b64u(b"k")}
-    other = b64u(os.urandom(16))
-    assert upload(client, h, 0, b"a" * MAX_STORAGE_BYTES, keys=keys).status_code == 200
-    full = upload(client, h, 0, b"b", keys=keys, file_id=other)
+def test_storage_quota_counts_all_files_of_the_identity(people):
+    # One file per member set: the private file and one shared with a contact.
+    alice, bob = people(), people()
+    alice.befriend(bob)
+    h = alice.h
+    keys = {alice.phone.id: b64u(b"k")}
+    shared = dict(keys={**keys, bob.phone.id: b64u(b"k")}, file_id=b64u(os.urandom(16)), members=sorted([alice.id, bob.id]))
+    assert upload(alice.client, h, 0, b"a" * MAX_STORAGE_BYTES, keys=keys).status_code == 200
+    full = upload(alice.client, h, 0, b"b", **shared)
     assert full.status_code == 413 and full.json() == {"detail": "storage quota exceeded"}
     # Replacing a file doesn't count its old size, but a bigger one doesn't fit.
-    assert upload(client, h, 1, b"a" * (MAX_STORAGE_BYTES - 10)).status_code == 200
-    assert upload(client, h, 0, b"b" * 10, keys=keys, file_id=other).status_code == 200
-    assert upload(client, h, 2, b"a" * (MAX_STORAGE_BYTES - 9)).status_code == 413
+    assert upload(alice.client, h, 1, b"a" * (MAX_STORAGE_BYTES - 10)).status_code == 200
+    assert upload(alice.client, h, 0, b"b" * 10, **shared).status_code == 200
+    assert upload(alice.client, h, 2, b"a" * (MAX_STORAGE_BYTES - 9)).status_code == 413
 
 
-def test_file_list_reports_sizes_and_the_quota(client, setup):
-    identity, phone, _ = setup
-    h = token(client, identity, phone)
-    keys = {phone.id: b64u(b"k")}
-    assert client.get("/v1/files", headers=h).json() == {"files": [], "quota": MAX_STORAGE_BYTES}
-    other = b64u(os.urandom(16))
-    upload(client, h, 0, b"a" * 1000, keys=keys)
-    upload(client, h, 0, b"b" * 234, keys=keys, file_id=other)
-    listed = client.get("/v1/files", headers=h).json()
+def test_file_list_reports_sizes_and_the_quota(people):
+    alice, bob = people(), people()
+    alice.befriend(bob)
+    h = alice.h
+    keys = {alice.phone.id: b64u(b"k")}
+    assert alice.client.get("/v1/files", headers=h).json() == {"files": [], "quota": MAX_STORAGE_BYTES}
+    upload(alice.client, h, 0, b"a" * 1000, keys=keys)
+    upload(alice.client, h, 0, b"b" * 234, keys={**keys, bob.phone.id: b64u(b"k")}, file_id=b64u(os.urandom(16)), members=sorted([alice.id, bob.id]))
+    listed = alice.client.get("/v1/files", headers=h).json()
     assert sorted(f["size"] for f in listed["files"]) == [234, 1000]
     assert listed["quota"] == MAX_STORAGE_BYTES
 
