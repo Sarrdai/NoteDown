@@ -40,8 +40,9 @@ export function initPullRefresh({ canPull, onRefresh }) {
     if (!start) return;
     const dy = e.touches[0].clientY - start.y, dx = e.touches[0].clientX - start.x;
     // Only a downward, mostly vertical move at the top is a pull; the browser
-    // keeps everything else (and its own pull to reload is held back).
-    if ((!pull && (dy <= 0 || Math.abs(dx) > dy)) || !canPull(e.target)) { start = null; if (pull) hide(); return; }
+    // keeps everything else (and its own pull to reload is held back). Once
+    // the move turns sideways it is the view swipe's (ui/view-swipe.js).
+    if (dy <= 0 || Math.abs(dx) > dy || !canPull(e.target)) { start = null; if (pull) hide(); return; }
     if (e.cancelable) e.preventDefault();
     pull = Math.min(MAX, dy * 0.5);
     el.classList.add("pulling");

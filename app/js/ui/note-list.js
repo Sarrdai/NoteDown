@@ -19,8 +19,13 @@ const list = () => document.getElementById("list");
 
 /** Renders the tiles; `dividerBefore` (a note id) puts the custom order's
  *  "Not sorted yet" divider above that note (backlog #24). */
-export function renderList(notes, { dividerBefore = null, onArrange } = {}) {
-  list().replaceChildren(...notes.flatMap(n => n.id === dividerBefore ? [divider(onArrange), noteElement(n)] : [noteElement(n)]));
+export function renderList(notes, options) {
+  list().replaceChildren(...listItems(notes, options));
+}
+
+/** The tiles' elements without placing them (also the swipe's preview of the other view). */
+export function listItems(notes, { dividerBefore = null, onArrange, view = state.view } = {}) {
+  return notes.flatMap(n => n.id === dividerBefore ? [divider(onArrange), noteElement(n, view)] : [noteElement(n, view)]);
 }
 
 function divider(onArrange) {
@@ -59,7 +64,7 @@ export function patchNote(id) {
   else el.replaceWith(noteElement(n));
 }
 
-function noteElement(n) {
+function noteElement(n, view = state.view) {
   const el = document.createElement("article");
   el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "");
   el.dataset.id = n.id;
@@ -80,7 +85,7 @@ function noteElement(n) {
 
   const meta = document.createElement("div");
   meta.className = "note-meta";
-  meta.innerHTML = metaHtml(n);
+  meta.innerHTML = metaHtml(n, view);
 
   // A shield under the round button of a protected note; a tap removes the protection.
   const protect = document.createElement("button");
@@ -128,7 +133,7 @@ function markerHtml(n) {
   return n.status === "open" ? `<button type="button" ${attrs}>${inner}</button>` : `<span role="img" ${attrs}>${inner}</span>`;
 }
 
-function metaHtml(n) {
+function metaHtml(n, view = state.view) {
   const parts = [markerHtml(n)].filter(Boolean);
   if (n.status === "closed") {
     // A closed note's due date is history, not a warning, and read-only.
@@ -140,7 +145,7 @@ function metaHtml(n) {
     // An empty slot to set one.
     parts.push(`<button type="button" class="chip due-chip due-add">${icon("calendar")}Due date</button>`);
   }
-  const key = state.settings.sort[state.view].key;
+  const key = state.settings.sort[view].key;
   const field = { created: "created", closed: "closed" }[key] || "modified";
   const label = { created: "Created", closed: "Closed", modified: "Edited" }[field];
   if (n[field]) parts.push(`<span>${label} ${relativeTime(n[field])}</span>`);
