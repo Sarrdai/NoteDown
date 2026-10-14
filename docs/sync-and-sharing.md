@@ -255,6 +255,28 @@ devices don't keep re-uploading the same notes in each other's order.
 
 ## Open points
 
+- **Choosing the server per circle of people** (backlog #28, #29; not
+  decided): the identity is a key and the device list verifies itself, so
+  nothing ties a user to one server. Sketch: a file lives on exactly one
+  server (server + file ID); the private file on the user's home server,
+  a shared file on the server picked when the set is first shared with;
+  contacts bring their home server in the invitation link; the server
+  list lives in the private file. Clients talk to every server they use,
+  servers never talk to each other. Open:
+  - the device list on several servers: the home server is the
+    authority, clients mirror every change to the others (`POST
+    /v1/identities` must then take a full chain, not only the genesis);
+  - contact pairs exist per server, so sharing over another server needs
+    the pair there too, e.g. confirmed again through that server;
+  - removing a device renews keys on every server; one that is down
+    keeps the removed device until it answers;
+  - restoring with the recovery key finds only the home server (the
+    default, or one the user enters), the others come from the private
+    file;
+  - a self-hosted server must allow the web app's origin (CORS) and
+    speak a compatible API version; quota and rate limits stay per server;
+  - the web app is still delivered from one place — only the Android app
+    or a self-hosted web app avoids that.
 - Until a lost device is removed, it can change or delete notes,
   including shared ones; a version history on the server (backlog #7)
   would let the user bring a file back.
