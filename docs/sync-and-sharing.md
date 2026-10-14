@@ -159,9 +159,13 @@ rely on the operating system's own storage encryption for the local copy.
   **upload** it only if the server's version is still the one the device
   started from. If another device was faster, the device downloads,
   merges and uploads again.
-- Sync runs **automatically**: shortly after a change, when the app opens
-  or comes back to the foreground, when it reconnects, and every 30 s
-  while it is visible (the server has no push). While a note is being
+- Sync runs **automatically**: shortly after a change, when the app opens,
+  comes back to the foreground or gets the focus, when it reconnects, and
+  every 5 s while it is visible, so a change from another device shows up
+  within seconds; and on request (opening Sync & sharing, pull to
+  refresh). The server has no push: long polling would arrive in about a
+  second but keeps a Cloud Run instance billed while any app is open, far
+  beyond the free tier (decided 2026-10-13). While a note is being
   edited, remote changes wait until the edit ends. A status indicator
   shows synced, syncing, offline or an error (e.g. "This device was
   removed from sync").

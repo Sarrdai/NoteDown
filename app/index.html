@@ -26,7 +26,6 @@
 
     <main class="main">
       <header class="topbar" id="topbar">
-        <button class="icon-btn" id="backBtn" aria-label="Back to notes"></button>
         <button class="icon-btn" id="tocBtn" aria-label="Contents"></button>
         <h1 class="title" id="title">Notes</h1>
         <label class="search" id="search">
@@ -36,7 +35,10 @@
         </label>
         <button class="icon-btn" id="searchBtn" aria-label="Search"></button>
         <button class="icon-btn labelled" id="sortBtn" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="sortLabel"></span></button>
-        <button class="icon-btn labelled" id="archiveBtn"><span class="btn-icon"></span><span class="btn-label">Archive</span><span class="count" id="archiveCount">0</span></button>
+        <button class="icon-btn labelled" id="viewBtn">
+          <span class="view-face to-archive"><span class="btn-icon"></span><span class="btn-label">Archive</span><span class="count" id="archiveCount">0</span></span>
+          <span class="view-face to-notes"><span class="btn-icon"></span><span class="btn-label">Notes</span></span>
+        </button>
         <button class="icon-btn" id="syncBtn" hidden></button>
         <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More"></button>
       </header>
@@ -45,6 +47,7 @@
         <span class="sel-count" id="selCount" aria-live="polite"></span>
         <div class="sel-actions" id="selActions"></div>
       </div>
+      <div class="pull-indicator" id="pullIndicator" aria-hidden="true"></div>
       <div class="list" id="list"></div>
       <p class="empty" id="empty" hidden></p>
     </main>

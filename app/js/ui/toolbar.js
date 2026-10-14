@@ -71,6 +71,12 @@ export function initToolbar() {
   }
   vv?.addEventListener("resize", place);
   vv?.addEventListener("scroll", place);
+  // When the keyboard comes up (the viewport shrinks or the bar moves or
+  // grows), the caret may now lie behind it: bring it back into view.
+  const reveal = () => currentEditor()?.revealCaret();
+  vv?.addEventListener("resize", reveal);
+  window.addEventListener("resize", reveal);
+  new ResizeObserver(reveal).observe(bar);
 }
 
 function dueMenu(anchor) {

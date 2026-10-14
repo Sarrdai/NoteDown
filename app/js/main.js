@@ -6,7 +6,8 @@ import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
-import { initSyncPanel, openSyncPanel, statusText } from "./ui/sync-panel.js";
+import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sync-panel.js";
+import { initPullRefresh } from "./ui/pull-refresh.js";
 import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
 import { initToolbar } from "./ui/toolbar.js";
@@ -43,8 +44,13 @@ function renderSyncStatus() {
   const btn = $("syncBtn");
   btn.hidden = !state.sync.enabled;
   if (!state.sync.enabled) return;
-  btn.dataset.status = state.sync.status;
-  btn.innerHTML = icon(SYNC_ICONS[state.sync.status]);
+  const { status } = state.sync;
+  if (btn.dataset.status !== status) {
+    // A round that transferred something ends with the check drawing itself in.
+    btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
+    btn.dataset.status = status;
+    btn.innerHTML = icon(SYNC_ICONS[status]);
+  }
   btn.setAttribute("aria-label", statusText());
 }
 
@@ -62,7 +68,7 @@ function render() {
   const count = closedOn(allNotes(), today());
   $("archiveCount").textContent = count;
   $("archiveCount").classList.toggle("has", count > 0);
-  $("archiveBtn").setAttribute("aria-label", `Archive, ${count} closed today`);
+  $("viewBtn").setAttribute("aria-label", state.view === "open" ? `Archive, ${count} closed today` : "Notes");
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
 
   renderSyncStatus();
@@ -172,14 +178,16 @@ function download() {
 }
 
 function wire() {
-  for (const [id, name] of [["backBtn", "back"], ["tocBtn", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["tocBtn", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
-  $("archiveBtn").querySelector(".btn-icon").innerHTML = icon("archive");
+  $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
+  $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
   $("searchIcon").innerHTML = icon("search");
   $("syncBtn").addEventListener("click", openSyncPanel);
+  $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
-  $("archiveBtn").addEventListener("click", () => setView("closed"));
-  $("backBtn").addEventListener("click", () => setView("open"));
+  // One button switches between the notes and the archive, in the same place.
+  $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", sortMenu);
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
@@ -206,6 +214,11 @@ function wire() {
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged });
   initSyncPanel();
+  initPullRefresh({
+    canPull: target => state.sync.enabled && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+      && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
+    onRefresh: syncOnRequest,
+  });
 }
 
 // URL parameters set prototype options, e.g. ?flavor=mocha&view=closed

@@ -108,6 +108,38 @@ export const COMMANDS = {
   redo: v => redo(v),
 };
 
+// The caret stays clear of the sticky top bar and of the toolbar, which sits
+// above the on-screen keyboard (toolbar.js). CodeMirror already leaves out
+// what the keyboard covers of the visual viewport; these are the rest.
+function visibleMargins() {
+  const vv = window.visualViewport;
+  const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const bar = document.getElementById("toolbar");
+  const topbar = document.getElementById("topbar");
+  return {
+    top: (topbar ? Math.max(0, topbar.getBoundingClientRect().bottom - (vv ? vv.offsetTop : 0)) : 0) + 12,
+    bottom: (bar && !bar.hidden ? Math.max(0, bottom - bar.getBoundingClientRect().top) : 0) + 12,
+  };
+}
+
+// Scrolls the page until the caret lies between the top bar and the toolbar.
+// Also after CodeMirror's own scrolling, which clamps to the note's box and so
+// can leave the caret just behind the toolbar.
+function revealCaret(view) {
+  view.requestMeasure({
+    key: revealCaret,
+    read: v => v.coordsAtPos(v.state.selection.main.head),
+    write: pos => {
+      if (!pos) return;
+      const vv = window.visualViewport, m = visibleMargins();
+      const top = (vv ? vv.offsetTop : 0) + m.top;
+      const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - m.bottom;
+      if (pos.bottom > bottom) window.scrollBy(0, pos.bottom - bottom);
+      else if (pos.top < top) window.scrollBy(0, pos.top - top);
+    },
+  });
+}
+
 export function createEditor({ parent, doc, onChange, onEscape }) {
   const view = new EditorView({
     parent,
@@ -118,8 +150,7 @@ export function createEditor({ parent, doc, onChange, onEscape }) {
         history(),
         drawSelection(),
         EditorView.lineWrapping,
-        // Keep the caret clear of the sticky top bar and the toolbar.
-        EditorView.scrollMargins.of(() => ({ top: 72, bottom: 96 })),
+        EditorView.scrollMargins.of(visibleMargins),
         EditorView.contentAttributes.of({ "aria-label": "Note text", spellcheck: "true", autocapitalize: "sentences" }),
         Prec.high(keymap.of([
           { key: "Enter", run: enterInList },
@@ -135,7 +166,10 @@ export function createEditor({ parent, doc, onChange, onEscape }) {
         markdownHighlight,
         previewTheme,
         interimField,
-        EditorView.updateListener.of(u => { if (u.docChanged) onChange(u.state.doc.toString()); }),
+        EditorView.updateListener.of(u => {
+          if (u.docChanged) onChange(u.state.doc.toString());
+          if (u.docChanged || u.selectionSet) revealCaret(u.view);
+        }),
       ],
     }),
   });
@@ -150,6 +184,8 @@ export function createEditor({ parent, doc, onChange, onEscape }) {
       view.focus();
     },
     run(name) { COMMANDS[name](view); view.focus(); },
+    /** Scrolls the caret into the visible part, e.g. once the keyboard is up. */
+    revealCaret: () => revealCaret(view),
     setInterim(text) { view.dispatch({ effects: setInterim.of(text) }); },
     insertDictation(text) {
       const { head } = view.state.selection.main;
