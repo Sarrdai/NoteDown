@@ -190,16 +190,16 @@ before the first live test).
   afterwards. Disabled when nothing but pinned notes is archived.
   *Prototype: 2026-10-14.*
 - **Pinning** protects a note from deletion: Delete and Empty archive
-  leave pinned notes alone until they are unpinned. A pinned note shows
-  a pin at its top right, which unpins it with one tap; it stays pinned
+  leave pinned notes alone until they are unpinned. Notes are pinned
+  with **Pin / Unpin** in the selection bar ("Multi-select"); a pinned
+  note shows a pin under its round button, which unpins it with one tap
+  (decided 2026-10-14 over a pin button on every note: pinning is rare,
+  the notes stay calm and keep their full width); it stays pinned
   when it is closed, reopened or moved to another circle, and a note
   merged from a pinned one is pinned. Pins are a **setting of this
   device**, not part of the file and not synced. An emptied note is
   still deleted when editing ends (with Undo) — the user just removed
-  its text. *Prototype: 2026-10-14.* Open: how a note is pinned —
-  variant A "Pin" / "Unpin" in the selection bar (whole notes, both
-  views), variant B additionally a pin button on every note (on hover
-  on the desktop); ⋮ → "Prototype: Pinning".
+  its text. *Prototype: 2026-10-14.*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,

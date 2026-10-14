@@ -19,7 +19,6 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   pinnedFirst: { open: false, closed: false },   // "Pinned on top", per view
-  pinControl: "select",      // prototype variant: select (A) | tile (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

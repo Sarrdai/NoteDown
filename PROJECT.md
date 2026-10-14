@@ -116,12 +116,11 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table.
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
-| `pin` | `select` (A, default) · `tile` (B) | How a note is pinned: "Pin" in the selection bar only, or also a pin button on every note (⋮ → "Prototype: Pinning") |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |

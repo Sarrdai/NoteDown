@@ -24,8 +24,6 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
-// Open decision: how a note is pinned (PROJECT.md → "Prototype options").
-const PIN_CONTROLS = { select: "Pin in the selection (A)", tile: "Pin on every note (B)" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
@@ -63,7 +61,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.classList.toggle("pin-tile", s.pinControl === "tile");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = s.sort[state.view];
@@ -199,8 +196,6 @@ function moreMenu() {
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: Pinning" },
-    ...Object.entries(PIN_CONTROLS).map(([id, label]) => ({ label, checked: s.pinControl === id, onSelect: () => updateSettings({ pinControl: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -265,7 +260,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (p.get("pin") && PIN_CONTROLS[p.get("pin")]) patch.pinControl = p.get("pin");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

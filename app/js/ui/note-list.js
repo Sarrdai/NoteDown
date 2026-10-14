@@ -62,14 +62,13 @@ function noteElement(n) {
   meta.className = "note-meta";
   meta.innerHTML = metaHtml(n);
 
-  const pinned = isPinned(n.id);
+  // Under the round button of a pinned note; a tap unpins it.
   const pin = document.createElement("button");
   pin.className = "pin";
-  pin.setAttribute("aria-label", pinned ? "Unpin" : "Pin");
-  pin.setAttribute("aria-pressed", String(pinned));
-  pin.title = pinned ? "Pinned · tap to unpin" : "Pin";
+  pin.setAttribute("aria-label", "Pinned, unpin");
+  pin.title = "Pinned · tap to unpin";
   pin.innerHTML = icon("pin");
-  pin.addEventListener("click", () => setPinned([n.id], !isPinned(n.id)));
+  pin.addEventListener("click", () => setPinned([n.id], false));
 
   el.append(status, body, meta, pin);
   markSelected(el);

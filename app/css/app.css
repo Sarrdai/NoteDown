@@ -158,6 +158,7 @@ button { font: inherit; color: inherit; }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow); } }
 
 .status {
+  grid-column: 1; grid-row: 1;
   width: 32px; height: 32px; margin-top: -3px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; border-radius: 999px; background: transparent; cursor: pointer; color: var(--text-faint);
@@ -171,7 +172,7 @@ button { font: inherit; color: inherit; }
 .note.closed .status .ring { background: var(--done); border-color: var(--done); }
 .note.closed .status .icon { opacity: 1; color: var(--on-accent); }
 
-.note-body { min-width: 0; cursor: text; overflow-wrap: anywhere; }
+.note-body { grid-column: 2; grid-row: 1; min-width: 0; cursor: text; overflow-wrap: anywhere; }
 .note.closed .note-body { cursor: default; }
 .note-meta {
   grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
@@ -188,28 +189,21 @@ button { font: inherit; color: inherit; }
 
 .note.editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
 
-/* Pin (a setting of this device): a pinned note shows the pin top right,
-   which unpins it; variant B (.pin-tile) offers it on every note. */
+/* Pin (a setting of this device): a pinned note shows the pin under its
+   round button; a tap unpins it. Pinning itself is in the selection bar. */
 .pin {
-  position: absolute; top: 8px; right: 6px; width: 36px; height: 36px; padding: 0;
+  grid-column: 1; grid-row: 1 / 3; align-self: start; justify-self: center;
+  position: relative; width: 28px; height: 28px; margin-top: 32px; padding: 0;
   display: none; align-items: center; justify-content: center;
-  border: 0; border-radius: 999px; background: transparent; color: var(--text-faint); cursor: pointer;
+  border: 0; border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer;
 }
-.pin .icon { width: 18px; height: 18px; }
-.pin::after { content: ""; position: absolute; inset: -4px; }
-.pin:hover { background: var(--surface-hover); color: var(--text-muted); }
+.note.lead-heading .pin { margin-top: 36px; }
+.pin .icon { width: 17px; height: 17px; fill: currentColor; }
+.pin::after { content: ""; position: absolute; inset: -6px -2px; }
+.pin:hover { background: var(--surface-hover); }
 .pin:focus-visible { outline: 2px solid var(--accent); }
-.note.pinned .pin { display: inline-flex; color: var(--accent); }
-.note.pinned .pin .icon { fill: currentColor; }
-.note.pinned, .app.pin-tile .note { padding-right: 40px; }
-.app.pin-tile .note:not(.editing) .pin { display: inline-flex; }
-.note.editing .pin { display: none; }
-@media (hover: hover) {
-  .app.pin-tile .note:not(.pinned) .pin { opacity: 0; }
-  .app.pin-tile .note:not(.pinned):hover .pin, .app.pin-tile .note:not(.pinned) .pin:focus-visible { opacity: 1; }
-}
+.note.pinned .pin { display: inline-flex; }
 .app.selecting .pin { pointer-events: none; }
-.app.selecting .note:not(.pinned) .pin { visibility: hidden; }
 
 /* ---------- live-preview editor (CodeMirror, ui/live-preview.js) ---------- */
 .editor-host { cursor: text; }
