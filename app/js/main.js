@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -10,6 +10,8 @@ import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sy
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
+import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
+import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
@@ -31,8 +33,18 @@ const DIR_LABELS = {
   default: ["Oldest first", "Newest first"],
 };
 
+// Prototype: where the people overview (#23) sits — tabs in the sidebar /
+// sheet, a second section below the contents, or (phone) its own sheet.
+const PEOPLE_PANELS = { tabs: "Tabs (A)", section: "Section below (B)", sheet: "Own sheet on the phone (C)" };
+const phone = window.matchMedia("(max-width: 599px)");
+
+const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
+
+// The members a new note goes to: those of the circle the list is filtered to.
+const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
+
 function currentNotes() {
-  const notes = viewNotes(allNotes(), { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
+  const notes = inView(circleNotes(activeCircle()));
   const i = notes.findIndex(n => n.id === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
   return notes;
@@ -73,6 +85,7 @@ function render() {
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
 
   renderSyncStatus();
+  renderCircleFilter();
   const notes = currentNotes();
   // "Protected first" orders only the tiles; the contents keep the sort order.
   renderList(s.protectedFirst[state.view] ? protectedFirst(notes, isProtected) : notes);
@@ -80,8 +93,33 @@ function render() {
   renderToc(notes);
   const empty = $("empty");
   empty.hidden = notes.length > 0;
+  const circle = activeCircle();
   empty.textContent = state.search ? `No notes match “${state.search}”.`
+    : circle && state.view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
+    : circle === "" && state.view === "open" ? "No private notes. Tap + to add one."
     : state.view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
+}
+
+// The people overview and the chip of the active filter above the list.
+function renderCircleFilter() {
+  const people = hasPeople();
+  app.classList.toggle("has-people", people);
+  app.dataset.people = state.settings.peoplePanel;
+  app.dataset.tab = people ? state.panelTab : "toc";
+  for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
+  if (people) renderPeople(key => inView(circleNotes(key)).length);
+  const circle = activeCircle();
+  $("filterBar").hidden = circle === null;
+  if (circle === null) return;
+  const members = circle ? circle.split("+") : [];
+  const lead = !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
+  $("filterChipLabel").innerHTML = lead + `<span></span>`;
+  $("filterChipLabel").lastChild.textContent = circleName(circle);
+}
+
+function openPanel(tab) {
+  setUi({ panelTab: tab });
+  setTocOpen(true);
 }
 
 subscribe(kind => {
@@ -107,7 +145,7 @@ function newNote() {
   endSelection();
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote("## ");
+  const n = addNote("## ", newNoteMembers());
   state.topId = n.id;
   render();
   window.scrollTo(0, 0);
@@ -118,7 +156,7 @@ function newNote() {
 function addDictatedNote(text) {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote(text);
+  const n = addNote(text, newNoteMembers());
   state.topId = n.id;
   render();
   window.scrollTo(0, 0);
@@ -196,6 +234,8 @@ function moreMenu() {
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    hasPeople() && { section: "Prototype: People overview" },
+    ...(hasPeople() ? Object.entries(PEOPLE_PANELS).map(([id, label]) => ({ label, checked: s.peoplePanel === id, onSelect: () => updateSettings({ peoplePanel: id }) })) : []),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -211,7 +251,7 @@ function download() {
 }
 
 function wire() {
-  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["peopleBtn", "people"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -222,6 +262,11 @@ function wire() {
   // One button switches between the notes and the archive, in the same place.
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", sortMenu);
+  $("tocBtn").addEventListener("click", () => openPanel("toc"));
+  $("peopleBtn").addEventListener("click", () => openPanel("people"));
+  $("selToc").addEventListener("click", () => openPanel("toc"));
+  $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
+  $("filterClear").addEventListener("click", () => pickCircle(null));
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
   $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
@@ -242,6 +287,8 @@ function wire() {
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
   initToc();
+  // Picking a circle on the phone closes the sheet; the chip above the list shows it.
+  initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); } });
   initMenu();
   initConfirm();
   initToolbar();
@@ -260,6 +307,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (PEOPLE_PANELS[p.get("people")]) patch.peoplePanel = p.get("people");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

@@ -3,7 +3,8 @@
   "devices": ["Pixel 8", "Chrome on Windows"],
   "contacts": [
     { "id": "lea", "name": "Lea", "via": "scan" },
-    { "id": "tom", "name": "Tom", "via": "link" }
+    { "id": "tom", "name": "Tom", "via": "link" },
+    { "id": "sam", "name": "Sam", "via": "scan" }
   ],
   "shared": [
     { "members": ["lea"], "notes": ["s01", "s09"] },

@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
+  peoplePanel: "tabs",       // prototype variant (#23): tabs | section | sheet
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -41,6 +42,8 @@ export const state = {
   settings: structuredClone(DEFAULT_SETTINGS),
   view: "open",              // open | closed
   search: "",
+  panelTab: "toc",           // sidebar / sheet tab: toc | people
+  circle: null,              // people filter (#23): null = all, else a circleKey ("" = private); not remembered
   editingId: null,
   topId: null,               // a new note stays on top until its first edit ends
   protectedIds: new Set(),   // ids protected from deletion: a setting of this device, not synced
@@ -121,6 +124,28 @@ export function allNotes() {
 function holderOf(id) {
   if (state.file.notes.some(n => n.id === id)) return { members: [], file: state.file };
   return state.shared.find(s => s.file.notes.some(n => n.id === id)) || null;
+}
+
+/** The member ids of every shared file. */
+export function sharedCircles() {
+  return state.shared.map(s => [...s.members]);
+}
+
+/** Whether the people overview (#23) shows: sync on and at least one contact. */
+export function hasPeople() {
+  return state.sync.enabled && state.sync.contacts.length > 0;
+}
+
+/** The people filter in effect: null (all) when the overview isn't shown. */
+export function activeCircle() {
+  return hasPeople() ? state.circle : null;
+}
+
+/** The notes of one circle (circleKey, "" = private); every note for null. */
+export function circleNotes(key) {
+  if (key === null) return allNotes();
+  if (key === "") return state.file.notes;
+  return state.shared.find(s => circleKey(s.members) === key)?.file.notes || [];
 }
 
 /** The member ids of the circle a note lives in ([] = private). */
@@ -210,10 +235,11 @@ export function setDue(id, due) {
   emit("note:" + id);
 }
 
-/** A new note always starts in the private file. */
-export function addNote(body) {
+/** A new note starts in the private file, or in the file of `memberIds`
+ *  (the circle the list is filtered to, #23), created on first use. */
+export function addNote(body, memberIds = []) {
   const n = createNote(body, timestamp());
-  state.file.notes.unshift(n);
+  fileFor(memberIds).notes.unshift(n);
   saveFiles();
   return n;
 }
