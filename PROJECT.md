@@ -34,6 +34,7 @@ the live test setup is described in `docs/operations.md`.
 | `docs/file-format.md` | The Markdown file NoteDown reads and writes |
 | `docs/sync-and-sharing.md` | Sync across devices, sharing single notes, identity without accounts, end-to-end encryption |
 | `docs/server-api.md` | The server API and protocol byte for byte: encodings, keys, device list, authentication, endpoints, limits |
+| `docs/decentralisation-plan.md` | Not decided: what choosing the sync server per circle of people (backlog #28, #29) changes in the implementation, the work packages and the questions to settle first |
 | `docs/operations.md` | Live test setup: hosting, the owner's one-time setup steps, deployments |
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
@@ -224,6 +225,7 @@ cd android && ./gradlew assembleDebug
 - `docs/file-format.md` — the notes file.
 - `docs/sync-and-sharing.md` — sync, sharing, identity, encryption.
 - `docs/server-api.md` — the protocol between app and server.
+- `docs/decentralisation-plan.md` — plan for backlog #28, #29 (not decided).
 - `docs/operations.md` — hosting and deployment of the live test.
 - `FEATURE_BACKLOG.md` — what might come; entries leave it when their
   requirement is decided and in the prototype.
