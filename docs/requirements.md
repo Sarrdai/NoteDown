@@ -166,12 +166,14 @@ before the first live test).
     2026-10-13 over a sync button: the icon already opens the panel).
   - Without sync, sharing explains that it needs sync and offers to turn
     it on. Notes in the archive aren't shared from there.
-  - *Prototype: round 4. **Real sync of the private file** between the
-    user's own devices (2026-10-13): turning it on, linking a device by
-    QR code or with the recovery key, the device list and removing a
-    device run against the server. Contacts and sharing are only
-    simulated, in the sample (`?sample`, `?sync=off`, ⋮ → Go offline);
-    outside it they are hidden until milestone 2.*
+  - *Prototype: round 4. **Real sync** runs against the server:
+    milestone 1 (2026-10-13) — turning it on, linking a device by QR
+    code or with the recovery key, the device list and removing a
+    device; milestone 2 (2026-10-14) — contacts by code or invitation
+    link with confirmed requests, sharing notes, removing people and
+    leaving, with the keys of every file renewed when a device is
+    removed. The sample (`?sample`, `?sync=off`, ⋮ → Go offline)
+    simulates all of it without a server.*
   - **Contact requests** (milestone 2, decided 2026-10-14): scanning a
     code or opening an invitation link sends a **request** ("Send
     request"); the contact shows "Waiting for confirmation" and can't be
@@ -183,8 +185,8 @@ before the first live test).
     opens by itself (interrupts, and a link request often comes hours
     later) and a dot on the sync icon (easy to miss). Code and link work
     once (10 minutes / 7 days); on Android the link opens the app, and
-    "Add contact" takes a pasted link. *Prototype: simulated in the sample
-    (⋮ → "Simulate contact request").*
+    "Add contact" takes a pasted link. *Prototype: real; simulated in the
+    sample (⋮ → "Simulate contact request").*
   - **Linking by QR code** (decided 2026-10-13): the new device shows its
     code under "Link this device", with the recovery key below as the way
     without a camera (e.g. two desktops). On a synced device, "Link a
@@ -307,8 +309,8 @@ before the first live test).
   none has to. It works like Custom (Arrange…, "Not sorted yet", Undo; the
   dialog says who sees it) and merges the same way, the newer list
   winning. Outside a circle's view a view set to it shows the user's own
-  Custom order. *Prototype: 2026-10-14, simulated on the sample's shared
-  files (Lea's circle carries one); milestone 2 builds shared files.*
+  Custom order. *Prototype: 2026-10-14; real on shared files since
+  milestone 2, simulated in the sample (Lea's circle carries one).*
 - **Protected first** (a switch in the sort menu, remembered per view,
   off by default) shows protected notes first, then the others, each group in
   the chosen order. It only orders the notes in the list; the table of
@@ -365,8 +367,7 @@ before the first live test).
   (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
   over a second section below the contents (both lists get cramped) and a
   separate phone sheet (one more top-bar icon on a full bar). The tabs
-  only show while sync is on and there are contacts; until milestone 2
-  that is the sample (`?sample`).
+  only show while sync is on and there are contacts.
 
 ### Creating and editing
 
