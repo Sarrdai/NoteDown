@@ -9,17 +9,22 @@
 // Text before the first marker is kept as the file's preamble. A note that
 // was moved to another file (sharing) leaves a bodyless marker with `moved=`;
 // the private file also names the user's devices in `<!-- device … -->` markers.
+// An `<!-- order … -->` marker holds a custom note order: the user's own in
+// the private file, a circle's shared one in a shared file.
 
-const MARKER = /^<!-- (note|device) ((?:[a-z]+=\S+ ?)*)-->$/;
+const MARKER = /^<!-- (note|device|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes, moved, devices }. */
+/** Parses a NoteDown file into { preamble, notes, moved, devices, order }
+ *  (`order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
   const moved = [];
   const devices = [];
+  let order = null;
   const finish = c => {
-    if (c.kind === "device") { if (c.meta.id && c.meta.name) devices.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
+    if (c.kind === "order") { if (c.meta.modified) order = { ids: c.meta.ids ? c.meta.ids.split(",") : [], modified: c.meta.modified }; }
+    else if (c.kind === "device") { if (c.meta.id && c.meta.name) devices.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved });
     else notes.push(finishNote(c));
   };
@@ -37,11 +42,11 @@ export function parseNotesFile(text) {
     }
   }
   if (current) finish(current);
-  return { preamble: preamble.join("\n").trim(), notes, moved, devices };
+  return { preamble: preamble.join("\n").trim(), notes, moved, devices, order };
 }
 
-/** Writes { preamble, notes, moved, devices } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [] }) {
+/** Writes { preamble, notes, moved, devices, order } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) {
     const attrs = ["id=" + n.id, "status=" + n.status, "created=" + n.created, "modified=" + n.modified];
@@ -51,6 +56,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], devices =
   }
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id} name=${encodeURIComponent(d.name)} -->`);
+  if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
 }
 

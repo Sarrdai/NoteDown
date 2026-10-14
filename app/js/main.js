@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople } from "./store.js";
+import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -18,6 +18,7 @@ import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
+import { initArrange, openArrange } from "./ui/arrange.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -26,7 +27,7 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
-const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
+const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
   due: ["Soonest first", "Latest first"],
@@ -35,7 +36,8 @@ const DIR_LABELS = {
 
 const phone = window.matchMedia("(max-width: 599px)");
 
-const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
+const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: state.settings.sort[state.view], order: customOrder() });
+const isCustom = () => !!SORT_KEYS[state.settings.sort[state.view].key].custom;
 
 // The members a new note goes to: those of the circle the list is filtered to.
 const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
@@ -85,7 +87,13 @@ function render() {
   renderCircleFilter();
   const notes = currentNotes();
   // "Protected first" orders only the tiles; the contents keep the sort order.
-  renderList(s.protectedFirst[state.view] ? protectedFirst(notes, isProtected) : notes);
+  const onTop = s.protectedFirst[state.view];
+  const tiles = onTop ? protectedFirst(notes, isProtected) : notes;
+  // Custom order: a divider above the first note not sorted yet (protected
+  // ones stay on top with "Protected first").
+  const sorted = new Set(customOrder());
+  const unsorted = isCustom() ? tiles.find(n => !sorted.has(n.id) && !(onTop && isProtected(n.id)) && n.id !== state.topId) : null;
+  renderList(tiles, { dividerBefore: unsorted?.id ?? null, onArrange: arrange });
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
@@ -170,6 +178,16 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
+// The custom order's arrange dialog over the notes the list shows.
+function arrange() {
+  const shown = inView(circleNotes(activeCircle()));
+  const { sorted, unsorted } = customSplit(shown, customOrder());
+  openArrange({
+    sorted, unsorted,
+    save: ids => showSnackbar("Order saved", setCustomOrder(rearrange(customOrder(), shown.map(n => n.id), ids))),
+  });
+}
+
 function sortMenu() {
   const sort = state.settings.sort[state.view];
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
@@ -180,8 +198,11 @@ function sortMenu() {
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
-    { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
-    { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
+    // A custom order has no direction; it is arranged instead.
+    ...(SORT_KEYS[sort.key].custom ? [{ label: "Arrange…", onSelect: arrange }] : [
+      { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
+      { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
+    ]),
     { separator: true },
     { label: "Protected first", checked: onTop, onSelect: () => updateSettings({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
   ]);
@@ -284,6 +305,7 @@ function wire() {
   initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); } });
   initMenu();
   initConfirm();
+  initArrange();
   initToolbar();
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });

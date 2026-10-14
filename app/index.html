@@ -98,6 +98,17 @@
         </div>
       </div>
     </div>
+    <div class="dialog-scrim keep-editing" id="arrangeDialog" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="arrangeTitle">
+        <h2 class="dialog-title" id="arrangeTitle">Custom order</h2>
+        <p class="dialog-hint">Drag notes above the line to sort them, or tap + and −.</p>
+        <ol class="order-list arrange-list" id="arrangeList"></ol>
+        <div class="dialog-actions">
+          <button class="btn" id="arrangeCancel">Cancel</button>
+          <button class="btn primary" id="arrangeOk">Save</button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-scrim keep-editing" id="confirmDialog" hidden>
       <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
         <h2 class="dialog-title" id="confirmTitle"></h2>

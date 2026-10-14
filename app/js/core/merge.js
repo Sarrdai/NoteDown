@@ -6,7 +6,7 @@
 import { newId } from "./notes-file.js";
 
 /**
- * Three-way merge of parsed notes files ({ preamble, notes, moved, devices }).
+ * Three-way merge of parsed notes files ({ preamble, notes, moved, devices, order }).
  * Returns { file, displaced }: `displaced` lists { base, note } for notes
  * edited on one side while the other moved them to another file; the caller
  * re-applies each with applyDisplaced to the file the note moved to, or to
@@ -36,7 +36,18 @@ export function mergeNotesFiles(base, local, remote) {
     else if (out?.moved) moved.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved, devices: mergeDevices(base, local, remote) }, displaced };
+  return { file: { preamble, notes, moved, devices: mergeDevices(base, local, remote), order: mergeOrder(base, local, remote) }, displaced };
+}
+
+// A custom order (backlog #24, #25) is one list: the side that changed it
+// wins; when both did, the newer list (remote on a tie).
+function mergeOrder(base, local, remote) {
+  const [b, l, r] = [base, local, remote].map(f => f.order || null);
+  const key = o => JSON.stringify(o);
+  if (key(l) === key(b)) return r;
+  if (key(r) === key(b)) return l;
+  if (!l || !r) return l || r;
+  return l.modified > r.modified ? l : r;
 }
 
 // Device names (private file): per device id, the side that changed it wins,
