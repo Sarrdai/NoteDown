@@ -36,10 +36,19 @@ const SHAPES = {
   // Adaptive-icon layers: the glyph alone, and a one-color version for themed icons
   // (light parts of the glyph stay, everything else is cut out).
   foreground: svg("0 0 108 108", foreground),
-  monochrome: svg("0 0 108 108", `<mask id="m">${foreground
-    .replace(/(fill|stroke)="(?!none)([^"]+)"/g, (_, attr, color) => `${attr}="${color === "#eff1f5" ? "#fff" : "#000"}"`)
-    .replace(/ opacity="[^"]+"/g, "")}</mask><rect width="108" height="108" fill="#fff" mask="url(#m)"/>`),
+  monochrome: svg("0 0 108 108", silhouette("0 0 108 108")),
+  // Android status-bar icon for reminders (white on transparent, tinted by the system):
+  // the same silhouette, cropped to the glyph.
+  notification: svg("27 27 54 54", silhouette("27 27 54 54")),
 };
+
+// One-color version of the glyph: light parts stay white, everything else is cut out.
+function silhouette(viewBox) {
+  const [x, y, w, h] = viewBox.split(" ");
+  return `<mask id="m">${foreground
+    .replace(/(fill|stroke)="(?!none)([^"]+)"/g, (_, attr, color) => `${attr}="${color === "#eff1f5" ? "#fff" : "#000"}"`)
+    .replace(/ opacity="[^"]+"/g, "")}</mask><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff" mask="url(#m)"/>`;
+}
 
 const OUTPUTS = [
   ["favicon.svg", "rounded"],
@@ -55,6 +64,7 @@ for (const [density, scale] of Object.entries(DENSITIES)) {
     { file: path.join(dir, "ic_launcher_round.png"), shape: "round", size: 48 * scale },
     { file: path.join(dir, "ic_launcher_foreground.png"), shape: "foreground", size: 108 * scale },
     { file: path.join(dir, "ic_launcher_monochrome.png"), shape: "monochrome", size: 108 * scale },
+    { file: path.join(RES, `drawable-${density}`, "ic_stat_notedown.png"), shape: "notification", size: 24 * scale },
   );
 }
 
@@ -62,6 +72,7 @@ async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   for (const { file, shape, size } of OUTPUTS) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
     if (!size) { fs.writeFileSync(file, SHAPES[shape] + "\n"); console.log(path.relative(ROOT, file)); continue; }
     await page.setViewportSize({ width: size, height: size });
     await page.setContent(`<style>html, body { margin: 0; background: transparent; }</style>

@@ -56,6 +56,8 @@ async function scheduleNative() {
     notifications: list.map(x => ({
       id: Number(x.day.replaceAll("-", "")), title: x.title, body: x.body, largeBody: x.body,
       schedule: { at: x.at, allowWhileIdle: true }, extra: { ids: x.ids },
+      // Status-bar icon: a white silhouette from scripts/make-icons.js (backlog #26).
+      smallIcon: "ic_stat_notedown", iconColor: "#8839ef",
     })),
   });
 }

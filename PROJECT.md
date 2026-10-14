@@ -90,7 +90,7 @@ prototype with `?dictation=demo`, which replays
 | Path | Content |
 |---|---|
 | `app/index.html` | The single page |
-| `app/icons/` | The app icon: `icon.svg` is the source (Android adaptive-icon grid); `favicon.svg` and the PNGs are generated from it by `scripts/make-icons.js`, like the Android icons in `mobile/android/…/res/mipmap-*` |
+| `app/icons/` | The app icon: `icon.svg` is the source (Android adaptive-icon grid); `favicon.svg` and the PNGs are generated from it by `scripts/make-icons.js`, like the Android icons in `mobile/android/…/res/mipmap-*` and the reminders' status-bar icon `drawable-*/ic_stat_notedown.png` |
 | `app/manifest.webmanifest` | Web app manifest: name, icons, colors for "add to home screen" |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |

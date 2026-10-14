@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
-  <!-- NoteDown app icon, the source for scripts/make-icons.js: a note card with the round done button. 108-unit adaptive-icon grid, glyph inside the central 66-unit safe circle. -->
+  <!-- NoteDown app icon, the source for scripts/make-icons.js: a note card with the round done button bottom right, where the cards have it. 108-unit adaptive-icon grid, glyph inside the central 66-unit safe circle. -->
   <rect id="background" width="108" height="108" fill="#8839ef"/>
   <g id="foreground">
     <rect x="34" y="29" width="40" height="50" rx="6" fill="#eff1f5"/>
-    <circle cx="45" cy="41" r="6.5" fill="#40a02b"/>
-    <path d="M42 41.2l2.2 2.2 4-4.3" fill="none" stroke="#eff1f5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M56 41h11M41 55h26M41 64h26M41 73h15" fill="none" stroke="#8839ef" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+    <path d="M41 39h20M41 48h26M41 57h26M41 66h11" fill="none" stroke="#8839ef" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="64" cy="69" r="6.5" fill="#40a02b"/>
+    <path d="M61 69.2l2.2 2.2 4-4.3" fill="none" stroke="#eff1f5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

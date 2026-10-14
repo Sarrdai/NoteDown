@@ -522,9 +522,12 @@ before the first live test).
   round 1, under ⋮.*
 - **App icon** (backlog #12, decided 2026-10-14 over an "N" with a down
   arrow and the round done button alone): a note card with the round
-  done button on Mauve — it says "notes" and echoes the app's own cards.
-  Android shows it as an adaptive icon (with a one-color layer for themed
-  icons), the web app as favicon and in its manifest. The Android splash
+  done button on Mauve — it says "notes" and echoes the app's own cards;
+  the button sits bottom right, where the cards have it in their tool bar
+  (2026-10-14). Android shows it as an adaptive icon (with a one-color
+  layer for themed icons) and its one-color silhouette as the status-bar
+  icon of reminders (backlog #26), the web app as favicon and in its
+  manifest. The Android splash
   screen shows it on the Catppuccin base color: Latte in light, Mocha in
   dark system mode.
 - App labels are English for now; a German translation can follow.
