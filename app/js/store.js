@@ -54,8 +54,20 @@ function emit(kind) { listeners.forEach(fn => fn(kind)); }
 function read(key) {
   try { return localStorage.getItem(key); } catch { return null; }
 }
+let erased = false;
 function write(key, value) {
+  if (erased) return;
   try { localStorage.setItem(key, value); } catch { /* storage unavailable: keep in memory */ }
+}
+
+/** Removes everything NoteDown stored in localStorage (every `notedown.` key)
+ *  and stops writing for the rest of this page's life, so a late change can't
+ *  bring a key back before the page reloads (signing out). */
+export function eraseStoredState() {
+  erased = true;
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith("notedown.")) localStorage.removeItem(key);
+  } catch { /* storage unavailable: nothing stored */ }
 }
 
 /** Loads stored state; returns false when there is no stored file yet. */

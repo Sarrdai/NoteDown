@@ -6,14 +6,14 @@
 // foreground, gets the focus or goes online, every 5 s while it is visible,
 // and when the user asks (opening Sync & sharing, pull to refresh). The sample
 // (`state.sync.simulated`) never reaches this module.
-import { state, setSync, setPrivateFile, fileText, onFilesChanged } from "../store.js";
+import { state, setSync, setPrivateFile, fileText, onFilesChanged, eraseStoredState } from "../store.js";
 import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
 import { mergeNotesFiles } from "../core/merge.js";
 import * as c from "../core/crypto.js";
 import { onlyUntouchedWelcome, keyHolders, withDeviceName } from "../core/sync-state.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel } from "../core/linking.js";
 import { createApi, ApiError, NetworkError } from "./api.js";
-import { getSecret, setSecret, clearSecrets } from "./keystore.js";
+import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
 const POLL_MS = 5000;
@@ -25,7 +25,7 @@ let api = null;
 let keys = null;         // this device's { sign, enc } key pairs
 let fileKey = null;      // the private file's key (32 bytes)
 let caller = null;       // while restoring: the recovery device signs in
-let running = null, again = false, timer = null, busySince = 0;
+let running = null, again = false, timer = null, poll = null, busySince = 0;
 
 const active = () => api && state.sync.enabled && !state.sync.simulated;
 const emptyFile = () => parseNotesFile("");
@@ -40,7 +40,7 @@ export function initSync(apiUrl) {
   for (const target of [document, window]) target.addEventListener("resume", () => schedule(0));
   window.addEventListener("focus", () => schedule(0));
   window.addEventListener("online", () => schedule(0));
-  setInterval(() => { if (!document.hidden) schedule(0); }, POLL_MS);
+  poll = setInterval(() => { if (!document.hidden) schedule(0); }, POLL_MS);
   schedule(0);
 }
 
@@ -388,4 +388,42 @@ export async function removeDevice(id) {
     await syncNow();
   }
   throw new Error("Couldn't renew the file key; try again");
+}
+
+/**
+ * Erases everything NoteDown keeps on this device (notes, settings, sync
+ * state in localStorage; device and file keys in IndexedDB) and stops syncing.
+ * The caller reloads the page afterwards.
+ */
+export async function eraseDevice() {
+  clearInterval(poll);
+  clearTimeout(timer);
+  api = null;   // no sync round starts from here on
+  eraseStoredState();
+  keys = fileKey = null;
+  await deleteDatabase();
+}
+
+/**
+ * Signs this device out: syncs, then appends the removal of this device to the
+ * device list (signed by itself) and erases the local data. The file key is
+ * not renewed: a device that erases itself needs no lock-out, and one that was
+ * copied is removed from another device, which renews it.
+ */
+export async function signOut() {
+  await syncNow();
+  if (state.sync.status === "error") throw new Error(state.sync.error || "Sync failed");
+  await loadKeys();
+  if (state.sync.file && fileText() !== state.sync.file.base) throw new Error("Your latest changes aren't synced yet; try again");
+  for (let entries = (await chain()).entries; ;) {
+    const body = await c.newEntry(state.sync.identity, entries, "remove", { id: state.sync.device });
+    try {
+      await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      entries = (await chain()).entries;   // another device appended first
+    }
+  }
+  await eraseDevice();
 }
