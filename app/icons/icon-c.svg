@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- NoteDown icon, proposal C "Done button": 108-unit adaptive-icon grid, glyph inside the central 66-unit safe circle. -->
+  <rect id="background" width="108" height="108" fill="#8839ef"/>
+  <g id="foreground">
+    <circle cx="54" cy="54" r="26" fill="#eff1f5"/>
+    <path d="M42 55l8 8 16-17" fill="none" stroke="#8839ef" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

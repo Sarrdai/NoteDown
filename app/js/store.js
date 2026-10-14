@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
+  appIcon: "a",              // prototype variant (backlog #12): a | b | c
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- NoteDown icon, proposal B "N with a down arrow": 108-unit adaptive-icon grid, glyph inside the central 66-unit safe circle. -->
+  <rect id="background" width="108" height="108" fill="#8839ef"/>
+  <g id="foreground" fill="none" stroke="#eff1f5" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M36 74V34l30 40"/>
+    <path d="M66 32v40M56 64l10 10 10-10"/>
+  </g>
+</svg>

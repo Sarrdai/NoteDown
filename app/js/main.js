@@ -18,6 +18,7 @@ import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
+import { ICONS, applyIcon, openIconPreview } from "./icon-variants.js";
 
 const $ = id => document.getElementById(id);
 const app = $("app");
@@ -59,6 +60,7 @@ function render() {
   const s = state.settings;
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
+  applyIcon(s.appIcon);
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
 
@@ -199,6 +201,9 @@ function moreMenu() {
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
+    { section: "Prototype: App icon" },
+    ...Object.entries(ICONS).map(([id, name]) => ({ label: `${name} (${id.toUpperCase()})`, checked: s.appIcon === id, onSelect: () => updateSettings({ appIcon: id }) })),
+    { label: "Preview icon…", onSelect: () => openIconPreview(s.appIcon) },
   ].filter(Boolean));
 }
 
@@ -260,6 +265,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (ICONS[p.get("icon")]) patch.appIcon = p.get("icon");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).
