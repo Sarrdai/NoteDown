@@ -19,7 +19,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
-import { initReminders, reminders, setRemindersOn, pickReminderTime, openReminderDialog, simulateReminder } from "./ui/reminders.js";
+import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -27,8 +27,6 @@ const $ = id => document.getElementById(id);
 const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
-// Prototype variants: where the reminder setting lives (#1).
-const REMINDER_UIS = { dialog: "Dialog (A)", menu: "Menu rows (B)", due: "Due-date menu (C)" };
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
 const DIR_LABELS = {
@@ -265,7 +263,7 @@ function moreMenu() {
     archive && { label: "Empty archive…", disabled: !deletable, onSelect: emptyArchive },
     archive && { separator: true },
     { label: "Sync & sharing…", onSelect: openSyncPanel },
-    ...reminderItems(),
+    { label: "Reminders…", onSelect: openReminderDialog },
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
@@ -273,21 +271,7 @@ function moreMenu() {
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     { label: "Simulate reminder", onSelect: simulateReminder },
-    { section: "Prototype: Reminder setting" },
-    ...Object.entries(REMINDER_UIS).map(([id, label]) => ({ label, checked: s.reminderUi === id, onSelect: () => updateSettings({ reminderUi: id }) })),
   ].filter(Boolean));
-}
-
-// The reminder setting in ⋮: a dialog (A) or two menu rows (B); C has it in the due-date menu.
-function reminderItems() {
-  const r = reminders();
-  if (state.settings.reminderUi === "dialog") return [{ label: "Reminders…", onSelect: openReminderDialog }];
-  if (state.settings.reminderUi !== "menu") return [];
-  return [
-    { section: "Reminders" },
-    { label: "Remind on due day", checked: r.on, onSelect: () => setRemindersOn(!r.on) },
-    { label: `Time: ${r.time}…`, disabled: !r.on, onSelect: pickReminderTime },
-  ];
 }
 
 // A tapped reminder shows its notes: the open notes, unfiltered, the first one scrolled into view.
@@ -354,7 +338,6 @@ function wire() {
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
   initSyncPanel();
-  initReminders({ open: showDue });
   initPullRefresh({
     canPull: target => state.sync.enabled && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
@@ -367,7 +350,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (REMINDER_UIS[p.get("reminders")]) patch.reminderUi = p.get("reminders");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).
@@ -399,6 +381,8 @@ async function start() {
   initSyncSim();
   initSync(readApi() || (await loadConfig()).api);
   render();
+  // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
+  initReminders({ open: showDue });
   document.body.dataset.ready = "1";
 }
 
