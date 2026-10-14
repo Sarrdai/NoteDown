@@ -209,7 +209,7 @@ devices don't keep re-uploading the same notes in each other's order.
   list), files (ciphertext + version, file keys wrapped per device) and
   which identities may access which file, and short-lived relay slots
   for linking devices and contacts.
-- Sees, unavoidably: which anonymous identities share files, file sizes,
+- Sees, unavoidably: which anonymous identities share files, file sizes (in 4 KiB steps),
   times of change and IP addresses — no names, emails or contents.
 - **Abuse protection** without accounts: a storage quota per identity
   and rate limits per IP address; payment, if it comes, can stay
@@ -220,7 +220,8 @@ devices don't keep re-uploading the same notes in each other's order.
   identities and access; for the test phase Postgres holds the encrypted
   files too, an object store follows when size calls for it (`PROJECT.md`
   → "Technology direction"). The protocol byte for byte is
-  `docs/server-api.md`; rate limits per IP are not built yet (backlog).
+  `docs/server-api.md`. Built: 2 MB of storage per identity, and per-IP
+limits on creating identities (10 per day) and relay slots (30 per hour).
 
 ## Open points
 

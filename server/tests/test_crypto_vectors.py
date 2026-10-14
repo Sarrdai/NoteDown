@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from notedown_server import auth
 from notedown_server.protocol import (
@@ -56,6 +57,19 @@ def test_auth_signature_verifies_for_the_phone():
 def test_wrapped_key_fits_the_limit():
     assert len(VECTORS["wrap"]["wrapped"]) <= 512
     assert len(from_b64u(VECTORS["wrap"]["wrapped"])) == 32 + 12 + 32 + 16
+
+
+def test_file_ciphertext_is_padded_to_4096_bytes_and_legacy_files_are_not():
+    padded, legacy = VECTORS["file"], VECTORS["legacy_file"]
+    key = bytes.fromhex(padded["key"])
+
+    def plaintext(ciphertext: str) -> bytes:
+        raw = from_b64u(ciphertext)
+        return AESGCM(key).decrypt(raw[:12], raw[12:], None)
+
+    text = padded["text"].encode()
+    assert plaintext(padded["ciphertext"]) == text + b"\x80" + b"\x00" * (4096 - len(text) - 1)
+    assert plaintext(legacy["ciphertext"]) == legacy["text"].encode() == text
 
 
 def test_tampered_fixture_chain_is_rejected():

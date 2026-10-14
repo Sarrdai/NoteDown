@@ -262,17 +262,37 @@ export function generateFileKey() {
   return globalThis.crypto.getRandomValues(new Uint8Array(32));
 }
 
-/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the UTF-8 text. */
+const PAD_BLOCK = 4096;
+const PAD_MARKER = 0x80;
+
+// ISO/IEC 7816-4 padding: a 0x80 byte, then 0x00 up to the next multiple of PAD_BLOCK (a plaintext
+// that already is a multiple gets a full extra block), so the server only sees the size in 4 KiB steps.
+function pad(bytes) {
+  const padded = new Uint8Array(Math.ceil((bytes.length + 1) / PAD_BLOCK) * PAD_BLOCK);
+  padded.set(bytes);
+  padded[bytes.length] = PAD_MARKER;
+  return padded;
+}
+
+function unpad(bytes) {
+  let end = bytes.length;
+  while (end > 0 && bytes[end - 1] === 0) end--;
+  // No marker: a file uploaded before padding existed. Those are Markdown that ends with "\n",
+  // never with 0x00 or 0x80, so they can't be mistaken for padded ones; the next upload pads them.
+  return end > 0 && bytes[end - 1] === PAD_MARKER ? bytes.subarray(0, end - 1) : bytes;
+}
+
+/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded UTF-8 text. */
 export async function encryptFile(fileKey, text) {
-  const { nonce, sealed } = await seal(fileKey, utf8(text));
+  const { nonce, sealed } = await seal(fileKey, pad(utf8(text)));
   return b64u(concat(nonce, sealed));
 }
 
-/** The text of `encryptFile`'s output; throws when the key is wrong or the data was changed. */
+/** The text of `encryptFile`'s output (or of an older, unpadded file); throws when the key is wrong or the data was changed. */
 export async function decryptFile(fileKey, ciphertext) {
   const raw = fromB64u(ciphertext);
   const plain = await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES));
-  return new TextDecoder("utf-8", { fatal: true }).decode(plain);
+  return new TextDecoder("utf-8", { fatal: true }).decode(unpad(plain));
 }
 
 async function wrapKey(label, privateKey, otherPublic, ephemeralPublic, recipientPublic) {
