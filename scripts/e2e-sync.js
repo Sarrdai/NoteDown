@@ -190,6 +190,8 @@ async function main() {
     });
 
     await step("B picks up a change on A by itself within the 5 s poll", async () => {
+      // B has idled, so its poll delay has grown; getting the focus makes it 5 s again.
+      await b.evaluate(() => window.dispatchEvent(new Event("focus")));
       await addNote(a, sample.s08);
       await sync(a);
       await b.waitForFunction(body => window.__store.allNotes().some(n => n.body === body), sample.s08, { timeout: 8000 });

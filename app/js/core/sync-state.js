@@ -52,3 +52,15 @@ export function storageUsage({ used, quota }) {
     level: fraction >= 1 ? "full" : fraction >= 0.8 ? "warn" : "ok",
   };
 }
+
+export const POLL_MIN_MS = 5000;
+export const POLL_MAX_MS = 30000;
+
+/**
+ * The delay before the next poll round: back to the minimum when the last
+ * round moved something (or the user or the app woke it), otherwise doubled
+ * up to the maximum: 5, 10, 20, 30, 30, ... s.
+ */
+export function nextPollDelay(current, changed) {
+  return changed ? POLL_MIN_MS : Math.min(POLL_MAX_MS, Math.max(POLL_MIN_MS, current * 2));
+}
