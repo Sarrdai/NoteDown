@@ -33,9 +33,6 @@ const DIR_LABELS = {
   default: ["Oldest first", "Newest first"],
 };
 
-// Prototype: where the people overview (#23) sits — tabs in the sidebar /
-// sheet, a second section below the contents, or (phone) its own sheet.
-const PEOPLE_PANELS = { tabs: "Tabs (A)", section: "Section below (B)", sheet: "Own sheet on the phone (C)" };
 const phone = window.matchMedia("(max-width: 599px)");
 
 const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
@@ -104,7 +101,6 @@ function render() {
 function renderCircleFilter() {
   const people = hasPeople();
   app.classList.toggle("has-people", people);
-  app.dataset.people = state.settings.peoplePanel;
   app.dataset.tab = people ? state.panelTab : "toc";
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   if (people) renderPeople(key => inView(circleNotes(key)).length);
@@ -234,8 +230,6 @@ function moreMenu() {
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    hasPeople() && { section: "Prototype: People overview" },
-    ...(hasPeople() ? Object.entries(PEOPLE_PANELS).map(([id, label]) => ({ label, checked: s.peoplePanel === id, onSelect: () => updateSettings({ peoplePanel: id }) })) : []),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -251,7 +245,7 @@ function download() {
 }
 
 function wire() {
-  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["peopleBtn", "people"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -263,7 +257,6 @@ function wire() {
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", sortMenu);
   $("tocBtn").addEventListener("click", () => openPanel("toc"));
-  $("peopleBtn").addEventListener("click", () => openPanel("people"));
   $("selToc").addEventListener("click", () => openPanel("toc"));
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("filterClear").addEventListener("click", () => pickCircle(null));
@@ -307,7 +300,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (PEOPLE_PANELS[p.get("people")]) patch.peoplePanel = p.get("people");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

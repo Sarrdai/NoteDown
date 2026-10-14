@@ -657,15 +657,15 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .scrim { display: none; }
 
 /* ---------- people overview (#23) ---------- */
-.panel-tabs, .people-pane, .people-head, #peopleBtn { display: none; }
-.panel-tabs { gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
+.panel-tabs, .people-pane { display: none; }
+.panel-tabs { flex: 1; min-width: 0; max-width: 200px; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
 .panel-tab {
-  border: 0; padding: 5px 12px; border-radius: 999px; background: transparent; cursor: pointer;
-  font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--text-muted);
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 0; padding: 5px 7px; border-radius: 999px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 0.84rem; font-weight: 600; color: var(--text-muted);
 }
 .panel-tab[aria-selected="true"] { background: var(--ctp-base); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.15); }
 .people-pane { flex-direction: column; min-height: 0; }
-.people-head { align-items: center; height: 44px; padding: 0 18px; flex: none; }
 .people-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; overscroll-behavior: contain; }
 .people-entry {
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 10px;
@@ -684,14 +684,13 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 /* Thin gaps between everything / private, the contacts and the groups. */
 .people-entry.contact:not(.contact + .contact), .people-entry.group:not(.group + .group) { margin-top: 8px; }
 
-/* Variant A (tabs) and C (tabs on tablet / desktop): Contents | People. */
-.app.has-people:is([data-people="tabs"], [data-people="sheet"]) .panel-tabs { display: flex; }
-.app.has-people:is([data-people="tabs"], [data-people="sheet"]) .toc-head .toc-title { display: none; }
-.app.has-people[data-tab="people"]:not([data-people="section"]) :is(.toc-list, .stepper) { display: none; }
-.app.has-people[data-tab="people"]:not([data-people="section"]) .people-pane { display: flex; flex: 1; }
-/* Variant B: a second section below the contents. */
-.app.has-people[data-people="section"] .people-pane { display: flex; flex: none; max-height: 45%; border-top: 1px solid var(--border); }
-.app.has-people[data-people="section"] .people-head { display: flex; }
+/* With contacts, tabs switch the sidebar / sheet between Contents and People. */
+.app.has-people .panel-tabs { display: flex; }
+.app.has-people .toc-head { gap: 8px; padding-left: 10px; }
+.app.has-people .toc-head .toc-title { display: none; }
+.app.has-people .stepper .icon-btn.small { min-width: 28px; padding: 0 4px; }
+.app.has-people[data-tab="people"] :is(.toc-list, .stepper) { display: none; }
+.app.has-people[data-tab="people"] .people-pane { display: flex; flex: 1; }
 
 /* The active filter as a chip above the list. */
 .filter-bar { max-width: 780px; margin: 0 auto; padding: 8px 16px 0; }
@@ -795,13 +794,6 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .app.toc-open .toc-panel { transform: none; }
   .toc-handle { display: block; width: 40px; height: 5px; margin: 8px auto 0; border-radius: 999px; background: var(--ctp-surface2); flex: none; }
   .toc-head { height: 48px; }
-  /* Variant C: on the phone the people get a top-bar button and a sheet of their own. */
-  .app.has-people[data-people="sheet"] .panel-tabs { display: none; }
-  .app.has-people[data-people="sheet"] .toc-head .toc-title { display: inline; }
-  .app.has-people[data-people="sheet"] #peopleBtn { display: inline-flex; }
-  .app.has-people[data-people="sheet"][data-tab="people"] .toc-head { display: none; }
-  .app.has-people[data-people="sheet"][data-tab="people"] .people-head { display: flex; height: 48px; }
-  .app.searching #peopleBtn { display: none !important; }
   .filter-bar { padding: 8px 12px 0; }
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }

@@ -19,7 +19,6 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
-  peoplePanel: "tabs",       // prototype variant (#23): tabs | section | sheet
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
