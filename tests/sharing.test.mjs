@@ -53,9 +53,9 @@ test("splitIntoCircles: notes leave the private file without markers", () => {
   assert.equal(shared.length, 2);
   assert.deepEqual(shared[0].members, ["lea"]);
   assert.deepEqual(shared[0].file.notes.map(n => n.id), ["s01", "s09"]);
-  assert.deepEqual(shared[1].file.notes.map(n => n.id), ["s11"]);
-  assert.equal(file.notes.length, sample.notes.length - 3);
-  assert.ok(!file.notes.some(n => ["s01", "s09", "s11"].includes(n.id)));
+  assert.deepEqual(shared[1].file.notes.map(n => n.id), ["s11", "s18"]);
+  assert.equal(file.notes.length, sample.notes.length - 4);
+  assert.ok(!file.notes.some(n => ["s01", "s09", "s11", "s18"].includes(n.id)));
   assert.deepEqual(file.moved, []);
 });
 

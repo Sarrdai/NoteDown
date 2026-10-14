@@ -12,11 +12,14 @@ const FILE_KEY = "notedown.file";
 const SHARED_KEY = "notedown.shared";
 const SYNC_KEY = "notedown.sync";
 const SETTINGS_KEY = "notedown.settings";
+const PINS_KEY = "notedown.pins";
 
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
+  pinnedFirst: { open: false, closed: false },   // "Pinned on top", per view
+  pinControl: "select",      // prototype variant: select (A) | tile (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -40,7 +43,8 @@ export const state = {
   view: "open",              // open | closed
   search: "",
   editingId: null,
-  pinnedId: null,            // a new note stays on top until its first edit ends
+  topId: null,               // a new note stays on top until its first edit ends
+  pins: new Set(),           // pinned note ids: a setting of this device, not synced
   selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting
 };
 
@@ -59,8 +63,13 @@ function write(key, value) {
 export function load() {
   try {
     const s = JSON.parse(read(SETTINGS_KEY) || "{}");
-    state.settings = { ...structuredClone(DEFAULT_SETTINGS), ...s, sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) } };
+    state.settings = {
+      ...structuredClone(DEFAULT_SETTINGS), ...s,
+      sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
+      pinnedFirst: { ...DEFAULT_SETTINGS.pinnedFirst, ...(s.pinnedFirst || {}) },
+    };
   } catch { /* keep defaults */ }
+  try { state.pins = new Set(JSON.parse(read(PINS_KEY) || "[]")); } catch { state.pins = new Set(); }
   try {
     const sync = { ...structuredClone(DEFAULT_SYNC), ...JSON.parse(read(SYNC_KEY) || "{}") };
     // Stored before real sync existed: the sample's simulated identity.
@@ -167,6 +176,21 @@ export function note(id) {
   return allNotes().find(n => n.id === id);
 }
 
+export const isPinned = id => state.pins.has(id);
+
+/** Pins or unpins notes on this device; returns a function that undoes it.
+ *  Each note is patched in place, so the list doesn't reorder. */
+export function setPinned(ids, on) {
+  const changed = ids.filter(id => state.pins.has(id) !== on);
+  const apply = value => {
+    for (const id of changed) value ? state.pins.add(id) : state.pins.delete(id);
+    write(PINS_KEY, JSON.stringify([...state.pins]));
+    changed.forEach(id => emit("note:" + id));
+  };
+  apply(on);
+  return () => apply(!on);
+}
+
 /** Changes a note's body; "note" events re-render that note in place. */
 export function setBody(id, body) {
   const n = note(id);
@@ -240,7 +264,8 @@ export function setStatuses(ids, status) {
  * source note's remaining body from `changes` ([{ id, body }], body null =
  * the note goes) and adds the new note ({ body, created, due }) at the top
  * of a file; returns { note, undo }. The new note stays in the circle of the
- * source notes when they all share one, else it is private.
+ * source notes when they all share one, else it is private; it is pinned
+ * when one of them was.
  */
 export function applyMerge(changes, merged) {
   const ids = changes.map(c => c.id);
@@ -258,11 +283,13 @@ export function applyMerge(changes, merged) {
   n.created = merged.created || n.created;
   n.due = merged.due;
   target.notes.unshift(n);
+  const unpin = ids.some(isPinned) ? setPinned([n.id], true) : () => {};
   saveFiles();
   emit("structure");
   return {
     note: n,
     undo: () => {
+      unpin();
       target.notes = target.notes.filter(x => x.id !== n.id);
       putBack();
       for (const [x, before] of edited) Object.assign(x, before);

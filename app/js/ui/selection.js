@@ -5,17 +5,19 @@
 // Shift+click selects a range. The selection bar acts on the selection;
 // Copy and Merge first confirm the order in a dialog where it can be
 // changed by drag and drop. Ends with ✕, Esc, the back button, an empty
-// selection or an action that removes the notes from view.
-import { tableOfContents } from "../core/query.js";
+// selection or an action that removes the notes from view. Delete asks
+// first (ui/confirm.js) and leaves pinned notes alone.
+import { tableOfContents, deleteGroups } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, isPinned, setPinned, circleOf } from "../store.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
 import { openMenu } from "./menu.js";
+import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { icon } from "./icons.js";
 
 const HOLD_MS = 450;
@@ -58,13 +60,14 @@ export function initSelection(options) {
   window.addEventListener("click", onClick, true);
 
   document.addEventListener("keydown", e => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || isConfirmOpen()) return;
     if (dialog) closeDialog();
     else if (isSelecting()) endSelection();
   });
-  // Android back: the selection (and the dialog) sit on a history entry.
+  // Android back: the selection (and the dialog) sit on a history entry;
+  // back from the delete confirmation (its own entry) lands on it again.
   window.addEventListener("popstate", () => {
-    if (!isSelecting()) return;
+    if (!isSelecting() || (history.state && history.state.selecting)) return;
     if (dialog) { closeDialog(); history.pushState({ selecting: true }, ""); return; }
     endSelection({ fromHistory: true });
   });
@@ -200,13 +203,16 @@ function update() {
   const archive = state.view === "closed";
   const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
     && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
-  // Close, Share and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  // Close, Share, Pin and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  const ids = byNote.map(([n]) => n.id);
+  const pin = ids.some(id => !isPinned(id));
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
     !archive && state.sync.simulated && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },   // real sharing: milestone 2
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
-    { id: "trash", label: "Delete", run: remove, disabled: !whole },
+    { id: pin ? "pin" : "unpin", label: pin ? "Pin" : "Unpin", run: () => pinNotes(pin), disabled: !whole, menu: !archive },
+    { id: "trash", label: "Delete", run: remove, disabled: !whole || ids.every(isPinned) },
     !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },
     !archive && { id: "indent", label: "Demote headings", run: () => shift(1), disabled: !canShift(1), menu: true },
   ].filter(Boolean);
@@ -254,10 +260,32 @@ function share() {
   setTimeout(open, 300);
 }
 
-function remove() {
+function pinNotes(on) {
   const ids = noteIds();
   endSelection();
-  showSnackbar(count(ids.length, "deleted"), removeNotes(ids));
+  showSnackbar(count(ids.length, on ? "pinned" : "unpinned"), setPinned(ids, on));
+}
+
+// Asks first; pinned notes stay, shared ones go for everyone in their circle.
+// Cancel keeps the selection.
+function remove() {
+  const g = deleteGroups(noteIds().map(note), { isPinned, isShared: id => circleOf(id).length > 0 });
+  const ids = [...g.private, ...g.shared].map(n => n.id);
+  const text = [
+    ids.length === 1 ? "It is removed from all your devices." : "They are removed from all your devices.",
+    g.shared.length && (g.shared.length === ids.length ? (ids.length === 1 ? "It is shared and is deleted for everyone." : "They are shared and are deleted for everyone.")
+      : `${g.shared.length} of them ${g.shared.length === 1 ? "is" : "are"} shared and deleted for everyone.`),
+    g.kept.length && (g.kept.length === 1 ? "1 pinned note stays." : `${g.kept.length} pinned notes stay.`),
+  ].filter(Boolean).join(" ");
+  openConfirm({
+    title: ids.length === 1 ? "Delete note?" : `Delete ${ids.length} notes?`,
+    text,
+    okLabel: () => "Delete",
+    onConfirm: () => {
+      endSelection();
+      showSnackbar(count(ids.length, "deleted"), removeNotes(ids));
+    },
+  });
 }
 
 // Headings of the selected parts one level up (-1) or down (+1); the selection stays.

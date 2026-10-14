@@ -87,6 +87,21 @@
         </div>
       </div>
     </div>
+    <div class="dialog-scrim keep-editing" id="confirmDialog" hidden>
+      <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+        <h2 class="dialog-title" id="confirmTitle"></h2>
+        <p class="dialog-hint" id="confirmText"></p>
+        <label class="confirm-check" id="confirmCheckRow" hidden>
+          <input type="checkbox" id="confirmCheck">
+          <span id="confirmCheckLabel"></span>
+        </label>
+        <p class="confirm-warning" id="confirmWarning" hidden></p>
+        <div class="dialog-actions">
+          <button class="btn" id="confirmCancel">Cancel</button>
+          <button class="btn primary danger" id="confirmOk"></button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-scrim keep-editing" id="syncPanel" hidden>
       <div class="dialog sheet" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
         <header class="sheet-head">
