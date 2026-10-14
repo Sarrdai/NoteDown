@@ -192,6 +192,24 @@ before the first live test).
     once (10 minutes / 7 days); on Android the link opens the app, and
     "Add contact" takes a pasted link. *Prototype: real; simulated in the
     sample (⋮ → "Simulate contact request").*
+  - **Verified contacts** (backlog #4, decided 2026-10-14): a contact
+    added by scanning their code in person is verified on both sides;
+    one added by an invitation link (opened or pasted) is not, since a
+    link is only as safe as the messenger it came through. Sharing with
+    a contact who isn't verified stays possible: the contact list shows
+    "Not verified" under the name, and the share dialog shows a notice
+    with **Verify** below the list as soon as such a contact is checked
+    (chosen over a label or an avatar badge in every row: the hint shows
+    where it matters, the list stays calm). Tapping a contact opens
+    **Verify contact** with two tabs: **Compare code** shows the safety
+    code, the same 20 digits on both phones, to compare e.g. on a call
+    ("Codes match" / "They differ", which advises removing and adding
+    the contact again in person), and **Scan code** scans the contact's
+    "My code" (chosen over one page with the code first: two equal ways,
+    like Add contact). Scanning the code of an existing contact under
+    Add contact verifies them too, instead of sending a new request.
+    Each phone verifies for itself; the state syncs to the user's own
+    devices. *Prototype: real; simulated in the sample (Tom).*
   - **Linking by QR code** (decided 2026-10-13): the new device shows its
     code under "Link this device", with the recovery key below as the way
     without a camera (e.g. two desktops). On a synced device, "Link a

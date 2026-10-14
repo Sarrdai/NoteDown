@@ -120,12 +120,10 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table.
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
-| `verifyhint` | `share` (C, default) · `label` (A) · `badge` (B) | Backlog #4: where "Not verified" shows — a notice in the share dialog when such a contact is checked, a label in the contact list and the share dialog, or a badge on the avatar |
-| `verifylayout` | `page` (A, default) · `tabs` (B) | Backlog #4: the verify page — safety code with "Scan …'s code" below, or tabs "Compare code" / "Scan code" |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |

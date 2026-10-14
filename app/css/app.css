@@ -688,12 +688,6 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   margin: 4px 0 0; padding: 14px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
   font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; text-align: center; white-space: nowrap; word-spacing: 0.1em;
 }
-.verify-btn {
-  flex: none; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent;
-  color: var(--accent); font: inherit; font-size: 0.85rem; font-weight: 650; cursor: pointer;
-}
-.verify-btn::after { content: ""; position: absolute; inset: -6px -4px; }
-.verify-btn { position: relative; }
 .share-notices { display: flex; flex-direction: column; gap: 8px; }
 .share-notices:empty { display: none; }
 .share-notice {
@@ -702,17 +696,6 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 }
 .share-notice .row-title { white-space: normal; }
 .notice-icon { flex: none; display: inline-flex; color: var(--warning); }
-.avatar.unverified { position: relative; }
-/* Variants (main.js → VERIFY_HINTS): C notice when sharing, A label in every list, B badge on the avatar. */
-.share-unverified, .share-notices, .avatar.unverified::after { display: none; }
-.app:not(.verify-label):not(.verify-badge) .verify-btn { display: none; }
-.app.verify-label .share-unverified { display: inline; }
-.app.verify-share .share-notices:not(:empty) { display: flex; }
-.app.verify-badge .avatar.unverified:not(.small)::after {
-  content: "!"; display: flex; align-items: center; justify-content: center; position: absolute; right: -3px; bottom: -3px;
-  width: 15px; height: 15px; border-radius: 50%; background: var(--warning); color: var(--on-person);
-  box-shadow: 0 0 0 2px var(--surface); font-size: 0.62rem; font-weight: 800;
-}
 @media (prefers-reduced-motion: reduce) {
   #syncBtn .spin, #syncBtn path { animation: none !important; stroke-dashoffset: 0 !important; }
 }

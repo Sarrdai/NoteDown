@@ -176,6 +176,22 @@ the first sync round.
   days. The server can't forge a request: the link's secret is in it,
   and it never sees that secret (`docs/server-api.md` → "Contacts and
   invitations").
+- **Verified or not** (backlog #4): a contact whose code the user
+  scanned with NoteDown's scanner is verified, and so is a requester the
+  user confirmed on a code this device showed (the server's word on an
+  invitation's kind is not trusted for this). A link, opened or pasted,
+  gives an unverified contact — also a code scanned with the phone's own
+  camera, which opens as a link. Later, the user verifies a contact by
+  scanning their code (an existing contact is verified instead of asked
+  again) or by comparing the **safety code**: PBKDF2-SHA256 (100,000
+  rounds, salt `notedown-safety-code-v1`) over both identity IDs in
+  sorted order, joined by `:`, shown as five groups of four digits (each
+  a 32-bit big-endian chunk mod 10,000). Both phones compute the same
+  code without the server; 66 bits and the slow hash make it too costly
+  for someone in the middle to find two forged identities whose codes
+  match. Each side verifies for itself; the state is kept in the private
+  file (`docs/file-format.md` → "Contacts"). Contacts that existed
+  before count as not verified, since how they were added isn't known.
 - Contact names are **local**: the user names a contact; the contact's
   own display name is the suggestion. The contact list lives in the
   private file (`docs/file-format.md` → "Contacts"), so all the user's

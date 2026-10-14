@@ -64,22 +64,19 @@ function leave(data) {
 // Tri-state checkbox: a tap on "mixed" or unchecked checks it, on checked clears it.
 const MARK = { all: icon("check", "icon box-mark"), some: icon("minus", "icon box-mark"), none: "" };
 
-// A contact row: tapping anywhere toggles the checkbox; a contact who isn't verified (backlog #4) carries
-// the hint and a "Verify" button, which variant shows them is the class on .app (main.js).
+// A contact row: tapping anywhere toggles the checkbox.
 function contactRow(c, data, onToggle) {
   const box = h("button", { class: "check-box", type: "button", role: "checkbox", "aria-label": `Share with ${c.name}` });
   const row = h("div", {
     class: "share-row",
-    onclick: e => {
-      if (e.target.closest(".verify-btn")) return;
+    onclick: () => {
       data.states[c.id] = data.states[c.id] === "all" ? "none" : "all";
       paint(box, data.states[c.id]);
       onToggle();
     },
   },
   h("span", { html: avatarHtml(c.id) }),
-  h("span", { class: "row-text" }, h("span", { class: "row-title" }, c.name), !c.verified && h("span", { class: "row-sub unverified-sub share-unverified" }, "Not verified")),
-  !c.verified && h("button", { class: "verify-btn", type: "button", onclick: () => go("verifyContact", { id: c.id, tab: "code" }) }, "Verify"),
+  h("span", { class: "row-text" }, h("span", { class: "row-title" }, c.name)),
   box);
   paint(box, data.states[c.id]);
   return row;
@@ -91,7 +88,8 @@ function paint(box, s) {
   box.innerHTML = MARK[s];
 }
 
-// Variant C: a notice under the list for each checked contact who isn't verified.
+// A notice under the list for each checked contact who isn't verified (backlog #4): the hint shows where
+// it matters, the list stays calm (decided 2026-10-14 over a label or an avatar badge in every row).
 function notices(data) {
   const el = h("div", { class: "share-notices" });
   const update = () => el.replaceChildren(...contacts().filter(c => !c.pending && !c.verified && data.states[c.id] !== "none").map(c =>

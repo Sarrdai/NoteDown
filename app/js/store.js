@@ -20,8 +20,6 @@ export const DEFAULT_SETTINGS = {
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
-  verifyHint: "share",       // prototype variant (#4): where "Not verified" shows (share | label | badge)
-  verifyLayout: "page",      // prototype variant (#4): the verify page (page | tabs)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

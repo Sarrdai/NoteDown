@@ -138,7 +138,7 @@ contacts and names while the server only knows pairs of identity IDs
 
 ```markdown
 <!-- contact id=TGVhSWRlbnRpdHkxMjM0NQ name=Lea color=2 -->
-<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z -->
+<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z verified=2026-10-14T09:00Z -->
 <!-- contact id=U2FtSWRlbnRpdHkxMjM0NTY name=Sam color=5 server=https%3A%2F%2Fnotes.example.org%2Fapi -->
 ```
 
@@ -149,6 +149,9 @@ home server (the API address, percent-encoded; absent = the default
 server, the app's configured API address). `pending` marks a
 request this user sent that the other side hasn't confirmed yet (the
 time it was sent, UTC); it is dropped once the server lists the pair.
+`verified` is the time the user verified the contact (UTC; backlog #4):
+by scanning their code or comparing the safety code; absent = not
+verified, which is also how contacts written before it read.
 Merging works per ID like device names: the side that changed a contact
 wins, a removal stays. Any text after a contact marker is dropped.
 

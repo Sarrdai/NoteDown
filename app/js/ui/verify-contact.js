@@ -27,17 +27,12 @@ function codeOf(id) {
   return codes.get(id);
 }
 
-/** Opens the verify page of contact `id` in the panel (the panel is open). */
-export function openVerify(id) {
-  go("verifyContact", { id, tab: "code" });
-}
-
 /** Marks contact `id` as verified, leaves the verify pages and says so, with Undo. */
 export function markVerified(id) {
   const c = contactOf(id);
   if (!c) return;
   updateContact(id, { verified: timestamp() });
-  for (let i = 0; i < 3 && ["verifyContact", "scanVerify", "codeDiffers"].includes(panelPage()); i++) popPage();
+  for (let i = 0; i < 3 && ["verifyContact", "codeDiffers"].includes(panelPage()); i++) popPage();
   showSnackbar(`${c.name} verified`, () => updateContact(id, { verified: undefined }));
 }
 
@@ -72,7 +67,7 @@ function compare(c) {
 }
 
 // Scanning the contact's code: their "My code" carries their identity.
-function scan(c, data) {
+function scan(c) {
   const hint = `Scan the code on ${c.name}'s phone (Sync & sharing → My code).`;
   if (!real()) {
     return [
@@ -92,7 +87,6 @@ function scan(c, data) {
     },
   });
   onLeave(scanner.stop);
-  data.scanning = true;
   return [scanner.el];
 }
 
@@ -100,39 +94,22 @@ const real = () => !state.sync.simulated;
 
 const intro = c => text(`${c.name} was added by an invitation link, which is only as safe as the way it was sent. Check that it's really them before you share anything private.`, "sheet-text center");
 
-// Prototype variants (orchestrate → variants.md): how verifying looks.
-const LAYOUTS = {
-  // A: one page — the safety code first, scanning one tap below.
-  page: c => [
-    !c.verified && intro(c),
-    h("h3", { class: "sheet-section" }, "Safety code"),
-    ...compare(c),
-    !c.verified && h("div", { class: "sheet-divider" }),
-    !c.verified && h("div", { class: "button-row center" }, button(`Scan ${c.name}'s code`, "outline", () => go("scanVerify", { id: c.id }))),
-  ],
-  // B: two tabs, like Add contact — "Compare code" and "Scan code".
-  tabs: (c, data) => {
-    if (c.verified) return [h("h3", { class: "sheet-section" }, "Safety code"), ...compare(c)];
-    const tabs = h("div", { class: "segmented", role: "tablist" }, [["code", "Compare code"], ["scan", "Scan code"]].map(([id, label]) =>
-      h("button", { class: "segment", role: "tab", type: "button", "aria-selected": String(data.tab === id), onclick: () => { data.tab = id; refreshPage(); } }, label)));
-    return [intro(c), tabs, ...(data.tab === "scan" ? scan(c, data) : compare(c))];
-  },
-};
+// Two tabs, like Add contact: "Compare code" (the usual way for a contact far away) and "Scan code"
+// (decided 2026-10-14 over one page with the code first and scanning below). A verified contact shows
+// only its safety code, to check again.
+function layout(c, data) {
+  if (c.verified) return [h("h3", { class: "sheet-section" }, "Safety code"), ...compare(c)];
+  const tabs = h("div", { class: "segmented", role: "tablist" }, [["code", "Compare code"], ["scan", "Scan code"]].map(([id, label]) =>
+    h("button", { class: "segment", role: "tab", type: "button", "aria-selected": String(data.tab === id), onclick: () => { data.tab = id; refreshPage(); } }, label)));
+  return [intro(c), tabs, ...(data.tab === "scan" ? scan(c) : compare(c))];
+}
 
 registerPage("verifyContact", {
   title: data => contactOf(data.id)?.verified ? "Contact" : "Verify contact",
   render: data => {
     const c = contactOf(data.id);
     if (!c) return [text("This contact is no longer in your list.", "sheet-text muted")];
-    return [hero(c), ...(LAYOUTS[state.settings.verifyLayout] || LAYOUTS.page)(c, data)];
-  },
-});
-
-registerPage("scanVerify", {
-  title: "Scan code",
-  render: data => {
-    const c = contactOf(data.id);
-    return c ? scan(c, data) : [];
+    return [hero(c), ...layout(c, data)];
   },
 });
 

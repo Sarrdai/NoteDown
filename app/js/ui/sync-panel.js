@@ -198,7 +198,7 @@ function segmented(options, current, onPick) {
 
 function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
   const lead = [
-    avatar ? h("span", { class: "avatar" + (unverified ? " unverified" : ""), "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
+    avatar ? h("span", { class: "avatar", "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
     h("span", { class: "row-text" }, h("span", { class: "row-title" }, title), sub && h("span", { class: "row-sub" + (unverified ? " unverified-sub" : "") }, sub)),
   ];
   return h("li", { class: "sheet-row" },
