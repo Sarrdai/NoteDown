@@ -442,9 +442,12 @@ before the first live test).
   up to the next entry that is not selected. A finger that moves first
   scrolls instead; task checkboxes, links and the round button don't act
   meanwhile. On the desktop, Ctrl+click starts / extends the selection
-  and Shift+click selects a range (in the list and in the contents).
-  Long-press inside the note being edited stays text selection; the
-  archive selects whole notes only. *Prototype: round 3; sections
+  and Shift+click selects a range (in the list and in the contents); a
+  plain click on a card's frame — its margin or the free part of the meta
+  line, outside the text and the controls — selects the note too
+  (2026-10-14; mouse only: on touch the frame is a small target, stray
+  taps would select). Long-press and the frame of the note being edited
+  stay with the editor; the archive selects whole notes only. *Prototype: round 3; sections
   2026-10-14.*
 - A fully selected note is marked only by the **accent border**; a partly
   selected one tints its selected sections. In the contents, selected
