@@ -358,7 +358,7 @@ button { font: inherit; color: inherit; }
 }
 .dialog-title { margin: 0 8px; font-size: 1.15rem; }
 .dialog-hint { margin: 4px 8px 12px; font-size: 0.88rem; color: var(--text-muted); }
-.order-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; counter-reset: order; }
+.order-list { flex: 1; min-height: 0; overflow-y: auto; overflow-anchor: none; margin: 0; padding: 0; list-style: none; counter-reset: order; }
 .order-item {
   counter-increment: order; position: relative;
   display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 0 0 12px;
