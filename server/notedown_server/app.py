@@ -341,11 +341,12 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/v1/files")
     def list_files(who: Authed):
         with pool.connection() as conn:
+            # COLLATE "C": code point order, whatever the database's collation.
             rows = conn.execute(
                 "SELECT f.id, f.version, f.updated, length(f.ciphertext), "
                 "(SELECT array_agg(identity_id) FROM file_members WHERE file_id = f.id) "
                 "FROM files f JOIN file_members me ON me.file_id = f.id AND me.identity_id = %s "
-                "ORDER BY f.id", (who.identity,)).fetchall()
+                'ORDER BY f.id COLLATE "C"', (who.identity,)).fetchall()
         return {
             "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3],
                        "members": sorted(r[4])} for r in rows],

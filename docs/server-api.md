@@ -156,7 +156,7 @@ No accounts and no passwords: a device signs a challenge.
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
 | `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`; 404 unless the caller may read it ("Contacts and invitations") |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota"}`: every file the identity is a member of; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the storage limit per identity (so the app can show the usage) |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the storage limit per identity (so the app can show the usage) |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
