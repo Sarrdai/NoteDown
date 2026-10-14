@@ -235,15 +235,26 @@ export function setStatuses(ids, status) {
   return () => { for (const [n, b] of before) Object.assign(n, b); saveFiles(); emit("structure"); };
 }
 
-/** Replaces notes by one new note built from `merged` ({ body, created, due },
- *  core/selection.js) at the top of a file; returns { note, undo }. The note
- *  stays in the circle of the originals when they all share one, else it is
- *  private. */
-export function mergeNotes(ids, merged) {
+/**
+ * Merge and "move to a new note" (core/selection.js → mergeParts): sets each
+ * source note's remaining body from `changes` ([{ id, body }], body null =
+ * the note goes) and adds the new note ({ body, created, due }) at the top
+ * of a file; returns { note, undo }. The new note stays in the circle of the
+ * source notes when they all share one, else it is private.
+ */
+export function applyMerge(changes, merged) {
+  const ids = changes.map(c => c.id);
   const keys = new Set(ids.map(id => circleKey(circleOf(id))));
   const target = fileFor(keys.size === 1 ? circleOf(ids[0]) : []);
-  const putBack = takeOut(ids);
-  const n = createNote(merged.body, timestamp());
+  const now = timestamp();
+  const edited = changes.filter(c => c.body !== null).map(c => {
+    const n = note(c.id);
+    const before = { body: n.body, modified: n.modified };
+    Object.assign(n, { body: c.body, modified: now });
+    return [n, before];
+  });
+  const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  const n = createNote(merged.body, now);
   n.created = merged.created || n.created;
   n.due = merged.due;
   target.notes.unshift(n);
@@ -254,6 +265,7 @@ export function mergeNotes(ids, merged) {
     undo: () => {
       target.notes = target.notes.filter(x => x.id !== n.id);
       putBack();
+      for (const [x, before] of edited) Object.assign(x, before);
       saveFiles();
       emit("structure");
     },

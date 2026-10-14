@@ -212,10 +212,14 @@ before the first live test).
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
   and the deepest level present). The level count is remembered.
-- A note without a heading appears with its first sentence (shortened,
-  italic) at the top level.
+- Text without a heading — a note without one, or the start of a note
+  before its first heading — appears with its first sentence (shortened,
+  italic) **one level below the last heading above it**, in whichever note
+  that is (top level when there is none), so a note that belongs under a
+  section shows there. A note boundary always ends a section.
 - Tapping an entry scrolls to that place in the note and briefly
-  highlights the note.
+  highlights the note. A long-press on an entry selects sections
+  ("Multi-select"); not in the archive.
 - On the phone it opens as a **bottom sheet** from the top bar's contents
   button — within thumb reach, and the list stays visible above it
   (decided 2026-10-13 over a side drawer). Tablet and desktop show it as
@@ -274,38 +278,64 @@ before the first live test).
 
 ### Multi-select
 
-- **Long-press on a note** (450 ms) selects it and starts multi-select; a
-  finger that moves first scrolls instead. Then a tap anywhere on a card
-  adds it or removes it (task checkboxes, links and the round button
-  don't act meanwhile). On the desktop, Ctrl+click starts / extends the
-  selection and Shift+click selects a range. Long-press inside the note
-  being edited stays text selection. *Prototype: round 3.*
-- A selected note is marked only by the **accent border**; nothing else on
-  the card changes (decided 2026-10-13 over a check in the round button
-  and over a tinted card).
+- **One selection, two ways in** (decided 2026-10-14): a **long-press on
+  a note** (450 ms) selects the whole note, a **long-press on a contents
+  entry** selects that section together with everything below it — deeper
+  headings and the untitled notes hanging under it, also on hidden
+  levels. Then taps in either place add or remove: a tap on a card
+  toggles its whole note, a tap on an entry toggles it with what is below
+  it, so single parts can be taken out again. A selected section reaches
+  up to the next entry that is not selected. A finger that moves first
+  scrolls instead; task checkboxes, links and the round button don't act
+  meanwhile. On the desktop, Ctrl+click starts / extends the selection
+  and Shift+click selects a range (in the list and in the contents).
+  Long-press inside the note being edited stays text selection; the
+  archive selects whole notes only. *Prototype: round 3; sections
+  2026-10-14.*
+- A fully selected note is marked only by the **accent border**; a partly
+  selected one tints its selected sections. In the contents, selected
+  entries are tinted and selected sections on hidden levels show as "+n"
+  on the entry above them.
 - While selecting, a **contextual top bar** replaces the normal one: ✕,
-  "n selected" and the actions as icons (with labels on the desktop); the
-  + button is hidden (decided 2026-10-13 over a bottom action bar: the
-  thumb area and the list's bottom stay free, and search / archive can't
-  be hit by accident). *Prototype: round 3.*
-- Actions on the selection: **Close**, **Copy**, **Share** ("Sync and
-  sharing"), **Merge** (two or more notes) and **Delete**. Close, Share
-  and Delete end the selection and offer Undo. In the archive the actions are **Reopen**, Copy and Delete — no
-  Merge, closed notes are read-only. *Prototype: round 3.*
-- **Copy** puts the notes on the clipboard as plain Markdown, joined by a
-  blank line, without metadata; it keeps the selection.
-- **Merge** replaces the notes by one new open note: the bodies joined by
-  a blank line, created = the earliest created date, due = the earliest
-  due date, last edited = now. It appears at the top with "Notes merged ·
-  Undo", which brings back the originals in place.
-- Copy (with two or more notes) and Merge first show the notes in the
-  current sort order in a **confirmation dialog**, where the order can be
+  "n selected" (n = parts: whole notes and runs of adjacent sections) and
+  the actions as icons (with labels on the desktop); the + button is
+  hidden. On the phone the bar keeps the **contents button**, so the
+  selection can be refined in the contents sheet and back, and shows only
+  the number; Share and the heading actions move under ⋮ there. Decided
+  2026-10-13 over a bottom action bar (the thumb area and the list's
+  bottom stay free) and 2026-10-14 over a separate bar in the contents
+  (one selection, one bar). *Prototype: round 3.*
+- Actions: **Close**, **Copy**, **Share** ("Sync and sharing"),
+  **Merge**, **Delete**, **Promote / Demote headings**. Close, Share and
+  Delete act on whole notes (disabled while only parts of a note are
+  selected) and end the selection with Undo. In the archive the actions
+  are **Reopen**, Copy and Delete — closed notes are read-only.
+- **Copy** puts the selection on the clipboard as plain Markdown, the
+  parts joined by a blank line, without metadata; it keeps the selection.
+- **Merge** — also "move to a new note": the selected parts (two or more
+  notes, or any sections, even a single one) leave their notes and become
+  one new open note at the top, with "Notes merged" / "Moved to a new
+  note · Undo". The parts are joined by a blank line and **aligned**: each
+  part moves so its highest heading becomes `##` (`#` when a part uses
+  it), its structure below moving along. Created = the earliest created
+  date and due = the earliest due date of the notes involved (the content
+  lived that long); last edited = now. A note left empty disappears; Undo
+  brings everything back. The new note stays in the people circle of its
+  sources when they share one, else it is private.
+- **Promote / Demote headings** move every heading in the selection one
+  level up or down (`##` ↔ `###`), to correct levels quickly after a
+  merge; disabled when a heading would leave levels 1–6. The selection
+  stays.
+- Copy (with two or more parts) and Merge first show the parts in
+  contents order in a **confirmation dialog**, where the order can be
   changed by dragging an entry's grip (arrow keys on the desktop); each
-  entry is previewed by its first heading, or its first sentence if it
-  has none. *Prototype: round 3.*
+  entry is previewed by its heading, or its first sentence if it has
+  none. *Prototype: round 3.*
 - Multi-select ends with ✕, `Esc`, the Android back button, when the last
-  note is deselected, after Close / Delete / Merge, and on switching
+  part is deselected, after Close / Delete / Merge, and on switching
   between main view and archive.
+- Open: whether merging should also offer keeping the original heading
+  levels instead of aligning them — decided after trying the alignment.
 
 ### Quick capture
 

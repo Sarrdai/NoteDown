@@ -124,13 +124,14 @@ function addDictatedNote(text) {
   showSnackbar("Dictated note added", () => removeNote(n.id));
 }
 
-// A merged note replaces its originals at the top of the list.
-function onMerged(n, undo) {
+// A merged note (or one made from moved sections) appears at the top of the list.
+function onMerged(n, undo, message) {
+  setTocOpen(false);
   state.pinnedId = n.id;
   render();
   window.scrollTo(0, 0);
   flashNote(n.id);
-  showSnackbar("Notes merged", undo);
+  showSnackbar(message, undo);
 }
 
 function sortMenu() {
@@ -178,7 +179,7 @@ function download() {
 }
 
 function wire() {
-  for (const [id, name] of [["tocBtn", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -212,7 +213,7 @@ function wire() {
   initMenu();
   initToolbar();
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged });
+  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
   initSyncPanel();
   initPullRefresh({
     canPull: target => state.sync.enabled && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden

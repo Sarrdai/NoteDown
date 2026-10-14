@@ -4,7 +4,8 @@
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
-import { renderMarkdown, noteTitle, toggleTask } from "../core/markdown.js";
+import { renderMarkdown, noteTitle, toggleTask, sections } from "../core/markdown.js";
+import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, removeNote, circleOf } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
@@ -41,7 +42,6 @@ export function patchNote(id) {
 function noteElement(n) {
   const el = document.createElement("article");
   el.className = "note" + (n.status === "closed" ? " closed" : "");
-  if (state.selected.has(n.id)) el.classList.add("selected");
   el.dataset.id = n.id;
   if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 
@@ -54,6 +54,7 @@ function noteElement(n) {
   const body = document.createElement("div");
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
+  wrapSections(body, sections(n.body));
   if (n.status === "closed") body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
@@ -62,7 +63,31 @@ function noteElement(n) {
   meta.innerHTML = metaHtml(n);
 
   el.append(status, body, meta);
+  markSelected(el);
   return el;
+}
+
+// Groups the rendered blocks by section (core/markdown.js → sections), so
+// the contents can jump to one and the selection can mark it.
+function wrapSections(body, ss) {
+  const groups = ss.map((_, i) => Object.assign(document.createElement("div"), { className: "md-section" }));
+  groups.forEach((g, i) => { g.dataset.section = i; });
+  let i = ss[0].depth === null ? 0 : -1;
+  for (const child of [...body.children]) {
+    if (/^H[1-6]$/.test(child.tagName)) i++;
+    groups[Math.max(0, Math.min(i, groups.length - 1))].append(child);
+  }
+  body.replaceChildren(...groups);
+}
+
+/** Marks a card for the selection: the accent border when the whole note is
+ *  selected, else a tint on each selected section. */
+export function markSelected(el) {
+  const groups = [...el.querySelectorAll(".md-section")];
+  const on = groups.map(g => state.selected.has(sectionKey(el.dataset.id, g.dataset.section)));
+  const whole = on.length > 0 && on.every(Boolean);
+  el.classList.toggle("selected", whole);
+  groups.forEach((g, i) => g.classList.toggle("selected", on[i] && !whole));
 }
 
 // The shared marker: overlapping avatars of the members; a button while the

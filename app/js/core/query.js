@@ -1,6 +1,6 @@
 // What a view shows: which notes, in which order, and the table of contents
 // over them. Pure functions on the note objects from notes-file.js.
-import { headings, noteTitle } from "./markdown.js";
+import { sections, noteTitle } from "./markdown.js";
 import { localTime } from "./notes-file.js";
 
 export const SORT_KEYS = {
@@ -36,23 +36,28 @@ export function sortNotes(notes, { key, dir }) {
   return keyed.map(x => x.n);
 }
 
+/** The id of a note's section (core/markdown.js → sections) in the contents and the selection. */
+export const sectionKey = (noteId, index) => `${noteId}#${index}`;
+
 /**
- * Table of contents over the notes in view order. Levels count from the
- * highest heading level that occurs (level 1 = shallowest); a note without
- * a heading gets one level-1 entry with its first sentence.
- * Returns { entries: [{ noteId, index, level, text, fromHeading }], maxLevel }.
+ * Table of contents over the notes in view order: one entry per section.
+ * Levels count from the highest heading level that occurs (level 1 =
+ * shallowest). An untitled section (a note, or the start of one, without a
+ * heading) shows its first sentence one level below the last heading above
+ * it, in whichever note that is — or on level 1 when there is none.
+ * Returns { entries: [{ key, noteId, index, level, text, fromHeading }], maxLevel }.
  */
 export function tableOfContents(notes) {
-  const perNote = notes.map(n => ({ n, hs: headings(n.body) }));
-  const depths = perNote.flatMap(p => p.hs.map(h => h.depth));
+  const perNote = notes.map(n => ({ n, ss: sections(n.body) }));
+  const depths = perNote.flatMap(p => p.ss.filter(s => s.depth).map(s => s.depth));
   const top = depths.length ? Math.min(...depths) : 1;
   const entries = [];
-  for (const { n, hs } of perNote) {
-    if (!hs.length) {
-      entries.push({ noteId: n.id, index: -1, level: 1, text: noteTitle(n.body).text, fromHeading: false });
-      continue;
-    }
-    hs.forEach((h, index) => entries.push({ noteId: n.id, index, level: h.depth - top + 1, text: h.text, fromHeading: true }));
+  let last = 0; // level of the last heading above
+  for (const { n, ss } of perNote) {
+    ss.forEach((s, index) => {
+      const level = s.depth ? (last = s.depth - top + 1) : last + 1;
+      entries.push({ key: sectionKey(n.id, index), noteId: n.id, index, level, text: s.text, fromHeading: !!s.depth });
+    });
   }
   const maxLevel = entries.reduce((m, e) => Math.max(m, e.level), 1);
   return { entries, maxLevel };

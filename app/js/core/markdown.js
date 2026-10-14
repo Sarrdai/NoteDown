@@ -1,5 +1,6 @@
-// Markdown helpers on a note's body: rendering, headings for the table of
-// contents, the preview title, and toggling task checkboxes in the source.
+// Markdown helpers on a note's body: rendering, headings and sections for
+// the table of contents, the preview title, and toggling task checkboxes in
+// the source.
 import { Marked } from "../../vendor/marked.esm.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
@@ -32,6 +33,29 @@ export function headings(body) {
     if (t.type === "heading") out.push({ depth: t.depth, text: plain(t.text) });
   });
   return out;
+}
+
+/**
+ * The note's sections in document order: one per top-level heading, up to
+ * the next one, and before them an untitled one for text ahead of the first
+ * heading (the whole note when it has no heading). Lines are 0-based, `end`
+ * exclusive: [{ start, end, depth (null = untitled), text }].
+ */
+export function sections(body) {
+  const tokens = marked.lexer(body);
+  const lines = body.split("\n");
+  const starts = [];
+  // Line numbers come from the tokens' raw text, which adds up to the body.
+  if (tokens.map(t => t.raw).join("") === body) {
+    let line = 0;
+    for (const t of tokens) {
+      if (t.type === "heading") starts.push({ start: line, depth: t.depth, text: plain(t.text) });
+      line += (t.raw.match(/\n/g) || []).length;
+    }
+  }
+  const lead = lines.slice(0, starts.length ? starts[0].start : lines.length).join("\n");
+  if (!starts.length || lead.trim()) starts.unshift({ start: 0, depth: null, text: firstSentence(lead) });
+  return starts.map((s, i) => ({ ...s, end: i + 1 < starts.length ? starts[i + 1].start : lines.length }));
 }
 
 /** The note's display title: first heading, else its first sentence. */
