@@ -63,9 +63,16 @@
 }
 
 /* The archive keeps the same layout on a tinted background (also its swipe preview). */
+:root {
+  --bg-archive: color-mix(in srgb, var(--ctp-mantle) 84%, var(--ctp-teal));
+  --surface-archive: color-mix(in srgb, var(--ctp-base) 93%, var(--ctp-teal));
+}
+/* The other view's colors, for what stays in place while swiping (top bar, contents panel). */
+.app { --bg-other: var(--bg-archive); --surface-other: var(--surface-archive); }
+.app[data-view="closed"] { --bg-other: var(--ctp-mantle); --surface-other: var(--ctp-base); }
 .app[data-view="closed"], .swipe-peek[data-view="closed"] {
-  --bg: color-mix(in srgb, var(--ctp-mantle) 84%, var(--ctp-teal));
-  --surface: color-mix(in srgb, var(--ctp-base) 93%, var(--ctp-teal));
+  --bg: var(--bg-archive);
+  --surface: var(--surface-archive);
   --border: color-mix(in srgb, var(--ctp-surface0) 80%, var(--ctp-teal));
 }
 
@@ -108,11 +115,26 @@ button { font: inherit; color: inherit; }
 
 /* ---------- top bar ---------- */
 /* pan-y: sideways the browser never takes the finger, so the view swipe gets it. */
-.main { min-width: 0; overflow-x: clip; touch-action: pan-y pinch-zoom; }
+/* At least the screen's height: a swipe starts below the last card too. */
+.main { min-width: 0; min-height: 100dvh; overflow-x: clip; touch-action: pan-y pinch-zoom; }
 /* Swiping between notes and archive (ui/view-swipe.js): the list and the
    contents list follow the finger, the other view's pages (.swipe-peek) move
    in beside them. */
-.main.swiping :is(.filter-bar, .list, .empty), .toc-list.swiping { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
+.main.swiping :is(.filter-bar, .list, .empty), .toc-panel.swiping .toc-list { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
+/* The top bar and the contents panel stay in place, but their color moves
+   with the pages: the other view's tint comes in from its side (the archive
+   lies to the right), split where the pages meet. A registered --swipe-x lets
+   the split follow the snap after letting go. */
+@property --swipe-x { syntax: "<length>"; inherits: true; initial-value: 0px; }
+.main.swiping .topbar { --pane: color-mix(in srgb, var(--bg) 88%, transparent); --pane-other: color-mix(in srgb, var(--bg-other) 88%, transparent); }
+.toc-panel.swiping { --pane: var(--bg); --pane-other: var(--bg-other); }
+:is(.main.swiping .topbar, .toc-panel.swiping) { transition: --swipe-x var(--swipe-ms, 0ms) ease-out; }
+.app[data-view="open"] :is(.main.swiping .topbar, .toc-panel.swiping) {
+  background: linear-gradient(to right, var(--pane) calc(100% + var(--swipe-x)), var(--pane-other) 0);
+}
+.app[data-view="closed"] :is(.main.swiping .topbar, .toc-panel.swiping) {
+  background: linear-gradient(to right, var(--pane-other) var(--swipe-x), var(--pane) 0);
+}
 .swipe-peek { position: fixed; z-index: 5; bottom: 0; overflow: hidden; pointer-events: none; }
 .swipe-page { position: absolute; inset: 0; background: var(--bg); }
 .swipe-peek.toc-peek { z-index: 20; bottom: auto; }
@@ -654,6 +676,30 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .request-hero { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 4px; }
 .request-title { margin: 8px 0 0; font-size: 1.1rem; font-weight: 700; text-align: center; }
 .avatar.large { width: 64px; height: 64px; font-size: 1.4rem; }
+
+/* Verifying a contact (backlog #4, ui/verify-contact.js). */
+.row-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; align-self: stretch; margin: -6px 0 -6px -14px; padding: 6px 0 6px 14px;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px;
+}
+.row-open:hover { background: var(--surface-hover); }
+.row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row-sub.unverified-sub { color: var(--warning); font-weight: 600; }
+.verify-state { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 0; font-weight: 650; color: var(--warning); }
+.verify-state.ok { color: var(--done); }
+.verify-state .icon { width: 18px; height: 18px; }
+.safety-code {
+  margin: 4px 0 0; padding: 14px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; text-align: center; white-space: nowrap; word-spacing: 0.1em;
+}
+.share-notices { display: flex; flex-direction: column; gap: 8px; }
+.share-notices:empty { display: none; }
+.share-notice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 10px 10px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 14%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+.share-notice .row-title { white-space: normal; }
+.notice-icon { flex: none; display: inline-flex; color: var(--warning); }
 @media (prefers-reduced-motion: reduce) {
   #syncBtn .spin, #syncBtn path { animation: none !important; stroke-dashoffset: 0 !important; }
 }
@@ -890,13 +936,14 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
     --sheet-max: calc(100dvh - var(--topbar-h) - var(--safe-top) - 8px);
   }
   .toc-panel {
-    transition: height 0.25s ease; box-shadow: var(--shadow-high); background: var(--ctp-base);
+    transition: height 0.25s ease; box-shadow: var(--shadow-high); background: var(--surface);
     top: auto; right: 0; width: auto;
     height: var(--peek); min-height: var(--peek); max-height: var(--sheet-max);
     border-right: 0; border-radius: 18px 18px 0 0; padding-top: 0; padding-bottom: var(--safe-bottom);
   }
   .app.toc-open .toc-panel { height: var(--sheet-max); }
-  .toc-peek .swipe-page { background: var(--ctp-base); }
+  .toc-peek .swipe-page { background: var(--surface); }
+  .toc-panel.swiping { --pane: var(--surface); --pane-other: var(--surface-other); }
   .app.toc-dragging .toc-panel { transition: none; }
   .app:not(.toc-open):not(.toc-dragging) .toc-panel > :not(.toc-handle) { visibility: hidden; }
   .app:is(.is-editing, .recording) .toc-panel { display: none; }

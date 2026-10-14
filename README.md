@@ -28,7 +28,7 @@ Android (a Capacitor shell in `mobile/`) and the web come first, with a
 Python sync server in `server/`. End-to-end encrypted sync works: turn
 it on under ⋮ → Sync & sharing, link further devices by scanning a QR
 code (or with the recovery key), add contacts by their code or an
-invitation link, and share notes with them from multi-select → Share.
+invitation link (verify the latter later by a safety code), and share notes with them from multi-select → Share.
 
 ## Try the prototype
 

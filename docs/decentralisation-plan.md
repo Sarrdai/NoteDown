@@ -1,4 +1,4 @@
-# Plan: decentralisation (backlog #28, #29)
+# Plan: decentralisation (backlog #29)
 
 Not decided — a plan for a later round (written 2026-10-14 against `main`
 @ 33067fb). It turns the sketch in `docs/sync-and-sharing.md` → "Open
@@ -36,14 +36,12 @@ the notes file apart from new marker attributes, quota and rate limits
 
 Order: 1 → (2 ∥ 4) → 3 → 5. Package 1 depends on none of the questions.
 
-1. **#28 groundwork** (small; a Sonnet session is enough): link, link
-   code, relay message and contact marker carry the server; the home
-   server in the sync state; file records and stored file keys addressed
-   by server + file ID, with a one-time migration of what a device stored
-   already; every API call goes through the server of its record or
-   contact (still always the default in practice). Unit tests; docs
-   (`server-api.md`, `file-format.md`, `sync-and-sharing.md`); backlog
-   #28 retired. `scripts/test-sync.sh` stays green, no behaviour change.
+1. **#28 groundwork** — done (2026-10-14): links, link codes, relay
+   messages, contact markers, file records and stored file keys carry the
+   server (`docs/sync-and-sharing.md` → "Servers"). Left for package 3: a
+   contact confirmed from an incoming request gets no `server` yet (the
+   request card carries none), and removing a contact still goes to the
+   own home server.
 2. **#29 server** (Opus: protocol design): full-chain identities,
    contact pairs per question 2, the relay fill, `GET /v1/info`, a notice
    inbox if question 1 picks free choice. Server tests,

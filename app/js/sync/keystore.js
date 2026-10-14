@@ -32,6 +32,8 @@ export const getSecret = key => run("readonly", s => s.get(key));
 
 export const setSecret = (key, value) => run("readwrite", s => s.put(value, key));
 
+export const deleteSecret = key => run("readwrite", s => s.delete(key));
+
 export const clearSecrets = () => run("readwrite", s => s.clear());
 
 /** Deletes the whole database, device keys included (signing out). */

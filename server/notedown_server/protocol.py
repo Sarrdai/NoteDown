@@ -19,6 +19,14 @@ class ProtocolError(ValueError):
     """A request that breaks the protocol (answered with 400)."""
 
 
+class LimitError(Exception):
+    """A file limit that a member of the file would exceed (answered with 413 and the members)."""
+
+    def __init__(self, detail: str, members: list[str]):
+        super().__init__(detail)
+        self.detail, self.members = detail, members
+
+
 def b64u(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 

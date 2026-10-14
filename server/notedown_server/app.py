@@ -17,7 +17,7 @@ from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 from . import auth
-from .protocol import (ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
+from .protocol import (LimitError, ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
 
 # Total decoded ciphertext per identity; a constant for now (a paid option may raise it later).
@@ -144,6 +144,10 @@ def create_app(settings: Settings) -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+    @app.exception_handler(LimitError)
+    async def limit_error(_: Request, exc: LimitError):
+        return JSONResponse(status_code=413, content={"detail": exc.detail, "members": exc.members})
 
     @app.exception_handler(ProtocolError)
     async def protocol_error(_: Request, exc: ProtocolError):
@@ -369,12 +373,10 @@ def create_app(settings: Settings) -> FastAPI:
     def put_file(file_id: str, body: Upload, who: Authed):
         require_file_id(file_id)
         if len(body.ciphertext) > MAX_STORAGE_BYTES * 4 // 3 + 4:
-            raise HTTPException(413, "storage quota exceeded")
+            raise LimitError("storage quota exceeded", [who.identity])
         ciphertext = from_b64u(body.ciphertext)
         requested = check_members(body.members, who.identity) if body.members is not None else None
         with pool.connection() as conn:
-            # Uploads of one identity queue up here, so the quota check below can't be raced.
-            conn.execute("SELECT 1 FROM identities WHERE id = %s FOR UPDATE", (who.identity,))
             row = conn.execute("SELECT version FROM files WHERE id = %s FOR UPDATE", (file_id,)).fetchone()
             if row is not None:
                 members = file_members(conn, file_id)
@@ -400,20 +402,26 @@ def create_app(settings: Settings) -> FastAPI:
                                         (member_key(members),)).fetchone()
                 if existing:
                     return file_exists(*existing)
-            # The uploader's usage over all files it is a member of.
-            used = conn.execute(
-                "SELECT coalesce(sum(length(f.ciphertext)), 0) FROM files f "
-                "JOIN file_members m ON m.file_id = f.id AND m.identity_id = %s WHERE f.id <> %s",
-                (who.identity, file_id)).fetchone()[0]
-            if used + len(ciphertext) > MAX_STORAGE_BYTES:
-                raise HTTPException(413, "storage quota exceeded")
+            # A file counts in full for every member (backlog #27), so the limits are checked
+            # for each of them. Uploads touching a member queue up here (locked in ID order,
+            # after the file row), so the checks below can't be raced.
+            conn.execute("SELECT 1 FROM identities WHERE id = ANY(%s) ORDER BY id FOR UPDATE",
+                         (members,))
+            usage = conn.execute(
+                "SELECT m.identity_id, coalesce(sum(length(f.ciphertext)) FILTER (WHERE f.id <> %s), 0), "
+                "count(*) FILTER (WHERE f.id <> %s) FROM file_members m JOIN files f ON f.id = m.file_id "
+                "WHERE m.identity_id = ANY(%s) GROUP BY m.identity_id",
+                (file_id, file_id, members)).fetchall()
+            used = {m: (0, 0) for m in members} | {r[0]: (r[1], r[2]) for r in usage}
+            over = sorted(m for m, (size, _) in used.items() if size + len(ciphertext) > MAX_STORAGE_BYTES)
+            if over:
+                raise LimitError("storage quota exceeded", over)
             if row is None:
                 if not body.keys:
                     raise ProtocolError("a new file needs keys")
-                count = conn.execute("SELECT count(*) FROM file_members WHERE identity_id = %s",
-                                     (who.identity,)).fetchone()[0]
-                if count >= MAX_FILES:
-                    raise HTTPException(413, "too many files")
+                over = sorted(m for m, (_, count) in used.items() if count >= MAX_FILES)
+                if over:
+                    raise LimitError("too many files", over)
                 try:
                     with conn.transaction():
                         conn.execute("INSERT INTO files (id, owner, version, ciphertext, member_key) "

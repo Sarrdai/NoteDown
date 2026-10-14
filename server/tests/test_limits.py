@@ -22,7 +22,7 @@ def test_storage_quota_counts_all_files_of_the_identity(people):
     shared = dict(keys={**keys, bob.phone.id: b64u(b"k")}, file_id=b64u(os.urandom(16)), members=sorted([alice.id, bob.id]))
     assert upload(alice.client, h, 0, b"a" * MAX_STORAGE_BYTES, keys=keys).status_code == 200
     full = upload(alice.client, h, 0, b"b", **shared)
-    assert full.status_code == 413 and full.json() == {"detail": "storage quota exceeded"}
+    assert full.status_code == 413 and full.json() == {"detail": "storage quota exceeded", "members": [alice.id]}
     # Replacing a file doesn't count its old size, but a bigger one doesn't fit.
     assert upload(alice.client, h, 1, b"a" * (MAX_STORAGE_BYTES - 10)).status_code == 200
     assert upload(alice.client, h, 0, b"b" * 10, **shared).status_code == 200
@@ -46,7 +46,7 @@ def test_a_file_over_the_quota_is_refused_early(client, setup):
     identity, phone, _ = setup
     h = token(client, identity, phone)
     r = upload(client, h, 0, b"a" * (MAX_STORAGE_BYTES + 1), keys={phone.id: b64u(b"k")})
-    assert r.status_code == 413 and r.json() == {"detail": "storage quota exceeded"}
+    assert r.status_code == 413 and r.json() == {"detail": "storage quota exceeded", "members": [identity.id]}
 
 
 def test_quota_is_per_identity(client, setup):

@@ -10,12 +10,12 @@
 // sharing, pull to refresh); each round also brings contact requests and
 // confirmations (contacts.js). The sample
 // (`state.sync.simulated`) never reaches this module.
-import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState } from "../store.js";
+import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState, contacts, sharedFiles } from "../store.js";
 import { parseNotesFile } from "../core/notes-file.js";
 import * as c from "../core/crypto.js";
-import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS } from "../core/sync-state.js";
-import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel } from "../core/linking.js";
-import { createApi, ApiError, NetworkError } from "./api.js";
+import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal } from "../core/sync-state.js";
+import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, serverUrl } from "../core/linking.js";
+import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
 import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored } from "./files.js";
 import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
@@ -25,7 +25,9 @@ const ATTEMPTS = 3;
 const MIN_BUSY_MS = 800;   // "syncing" stays long enough to be seen
 const SLOT_POLL_MS = 2000;
 
-let api = null;
+let apis = null;         // server URL → API client (sync/api.js)
+let api = null;          // the client of the default server: where a new identity, a slot or a recovery key is looked for
+let defaultServer = ""; // the configured API address (app/config.json, ?api=)
 let keys = null;         // this device's { sign, enc } key pairs
 let caller = null;       // while restoring: the recovery device signs in
 let running = null, again = false, timer = null, busySince = 0;
@@ -35,13 +37,20 @@ let moved = false;       // the running sync downloaded or uploaded something
 const active = () => api && state.sync.enabled && !state.sync.simulated;
 const emptyFile = () => parseNotesFile("");
 
+// The identity's home server (a state saved before servers were named: the default one) and the client of
+// a server ("" or none: the home server). Every call goes through the server of its file or contact.
+const home = () => state.sync.server || defaultServer;
+const serverApi = server => apis(server || home());
+
 /** Starts sync against the server at `apiUrl` (none: sync can't be turned on); `webUrl` is the address
  *  of this app on the web, the start of invitation links (none: no links can be made). */
 export function initSync(apiUrl, webUrl = "") {
   if (!apiUrl) return;
-  api = createApi(apiUrl, () => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
-  initContacts({ api: () => api, keys: () => keys, loadKeys, chain, web: () => webUrl });
-  initFiles({ api: () => api, keys: () => keys, chain, busy, moved: () => { moved = true; } });
+  defaultServer = serverUrl(new URL(apiUrl, location.href).href);   // a relative address too
+  apis = createApis(() => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
+  api = apis(defaultServer);
+  initContacts({ api: serverApi, home, defaultServer: () => defaultServer, keys: () => keys, loadKeys, chain, web: () => webUrl });
+  initFiles({ api: serverApi, home, defaultServer: () => defaultServer, keys: () => keys, chain, busy, moved: () => { moved = true; } });
   onFilesChanged(() => { resetPoll(); schedule(AFTER_CHANGE_MS); });
   const wake = () => { resetPoll(); schedule(0); };
   document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
@@ -122,9 +131,17 @@ async function round() {
   }
 }
 
+// A member's name for a sync message: the contact's name, else the name they wrote into a shared file.
+function memberName(id) {
+  return contacts().find(x => x.id === id)?.name
+    || sharedFiles().flatMap(f => f.file?.members || []).find(m => m.id === id)?.name || "";
+}
+
 function fail(e) {
-  const storageFull = e instanceof ApiError && e.status === 413 && e.body.detail === "storage quota exceeded";
+  const limit = e instanceof ApiError ? limitRefusal(e.status, e.body, state.sync.identity, memberName) : null;
+  const storageFull = !!limit?.own && limit.kind === "storage";
   if (state.sync.storageFull !== storageFull) setSync({ storageFull });
+  if (limit && !limit.own) return setSync({ status: "error", error: limit.message });
   if (e instanceof NetworkError) return setSync({ status: "offline", error: "" });
   // The server refuses a device that is no longer on the list (401 after a fresh token).
   const removed = e instanceof ApiError && (e.status === 401 || e.status === 403);
@@ -144,7 +161,7 @@ async function loadKeys() {
 
 // The verified device list: { devices (Map), entries }.
 async function chain() {
-  const { identity_key: identityKey, entries } = await api.getIdentity(state.sync.identity);
+  const { identity_key: identityKey, entries } = await serverApi().getIdentity(state.sync.identity);
   if (identityKey !== state.sync.identityKey) throw new Error("The server answered with another identity");
   return { devices: await c.verifyChain(c.fromB64u(identityKey, 32), entries), entries };
 }
@@ -155,13 +172,13 @@ export async function loadDevices() {
   return (await chain()).devices;
 }
 
-async function adopt({ name, identity, identityKey, device }) {
+async function adopt({ name, identity, server, identityKey, device }) {
   await clearSecrets();
   await setSecret("device", device);
   keys = device;
   forgetKeys();
   setSync({
-    enabled: true, simulated: false, name, identity, identityKey: c.b64u(identityKey),
+    enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
     device: await c.keyId(device.sign.publicKey), file: null, files: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "",
   });
 }
@@ -181,7 +198,7 @@ export async function turnOn(name, recoveryKey) {
     if (e instanceof ApiError && e.status === 409) throw new Error("This recovery key is already in use");
     throw e;
   }
-  await adopt({ name, identity, identityKey: r.identity.publicKey, device });
+  await adopt({ name, identity, server: defaultServer, identityKey: r.identity.publicKey, device });
   nameThisDevice();
   await syncNow();
 }
@@ -230,9 +247,9 @@ export async function restore(recoveryKey) {
     remote = await readForRestore((await api.listFiles()).files, r.recovery.enc, deviceId, device.enc.publicKey);
   } finally {
     caller = null;
-    api.forgetToken();
+    apis.forgetTokens();
   }
-  await adopt({ name: state.sync.name, identity, identityKey: r.identity.publicKey, device });
+  await adopt({ name: state.sync.name, identity, server: defaultServer, identityKey: r.identity.publicKey, device });
   await installRestored(remote, identity, onlyUntouchedWelcome(state.file) ? emptyFile() : state.file);
   nameThisDevice();
   await syncNow();
@@ -245,7 +262,7 @@ export async function restore(recoveryKey) {
 export async function startLinking() {
   const device = await c.generateDeviceKeys();
   const { slot, expires } = await api.createSlot();
-  const code = linkCode({ slot, sign: c.b64u(device.sign.publicKey), enc: c.b64u(device.enc.publicKey), name: deviceLabel(navigator.userAgent) });
+  const code = linkCode({ slot, sign: c.b64u(device.sign.publicKey), enc: c.b64u(device.enc.publicKey), name: deviceLabel(navigator.userAgent), server: defaultServer });
   return { device, slot, code, expires: Date.parse(expires) };
 }
 
@@ -276,14 +293,15 @@ export async function waitForLink({ device, slot }, cancelled) {
   const deviceId = await c.keyId(device.sign.publicKey);
   caller = { identity: message.identity, device: deviceId, sign: device.sign.privateKey };
   let list;
+  const server = message.server || defaultServer;   // the identity's home server
   try {
-    list = await api.getIdentity(message.identity);
+    list = await apis(server).getIdentity(message.identity);
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) throw new Error("This device isn't on the device list; scan the code again");
     throw e;
   } finally {
     caller = null;
-    api.forgetToken();
+    apis.forgetTokens();
   }
   const { identity_key: identityKey, entries } = list;
   const keyBytes = c.fromB64u(identityKey, 32);
@@ -291,7 +309,7 @@ export async function waitForLink({ device, slot }, cancelled) {
   const devices = await c.verifyChain(keyBytes, entries);
   if (!devices.get(deviceId)?.active) throw new Error("This device isn't on the device list; scan the code again");
   if (onlyUntouchedWelcome(state.file)) setPrivateFile(emptyFile());
-  await adopt({ name: message.name, identity: message.identity, identityKey: keyBytes, device });
+  await adopt({ name: message.name, identity: message.identity, server, identityKey: keyBytes, device });
   await syncNow();
   return true;
 }
@@ -312,8 +330,9 @@ export async function linkDevice(text) {
   const code = parseLinkCode(text);
   if (!code) throw new Error("That's not the code of a NoteDown device");
   const expired = new Error("The code has expired. Show a new one on the other device and scan again");
+  const slotApi = apis(code.server || defaultServer);   // the server the slot is on
   try {
-    await api.readSlot(code.slot);   // still open (204), before the device goes on the list
+    await slotApi.readSlot(code.slot);   // still open (204), before the device goes on the list
   } catch (e) {
     throw e instanceof ApiError && e.status === 404 ? expired : e;
   }
@@ -324,7 +343,7 @@ export async function linkDevice(text) {
   for (let entries = (await chain()).entries; ;) {
     const body = await c.newEntry(state.sync.identity, entries, "add", record);
     try {
-      await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
       break;
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 409)) throw e;
@@ -337,7 +356,7 @@ export async function linkDevice(text) {
     await syncNow();
   }
   try {
-    await api.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name), c.fromB64u(code.enc, 32)));
+    await slotApi.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name, home()), c.fromB64u(code.enc, 32)));
   } catch (e) {
     throw e instanceof ApiError && e.status === 409 ? expired : e;
   }
@@ -354,7 +373,7 @@ export async function removeDevice(id) {
   await loadKeys();
   const { entries } = await chain();
   const body = await c.newEntry(state.sync.identity, entries, "remove", { id });
-  await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+  await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
   setPrivateFile(withDeviceName(state.file, id, null));
   markRenew();
   for (let i = 0; i < ATTEMPTS && state.sync.renew.length; i++) await syncNow();
@@ -370,6 +389,7 @@ export async function eraseDevice() {
   clearTimeout(pollTimer);
   clearTimeout(timer);
   api = null;   // no sync round starts from here on
+  apis = null;
   eraseStoredState();
   keys = null;
   forgetKeys();
@@ -390,7 +410,7 @@ export async function signOut() {
   for (let entries = (await chain()).entries; ;) {
     const body = await c.newEntry(state.sync.identity, entries, "remove", { id: state.sync.device });
     try {
-      await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
       break;
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 409)) throw e;

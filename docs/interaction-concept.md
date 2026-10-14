@@ -69,7 +69,9 @@ Current state, edited in place when a decision changes.
   where it shows (sidebar, open sheet) moves along in step, the other
   view's contents moving in beside it; the top bar and the contents' head
   stay in place (an open sheet stays open) and are refilled once the view
-  has switched. Not while editing,
+  has switched, but their background tint moves with the pages, split
+  where the two views meet. The whole screen below the top bar takes the
+  swipe, also below the last card. Not while editing,
   selecting or recording; content that scrolls sideways itself (a wide
   table) keeps the gesture. Desktop has no touch, the view button
   switches there.

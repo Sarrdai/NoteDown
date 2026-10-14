@@ -9,6 +9,7 @@ import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite } from "./ui/sync-panel.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
+import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
@@ -139,7 +140,7 @@ function swipeLanes() {
   }];
   const toc = $("tocList");
   if (toc.getClientRects().length && getComputedStyle(toc).visibility === "visible") lanes.push({
-    move: toc,
+    move: $("tocPanel"),   // the panel carries --swipe-x: the list moves by it, the background splits at it
     rect: () => { const r = toc.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
     preview: view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; },
     peekClass: "toc-peek",

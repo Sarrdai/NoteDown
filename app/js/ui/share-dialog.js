@@ -64,23 +64,42 @@ function leave(data) {
 // Tri-state checkbox: a tap on "mixed" or unchecked checks it, on checked clears it.
 const MARK = { all: icon("check", "icon box-mark"), some: icon("minus", "icon box-mark"), none: "" };
 
-function contactRow(c, data) {
-  const row = h("button", {
-    class: "share-row", type: "button", role: "checkbox", "aria-checked": data.states[c.id] === "some" ? "mixed" : String(data.states[c.id] === "all"),
+// A contact row: tapping anywhere toggles the checkbox.
+function contactRow(c, data, onToggle) {
+  const box = h("button", { class: "check-box", type: "button", role: "checkbox", "aria-label": `Share with ${c.name}` });
+  const row = h("div", {
+    class: "share-row",
     onclick: () => {
       data.states[c.id] = data.states[c.id] === "all" ? "none" : "all";
-      paint(row, data.states[c.id]);
+      paint(box, data.states[c.id]);
+      onToggle();
     },
-  }, h("span", { html: avatarHtml(c.id) }), h("span", { class: "row-title" }, c.name), h("span", { class: "check-box", "data-state": data.states[c.id] }));
-  paint(row, data.states[c.id]);
+  },
+  h("span", { html: avatarHtml(c.id) }),
+  h("span", { class: "row-text" }, h("span", { class: "row-title" }, c.name)),
+  box);
+  paint(box, data.states[c.id]);
   return row;
 }
 
-function paint(row, s) {
-  row.setAttribute("aria-checked", s === "some" ? "mixed" : String(s === "all"));
-  const box = row.querySelector(".check-box");
+function paint(box, s) {
+  box.setAttribute("aria-checked", s === "some" ? "mixed" : String(s === "all"));
   box.dataset.state = s;
   box.innerHTML = MARK[s];
+}
+
+// A notice under the list for each checked contact who isn't verified (backlog #4): the hint shows where
+// it matters, the list stays calm (decided 2026-10-14 over a label or an avatar badge in every row).
+function notices(data) {
+  const el = h("div", { class: "share-notices" });
+  const update = () => el.replaceChildren(...contacts().filter(c => !c.pending && !c.verified && data.states[c.id] !== "none").map(c =>
+    h("div", { class: "share-notice" },
+      h("span", { class: "notice-icon", html: icon("protect") }),
+      h("span", { class: "row-text" }, h("span", { class: "row-title" }, `${c.name} isn't verified`),
+        h("span", { class: "row-sub" }, "Added by link. Check that it's really them.")),
+      button("Verify", "outline", () => go("verifyContact", { id: c.id, tab: "code" })))));
+  update();
+  return { el, update };
 }
 
 const leavable = ids => {
@@ -93,11 +112,13 @@ registerPage("share", {
   render: data => {
     // A contact added from here comes back checked, unless the request is still open.
     data.onContactAdded = c => { if (!c.pending) data.states[c.id] = "all"; };
+    const notice = notices(data);
     return [
       text("Only the people you pick can read it. Everyone you share with can edit, close and share it too."),
       contacts().some(c => !c.pending)
-        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, contacts().filter(c => !c.pending).map(c => contactRow(c, data)))
+        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, contacts().filter(c => !c.pending).map(c => contactRow(c, data, notice.update)))
         : null,
+      notice.el,
       h("button", { class: "share-row add", type: "button", onclick: () => go("addContact", { mode: "scan" }) },
         h("span", { class: "row-icon", html: icon("plus") }), h("span", { class: "row-title" }, "Add contact")),
       leavable(data.ids) ? h("div", { class: "button-row" }, button("Leave", "danger", () => leave(data))) : null,

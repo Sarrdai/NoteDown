@@ -26,6 +26,9 @@ export function loadSharingSample() {
   return sharing;
 }
 
+// A sample contact: scanned in person = verified, added by link = not (backlog #4).
+const contactOf = ({ via, ...c }, color) => ({ ...c, color, ...(via === "scan" && { verified: timestamp() }) });
+
 /**
  * The full sample state for the store (`replaceFiles`): the sample notes and,
  * with `sync`, the sample identity with its contacts and shared files.
@@ -44,7 +47,7 @@ export async function loadSampleState({ sync = true } = {}) {
     shared: split.shared,
     sync: {
       enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
-      devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
+      devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, contactOf(c, nextColor(list))], []),
       offline: false, status: "synced", lastSync: Date.now(),
     },
   };

@@ -103,7 +103,12 @@ before the first live test).
   at 100 % with how to free space — archived notes count too), so the
   user sees the quota coming (user request 2026-10-14); hitting a limit
   also shows in the sync status ("Sync storage is full.", "Too many
-  attempts. Try again later."). *Prototype: 2026-10-14.*
+  attempts. Try again later."). A shared file counts in full for every
+  member, and an upload that would put any member over a limit is
+  refused, so the bar shows what is enforced (backlog #27, over counting
+  it only for its creator or splitting it); when someone else is over
+  it, the status names them ("The sync storage of Lea is full, so this
+  shared note can't sync."). *Prototype: 2026-10-14.*
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one
@@ -187,6 +192,24 @@ before the first live test).
     once (10 minutes / 7 days); on Android the link opens the app, and
     "Add contact" takes a pasted link. *Prototype: real; simulated in the
     sample (⋮ → "Simulate contact request").*
+  - **Verified contacts** (backlog #4, decided 2026-10-14): a contact
+    added by scanning their code in person is verified on both sides;
+    one added by an invitation link (opened or pasted) is not, since a
+    link is only as safe as the messenger it came through. Sharing with
+    a contact who isn't verified stays possible: the contact list shows
+    "Not verified" under the name, and the share dialog shows a notice
+    with **Verify** below the list as soon as such a contact is checked
+    (chosen over a label or an avatar badge in every row: the hint shows
+    where it matters, the list stays calm). Tapping a contact opens
+    **Verify contact** with two tabs: **Compare code** shows the safety
+    code, the same 20 digits on both phones, to compare e.g. on a call
+    ("Codes match" / "They differ", which advises removing and adding
+    the contact again in person), and **Scan code** scans the contact's
+    "My code" (chosen over one page with the code first: two equal ways,
+    like Add contact). Scanning the code of an existing contact under
+    Add contact verifies them too, instead of sending a new request.
+    Each phone verifies for itself; the state syncs to the user's own
+    devices. *Prototype: real; simulated in the sample (Tom).*
   - **Linking by QR code** (decided 2026-10-13): the new device shows its
     code under "Link this device", with the recovery key below as the way
     without a camera (e.g. two desktops). On a synced device, "Link a
@@ -525,9 +548,12 @@ before the first live test).
   round 1, under ⋮.*
 - **App icon** (backlog #12, decided 2026-10-14 over an "N" with a down
   arrow and the round done button alone): a note card with the round
-  done button on Mauve — it says "notes" and echoes the app's own cards.
-  Android shows it as an adaptive icon (with a one-color layer for themed
-  icons), the web app as favicon and in its manifest. The Android splash
+  done button on Mauve — it says "notes" and echoes the app's own cards;
+  the button sits bottom right, where the cards have it in their tool bar
+  (2026-10-14). Android shows it as an adaptive icon (with a one-color
+  layer for themed icons) and its one-color silhouette as the status-bar
+  icon of reminders (backlog #26), the web app as favicon and in its
+  manifest. The Android splash
   screen shows it on the Catppuccin base color: Latte in light, Mocha in
   dark system mode.
 - App labels are English for now; a German translation can follow.

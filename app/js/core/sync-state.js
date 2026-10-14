@@ -100,3 +100,22 @@ export const POLL_MAX_MS = 30000;
 export function nextPollDelay(current, changed) {
   return changed ? POLL_MIN_MS : Math.min(POLL_MAX_MS, Math.max(POLL_MIN_MS, current * 2));
 }
+
+/**
+ * A file limit the server refused an upload for (413 `{detail, members}`, backlog #27): a shared file
+ * counts for every member, so the one over the limit may be someone else. → `{ own }` when this
+ * identity (`me`) is over it (or the server named nobody), else `{ message }` naming the others;
+ * `nameOf(id)` gives a member's name (empty: unknown). null for any other answer.
+ */
+export function limitRefusal(status, body, me, nameOf) {
+  const kind = { "storage quota exceeded": "storage", "too many files": "files" }[body?.detail];
+  if (status !== 413 || !kind) return null;
+  const members = Array.isArray(body.members) ? body.members : [];
+  if (!members.length || members.includes(me)) return { own: true, kind };
+  const names = members.map(id => nameOf(id) || "a member");
+  const who = names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) : names[0];
+  return { own: false, kind, message: kind === "storage"
+    ? `The sync storage of ${who} is full, so this shared note can't sync.`
+    : `${who[0].toUpperCase() + who.slice(1)} ${names.length > 1 ? "have" : "has"} too many synced files, so this shared note can't sync.` };
+}
+

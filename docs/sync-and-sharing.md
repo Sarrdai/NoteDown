@@ -4,6 +4,7 @@
 - [Principles](#principles)
 - [Files: one per circle of people](#files-one-per-circle-of-people)
 - [Where the files live](#where-the-files-live)
+- [Servers](#servers)
 - [Identity and devices](#identity-and-devices)
 - [Contacts](#contacts)
 - [Keys](#keys)
@@ -87,6 +88,21 @@ and the sample simulates everything without a server.
 A user-chosen folder (e.g. an Obsidian vault) can follow later. Devices
 rely on the operating system's own storage encryption for the local copy.
 
+## Servers
+
+Every reference to something on a server names the server: an identity
+has a **home server** (kept in the sync state; a linked device learns it
+from the linking message), an invitation link and a link code name the
+server they point to, a contact marker the contact's home server, and a
+file record and the stored file key the server the file lives on
+(`file:<server>/<id>`). Missing means the **default server**, the one
+the app is configured with (`app/config.json`, `?api=`); that is the
+only server in use today, so nothing changes for the user. A client
+keeps one API connection (and token) per server and sends each call to
+the server of its file or contact. Files and keys a device stored before
+servers were named are taken over as belonging to the default server on
+the first sync round.
+
 ## Identity and devices
 
 - **Turning on sync** creates the identity: a random **recovery key**
@@ -160,6 +176,22 @@ rely on the operating system's own storage encryption for the local copy.
   days. The server can't forge a request: the link's secret is in it,
   and it never sees that secret (`docs/server-api.md` → "Contacts and
   invitations").
+- **Verified or not** (backlog #4): a contact whose code the user
+  scanned with NoteDown's scanner is verified, and so is a requester the
+  user confirmed on a code this device showed (the server's word on an
+  invitation's kind is not trusted for this). A link, opened or pasted,
+  gives an unverified contact — also a code scanned with the phone's own
+  camera, which opens as a link. Later, the user verifies a contact by
+  scanning their code (an existing contact is verified instead of asked
+  again) or by comparing the **safety code**: PBKDF2-SHA256 (100,000
+  rounds, salt `notedown-safety-code-v1`) over both identity IDs in
+  sorted order, joined by `:`, shown as five groups of four digits (each
+  a 32-bit big-endian chunk mod 10,000). Both phones compute the same
+  code without the server; 66 bits and the slow hash make it too costly
+  for someone in the middle to find two forged identities whose codes
+  match. Each side verifies for itself; the state is kept in the private
+  file (`docs/file-format.md` → "Contacts"). Contacts that existed
+  before count as not verified, since how they were added isn't known.
 - Contact names are **local**: the user names a contact; the contact's
   own display name is the suggestion. The contact list lives in the
   private file (`docs/file-format.md` → "Contacts"), so all the user's

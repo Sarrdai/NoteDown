@@ -80,3 +80,18 @@ export function createApi(baseUrl, who) {
     forgetToken: () => { token = null; },
   };
 }
+
+/**
+ * One API client per server (docs/sync-and-sharing.md → "Servers"): `clients(url)` is the client of the
+ * server at `url`, made on first use and kept, each with its own token. `forgetTokens()` signs all out.
+ */
+export function createApis(who) {
+  const byUrl = new Map();
+  const clients = url => {
+    const key = url.replace(/\/+$/, "");
+    if (!byUrl.has(key)) byUrl.set(key, createApi(key, who));
+    return byUrl.get(key);
+  };
+  clients.forgetTokens = () => byUrl.forEach(api => api.forgetToken());
+  return clients;
+}

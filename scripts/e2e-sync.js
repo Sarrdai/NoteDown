@@ -189,7 +189,7 @@ const tidy = page => page.evaluate(async () => {
   (await import("/app/js/ui/sync-panel.js")).closePanel();
 });
 
-const fileKeyOf = (page, record) => page.evaluate(async id => window.__crypto.b64u(await window.__keystore.getSecret("file:" + id)), record.id);
+const fileKeyOf = (page, record) => page.evaluate(async r => window.__crypto.b64u(await window.__keystore.getSecret("file:" + r.server + "/" + r.id)), record);
 
 async function step(name, fn) {
   await fn();
@@ -245,7 +245,7 @@ async function main() {
       await openPanel(d);
       await d.getByRole("button", { name: "Link to an existing device" }).click();
       const code = await d.locator(".qr[data-code]").getAttribute("data-code");
-      assert.match(code, /^notedown:link\?v=1&slot=[\w-]{22}&sign=[\w-]{43}&enc=[\w-]{43}&name=NoteDown\+app\+on\+Android$/);
+      assert.match(code, /^notedown:link\?v=1&slot=[\w-]{22}&sign=[\w-]{43}&enc=[\w-]{43}&name=NoteDown\+app\+on\+Android&srv=[\w%.-]+$/);
       await shot(d, "link-qr-phone");
       await showToCamera("https://example.org");   // first some other QR code: refused
       await openPanel(a);
@@ -395,7 +395,7 @@ async function main() {
       await a.getByRole("button", { name: "Add contact" }).click();
       await a.getByRole("tab", { name: "Invite by link" }).click();
       link = await a.locator('input[aria-label="Invitation link"]').inputValue();
-      assert.match(link, /^http:\/\/127\.0\.0\.1:8766\/app\/invite\/#v=1&id=[\w-]{22}&s=[\w-]{22}&name=Sam$/);
+      assert.match(link, /^http:\/\/127\.0\.0\.1:8766\/app\/invite\/#v=1&id=[\w-]{22}&s=[\w-]{22}&name=Sam&srv=[\w%.-]+$/);
       await a.getByText("The link works once, for 7 days.").waitFor();
       await shot(a, "invite-link-phone");
       await a.keyboard.press("Escape");
