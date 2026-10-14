@@ -139,7 +139,7 @@ function swipeLanes() {
   }];
   const toc = $("tocList");
   if (toc.getClientRects().length && getComputedStyle(toc).visibility === "visible") lanes.push({
-    move: toc,
+    move: $("tocPanel"),   // the panel carries --swipe-x: the list moves by it, the background splits at it
     rect: () => { const r = toc.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
     preview: view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; },
     peekClass: "toc-peek",
