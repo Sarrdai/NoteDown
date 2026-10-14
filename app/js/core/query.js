@@ -10,6 +10,7 @@ export const SORT_KEYS = {
   title: { label: "Alphabetical", field: null },
   closed: { label: "Closed", field: "closed", archiveOnly: true },
   custom: { label: "Custom", field: null, custom: true },
+  shared: { label: "Shared order", field: null, custom: true, circleOnly: true },
 };
 
 export const DEFAULT_SORT = {

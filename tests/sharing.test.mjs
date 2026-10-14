@@ -46,6 +46,8 @@ test("sample sharing: every listed note exists exactly once and members are cont
   for (const id of ids) assert.ok(sample.notes.some(n => n.id === id), id);
   const contacts = sharing.contacts.map(c => c.id);
   for (const g of sharing.shared) for (const m of g.members) assert.ok(contacts.includes(m), m);
+  // A shared order (backlog #25) only lists notes of its own circle.
+  for (const g of sharing.shared.filter(g => g.order)) for (const id of g.order) assert.ok(g.notes.includes(id), id);
 });
 
 test("splitIntoCircles: notes leave the private file without markers", () => {

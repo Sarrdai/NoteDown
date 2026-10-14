@@ -231,6 +231,23 @@ export function setCustomOrder(ids) {
   return () => { state.file.order = before; saveFiles(); emit("structure"); };
 }
 
+/** The shared order of a circle (backlog #25): note ids, kept in that
+ *  circle's file, so every member sees and edits the same order. */
+export function circleOrder(key) {
+  return state.shared.find(s => circleKey(s.members) === key)?.file.order?.ids || [];
+}
+
+/** Sets a circle's shared order; returns a function that undoes it. */
+export function setCircleOrder(key, ids) {
+  const file = fileFor(key.split("+"));
+  const before = file.order || null;
+  const known = new Set(file.notes.map(n => n.id));
+  file.order = { ids: ids.filter(id => known.has(id)), modified: timestamp() };
+  saveFiles();
+  emit("structure");
+  return () => { file.order = before; saveFiles(); emit("structure"); };
+}
+
 export const isProtected = id => state.protectedIds.has(id);
 
 /** Protects notes from deletion on this device, or removes that (`on` false);

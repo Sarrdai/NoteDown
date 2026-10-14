@@ -258,6 +258,15 @@ before the first live test).
   private file lists the note ids (`docs/file-format.md`), so shared notes
   can be ordered too without the other members seeing it; when two devices
   changed it, the newer list wins. *Prototype: 2026-10-14.*
+- **Shared order** (backlog #25): in the view of a circle with people
+  ("People circles as a filter") the sort menu also offers "Shared
+  order" — an order of that circle's notes kept in the circle's own file,
+  so every member sees and edits the same one; any member may set it,
+  none has to. It works like Custom (Arrange…, "Not sorted yet", Undo; the
+  dialog says who sees it) and merges the same way, the newer list
+  winning. Outside a circle's view a view set to it shows the user's own
+  Custom order. *Prototype: 2026-10-14, simulated on the sample's shared
+  files (Lea's circle carries one); milestone 2 builds shared files.*
 - **Protected first** (a switch in the sort menu, remembered per view,
   off by default) shows protected notes first, then the others, each group in
   the chosen order. It only orders the notes in the list; the table of

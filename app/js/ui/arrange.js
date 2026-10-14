@@ -11,9 +11,10 @@ let onSave = null;
 
 /** Opens the dialog over `sorted` and `unsorted` notes; `save(ids)` gets the
  *  ids above the line, in order. */
-export function openArrange({ title = "Custom order", sorted, unsorted, save }) {
+export function openArrange({ title = "Custom order", hint = "Only you see this order.", sorted, unsorted, save }) {
   onSave = save;
   $("arrangeTitle").textContent = title;
+  $("arrangeHint").textContent = hint + " Drag notes above the line to sort them, or tap + and −.";
   $("arrangeList").replaceChildren(...sorted.map(row), line(), ...unsorted.map(row));
   refresh();
   $("arrangeDialog").hidden = false;
