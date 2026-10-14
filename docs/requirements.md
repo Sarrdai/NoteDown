@@ -9,6 +9,7 @@
   - [Main view and archive](#main-view-and-archive)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
+  - [People circles as a filter](#people-circles-as-a-filter)
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
@@ -85,11 +86,24 @@ before the first live test).
 
 - **Sync across devices** through NoteDown's own server, so notes written
   on the phone show up in the web app on the desktop. It runs
-  automatically (after changes, on opening, on reconnect) with a status
-  indicator.
+  automatically (after changes, on opening, on reconnect, and while
+  open every 5 s, slowing to 30 s while nothing changes — backlog #21,
+  to stay within the free tiers) with a status indicator.
 - **End-to-end encrypted:** the server stores only encrypted files and
   never holds a key that decrypts them — notes are private by default,
-  even from whoever runs the server.
+  even from whoever runs the server. Files are padded to 4 KiB steps
+  before encryption, so the server doesn't learn their exact size
+  either (backlog #17).
+- **Abuse protection without accounts** (backlog #8): the default server
+  keeps at most **2 MB** of encrypted files per identity — thousands of
+  notes; the user wants to raise it later as a paid option — and limits
+  per IP address how often identities and linking slots are created
+  (`docs/server-api.md` → "Limits"). Sync & sharing ends with a
+  **Storage** bar ("0.4 MB of 2 MB used"; warning color from 80 %, red
+  at 100 % with how to free space — archived notes count too), so the
+  user sees the quota coming (user request 2026-10-14); hitting a limit
+  also shows in the sync status ("Sync storage is full.", "Too many
+  attempts. Try again later."). *Prototype: 2026-10-14.*
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one
@@ -110,6 +124,15 @@ before the first live test).
   keys of every file it could read, so it can't read anything changed
   afterwards — without a new recovery key and without bothering contacts
   (decided 2026-10-13 over only blocking it or a new identity).
+- **Signing out this device** (backlog #15): Sync & sharing → "Sign out
+  this device" takes the device off the device list by itself and erases
+  everything NoteDown keeps on it (notes, settings, keys); the app then
+  starts fresh — for a public or borrowed computer. It syncs first; if
+  that fails (offline), "Erase without signing out" erases anyway, with
+  the warning that unsynced changes are lost and the device stays listed
+  until another one removes it. No new file key: a device that erases
+  itself needs none, and one that may have been copied is removed from
+  another device, which renews it. *Prototype: 2026-10-14.*
 - The server is built to scale to many users (stateless API, database,
   later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
@@ -143,12 +166,27 @@ before the first live test).
     2026-10-13 over a sync button: the icon already opens the panel).
   - Without sync, sharing explains that it needs sync and offers to turn
     it on. Notes in the archive aren't shared from there.
-  - *Prototype: round 4. **Real sync of the private file** between the
-    user's own devices (2026-10-13): turning it on, linking a device by
-    QR code or with the recovery key, the device list and removing a
-    device run against the server. Contacts and sharing are only
-    simulated, in the sample (`?sample`, `?sync=off`, ⋮ → Go offline);
-    outside it they are hidden until milestone 2.*
+  - *Prototype: round 4. **Real sync** runs against the server:
+    milestone 1 (2026-10-13) — turning it on, linking a device by QR
+    code or with the recovery key, the device list and removing a
+    device; milestone 2 (2026-10-14) — contacts by code or invitation
+    link with confirmed requests, sharing notes, removing people and
+    leaving, with the keys of every file renewed when a device is
+    removed. The sample (`?sample`, `?sync=off`, ⋮ → Go offline)
+    simulates all of it without a server.*
+  - **Contact requests** (milestone 2, decided 2026-10-14): scanning a
+    code or opening an invitation link sends a **request** ("Send
+    request"); the contact shows "Waiting for confirmation" and can't be
+    shared with yet. The one who showed the code or sent the link
+    confirms: the request shows as a **card above the open notes**
+    ("Mia wants to be your contact", Decline / Confirm, which asks for the
+    name) until it is decided, and in Sync & sharing → "Contact
+    requests"; on "My code" it opens at once. Chosen over a dialog that
+    opens by itself (interrupts, and a link request often comes hours
+    later) and a dot on the sync icon (easy to miss). Code and link work
+    once (10 minutes / 7 days); on Android the link opens the app, and
+    "Add contact" takes a pasted link. *Prototype: real; simulated in the
+    sample (⋮ → "Simulate contact request").*
   - **Linking by QR code** (decided 2026-10-13): the new device shows its
     code under "Link this device", with the recovery key below as the way
     without a camera (e.g. two desktops). On a synced device, "Link a
@@ -178,18 +216,68 @@ before the first live test).
 - The **archive button** in the main view shows how many notes were closed
   today; the count resets at midnight. In the archive the same button
   reads **Notes** (no count) and leads back, so one place switches
-  between both views. *Prototype: round 1; Notes button 2026-10-13.*
+  between both views. It sits at the right end of the top bar, only ⋮
+  after it. *Prototype: round 1; Notes button 2026-10-13; place
+  2026-10-14.*
+- On phone and tablet, **swiping sideways** anywhere on the list or the
+  contents switches between both views like pages: the archive lies to
+  the right of the notes (swipe left to open it, right to go back); the
+  other view moves in with the finger and the page snaps to whichever
+  side it was let go past half (or flicked to). Top bar and contents stay
+  in place and are only refilled. The title at the left of the top bar
+  says where the user is. The view button stays as the visible way.
+  *Prototype: 2026-10-14; pager behavior 2026-10-14 (swiping only worked
+  on some tries and only switched after the gesture).*
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*
+- **Empty archive** (⋮ menu, only in the archive) deletes every closed
+  note at once — the whole archive, whatever the search shows — after a
+  confirmation that says how many go and how many protected ones stay.
+  Shared closed notes go only when the dialog's "Also delete … shared
+  with others" is ticked, which warns that they go for everyone; Undo
+  afterwards. Disabled when nothing but protected notes is archived.
+  *Prototype: 2026-10-14.*
+- **Protected** notes can't be deleted: Delete and Empty archive leave
+  them alone until the protection is removed. Notes are protected with
+  **Protect / Unprotect** in the selection bar ("Multi-select"); a
+  protected note shows a **shield** under its round button, which
+  removes the protection with one tap (decided 2026-10-14 over a button
+  on every note: protecting is rare, the notes stay calm and keep their
+  full width). Named "protected" with a shield, not "pinned" (which
+  reads as "kept on top") nor "locked" with a lock (reads as read-only
+  or encrypted, and the lock already fixes the dictation). A note stays
+  protected when it is closed, reopened or moved to another circle, and
+  a note merged from a protected one is protected. Protection is a
+  **setting of this device**, not part of the file and not synced. An emptied note is
+  still deleted when editing ends (with Undo) — the user just removed
+  its text. *Prototype: 2026-10-14.*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,
   accent-colored when due today. In the archive the due date is shown
-  without warning colors. *Prototype: round 1 (display only; setting it
-  comes with the editor toolbar, round 2).*
-- Reminders / notifications for due dates are not part of the scope yet
-  (backlog #1).
+  without warning colors. *Prototype: round 1.*
+- On an open note the chip is a button: a tap opens the **due-date menu**
+  (today, tomorrow, in a week, pick a date, remove), without entering edit
+  mode; a note without a due date shows an empty outlined chip "Due date"
+  in its place. Archived notes show the date only (read-only). Why: the
+  toolbar button alone was hard to find — only visible while editing and
+  scrolled out of view on the phone. *Prototype: 2026-10-14.*
+- **Reminders for due dates** (backlog #1): on a note's due day, at one
+  time of day for all notes (default 09:00), one notification lists the
+  open notes due that day ("2 notes due today" and their titles); tapping
+  it shows the main list, unfiltered, with those notes highlighted. Closed
+  notes and notes without a due date never remind; no per-note times.
+  Off until turned on under ⋮ → "Reminders…" (a dialog with a switch and
+  the time), which is when the platform asks for notification permission.
+  A **setting of this device**, not synced, since the permission is per
+  device. The Android app schedules local notifications on the device, so
+  they come while the app is closed; the web app reminds only while it is
+  open — the browser can't wake a closed web app without server push —
+  and the dialog says so. *Prototype: 2026-10-14 (⋮ → Prototype →
+  "Simulate reminder" shows the notification).* Why a dialog in ⋮: it is
+  a device-wide setting that needs its one line of explanation; offered
+  only in the due-date menu it would read as per note.
 
 ### Sorting and search
 
@@ -199,6 +287,34 @@ before the first live test).
   last edited, newest first; in the archive closed, newest first.
   Notes without the sort value (no due date) always come last. The choice
   is remembered per view. *Prototype: round 1.*
+- **Custom** (backlog #24) is one more sort option, in the main view and
+  the archive: the user's own order. Notes start **not sorted yet**; the
+  sort menu's **Arrange…** (and the same link on the list's divider)
+  opens a dialog like the merge order dialog, where notes move above a
+  line by drag (or arrow keys) or with + / −, and are ordered there. The
+  list shows the sorted notes first, then a thin divider "Not sorted
+  yet" and the rest by last edited (decided 2026-10-14: new notes always
+  land there, so nothing reshuffles the arranged part). A custom order has
+  no direction. The dialog arranges what the list shows (circle filter
+  and search applied); other notes keep their places in the order. Save
+  offers Undo. There is one custom order only (several named orders go
+  too far for now). It is **synced but private**: one marker in the
+  private file lists the note ids (`docs/file-format.md`), so shared notes
+  can be ordered too without the other members seeing it; when two devices
+  changed it, the newer list wins. *Prototype: 2026-10-14.*
+- **Shared order** (backlog #25): in the view of a circle with people
+  ("People circles as a filter") the sort menu also offers "Shared
+  order" — an order of that circle's notes kept in the circle's own file,
+  so every member sees and edits the same one; any member may set it,
+  none has to. It works like Custom (Arrange…, "Not sorted yet", Undo; the
+  dialog says who sees it) and merges the same way, the newer list
+  winning. Outside a circle's view a view set to it shows the user's own
+  Custom order. *Prototype: 2026-10-14; real on shared files since
+  milestone 2, simulated in the sample (Lea's circle carries one).*
+- **Protected first** (a switch in the sort menu, remembered per view,
+  off by default) shows protected notes first, then the others, each group in
+  the chosen order. It only orders the notes in the list; the table of
+  contents keeps the plain sort order. *Prototype: 2026-10-14.*
 - A finished edit doesn't reorder the list right away, so a note never
   jumps away under the user's finger; the order updates on the next view
   change, sort or search. *Prototype: round 1.*
@@ -220,10 +336,38 @@ before the first live test).
 - Tapping an entry scrolls to that place in the note and briefly
   highlights the note. A long-press on an entry selects sections
   ("Multi-select"); not in the archive.
-- On the phone it opens as a **bottom sheet** from the top bar's contents
-  button — within thumb reach, and the list stays visible above it
-  (decided 2026-10-13 over a side drawer). Tablet and desktop show it as
-  a fixed sidebar.
+- On the phone it is a **bottom sheet** whose **handle always peeks out at
+  the bottom** — within thumb reach, and the handle shows where it is
+  (decided 2026-10-13 over a side drawer; 2026-10-14 the handle replaced
+  the top bar's contents button). A tap on the handle opens it fully (up
+  to the top bar) or closes it; dragging the handle or the sheet's head
+  leaves it at any height, a drag below ~15 % or a flick down closes it.
+  The height is not remembered. While editing and recording the handle
+  gives way. Tablet and desktop show it as a fixed sidebar.
+
+### People circles as a filter
+
+- Next to the table of contents a **People** overview lists the circles
+  the user shares with (backlog #23): **All notes** and **Private** on
+  top, then every contact A–Z — each entry is only the circle of that one
+  person, also a contact nothing is shared with yet — then every group
+  (a circle of several, named by its members, A–Z). Each entry shows how
+  many of its notes the current view holds. *Prototype: 2026-10-14.*
+- Picking an entry **filters the list** to that circle's notes; archive,
+  search and sort apply on top, and the table of contents follows. The
+  active filter shows as a **chip with ×** above the list, which clears
+  it; the filter is not remembered across starts (it starts at All).
+- **+** (and dictation) in a filtered list creates the note **in that
+  circle** — for a contact without shared notes this starts the circle
+  (each circle is one file, `docs/sync-and-sharing.md`). Without a
+  filter, or under Private, a new note is private.
+- A **long-press** (desktop: right-click) on a contact lists the groups
+  they are in, to jump to one.
+- Placement: **tabs "Contents | People"** at the top of the sidebar
+  (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
+  over a second section below the contents (both lists get cramped) and a
+  separate phone sheet (one more top-bar icon on a full bar). The tabs
+  only show while sync is on and there are contacts.
 
 ### Creating and editing
 
@@ -299,17 +443,25 @@ before the first live test).
 - While selecting, a **contextual top bar** replaces the normal one: ✕,
   "n selected" (n = parts: whole notes and runs of adjacent sections) and
   the actions as icons (with labels on the desktop); the + button is
-  hidden. On the phone the bar keeps the **contents button**, so the
-  selection can be refined in the contents sheet and back, and shows only
-  the number; Share and the heading actions move under ⋮ there. Decided
+  hidden. On the phone the contents sheet's handle stays at the bottom,
+  so the selection can be refined in the contents and back; the bar shows
+  only the number there, and Share and the heading actions move under ⋮ there. Decided
   2026-10-13 over a bottom action bar (the thumb area and the list's
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Copy**, **Share** ("Sync and sharing"),
-  **Merge**, **Delete**, **Promote / Demote headings**. Close, Share and
-  Delete act on whole notes (disabled while only parts of a note are
-  selected) and end the selection with Undo. In the archive the actions
-  are **Reopen**, Copy and Delete — closed notes are read-only.
+  **Merge**, **Protect / Unprotect**, **Delete**, **Promote / Demote
+  headings**. Close, Share, Protect and Delete act on whole notes
+  (disabled while only parts of a note are selected) and end the
+  selection with Undo. In the archive the actions are **Reopen**, Copy,
+  Protect / Unprotect and Delete — closed notes are read-only. Protect
+  protects the selected notes unless all are protected already, then it
+  removes the protection; on the phone it sits under ⋮.
+- **Delete** asks first: a confirmation names how many notes go, that
+  they leave all the user's devices, which of them are shared and go
+  for everyone, and how many protected ones stay (Delete is disabled
+  when only protected notes are selected). Cancel keeps the selection; Undo
+  after deleting. *Prototype: 2026-10-14.*
 - **Copy** puts the selection on the clipboard as plain Markdown, the
   parts joined by a blank line, without metadata; it keeps the selection.
 - **Merge** — also "move to a new note": the selected parts (two or more
@@ -321,7 +473,14 @@ before the first live test).
   date and due = the earliest due date of the notes involved (the content
   lived that long); last edited = now. A note left empty disappears; Undo
   brings everything back. The new note stays in the people circle of its
-  sources when they share one, else it is private.
+  sources when they share one. When the sources come from different
+  circles (private and shared, or two circles), the merge dialog asks
+  where it goes: **Private copy** (default) — the new note is private,
+  the shared sources stay as they are for everyone, only the private
+  ones give up their parts — or **Share with …** (names and avatars) —
+  the new note goes to the circle of everyone involved and all sources
+  give up their parts. Removing a shared note for the others stays a
+  separate, confirmed Delete. *Prototype: 2026-10-14.*
 - **Promote / Demote headings** move every heading in the selection one
   level up or down (`##` ↔ `###`), to correct levels quickly after a
   merge; disabled when a heading would leave levels 1–6. The selection
@@ -351,6 +510,13 @@ before the first live test).
   Latte, dark = Mocha) by default; all four flavors (Latte, Frappé,
   Macchiato, Mocha) can be chosen. Accent color: Mauve. *Prototype:
   round 1, under ⋮.*
+- **App icon** (backlog #12, decided 2026-10-14 over an "N" with a down
+  arrow and the round done button alone): a note card with the round
+  done button on Mauve — it says "notes" and echoes the app's own cards.
+  Android shows it as an adaptive icon (with a one-color layer for themed
+  icons), the web app as favicon and in its manifest. The Android splash
+  screen shows it on the Catppuccin base color: Latte in light, Mocha in
+  dark system mode.
 - App labels are English for now; a German translation can follow.
 - Notes are shown as **separate cards** (decided 2026-10-13 over one
   continuous page): each note's boundary is clear for tapping into it and

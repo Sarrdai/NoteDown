@@ -262,17 +262,37 @@ export function generateFileKey() {
   return globalThis.crypto.getRandomValues(new Uint8Array(32));
 }
 
-/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the UTF-8 text. */
+const PAD_BLOCK = 4096;
+const PAD_MARKER = 0x80;
+
+// ISO/IEC 7816-4 padding: a 0x80 byte, then 0x00 up to the next multiple of PAD_BLOCK (a plaintext
+// that already is a multiple gets a full extra block), so the server only sees the size in 4 KiB steps.
+function pad(bytes) {
+  const padded = new Uint8Array(Math.ceil((bytes.length + 1) / PAD_BLOCK) * PAD_BLOCK);
+  padded.set(bytes);
+  padded[bytes.length] = PAD_MARKER;
+  return padded;
+}
+
+function unpad(bytes) {
+  let end = bytes.length;
+  while (end > 0 && bytes[end - 1] === 0) end--;
+  // No marker: a file uploaded before padding existed. Those are Markdown that ends with "\n",
+  // never with 0x00 or 0x80, so they can't be mistaken for padded ones; the next upload pads them.
+  return end > 0 && bytes[end - 1] === PAD_MARKER ? bytes.subarray(0, end - 1) : bytes;
+}
+
+/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded UTF-8 text. */
 export async function encryptFile(fileKey, text) {
-  const { nonce, sealed } = await seal(fileKey, utf8(text));
+  const { nonce, sealed } = await seal(fileKey, pad(utf8(text)));
   return b64u(concat(nonce, sealed));
 }
 
-/** The text of `encryptFile`'s output; throws when the key is wrong or the data was changed. */
+/** The text of `encryptFile`'s output (or of an older, unpadded file); throws when the key is wrong or the data was changed. */
 export async function decryptFile(fileKey, ciphertext) {
   const raw = fromB64u(ciphertext);
   const plain = await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES));
-  return new TextDecoder("utf-8", { fatal: true }).decode(plain);
+  return new TextDecoder("utf-8", { fatal: true }).decode(unpad(plain));
 }
 
 async function wrapKey(label, privateKey, otherPublic, ephemeralPublic, recipientPublic) {
@@ -315,4 +335,47 @@ export function sealRelayMessage(message, recipientEncPublic) {
 /** The message of `sealRelayMessage`'s output; throws when it wasn't sealed for `encKeyPair`. */
 export async function openRelayMessage(payload, encKeyPair) {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-relay", payload, encKeyPair)));
+}
+
+// ---------- contacts and invitations (docs/server-api.md → "Contacts and invitations") ----------
+
+const SECRET_BYTES = 16;
+
+/** A new invitation secret: 16 random bytes. */
+export function newInvitationSecret() {
+  return globalThis.crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
+}
+
+/** The invitation ID of a secret: b64u of the first 16 bytes of its SHA-256. */
+export async function invitationId(secretBytes) {
+  return b64u((await sha256(secretBytes)).subarray(0, 16));
+}
+
+/** What the inviting device signs: `notedown-invite-v1:<invitation id>`. */
+export function invitationMessage(id) {
+  return utf8(`notedown-invite-v1:${id}`);
+}
+
+/** b64u Ed25519 signature of the invitation message, for `POST /v1/invitations`. */
+export async function signInvitation(privateKey, id) {
+  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, privateKey, invitationMessage(id))));
+}
+
+/** Whether `sig` (b64u) is the signature of the device with public signing key `signKey` over invitation `id`. */
+export async function verifyInvitation(signKey, sig, id) {
+  try {
+    return await verifySignature(signKey, fromB64u(sig, 64), invitationMessage(id));
+  } catch {
+    return false;
+  }
+}
+
+/** A contact request's card (JSON-able) sealed like a relay payload for a device's `enc` key, label `notedown-contact`. */
+export function sealContactCard(card, recipientEncPublic) {
+  return sealFor("notedown-contact", recipientEncPublic, utf8(JSON.stringify(card)));
+}
+
+/** The card of `sealContactCard`'s output; throws when it wasn't sealed for `encKeyPair`. */
+export async function openContactCard(sealed, encKeyPair) {
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-contact", sealed, encKeyPair)));
 }

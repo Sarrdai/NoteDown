@@ -1,5 +1,7 @@
 // Small decisions of the sync client without I/O: what a first sync keeps of
-// the local notes, and how the device list is shown and named.
+// the local notes, how the device list is shown and named, and which server
+// file is which (the private file, the shared files by circle).
+import { circleKey } from "./sharing.js";
 
 /** Id prefix of the welcome note a first start creates (main.js). */
 export const WELCOME_PREFIX = "welcome-";
@@ -33,4 +35,68 @@ export function withDeviceName(file, id, name) {
 /** The devices a file key is wrapped for: every active device, the recovery device included. */
 export function keyHolders(devices) {
   return [...devices.values()].filter(d => d.active);
+}
+
+/** The devices every member's file key is wrapped for: the active devices (recovery devices included)
+ *  of each verified device list in `chains` (an array of Maps from crypto.verifyChain). */
+export function allKeyHolders(chains) {
+  return chains.flatMap(keyHolders);
+}
+
+/** The member ids of a shared file as the server lists them: the user and the circle's other
+ *  people (`circle`: their ids, the circleKey's parts), sorted. The private file is the user alone. */
+export function fileMembers(identity, circle) {
+  return [identity, ...circle].sort();
+}
+
+/**
+ * Sorts the server's file list (`files`: { id, members, ... }, each with the user among its members)
+ * into the private file (only the user is a member) and the shared files by circleKey (the members
+ * without the user, as `state.shared` keys them).
+ * → { privateFile (or undefined), shared: Map circleKey → file }
+ */
+export function matchFiles(files, identity) {
+  const shared = new Map();
+  let privateFile;
+  for (const f of files) {
+    const others = f.members.filter(m => m !== identity);
+    if (!others.length) privateFile = f;
+    else shared.set(circleKey(others), f);
+  }
+  return { privateFile, shared };
+}
+
+/** True when a file has anything worth keeping on the server (an empty circle left behind by an undo needs none). */
+export const hasContent = file => file.notes.length > 0 || Boolean(file.order);
+
+const MB = 1024 * 1024;
+const mb = bytes => String(Math.round(bytes / MB * 10) / 10);
+
+/**
+ * The sync storage bar from `{ used, quota }` in bytes: the text under it,
+ * the filled share (0..1) and the level ("ok", "warn" from 80 %, "full" at 100 %).
+ * `refused`: the server just refused an upload for the quota, so the bar is full
+ * whatever the numbers say (the new file wouldn't fit).
+ */
+export function storageUsage({ used, quota }, refused = false) {
+  const fraction = refused || !(quota > 0) ? 1 : Math.min(used / quota, 1);
+  const amount = used < 0.05 * MB ? "< 0.1" : mb(used);
+  return {
+    text: `${amount} MB of ${mb(quota)} MB used`,
+    fraction,
+    percent: Math.round(fraction * 100),
+    level: fraction >= 1 ? "full" : fraction >= 0.8 ? "warn" : "ok",
+  };
+}
+
+export const POLL_MIN_MS = 5000;
+export const POLL_MAX_MS = 30000;
+
+/**
+ * The delay before the next poll round: back to the minimum when the last
+ * round moved something (or the user or the app woke it), otherwise doubled
+ * up to the maximum: 5, 10, 20, 30, 30, ... s.
+ */
+export function nextPollDelay(current, changed) {
+  return changed ? POLL_MIN_MS : Math.min(POLL_MAX_MS, Math.max(POLL_MIN_MS, current * 2));
 }

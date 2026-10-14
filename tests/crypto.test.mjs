@@ -7,6 +7,7 @@ import {
   b64u, fromB64u, canonicalJson, keyId, entryHash, recoveryKeyBytes, deriveRecovery, generateDeviceKeys,
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
   decryptFile, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
+  newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
 } from "../app/js/core/crypto.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./fixtures/crypto-vectors.json", import.meta.url), "utf8"));
@@ -225,7 +226,49 @@ test("file: decrypts the Python ciphertext, round trips, fresh nonce each time",
   assert.notEqual(fromB64u(a).subarray(0, 12).join(), fromB64u(b).subarray(0, 12).join());
   assert.equal(await decryptFile(key, a), vectors.file.text);
   assert.equal(await decryptFile(key, await encryptFile(key, "")), "");
-  assert.equal(fromB64u(a).length, 12 + new TextEncoder().encode(vectors.file.text).length + 16);
+  assert.equal(fromB64u(a).length, 12 + 4096 + 16);
+  assert.equal(fromB64u(vectors.file.ciphertext).length, 12 + 4096 + 16);
+});
+
+test("file: an unpadded ciphertext from before padding still decrypts", async () => {
+  const key = hex(vectors.legacy_file.key);
+  const legacy = fromB64u(vectors.legacy_file.ciphertext);
+  assert.equal(legacy.length, 12 + new TextEncoder().encode(vectors.legacy_file.text).length + 16);
+  assert.equal(await decryptFile(key, vectors.legacy_file.ciphertext), vectors.legacy_file.text);
+});
+
+// The AES-GCM plaintext of an encryptFile result, to look at the padding itself.
+async function plaintextOf(key, ciphertext) {
+  const raw = fromB64u(ciphertext);
+  const aes = await globalThis.crypto.subtle.importKey("raw", key, "AES-GCM", false, ["decrypt"]);
+  return new Uint8Array(await globalThis.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: raw.subarray(0, 12) }, aes, raw.subarray(12)));
+}
+
+test("file: padding is 0x80 then zeros up to the next multiple of 4096 bytes", async () => {
+  const key = generateFileKey();
+  const cases = [
+    ["", 4096], ["a", 4096], ["a".repeat(4094), 4096], ["a".repeat(4095), 4096],
+    ["a".repeat(4096), 8192], ["a".repeat(8191), 8192], ["a".repeat(8192), 12288],
+  ];
+  for (const [text, size] of cases) {
+    const ciphertext = await encryptFile(key, text);
+    const plain = await plaintextOf(key, ciphertext);
+    assert.equal(fromB64u(ciphertext).length, 12 + size + 16, `${text.length} bytes`);
+    assert.equal(plain.length, size);
+    const used = new TextEncoder().encode(text).length;
+    assert.equal(plain[used], 0x80);
+    assert.ok(plain.subarray(used + 1).every(b => b === 0));
+    assert.equal(await decryptFile(key, ciphertext), text);
+  }
+});
+
+test("file: texts ending in a multi-byte character or in a 0x80 byte round trip", async () => {
+  const key = generateFileKey();
+  // " " is E2 80 80: it ends in the marker byte itself.
+  for (const text of ["Zoë\n", "ends in an emoji \u{1f600}", "ends in 0x80  ", "a".repeat(4094) + "ä", " ".repeat(1366)]) {
+    assert.equal(await decryptFile(key, await encryptFile(key, text)), text);
+  }
 });
 
 test("file: wrong key or changed data is rejected", async () => {
@@ -250,4 +293,44 @@ test("file key: unwraps the Python wrapped key; JS wrap round trips; fits the li
 
   const other = await generateDeviceKeys();
   await assert.rejects(unwrapFileKey(wrapped, other.enc));
+});
+
+test("invitation: ID, message and signature match Python", async () => {
+  const v = vectors.invite;
+  assert.equal(await invitationId(fromB64u(v.secret, 16)), v.id);
+  assert.equal(text(invitationMessage(v.id)), v.message);
+  const phone = await deviceFrom(vectors.phone);
+  assert.equal(await signInvitation(phone.sign.privateKey, v.id), v.signature); // Ed25519 is deterministic
+  assert.equal(await verifyInvitation(phone.sign.publicKey, v.signature, v.id), true);
+});
+
+test("invitation: a fresh secret has 16 bytes and its own ID; a wrong key, ID or signature fails", async () => {
+  const secret = newInvitationSecret();
+  assert.equal(secret.length, 16);
+  assert.notDeepEqual(secret, newInvitationSecret());
+  const id = await invitationId(secret);
+  assert.match(id, /^[A-Za-z0-9_-]{22}$/);
+  const device = await generateDeviceKeys(), other = await generateDeviceKeys();
+  const sig = await signInvitation(device.sign.privateKey, id);
+  assert.equal(await verifyInvitation(device.sign.publicKey, sig, id), true);
+  assert.equal(await verifyInvitation(other.sign.publicKey, sig, id), false);
+  assert.equal(await verifyInvitation(device.sign.publicKey, sig, await invitationId(newInvitationSecret())), false);
+  assert.equal(await verifyInvitation(device.sign.publicKey, "not-base64!", id), false);
+  assert.equal(await verifyInvitation(device.sign.publicKey, sig.slice(0, 40), id), false);
+});
+
+test("contact card: opens Python's sealed card; JS seal round trips, fits the limit and is no wrapped key", async () => {
+  const phone = await deviceFrom(vectors.phone);
+  const v = vectors.contact_card;
+  assert.deepEqual(await openContactCard(v.sealed, phone.enc), v.card);
+  const card = { v: 1, identity: "I".repeat(22), name: "Zoë ".repeat(10).trim(), secret: "S".repeat(22) };
+  const sealed = await sealContactCard(card, phone.enc.publicKey);
+  assert.ok(sealed.length <= 512, sealed.length);
+  assert.deepEqual(await openContactCard(sealed, phone.enc), card);
+  assert.notEqual(sealed, await sealContactCard(card, phone.enc.publicKey));
+  const other = await generateDeviceKeys();
+  await assert.rejects(openContactCard(sealed, other.enc));
+  // Separate HKDF labels: a card is no relay payload and no wrapped key, and the other way round.
+  await assert.rejects(openContactCard(await wrapFileKey(generateFileKey(), phone.enc.publicKey), phone.enc));
+  await assert.rejects(unwrapFileKey(sealed, phone.enc));
 });

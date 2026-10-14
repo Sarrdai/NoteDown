@@ -11,7 +11,7 @@ venv="${VENV:-/var/tmp/notedown-venv}"
 
 . scripts/lib-postgres.sh
 start_postgres 54330
-(cd server && DATABASE_URL="$PG_URL" SERVER_SECRET=e2e-secret CORS_ORIGINS=http://127.0.0.1:8766 \
+(cd server && DATABASE_URL="$PG_URL" SERVER_SECRET=e2e-secret RATE_LIMITS=off CORS_ORIGINS=http://127.0.0.1:8766 \
   exec "$venv/bin/uvicorn" notedown_server.main:app --host 127.0.0.1 --port 8765 --log-level warning) &
 server=$!
 trap 'kill $server 2>/dev/null; as_pg "$pg_bin/pg_ctl -D $pg_dir/data -m fast stop" >/dev/null; rm -rf "$pg_dir"' EXIT

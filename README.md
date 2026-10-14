@@ -3,13 +3,16 @@
 A notes app for Android, iOS and the web — currently in the concept phase.
 
 Every note is a Markdown section and at the same time a to-do: open or
-done, with an optional due date. Open notes form the main list, done ones
+done, with an optional due date that can remind you on the day. Open notes form the main list, done ones
 move to a read-only archive. Notes live in plain Markdown files: one
-private file, plus one per group of people notes are shared with.
+private file, plus one per group of people notes are shared with;
+a People tab next to the table of contents filters the list by person or
+group. Besides the usual sort options, notes can be put in a custom order.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. A
-long-press on a note starts multi-select to close, copy, share, merge
-or delete several notes at once; a long-press in the table of contents
+long-press on a note starts multi-select to close, copy, share, merge,
+protect or delete several notes at once (protected notes can't be
+deleted, and deleting always asks first); a long-press in the table of contents
 selects sections, which can be moved together into a new note.
 
 Notes stay on the device and work offline. Sync between phone, tablet
@@ -22,10 +25,10 @@ Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on
 desktop, tablet and phone. The prototype is turning into the real app:
 Android (a Capacitor shell in `mobile/`) and the web come first, with a
-Python sync server in `server/`. The first milestone, end-to-end
-encrypted sync between your own devices, works: turn it on under ⋮ →
-Sync & sharing and link further devices by scanning a QR code (or with the
-recovery key).
+Python sync server in `server/`. End-to-end encrypted sync works: turn
+it on under ⋮ → Sync & sharing, link further devices by scanning a QR
+code (or with the recovery key), add contacts by their code or an
+invitation link, and share notes with them from multi-select → Share.
 
 ## Try the prototype
 

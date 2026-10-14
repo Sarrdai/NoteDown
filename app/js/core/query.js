@@ -9,6 +9,8 @@ export const SORT_KEYS = {
   due: { label: "Due date", field: "due" },
   title: { label: "Alphabetical", field: null },
   closed: { label: "Closed", field: "closed", archiveOnly: true },
+  custom: { label: "Custom", field: null, custom: true },
+  shared: { label: "Shared order", field: null, custom: true, circleOnly: true },
 };
 
 export const DEFAULT_SORT = {
@@ -16,11 +18,43 @@ export const DEFAULT_SORT = {
   closed: { key: "closed", dir: "desc" },
 };
 
-/** Notes of one view ("open" | "closed"), filtered by a search text and sorted. */
-export function viewNotes(notes, { status, search = "", sort }) {
+/** Notes of one view ("open" | "closed"), filtered by a search text and
+ *  sorted; a custom sort key orders by the note ids in `order`. */
+export function viewNotes(notes, { status, search = "", sort, order = [] }) {
   const q = search.trim().toLowerCase();
   const list = notes.filter(n => n.status === status && (!q || n.body.toLowerCase().includes(q)));
+  if (SORT_KEYS[sort.key]?.custom) {
+    const { sorted, unsorted } = customSplit(list, order);
+    return [...sorted, ...unsorted];
+  }
   return sortNotes(list, sort);
+}
+
+/** A custom order (backlog #24): the notes listed in `ids`, in that order,
+ *  and the rest — "not sorted yet", new notes among them — by last edited. */
+export function customSplit(notes, ids) {
+  const pos = new Map(ids.map((id, i) => [id, i]));
+  return {
+    sorted: notes.filter(n => pos.has(n.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id)),
+    unsorted: sortNotes(notes.filter(n => !pos.has(n.id)), { key: "modified", dir: "desc" }),
+  };
+}
+
+/**
+ * The custom order after arranging: `shown` are the ids the arrange dialog
+ * listed (the current view, filter and search), `arranged` its sorted part
+ * in the new order. The shown notes' old places are refilled with the new
+ * order, further ones go to the end; ids not shown keep their places.
+ */
+export function rearrange(order, shown, arranged) {
+  const visible = new Set(shown);
+  const queue = arranged.filter(id => visible.has(id));
+  const out = [];
+  for (const id of order) {
+    if (!visible.has(id)) out.push(id);
+    else if (queue.length) out.push(queue.shift());
+  }
+  return [...new Set([...out, ...queue])];
 }
 
 export function sortNotes(notes, { key, dir }) {
@@ -66,4 +100,18 @@ export function tableOfContents(notes) {
 /** How many notes were closed on the given local day ("YYYY-MM-DD"). */
 export function closedOn(notes, day) {
   return notes.filter(n => n.status === "closed" && n.closed && localTime(n.closed).startsWith(day)).length;
+}
+
+/** The tile order with "Protected first": protected notes first, each group in
+ *  its given order. The contents keep the plain sort order. */
+export function protectedFirst(notes, isProtected) {
+  return [...notes.filter(n => isProtected(n.id)), ...notes.filter(n => !isProtected(n.id))];
+}
+
+/** What deleting `notes` does: protected notes stay (`kept`); the rest splits
+ *  into private and shared ones, which go for everyone in their circle. */
+export function deleteGroups(notes, { isProtected, isShared }) {
+  const out = { kept: [], private: [], shared: [] };
+  for (const n of notes) out[isProtected(n.id) ? "kept" : isShared(n.id) ? "shared" : "private"].push(n);
+  return out;
 }

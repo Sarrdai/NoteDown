@@ -17,9 +17,11 @@ How NoteDown keeps notes on several devices in step, how single notes are
 shared with other people, and how everything stays end-to-end encrypted —
 without accounts: the server knows no email, name or password, only
 anonymous identities and the relations created by scanning a code.
-Decided with the user on 2026-10-13; built in the app phase. The prototype
-carries the merge logic (`app/js/core/merge.js`, tested in
-`tests/merge.test.mjs`) and the whole UI with a simulated server.
+Decided with the user on 2026-10-13; milestone 1 (own devices) and
+milestone 2 (contacts and sharing) run against the server
+(`app/js/sync/`, `server/`); the merge logic is `app/js/core/merge.js`
+(tested in `tests/merge.test.mjs`, end to end in `scripts/e2e-sync.js`),
+and the sample simulates everything without a server.
 
 ## Principles
 
@@ -52,8 +54,22 @@ carries the merge logic (`app/js/core/merge.js`, tested in
   dropped 30 days after the move.
 - **All members are equal:** each can edit, close, reopen and delete a
   shared note, share it with further people, remove people, or leave.
+  Leaving marks the note; a remaining member's device then moves it into
+  the file without the leaver (`docs/file-format.md` → "Leaving a shared
+  note"). Members who aren't contacts show with their own display name
+  (`docs/file-format.md` → "Members").
   The whole note is shared, including status and due date — closed for
   one means closed for all.
+- **Merging across circles** never takes a shared note away from the
+  others silently: the user picks a private copy (the shared notes stay)
+  or sharing the result with everyone involved
+  (`docs/requirements.md` → "Multi-select").
+- **Protection stays local** (`docs/requirements.md` → "Main view and
+  archive"): when someone else deletes a shared note that this device
+  has protected, the note isn't lost here — it becomes a private note
+  on this device, still protected. A note deleted on another of the
+  user's own devices goes everywhere, as protection isn't synced, and a
+  newly linked device starts without protected notes.
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who
@@ -109,6 +125,14 @@ rely on the operating system's own storage encryption for the local copy.
   recovery key nor the contacts change. (Decided over only blocking the
   device, which leaves it able to decrypt later copies, and over a new
   identity, which needs a new recovery key and warns every contact.)
+- **Signing out a device** (⋮ → Sync & sharing → "Sign out this device",
+  e.g. after using a public PC) syncs once, takes the device itself off
+  the device list and erases everything NoteDown stored on it: notes,
+  settings, sync state and keys. The file key is **not** renewed — a
+  device that erases itself needs no lock-out; one that may have been
+  copied is removed from another device instead, which renews. If
+  signing out fails (offline), "Erase without signing out" erases
+  alone; the device then stays listed until another one removes it.
 - **Restoring:** the recovery key counts as one more device — file keys
   are always wrapped for it too — so entering it on a new device brings
   everything back, the only way when no linked device is left. All
@@ -120,18 +144,31 @@ rely on the operating system's own storage encryption for the local copy.
 
 ## Contacts
 
-- **In person:** a contact shows their QR code ("My code"), the user
-  scans it. The scanning device gets the contact's public key directly —
-  the contact is verified by construction. The scanned device receives
-  a contact request and confirms it, so both have each other.
+- **In person:** the user shows their code ("My code"), the contact scans
+  it — with NoteDown's scanner or the phone's own camera, the code is the
+  invitation link. The code carries the user's identity ID, which is the
+  fingerprint of their identity key, so the scanner gets the right key
+  by construction.
 - **Remote:** the user sends an **invitation link** through any
-  messenger. It carries the user's key fingerprint and a one-time token;
-  whoever opens it (installing NoteDown or opening the web app first)
-  becomes a contact on both sides. As safe as the channel it was sent
-  over.
+  messenger; whoever opens it (installing NoteDown or opening the web app
+  first) can send a contact request. As safe as the channel it was sent
+  over. On Android the link opens the app when it is installed (App
+  Link); "Add contact" also takes a pasted link.
+- **Every request is confirmed** by the one who showed the code or sent
+  the link (decided 2026-10-14): only then are both contacts of each
+  other. Code and link work once; a code for 10 minutes, a link for 7
+  days. The server can't forge a request: the link's secret is in it,
+  and it never sees that secret (`docs/server-api.md` → "Contacts and
+  invitations").
 - Contact names are **local**: the user names a contact; the contact's
-  own display name is the suggestion.
-- The app remembers each contact's key and warns if it ever changes.
+  own display name is the suggestion. The contact list lives in the
+  private file (`docs/file-format.md` → "Contacts"), so all the user's
+  devices share it.
+- **Device lists are private to contacts** (backlog #18): only the
+  identity itself, its contacts, the members of its shared files and
+  someone holding its open invitation may read it. The server therefore
+  knows which identities are contacts — it learns who shares with whom
+  anyway.
 
 ## Keys
 
@@ -161,8 +198,10 @@ rely on the operating system's own storage encryption for the local copy.
   merges and uploads again.
 - Sync runs **automatically**: shortly after a change, when the app opens,
   comes back to the foreground or gets the focus, when it reconnects, and
-  every 5 s while it is visible, so a change from another device shows up
-  within seconds; and on request (opening Sync & sharing, pull to
+  every 5 s while it is visible — growing to 30 s while nothing changes
+  and back to 5 s on any change, focus or request, to spare the free tiers
+  — so a change from another device shows up within seconds to half a
+  minute; and on request (opening Sync & sharing, pull to
   refresh). The server has no push: long polling would arrive in about a
   second but keeps a Cloud Run instance billed while any app is open, far
   beyond the free tier (decided 2026-10-13). While a note is being
@@ -199,8 +238,8 @@ devices don't keep re-uploading the same notes in each other's order.
   list), files (ciphertext + version, file keys wrapped per device) and
   which identities may access which file, and short-lived relay slots
   for linking devices and contacts.
-- Sees, unavoidably: which anonymous identities share files, file sizes,
-  times of change and IP addresses — no names, emails or contents.
+- Sees, unavoidably: which anonymous identities share files, file sizes
+  (in 4 KiB steps), times of change and IP addresses — no names, emails or contents.
 - **Abuse protection** without accounts: a storage quota per identity
   and rate limits per IP address; payment, if it comes, can stay
   anonymous (an account number instead of an email).
@@ -210,18 +249,27 @@ devices don't keep re-uploading the same notes in each other's order.
   identities and access; for the test phase Postgres holds the encrypted
   files too, an object store follows when size calls for it (`PROJECT.md`
   → "Technology direction"). The protocol byte for byte is
-  `docs/server-api.md`; rate limits per IP are not built yet (backlog).
+  `docs/server-api.md`. Built: 2 MB of storage per identity (the app shows
+  how much is used, from the file list every sync round fetches), and per-IP
+  limits on creating identities (10 per day) and relay slots (30 per hour).
 
 ## Open points
 
 - Until a lost device is removed, it can change or delete notes,
   including shared ones; a version history on the server (backlog #7)
   would let the user bring a file back.
-- The UI is decided and in the prototype (`docs/requirements.md` → "Sync
-  and sharing" → "Where it is operated"). Real sync covers milestone 1
-  (`app/js/sync/`); the rest is simulated in the sample.
-- **Milestone 1 client details:** the private file is the identity's only
-  file on the server (milestone 2 needs a way to tell it from shared
-  files); device names live in the private file (`docs/file-format.md` →
-  "Device names"), since the server knows none; the notes still sit in
-  `localStorage`, only the keys in IndexedDB.
+- **Client details:** the private file is the identity's file with
+  itself as the only member; device names and contacts live in it
+  (`docs/file-format.md`), since the server knows neither; the notes
+  still sit in `localStorage`, only the keys in IndexedDB.
+- Files are uploaded in an order that never shows a moved marker before
+  the note exists in its new file: the files that receive notes first,
+  the private file last. A shared file that keeps failing (e.g. a member
+  who is no contact any more) therefore holds back the private file
+  until it is resolved; the error says why.
+- Not handled yet: a device linked at the moment another member renews a
+  shared file's key may get no key for that file ("No key for this
+  device on the server" for that file only) until a device is linked or
+  removed again; a declined request leaves the requester's contact on
+  "Waiting for confirmation" until they remove it; a contact who removed
+  the user stays in the user's list.

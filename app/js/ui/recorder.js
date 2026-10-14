@@ -19,6 +19,7 @@ export function initRecorder({ onTap, onTranscript }) {
   let press = null;      // { x, y, timer } while the finger is down
   let rec = null;        // { session, finals, interim, started, locked }
   let levels = [];
+  let smooth = 0;        // the FAB's pulse, smoothed against the jittery raw level
   let lastBar = 0;
   let clock = 0;
 
@@ -40,6 +41,7 @@ export function initRecorder({ onTap, onTranscript }) {
     vibrate(15);
     rec = { finals: [], interim: "", started: Date.now(), locked: false };
     levels = [];
+    smooth = 0;
     rec.session = startDictation({
       onInterim: t => { if (rec) { rec.interim = t; preview(); } },
       onFinal: t => { if (rec) { rec.finals.push(t.trim()); rec.interim = ""; preview(); } },
@@ -56,7 +58,9 @@ export function initRecorder({ onTap, onTranscript }) {
   }
 
   function level(v) {
-    fab.style.setProperty("--level", v.toFixed(3));
+    // Fast attack, slow release, like a VU meter.
+    smooth += (v - smooth) * (v > smooth ? 0.4 : 0.1);
+    fab.style.setProperty("--level", smooth.toFixed(3));
     const now = performance.now();
     if (now - lastBar < 70) return;
     lastBar = now;

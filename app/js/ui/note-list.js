@@ -1,23 +1,39 @@
 // The note list: renders the notes of the current view, edits a note in
-// place (editor.js), toggles task checkboxes and the note's own open/closed
-// state.
+// place (editor.js), toggles task checkboxes, the note's own open/closed
+// state and its protection from deletion.
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note).
 import { renderMarkdown, noteTitle, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, removeNote, circleOf } from "../store.js";
+import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { openShareDialog } from "./share-dialog.js";
+import { openDueMenu } from "./toolbar.js";
 
 const list = () => document.getElementById("list");
 
-export function renderList(notes) {
-  list().replaceChildren(...notes.map(noteElement));
+/** Renders the tiles; `dividerBefore` (a note id) puts the custom order's
+ *  "Not sorted yet" divider above that note (backlog #24). */
+export function renderList(notes, options) {
+  list().replaceChildren(...listItems(notes, options));
+}
+
+/** The tiles' elements without placing them (also the swipe's preview of the other view). */
+export function listItems(notes, { dividerBefore = null, onArrange, view = state.view } = {}) {
+  return notes.flatMap(n => n.id === dividerBefore ? [divider(onArrange), noteElement(n, view)] : [noteElement(n, view)]);
+}
+
+function divider(onArrange) {
+  const el = document.createElement("div");
+  el.className = "unsorted-divider";
+  el.innerHTML = `<span>Not sorted yet</span><button class="link-btn">Arrange…</button>`;
+  el.querySelector("button").addEventListener("click", onArrange);
+  return el;
 }
 
 // A tap on the shared marker opens the share dialog.
@@ -30,6 +46,15 @@ document.addEventListener("click", e => {
   if (note(id)) openShareDialog([id]);
 });
 
+// A tap on the due chip opens the due-date menu; editing another note ends first.
+document.addEventListener("click", e => {
+  const hit = e.target.closest("#list button.due-chip");
+  if (!hit) return;
+  const id = hit.closest(".note").dataset.id;
+  if (state.editingId && state.editingId !== id) endEdit();
+  if (note(id)) openDueMenu(hit, id);
+});
+
 export function patchNote(id) {
   const el = list().querySelector(`.note[data-id="${id}"]`);
   const n = note(id);
@@ -39,9 +64,9 @@ export function patchNote(id) {
   else el.replaceWith(noteElement(n));
 }
 
-function noteElement(n) {
+function noteElement(n, view = state.view) {
   const el = document.createElement("article");
-  el.className = "note" + (n.status === "closed" ? " closed" : "");
+  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "");
   el.dataset.id = n.id;
   if (noteTitle(n.body).fromHeading && /^\s{0,3}#{1,3}\s/.test(n.body)) el.classList.add("lead-heading");
 
@@ -60,9 +85,17 @@ function noteElement(n) {
 
   const meta = document.createElement("div");
   meta.className = "note-meta";
-  meta.innerHTML = metaHtml(n);
+  meta.innerHTML = metaHtml(n, view);
 
-  el.append(status, body, meta);
+  // A shield under the round button of a protected note; a tap removes the protection.
+  const protect = document.createElement("button");
+  protect.className = "protect-mark";
+  protect.setAttribute("aria-label", "Protected from deletion, remove protection");
+  protect.title = "Protected from deletion · tap to remove";
+  protect.innerHTML = icon("protect");
+  protect.addEventListener("click", () => setProtected([n.id], false));
+
+  el.append(status, body, meta, protect);
   markSelected(el);
   return el;
 }
@@ -100,14 +133,19 @@ function markerHtml(n) {
   return n.status === "open" ? `<button type="button" ${attrs}>${inner}</button>` : `<span role="img" ${attrs}>${inner}</span>`;
 }
 
-function metaHtml(n) {
+function metaHtml(n, view = state.view) {
   const parts = [markerHtml(n)].filter(Boolean);
-  if (n.due) {
-    // A closed note's due date is history, not a warning.
-    const d = n.status === "closed" ? { text: "Due " + shortDate(n.due), kind: "future" } : dueLabel(n.due);
-    parts.push(`<span class="chip ${d.kind}">${icon("calendar")}${d.text}</span>`);
+  if (n.status === "closed") {
+    // A closed note's due date is history, not a warning, and read-only.
+    if (n.due) parts.push(`<span class="chip">${icon("calendar")}Due ${shortDate(n.due)}</span>`);
+  } else if (n.due) {
+    const d = dueLabel(n.due);
+    parts.push(`<button type="button" class="chip due-chip ${d.kind}" aria-label="${esc(d.text + ", change due date")}">${icon("calendar")}${d.text}</button>`);
+  } else {
+    // An empty slot to set one.
+    parts.push(`<button type="button" class="chip due-chip due-add">${icon("calendar")}Due date</button>`);
   }
-  const key = state.settings.sort[state.view].key;
+  const key = state.settings.sort[view].key;
   const field = { created: "created", closed: "closed" }[key] || "modified";
   const label = { created: "Created", closed: "Closed", modified: "Edited" }[field];
   if (n[field]) parts.push(`<span>${label} ${relativeTime(n[field])}</span>`);
@@ -164,13 +202,13 @@ export function endEdit() {
   editor.destroy();
   editing = null;
   state.editingId = null;
-  const wasPinned = state.pinnedId === id;
-  if (wasPinned) state.pinnedId = null;
+  const wasNew = state.topId === id;
+  if (wasNew) state.topId = null;
   editListeners.forEach(fn => fn(null));
   if (/^\s*(#+\s*)?$/.test(text)) {
     // An empty note is not kept: a fresh one silently, an emptied one with undo.
     const undo = removeNote(id);
-    if (!wasPinned) showSnackbar("Empty note deleted", undo);
+    if (!wasNew) showSnackbar("Empty note deleted", undo);
     return;
   }
   setBody(id, text.trim());

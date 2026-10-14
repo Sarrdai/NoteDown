@@ -10,6 +10,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 MAX_DEVICES = 20
+MAX_MEMBERS = 20
 _B64U = re.compile(r"^[A-Za-z0-9_-]*$")
 _ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
 
@@ -48,6 +49,29 @@ def key_id(public_key: bytes) -> str:
 
 def entry_hash(entry: dict) -> str:
     return b64u(hashlib.sha256(canonical(entry)).digest())
+
+
+def member_key(members: list[str]) -> str:
+    """The unique key of a member set: the sorted identity IDs joined by "+" (not in the b64u alphabet)."""
+    return "+".join(sorted(members))
+
+
+def check_members(members: object, caller: str) -> list[str]:
+    """A file's requested member set, sorted: valid IDs, no duplicates, the caller included, at most 20."""
+    if not isinstance(members, list) or not all(is_id(m) for m in members):
+        raise ProtocolError("invalid members")
+    if len(set(members)) != len(members):
+        raise ProtocolError("duplicate members")
+    if caller not in members:
+        raise ProtocolError("members must include the caller")
+    if len(members) > MAX_MEMBERS:
+        raise ProtocolError("too many members")
+    return sorted(members)
+
+
+def invitation_message(invitation: str) -> bytes:
+    """What the inviting device signs when it creates an invitation."""
+    return f"notedown-invite-v1:{invitation}".encode()
 
 
 def verify_signature(public_key: bytes, signature: bytes, message: bytes) -> bool:

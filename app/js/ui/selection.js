@@ -5,17 +5,21 @@
 // Shift+click selects a range. The selection bar acts on the selection;
 // Copy and Merge first confirm the order in a dialog where it can be
 // changed by drag and drop. Ends with ✕, Esc, the back button, an empty
-// selection or an action that removes the notes from view.
-import { tableOfContents } from "../core/query.js";
+// selection or an action that removes the notes from view. Delete asks
+// first (ui/confirm.js) and leaves protected notes alone.
+import { tableOfContents, deleteGroups } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, isProtected, setProtected, circleOf } from "../store.js";
+import { mergeCircle } from "../core/sharing.js";
+import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
 import { openMenu } from "./menu.js";
+import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { icon } from "./icons.js";
 
 const HOLD_MS = 450;
@@ -40,7 +44,12 @@ export function initSelection(options) {
   $("selCancel").addEventListener("click", () => endSelection());
   $("selMore").innerHTML = icon("more");
   $("orderCancel").addEventListener("click", closeDialog);
-  $("orderOk").addEventListener("click", () => { const fn = dialog.onConfirm, ordered = orderedFromDialog(); closeDialog(); fn(ordered); });
+  $("orderOk").addEventListener("click", () => {
+    const fn = dialog.onConfirm, ordered = orderedFromDialog();
+    const mode = $("orderChoice").querySelector("input:checked")?.value || "copy";
+    closeDialog();
+    fn(ordered, mode);
+  });
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
   const l = list();
@@ -58,13 +67,14 @@ export function initSelection(options) {
   window.addEventListener("click", onClick, true);
 
   document.addEventListener("keydown", e => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || isConfirmOpen()) return;
     if (dialog) closeDialog();
     else if (isSelecting()) endSelection();
   });
-  // Android back: the selection (and the dialog) sit on a history entry.
+  // Android back: the selection (and the dialog) sit on a history entry;
+  // back from the delete confirmation (its own entry) lands on it again.
   window.addEventListener("popstate", () => {
-    if (!isSelecting()) return;
+    if (!isSelecting() || (history.state && history.state.selecting)) return;
     if (dialog) { closeDialog(); history.pushState({ selecting: true }, ""); return; }
     endSelection({ fromHistory: true });
   });
@@ -200,13 +210,16 @@ function update() {
   const archive = state.view === "closed";
   const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
     && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
-  // Close, Share and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  // Close, Share, Protect and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  const ids = byNote.map(([n]) => n.id);
+  const protect = ids.some(id => !isProtected(id));
   const actions = [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
-    !archive && state.sync.simulated && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },   // real sharing: milestone 2
+    !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
-    { id: "trash", label: "Delete", run: remove, disabled: !whole },
+    { id: protect ? "protect" : "unprotect", label: protect ? "Protect" : "Unprotect", run: () => protectNotes(protect), disabled: !whole, menu: !archive },
+    { id: "trash", label: "Delete", run: remove, disabled: !whole || ids.every(isProtected) },
     !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },
     !archive && { id: "indent", label: "Demote headings", run: () => shift(1), disabled: !canShift(1), menu: true },
   ].filter(Boolean);
@@ -254,10 +267,32 @@ function share() {
   setTimeout(open, 300);
 }
 
-function remove() {
+function protectNotes(on) {
   const ids = noteIds();
   endSelection();
-  showSnackbar(count(ids.length, "deleted"), removeNotes(ids));
+  showSnackbar(count(ids.length, on ? "protected" : "unprotected"), setProtected(ids, on));
+}
+
+// Asks first; protected notes stay, shared ones go for everyone in their circle.
+// Cancel keeps the selection.
+function remove() {
+  const g = deleteGroups(noteIds().map(note), { isProtected, isShared: id => circleOf(id).length > 0 });
+  const ids = [...g.private, ...g.shared].map(n => n.id);
+  const text = [
+    ids.length === 1 ? "It is removed from all your devices." : "They are removed from all your devices.",
+    g.shared.length && (g.shared.length === ids.length ? (ids.length === 1 ? "It is shared and is deleted for everyone." : "They are shared and are deleted for everyone.")
+      : `${g.shared.length} of them ${g.shared.length === 1 ? "is" : "are"} shared and deleted for everyone.`),
+    g.kept.length && (g.kept.length === 1 ? "1 protected note stays." : `${g.kept.length} protected notes stay.`),
+  ].filter(Boolean).join(" ");
+  openConfirm({
+    title: ids.length === 1 ? "Delete note?" : `Delete ${ids.length} notes?`,
+    text,
+    okLabel: () => "Delete",
+    onConfirm: () => {
+      endSelection();
+      showSnackbar(count(ids.length, "deleted"), removeNotes(ids));
+    },
+  });
 }
 
 // Headings of the selected parts one level up (-1) or down (+1); the selection stays.
@@ -279,16 +314,22 @@ function copy() {
 }
 
 // Merge and "move to a new note" are one mechanism: the parts, in the
-// confirmed order, become a new note and leave their notes.
+// confirmed order, become a new note and leave their notes. Across circles
+// the dialog asks where it goes (core/sharing.js → mergeCircle): a private
+// copy that leaves the shared notes as they are, or shared with everyone involved.
 function merge() {
   const { parts, notes, whole } = current();
   const single = parts.length === 1;
-  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, ordered => {
+  const circles = Object.keys(notes).map(circleOf);
+  const across = mergeCircle(circles, "copy").keepShared;
+  const choice = across ? mergeCircle(circles, "share").members : null;
+  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, (ordered, mode) => {
     endSelection();
     const m = mergeParts(notes, ordered);
-    const { note: created, undo } = applyMerge(m.changes, m);
-    opts.onMerged(created, undo, whole ? "Notes merged" : "Moved to a new note");
-  });
+    const { note: created, undo } = applyMerge(m.changes, m, mode);
+    const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
+    opts.onMerged(created, undo, message);
+  }, choice);
 }
 
 async function writeClipboard(text) {
@@ -306,14 +347,24 @@ async function writeClipboard(text) {
 
 // ---------- order dialog ----------
 
-function openDialog(title, okLabel, parts, notes, onConfirm) {
+// `shareWith` (member ids) adds the choice between a private copy and
+// sharing with these people; onConfirm gets the order and "copy" | "share".
+function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null) {
   dialog = { onConfirm, parts };
   $("orderTitle").textContent = title;
   $("orderOk").textContent = okLabel;
+  $("orderChoice").hidden = !shareWith;
+  $("orderChoice").innerHTML = shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
+    + choiceHtml("share", `Share with ${esc(membersLabel(shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(shareWith)) : "";
   $("orderHint").hidden = parts.length < 2;
   $("orderList").replaceChildren(...parts.map((p, i) => orderItem(partPreview(notes[p.noteId].body, p), i)));
   $("orderDialog").hidden = false;
-  $("orderOk").focus({ preventScroll: true });
+  $("orderOk").focus({ preventScroll: true, focusVisible: false });
+}
+
+function choiceHtml(value, title, hint, checked, extra = "") {
+  return `<label class="choice"><input type="radio" name="mergeMode" value="${value}"${checked ? " checked" : ""}>`
+    + `<span class="choice-text"><span class="choice-title">${title}</span><span class="choice-hint">${hint}</span></span>${extra}</label>`;
 }
 
 function closeDialog() {
@@ -333,6 +384,12 @@ function orderItem({ text, fromHeading }, i) {
   const label = document.createElement("span");
   label.className = "order-text" + (fromHeading ? "" : " plain");
   label.textContent = text || "Untitled";
+  li.append(label, orderGrip(li));
+  return li;
+}
+
+/** The drag handle of an order row (also the custom order's arrange dialog). */
+export function orderGrip(li) {
   const grip = document.createElement("button");
   grip.className = "order-grip";
   grip.setAttribute("aria-label", "Move (drag, or arrow keys)");
@@ -345,35 +402,67 @@ function orderItem({ text, fromHeading }, i) {
     e.preventDefault();
     grip.focus();
   });
-  li.append(label, grip);
-  return li;
+  return grip;
 }
 
 // Drag by the grip: the row follows the pointer and the others make room.
+// The row stays inside the list's visible area; near its top or bottom edge
+// the list scrolls along.
+const EDGE = 48; // px from the list's edge where it starts scrolling
 function startDrag(e, li) {
   e.preventDefault();
   const grip = e.currentTarget;
+  const list = li.parentElement;
   grip.setPointerCapture(e.pointerId);
   li.classList.add("dragging");
   let lastY = e.clientY;
-  let offset = 0;
-  const move = ev => {
-    offset += ev.clientY - lastY;
-    lastY = ev.clientY;
-    const prev = li.previousElementSibling;
-    const next = li.nextElementSibling;
-    if (prev && offset < -prev.offsetHeight / 2) { offset += prev.offsetHeight; prev.before(li); }
-    else if (next && offset > next.offsetHeight / 2) { offset -= next.offsetHeight; next.after(li); }
+  let offset = 0; // where the row should be, relative to its slot
+  let shown = 0;  // the translation currently applied
+  let frame = 0;
+  const slot = () => li.getBoundingClientRect().top - shown;
+  // Moves the row past a neighbour; the offset follows the slot's real shift.
+  const swap = move => { const t = slot(); move(); offset -= slot() - t; };
+  const place = () => {
+    // Past a neighbour's middle the row takes its place.
+    let prev, next;
+    while ((prev = li.previousElementSibling) && offset < (prev.getBoundingClientRect().top - slot()) / 2) swap(() => prev.before(li));
+    while ((next = li.nextElementSibling) && offset > (next.getBoundingClientRect().bottom - slot() - li.offsetHeight) / 2) swap(() => next.after(li));
+    if (!li.previousElementSibling) offset = Math.max(offset, 0);
+    if (!li.nextElementSibling) offset = Math.min(offset, 0);
+    const box = list.getBoundingClientRect();
+    const top = slot();
+    offset = Math.min(Math.max(offset, box.top - top), box.bottom - li.offsetHeight - top);
+    shown = offset;
     li.style.transform = `translateY(${offset}px)`;
   };
-  const up = () => {
+  const scroll = () => {
+    const box = list.getBoundingClientRect();
+    const step = lastY < box.top + EDGE ? -8 : lastY > box.bottom - EDGE ? 8 : 0;
+    const before = list.scrollTop;
+    list.scrollTop += step;
+    // The row moved with the content; keep it under the pointer.
+    offset += list.scrollTop - before;
+    if (step) place();
+    frame = step ? requestAnimationFrame(scroll) : 0;
+  };
+  const move = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    offset += ev.clientY - lastY;
+    lastY = ev.clientY;
+    place();
+    if (!frame) frame = requestAnimationFrame(scroll);
+  };
+  const up = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    cancelAnimationFrame(frame);
     li.classList.remove("dragging");
     li.style.transform = "";
-    grip.removeEventListener("pointermove", move);
-    grip.removeEventListener("pointerup", up);
-    grip.removeEventListener("pointercancel", up);
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
   };
-  grip.addEventListener("pointermove", move);
-  grip.addEventListener("pointerup", up);
-  grip.addEventListener("pointercancel", up);
+  // On the window: moving the row in the DOM ends the grip's pointer capture.
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
 }

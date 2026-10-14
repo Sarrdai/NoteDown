@@ -4,7 +4,6 @@ const PATHS = {
   sort: '<path d="M7 4v16M3.5 7.5 7 4l3.5 3.5M17 20V4M13.5 16.5 17 20l3.5-3.5"/>',
   archive: '<rect x="3" y="4" width="18" height="4.5" rx="1.2"/><path d="M5 8.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5M10 12.5h4"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
-  toc: '<path d="M9 6h11M9 12h11M13 18h7"/><circle cx="4.5" cy="6" r="0.6"/><circle cx="4.5" cy="12" r="0.6"/><circle cx="8.5" cy="18" r="0.6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   minus: '<path d="M5 12h14"/>',
   more: '<circle cx="12" cy="5" r="0.8"/><circle cx="12" cy="12" r="0.8"/><circle cx="12" cy="19" r="0.8"/>',
@@ -41,6 +40,8 @@ const PATHS = {
   cloudCheck: '<path d="M7.5 19h9.5a4 4 0 0 0 .7-7.9 5.5 5.5 0 0 0-10.6-1A4.5 4.5 0 0 0 7.5 19z"/><path d="M9.5 14l2 2 3.5-3.8"/>',
   cloudSync: '<path d="M7.5 19h9.5a4 4 0 0 0 .7-7.9 5.5 5.5 0 0 0-10.6-1A4.5 4.5 0 0 0 7.5 19z"/><g class="spin"><path d="M9.6 13.6a2.7 2.7 0 0 1 4.6-.9M14.3 11.3v1.6h-1.6M14.4 15.4a2.7 2.7 0 0 1-4.6.9M9.7 17.7v-1.6h1.6"/></g>',
   cloudOff: '<path d="M7.5 19h9.5a4 4 0 0 0 1.6-.35M5.5 17.4A4.5 4.5 0 0 1 7.2 9.6a5.5 5.5 0 0 1 8.2-3.1M20 14.6a4 4 0 0 0-2.3-3.5"/><path d="M4 4l16 16"/>',
+  protect: '<path d="M12 3.5 5 6.2v5.6c0 4.2 2.9 7.6 7 8.7 4.1-1.1 7-4.5 7-8.7V6.2z"/>',
+  unprotect: '<path d="M12 3.5 5 6.2v5.6c0 4.2 2.9 7.6 7 8.7 4.1-1.1 7-4.5 7-8.7V6.2z"/><path d="M4 4l16 16"/>',
   grip: '<circle cx="9" cy="6" r="0.9"/><circle cx="15" cy="6" r="0.9"/><circle cx="9" cy="12" r="0.9"/><circle cx="15" cy="12" r="0.9"/><circle cx="9" cy="18" r="0.9"/><circle cx="15" cy="18" r="0.9"/>',
 };
 

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, deviceRows, keyHolders, withDeviceName, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
+import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, nextPollDelay, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
 
 const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -52,4 +52,57 @@ test("withDeviceName: sets, replaces and removes a device name", () => {
 test("keyHolders: every active device including the recovery device", () => {
   const devices = new Map([dev("a"), dev("r", "recovery"), dev("c", "device", false)]);
   assert.deepEqual(keyHolders(devices).map(d => d.id), ["a", "r"]);
+});
+
+test("storageUsage: text, share and level of the storage bar", () => {
+  const MB = 1024 * 1024;
+  assert.deepEqual(storageUsage({ used: 0.4 * MB, quota: 2 * MB }), { text: "0.4 MB of 2 MB used", fraction: 0.2, percent: 20, level: "ok" });
+  assert.equal(storageUsage({ used: 0, quota: 2 * MB }).text, "< 0.1 MB of 2 MB used");
+  assert.equal(storageUsage({ used: 0.06 * MB, quota: 2 * MB }).text, "0.1 MB of 2 MB used");
+  assert.equal(storageUsage({ used: 1.5 * MB, quota: 2 * MB }).level, "ok");
+  assert.equal(storageUsage({ used: 1.6 * MB, quota: 2 * MB }).level, "warn");
+  const full = storageUsage({ used: 2 * MB, quota: 2 * MB });
+  assert.deepEqual([full.level, full.fraction, full.text], ["full", 1, "2 MB of 2 MB used"]);
+  assert.equal(storageUsage({ used: 3 * MB, quota: 2 * MB }).fraction, 1);
+  const refused = storageUsage({ used: 1.2 * MB, quota: 2 * MB }, true);
+  assert.deepEqual([refused.level, refused.percent, refused.text], ["full", 100, "1.2 MB of 2 MB used"]);
+});
+
+test("nextPollDelay: 5, 10, 20, 30 s while nothing changes, back to 5 s on a change", () => {
+  const delays = [5000];
+  for (let i = 0; i < 5; i++) delays.push(nextPollDelay(delays.at(-1), false));
+  assert.deepEqual(delays, [5000, 10000, 20000, 30000, 30000, 30000]);
+  assert.equal(nextPollDelay(30000, true), 5000);
+  assert.equal(nextPollDelay(5000, true), 5000);
+  assert.equal(nextPollDelay(0, false), 5000, "never below the minimum");
+});
+
+test("matchFiles: the file of the user alone is private, the others are shared files by circle", () => {
+  const files = [
+    { id: "f1", members: ["me"] },
+    { id: "f2", members: ["bob", "me"] },
+    { id: "f3", members: ["bob", "lea", "me"] },
+    { id: "f4", members: ["lea", "me"] },
+  ];
+  const { privateFile, shared } = matchFiles(files, "me");
+  assert.equal(privateFile.id, "f1");
+  assert.deepEqual([...shared].map(([key, f]) => [key, f.id]), [["bob", "f2"], ["bob+lea", "f3"], ["lea", "f4"]]);
+  assert.equal(matchFiles([], "me").privateFile, undefined);
+});
+
+test("fileMembers: the user and the circle, sorted as the server sorts", () => {
+  assert.deepEqual(fileMembers("m", ["z", "A", "b"]), ["A", "b", "m", "z"]);
+  assert.deepEqual(fileMembers("me", []), ["me"]);
+});
+
+test("allKeyHolders: active devices of every member, recovery devices included, removed ones left out", () => {
+  const mine = new Map([dev("a"), dev("r", "recovery"), dev("x", "device", false)]);
+  const theirs = new Map([dev("b"), dev("s", "recovery")]);
+  assert.deepEqual(allKeyHolders([mine, theirs]).map(d => d.id), ["a", "r", "b", "s"]);
+});
+
+test("hasContent: an empty circle left behind needs no file, one with notes or an order does", () => {
+  assert.equal(hasContent(file()), false);
+  assert.equal(hasContent(file(sample.notes[0])), true);
+  assert.equal(hasContent({ ...file(), order: { ids: [], modified: "2026-10-13T09:00Z" } }), true);
 });

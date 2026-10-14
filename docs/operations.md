@@ -8,6 +8,7 @@
 - [3. Google Cloud](#3-google-cloud)
 - [4. Server subdomain](#4-server-subdomain)
 - [5. Android signing key](#5-android-signing-key)
+- [6. Alerts](#6-alerts)
 - [Installing the test app](#installing-the-test-app)
 - [Checks](#checks)
 - [Day to day](#day-to-day)
@@ -36,12 +37,15 @@ identity federation (short-lived tokens, no stored key), limited to
 skipped, not failed.
 
 **Free-tier limits that matter:** Cloud Run 2 million requests per
-month (a synced app that is open polls every 5 s, about 130,000 requests
-a month for a device open all working day), and the service is capped at 2 instances; Artifact Registry
+month (a synced app that is open polls every 5 s with two requests — the
+file list and the open invitations — about 260,000 requests a month for
+a device open all working day; while nothing changes the interval grows
+to 30 s, so a mostly idle device needs about 40,000), and the service is capped at 2 instances; Artifact Registry
 0.5 GB (the setup keeps the 5 newest images); Neon 0.5 GB of data and a
 database that sleeps after 5 idle minutes (the first request afterwards
-takes about a second). Google needs a billing account even within the
-free tier; a budget alert guards against surprises.
+takes about a second; compute hours are limited on the free plan).
+Google needs a billing account even within the free tier; a budget alert
+guards against surprises.
 
 ## Setup order
 
@@ -55,7 +59,8 @@ don't.
 3. Google Cloud project, then run `scripts/setup-gcp.sh`.
 4. Server subdomain on Cloud Run.
 5. Android signing key.
-6. Check everything (see "Checks").
+6. Alerts by email.
+7. Check everything (see "Checks").
 
 ## 1. Web app on GitHub Pages
 
@@ -135,7 +140,9 @@ Cloud Run serves a custom domain once Google knows the domain is yours.
    notedown-api.example.com --region europe-west1` shows the status.
 5. Add the repository variable `API_HOST` = `notedown-api.example.com`:
    the web and Android deploys write it into `app/config.json`, where the
-   app finds its sync server (without it, sync can't be turned on).
+   app finds its sync server (without it, sync can't be turned on); the
+   same file holds `web`, the web app's address (`WEB_HOST`), which
+   invitation links start with.
    Both host variables hold the bare host name (no `https://`); the
    deploys stop with an error on a URL or the `example.com` placeholder
    (`scripts/check-host.sh`).
@@ -164,8 +171,52 @@ The key is created once, by you, and kept like a password.
    - `ANDROID_KEYSTORE_PASSWORD` = the password.
 4. *Actions* → *Android* → *Run workflow* on `main`.
 
+5. **Invitation links open the app** (Android App Link): nothing to do
+   by hand. The web deploy reads the certificate fingerprint from the
+   same keystore secret (step 3) and publishes it as
+   `https://notedown.example.com/.well-known/assetlinks.json`, which is
+   how Android checks that the app may open links of that host; the
+   Android build takes the host from the repository variable `WEB_HOST`
+   (step 1). The file exists only while the secret is set. Run *Actions*
+   → *Web* → *Run workflow* once after adding the secrets (the deploy
+   otherwise runs on the next change of `app/`). Until then (and in debug
+   builds, which are signed with another key) an invitation link opens in
+   the browser, and "Add contact" → "Paste link" takes it. Check on the
+   phone after installing: `adb shell pm get-app-links
+   io.github.sarrdai.notedown` shows the host as `verified`.
+
 Without these secrets the workflow still builds a **debug** APK (as a
 workflow artifact) but publishes no release.
+
+## 6. Alerts
+
+Two alerts mail you when the server has a problem:
+
+- **Server down:** an uptime check calls `/health/live` every 5 minutes
+  from 3 regions (Europe, Iowa, Virginia); the alert fires when it fails
+  from more than one region for 5 minutes. The endpoint doesn't touch
+  the database, so Neon still sleeps when nobody uses the app.
+- **Server errors:** 3 or more 5xx responses within 10 minutes — mostly
+  a database that is down or unreachable, noticed as soon as the app is
+  used.
+
+After the first successful server deploy (step 3, item 5), run the script a
+second time in Cloud Shell:
+
+```bash
+bash NoteDown/scripts/setup-gcp.sh <project-id>
+```
+
+Press Enter at the Neon prompt to keep the stored connection string, then
+enter the email address for the alerts. Google sends the alerts from
+`alerting-noreply@google.com`; check the spam folder the first time.
+
+Cost: the check runs about 26,000 times a month (3 regions × 12 per hour)
+— within the 1 million free uptime-check runs and 1.3 % of Cloud Run's 2
+million free requests. Alert policies are free; Google has announced a
+charge of $0.35 per month per metric in a policy from September 2027,
+which would be $0.70 a month for these two. The checks keep one Cloud Run
+instance warm; idle instances cost nothing with request-based billing.
 
 ## Installing the test app
 
@@ -179,6 +230,8 @@ the browser when asked. Later builds install over it.
 |---|---|
 | `https://notedown.example.com` | The app opens, padlock in the address bar |
 | `https://notedown-api.example.com/health` | `{"ok":true}` |
+| Cloud Console → *Monitoring* → *Uptime checks* → `notedown-api live` | green in all 3 regions |
+| Cloud Console → *Monitoring* → *Alerting* | the policies `NoteDown server down` and `NoteDown server errors`, notifying your email |
 | *Actions* → latest *Server*, *Web*, *Android* runs on `main` | green; deploy jobs not skipped |
 | Releases → `android-test` | `notedown.apk`, build number of the latest run |
 

@@ -1,3 +1,4 @@
+import hashlib
 import os
 
 import psycopg
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from notedown_server import auth
 from notedown_server.app import Settings, create_app
-from notedown_server.protocol import b64u, canonical, entry_hash, key_id
+from notedown_server.protocol import b64u, canonical, entry_hash, invitation_message, key_id
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@127.0.0.1:5433/notedown_test")
 SECRET = b"test-secret"
@@ -52,12 +53,25 @@ class Identity:
         return entry
 
 
+def make_client(rate_limits: bool):
+    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
+        conn.execute(
+            "DROP TABLE IF EXISTS contacts, invitations, file_members, file_keys, files, devices, "
+            "device_entries, identities, relay, rate_limits CASCADE")
+    settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=rate_limits)
+    with TestClient(create_app(settings)) as c:
+        yield c
+
+
 @pytest.fixture
 def client():
-    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
-        conn.execute("DROP TABLE IF EXISTS file_keys, files, devices, device_entries, identities, relay")
-    with TestClient(create_app(Settings(DATABASE_URL, SECRET, ["https://localhost"]))) as c:
-        yield c
+    """Rate limits off: most tests register identities from the same address."""
+    yield from make_client(False)
+
+
+@pytest.fixture
+def limited_client():
+    yield from make_client(True)
 
 
 def token(client: TestClient, identity: Identity, device: Keys) -> dict:
@@ -78,3 +92,63 @@ def setup(client):
     r = client.post("/v1/identities", json={"identity_key": b64u(identity.key.sign), "entries": identity.entries})
     assert r.status_code == 201, r.text
     return identity, phone, recovery
+
+
+class Person:
+    """A registered identity with a phone and the recovery device, signed in with the phone."""
+
+    def __init__(self, client: TestClient):
+        self.client = client
+        self.identity, self.phone, self.recovery = Identity(), Keys(), Keys("recovery")
+        self.identity.entry("add", self.phone.device())
+        self.identity.entry("add", self.recovery.device())
+        r = client.post("/v1/identities", json={
+            "identity_key": b64u(self.identity.key.sign), "entries": self.identity.entries})
+        assert r.status_code == 201, r.text
+        self.id = self.identity.id
+        self.h = token(client, self.identity, self.phone)
+
+    def sign_in(self, device: Keys) -> dict:
+        return token(self.client, self.identity, device)
+
+    def add_device(self) -> Keys:
+        """Links a laptop, signed by the phone."""
+        laptop = Keys()
+        entry = self.identity.entry("add", laptop.device(), signer=self.phone)
+        r = self.client.post(f"/v1/identities/{self.id}/entries", json={"entry": entry}, headers=self.h)
+        assert r.status_code == 201, r.text
+        return laptop
+
+    def invite(self, kind: str = "code", secret: bytes | None = None, device: Keys | None = None,
+               headers: dict | None = None):
+        """Creates an invitation; returns (invitation id, response)."""
+        iid = b64u(hashlib.sha256(secret or os.urandom(16)).digest()[:16])
+        sig = b64u((device or self.phone).sign_key.sign(invitation_message(iid)))
+        r = self.client.post("/v1/invitations", json={"id": iid, "kind": kind, "sig": sig},
+                             headers=headers or self.h)
+        return iid, r
+
+    def request(self, iid: str, to: "Person", cards: dict | None = None):
+        """Sends a contact request through an invitation of `to` (cards for all its active devices)."""
+        cards = cards if cards is not None else {to.phone.id: b64u(b"card-phone"), to.recovery.id: b64u(b"card-rec")}
+        return self.client.post(f"/v1/invitations/{iid}/request", json={"cards": cards}, headers=self.h)
+
+    def confirm(self, iid: str):
+        return self.client.post("/v1/contacts", json={"invitation": iid}, headers=self.h)
+
+    def befriend(self, other: "Person") -> None:
+        """Makes `other` a contact through the full invitation flow."""
+        iid, r = self.invite()
+        assert r.status_code == 201, r.text
+        assert other.request(iid, self).status_code == 204
+        assert self.confirm(iid).status_code == 201
+
+    def identity_status(self, other_id: str, invitation: str | None = None) -> int:
+        params = {"invitation": invitation} if invitation else {}
+        return self.client.get(f"/v1/identities/{other_id}", params=params, headers=self.h).status_code
+
+
+@pytest.fixture
+def people(client):
+    """A factory for registered identities."""
+    return lambda: Person(client)
