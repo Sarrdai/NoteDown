@@ -86,8 +86,9 @@ before the first live test).
 
 - **Sync across devices** through NoteDown's own server, so notes written
   on the phone show up in the web app on the desktop. It runs
-  automatically (after changes, on opening, on reconnect) with a status
-  indicator.
+  automatically (after changes, on opening, on reconnect, and while
+  open every 5 s, slowing to 30 s while nothing changes — backlog #21,
+  to stay within the free tiers) with a status indicator.
 - **End-to-end encrypted:** the server stores only encrypted files and
   never holds a key that decrypts them — notes are private by default,
   even from whoever runs the server. Files are padded to 4 KiB steps
