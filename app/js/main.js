@@ -19,6 +19,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
+import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -262,13 +263,26 @@ function moreMenu() {
     archive && { label: "Empty archive…", disabled: !deletable, onSelect: emptyArchive },
     archive && { separator: true },
     { label: "Sync & sharing…", onSelect: openSyncPanel },
+    { label: "Reminders…", onSelect: openReminderDialog },
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
+    { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
+}
+
+// A tapped reminder shows its notes: the open notes, unfiltered, the first one scrolled into view.
+function showDue(ids) {
+  endSelection();
+  if (state.view !== "open") setView("open");
+  setUi({ search: "", circle: null });
+  app.classList.remove("searching");
+  const first = document.querySelector(`.note[data-id="${ids[0]}"]`);
+  first?.scrollIntoView({ block: "center" });
+  ids.forEach(flashNote);
 }
 
 function download() {
@@ -367,6 +381,8 @@ async function start() {
   initSyncSim();
   initSync(readApi() || (await loadConfig()).api);
   render();
+  // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
+  initReminders({ open: showDue });
   document.body.dataset.ready = "1";
 }
 

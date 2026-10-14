@@ -232,8 +232,21 @@ before the first live test).
   accent-colored when due today. In the archive the due date is shown
   without warning colors. *Prototype: round 1 (display only; setting it
   comes with the editor toolbar, round 2).*
-- Reminders / notifications for due dates are not part of the scope yet
-  (backlog #1).
+- **Reminders for due dates** (backlog #1): on a note's due day, at one
+  time of day for all notes (default 09:00), one notification lists the
+  open notes due that day ("2 notes due today" and their titles); tapping
+  it shows the main list, unfiltered, with those notes highlighted. Closed
+  notes and notes without a due date never remind; no per-note times.
+  Off until turned on under ⋮ → "Reminders…" (a dialog with a switch and
+  the time), which is when the platform asks for notification permission.
+  A **setting of this device**, not synced, since the permission is per
+  device. The Android app schedules local notifications on the device, so
+  they come while the app is closed; the web app reminds only while it is
+  open — the browser can't wake a closed web app without server push —
+  and the dialog says so. *Prototype: 2026-10-14 (⋮ → Prototype →
+  "Simulate reminder" shows the notification).* Why a dialog in ⋮: it is
+  a device-wide setting that needs its one line of explanation; offered
+  only in the due-date menu it would read as per note.
 
 ### Sorting and search
 

@@ -5,7 +5,7 @@
 - [ ] Tomatoes, basil, mozzarella
 - [ ] Dishwasher tablets
 
-<!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z -->
+<!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z due=2026-10-13 -->
 Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks.
 
 <!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 -->

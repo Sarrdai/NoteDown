@@ -84,6 +84,14 @@
       <button class="toolbar-done" id="toolbarDone">Done</button>
     </div>
     <input type="date" id="dueInput" class="visually-hidden keep-editing" tabindex="-1" aria-hidden="true">
+    <div class="notice keep-editing" id="reminderNotice" role="button" tabindex="0" hidden>
+      <img class="notice-icon" src="icons/icon-192.png" alt="">
+      <div class="notice-text">
+        <div class="notice-app">NoteDown · now</div>
+        <div class="notice-title" id="noticeTitle"></div>
+        <div class="notice-body" id="noticeBody"></div>
+      </div>
+    </div>
     <div class="snackbar keep-editing" id="snackbar" role="status" hidden>
       <span id="snackText"></span>
       <button id="snackUndo">Undo</button>
@@ -124,6 +132,24 @@
         <div class="dialog-actions">
           <button class="btn" id="confirmCancel">Cancel</button>
           <button class="btn primary danger" id="confirmOk"></button>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-scrim keep-editing" id="reminderDialog" hidden>
+      <div class="dialog reminder" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
+        <h2 class="dialog-title" id="reminderTitle">Reminders</h2>
+        <p class="dialog-hint">On the due day, one notification lists the open notes due that day.</p>
+        <label class="setting-row">
+          <span class="setting-label">Remind me of due notes</span>
+          <input type="checkbox" class="switch" id="reminderOn" role="switch">
+        </label>
+        <label class="setting-row" id="reminderTimeRow">
+          <span class="setting-label">Time of day</span>
+          <input type="time" class="time-input" id="reminderTimeInput">
+        </label>
+        <p class="dialog-hint setting-note" id="reminderHint"></p>
+        <div class="dialog-actions">
+          <button class="btn primary" id="reminderDone">Done</button>
         </div>
       </div>
     </div>
