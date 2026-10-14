@@ -59,12 +59,17 @@ Current state, edited in place when a decision changes.
 - Touch screens: rendered notes don't offer native text selection or
   the long-press callout, so the long-press stays free for multi-select;
   text is selected in the editor or copied with Copy.
-- **Swipe sideways** (phone and tablet) on the list moves between the
-  notes and the archive, which lies to their right; the list follows the
-  finger, past a third of the width or with a flick the other view slides
-  in, otherwise it springs back; past either end it only gives a little.
-  Not while editing, selecting, recording or with the contents sheet open;
-  content that scrolls sideways itself (a wide table) keeps the gesture.
+- **Swipe sideways** (phone and tablet) moves between the notes and the
+  archive, which lies to their right, like pages: it starts anywhere on
+  the list or the contents (also the open sheet); the list follows the
+  finger and the other view's page moves in beside it; let go past half
+  the width or with a flick, it snaps onto the other view, otherwise
+  back; past either end it only gives a little. The top bar and the
+  contents don't move — they stay as they are (an open sheet stays open)
+  and are refilled once the view has switched. Not while editing,
+  selecting or recording; content that scrolls sideways itself (a wide
+  table) keeps the gesture. Desktop has no touch, the view button
+  switches there.
 - **Bottom sheets** (phone) have a handle: a tap opens fully or closes,
   dragging leaves the sheet at any height, a flick or a drag near the
   bottom closes.

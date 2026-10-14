@@ -204,12 +204,15 @@ before the first live test).
   between both views. It sits at the right end of the top bar, only ⋮
   after it. *Prototype: round 1; Notes button 2026-10-13; place
   2026-10-14.*
-- On phone and tablet, **swiping the list sideways** switches between both
-  views: the archive lies to the right of the notes (swipe left to open
-  it, right to go back); the list follows the finger and springs back
-  when let go early. The title at the left of the top bar says where the
-  user is. The view button stays as the visible way. *Prototype:
-  2026-10-14.*
+- On phone and tablet, **swiping sideways** anywhere on the list or the
+  contents switches between both views like pages: the archive lies to
+  the right of the notes (swipe left to open it, right to go back); the
+  other view moves in with the finger and the page snaps to whichever
+  side it was let go past half (or flicked to). Top bar and contents stay
+  in place and are only refilled. The title at the left of the top bar
+  says where the user is. The view button stays as the visible way.
+  *Prototype: 2026-10-14; pager behavior 2026-10-14 (swiping only worked
+  on some tries and only switched after the gesture).*
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*

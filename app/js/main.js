@@ -9,7 +9,7 @@ import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sync-panel.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
-import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
+import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
 import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
@@ -41,13 +41,13 @@ const phone = window.matchMedia("(max-width: 599px)");
 // "Shared order" (#25) exists only in the view of a circle with people;
 // elsewhere a view set to it shows the user's own custom order.
 const sharedCircle = () => activeCircle() || null;
-function sortOf() {
-  const sort = state.settings.sort[state.view];
+function sortOf(view = state.view) {
+  const sort = state.settings.sort[view];
   return SORT_KEYS[sort.key].circleOnly && !sharedCircle() ? { key: "custom", dir: "asc" } : sort;
 }
-const orderIds = () => sortOf().key === "shared" ? circleOrder(sharedCircle()) : customOrder();
-const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: sortOf(), order: orderIds() });
-const isCustom = () => !!SORT_KEYS[sortOf().key].custom;
+const orderIds = (view = state.view) => sortOf(view).key === "shared" ? circleOrder(sharedCircle()) : customOrder();
+const inView = (notes, view = state.view, search = state.search) => viewNotes(notes, { status: view, search, sort: sortOf(view), order: orderIds(view) });
+const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
 
 // The members a new note goes to: those of the circle the list is filtered to.
 const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
@@ -96,23 +96,53 @@ function render() {
   renderSyncStatus();
   renderCircleFilter();
   const notes = currentNotes();
-  // "Protected first" orders only the tiles; the contents keep the sort order.
-  const onTop = s.protectedFirst[state.view];
-  const tiles = onTop ? protectedFirst(notes, isProtected) : notes;
-  // Custom order: a divider above the first note not sorted yet (protected
-  // ones stay on top with "Protected first").
-  const sorted = new Set(orderIds());
-  const unsorted = isCustom() ? tiles.find(n => !sorted.has(n.id) && !(onTop && isProtected(n.id)) && n.id !== state.topId) : null;
-  renderList(tiles, { dividerBefore: unsorted?.id ?? null, onArrange: arrange });
+  const { tiles, dividerBefore } = tilesOf(state.view, notes);
+  renderList(tiles, { dividerBefore, onArrange: arrange });
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
   empty.hidden = notes.length > 0;
+  empty.textContent = emptyText(state.view, state.search);
+}
+
+// The tiles of a view: "Protected first" orders only the tiles (the contents
+// keep the sort order); the custom order puts a divider above the first note
+// not sorted yet (protected ones stay on top with "Protected first").
+function tilesOf(view, notes) {
+  const onTop = state.settings.protectedFirst[view];
+  const tiles = onTop ? protectedFirst(notes, isProtected) : notes;
+  const sorted = new Set(orderIds(view));
+  const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(n.id) && !(onTop && isProtected(n.id)) && n.id !== state.topId) : null;
+  return { tiles, dividerBefore: unsorted?.id ?? null };
+}
+
+function emptyText(view, search) {
   const circle = activeCircle();
-  empty.textContent = state.search ? `No notes match “${state.search}”.`
-    : circle && state.view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
-    : circle === "" && state.view === "open" ? "No private notes. Tap + to add one."
-    : state.view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
+  return search ? `No notes match “${search}”.`
+    : circle && view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
+    : circle === "" && view === "open" ? "No private notes. Tap + to add one."
+    : view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
+}
+
+// What the other view will show once the swipe lands there (ui/view-swipe.js):
+// the circle filter chip and the list as setView will render them, not live.
+function previewView(view) {
+  const notes = inView(circleNotes(activeCircle()), view, "");
+  const { tiles, dividerBefore } = tilesOf(view, notes);
+  const nodes = [];
+  if (!$("filterBar").hidden) nodes.push($("filterBar").cloneNode(true));
+  const list = document.createElement("div");
+  list.className = "list";
+  list.append(...listItems(tiles, { dividerBefore, view }));
+  nodes.push(list);
+  if (!notes.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = emptyText(view, "");
+    nodes.push(empty);
+  }
+  for (const node of nodes) for (const el of [node, ...node.querySelectorAll("[id]")]) el.removeAttribute("id");
+  return nodes;
 }
 
 // The people overview and the chip of the active filter above the list.
@@ -337,13 +367,16 @@ function wire() {
       && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
     onRefresh: syncOnRequest,
   });
-  // Swiping the list sideways switches views: the archive lies right of the notes.
+  // Swiping sideways switches views: the archive lies right of the notes. It
+  // starts anywhere on the list and on the contents (also the open sheet),
+  // which stays in place and is refilled once the view has switched.
   initViewSwipe({
     canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
-      && !app.classList.contains("toc-open") && !app.classList.contains("recording")
-      && !!target.closest(".main") && !target.closest(".topbar, .selectbar"),
+      && !app.classList.contains("recording")
+      && !!target.closest(".main, .toc-panel, .scrim") && !target.closest(".topbar, .selectbar, .toc-handle, .toc-head"),
     view: () => state.view,
     setView,
+    preview: previewView,
   });
 }
 
