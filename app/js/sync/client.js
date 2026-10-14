@@ -10,10 +10,10 @@
 // sharing, pull to refresh); each round also brings contact requests and
 // confirmations (contacts.js). The sample
 // (`state.sync.simulated`) never reaches this module.
-import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState } from "../store.js";
+import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState, contacts, sharedFiles } from "../store.js";
 import { parseNotesFile } from "../core/notes-file.js";
 import * as c from "../core/crypto.js";
-import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS } from "../core/sync-state.js";
+import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal } from "../core/sync-state.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, serverUrl } from "../core/linking.js";
 import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
@@ -46,7 +46,7 @@ const serverApi = server => apis(server || home());
  *  of this app on the web, the start of invitation links (none: no links can be made). */
 export function initSync(apiUrl, webUrl = "") {
   if (!apiUrl) return;
-  defaultServer = serverUrl(apiUrl);
+  defaultServer = serverUrl(new URL(apiUrl, location.href).href);   // a relative address too
   apis = createApis(() => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
   api = apis(defaultServer);
   initContacts({ api: serverApi, home, defaultServer: () => defaultServer, keys: () => keys, loadKeys, chain, web: () => webUrl });
@@ -131,9 +131,17 @@ async function round() {
   }
 }
 
+// A member's name for a sync message: the contact's name, else the name they wrote into a shared file.
+function memberName(id) {
+  return contacts().find(x => x.id === id)?.name
+    || sharedFiles().flatMap(f => f.file?.members || []).find(m => m.id === id)?.name || "";
+}
+
 function fail(e) {
-  const storageFull = e instanceof ApiError && e.status === 413 && e.body.detail === "storage quota exceeded";
+  const limit = e instanceof ApiError ? limitRefusal(e.status, e.body, state.sync.identity, memberName) : null;
+  const storageFull = !!limit?.own && limit.kind === "storage";
   if (state.sync.storageFull !== storageFull) setSync({ storageFull });
+  if (limit && !limit.own) return setSync({ status: "error", error: limit.message });
   if (e instanceof NetworkError) return setSync({ status: "offline", error: "" });
   // The server refuses a device that is no longer on the list (401 after a fresh token).
   const removed = e instanceof ApiError && (e.status === 401 || e.status === 403);

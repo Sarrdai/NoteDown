@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, nextPollDelay, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
+import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
 
 const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -106,3 +106,18 @@ test("hasContent: an empty circle left behind needs no file, one with notes or a
   assert.equal(hasContent(file(sample.notes[0])), true);
   assert.equal(hasContent({ ...file(), order: { ids: [], modified: "2026-10-13T09:00Z" } }), true);
 });
+
+test("limitRefusal: whose file limit refused an upload (backlog #27)", () => {
+  const nameOf = id => ({ lea: "Lea", tom: "Tom" })[id] || "";
+  assert.equal(limitRefusal(409, { detail: "version conflict" }, "me", nameOf), null);
+  assert.equal(limitRefusal(413, { detail: "too many invitations" }, "me", nameOf), null);
+  assert.deepEqual(limitRefusal(413, { detail: "storage quota exceeded" }, "me", nameOf), { own: true, kind: "storage" });
+  assert.deepEqual(limitRefusal(413, { detail: "storage quota exceeded", members: ["lea", "me"] }, "me", nameOf), { own: true, kind: "storage" });
+  assert.equal(limitRefusal(413, { detail: "storage quota exceeded", members: ["lea"] }, "me", nameOf).message,
+    "The sync storage of Lea is full, so this shared note can't sync.");
+  assert.equal(limitRefusal(413, { detail: "storage quota exceeded", members: ["lea", "tom", "x"] }, "me", nameOf).message,
+    "The sync storage of Lea, Tom and a member is full, so this shared note can't sync.");
+  assert.equal(limitRefusal(413, { detail: "too many files", members: ["x"] }, "me", nameOf).message,
+    "A member has too many synced files, so this shared note can't sync.");
+});
+

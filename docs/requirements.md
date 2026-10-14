@@ -103,7 +103,12 @@ before the first live test).
   at 100 % with how to free space — archived notes count too), so the
   user sees the quota coming (user request 2026-10-14); hitting a limit
   also shows in the sync status ("Sync storage is full.", "Too many
-  attempts. Try again later."). *Prototype: 2026-10-14.*
+  attempts. Try again later."). A shared file counts in full for every
+  member, and an upload that would put any member over a limit is
+  refused, so the bar shows what is enforced (backlog #27, over counting
+  it only for its creator or splitting it); when someone else is over
+  it, the status names them ("The sync storage of Lea is full, so this
+  shared note can't sync."). *Prototype: 2026-10-14.*
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one
