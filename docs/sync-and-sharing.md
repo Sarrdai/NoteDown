@@ -228,7 +228,8 @@ devices don't keep re-uploading the same notes in each other's order.
   identities and access; for the test phase Postgres holds the encrypted
   files too, an object store follows when size calls for it (`PROJECT.md`
   → "Technology direction"). The protocol byte for byte is
-  `docs/server-api.md`. Built: 2 MB of storage per identity, and per-IP
+  `docs/server-api.md`. Built: 2 MB of storage per identity (the app shows
+  how much is used, from the file list every sync round fetches), and per-IP
   limits on creating identities (10 per day) and relay slots (30 per hour).
 
 ## Open points

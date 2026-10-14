@@ -34,3 +34,21 @@ export function withDeviceName(file, id, name) {
 export function keyHolders(devices) {
   return [...devices.values()].filter(d => d.active);
 }
+
+const MB = 1024 * 1024;
+const mb = bytes => String(Math.round(bytes / MB * 10) / 10);
+
+/**
+ * The sync storage bar from `{ used, quota }` in bytes: the text under it,
+ * the filled share (0..1) and the level ("ok", "warn" from 80 %, "full" at 100 %).
+ */
+export function storageUsage({ used, quota }) {
+  const fraction = quota > 0 ? Math.min(used / quota, 1) : 1;
+  const amount = used < 0.05 * MB ? "< 0.1" : mb(used);
+  return {
+    text: `${amount} MB of ${mb(quota)} MB used`,
+    fraction,
+    percent: Math.round(fraction * 100),
+    level: fraction >= 1 ? "full" : fraction >= 0.8 ? "warn" : "ok",
+  };
+}

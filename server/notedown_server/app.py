@@ -282,9 +282,12 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/v1/files")
     def list_files(who: Authed):
         with pool.connection() as conn:
-            rows = conn.execute("SELECT id, version, updated FROM files WHERE owner = %s ORDER BY id",
+            rows = conn.execute("SELECT id, version, updated, length(ciphertext) FROM files WHERE owner = %s ORDER BY id",
                                 (who.identity,)).fetchall()
-        return {"files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat()} for r in rows]}
+        return {
+            "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3]} for r in rows],
+            "quota": MAX_STORAGE_BYTES,
+        }
 
     @app.get("/v1/files/{file_id}")
     def get_file(file_id: str, who: Authed):

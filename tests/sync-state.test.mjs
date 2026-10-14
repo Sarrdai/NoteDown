@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, deviceRows, keyHolders, withDeviceName, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
+import { onlyUntouchedWelcome, deviceRows, keyHolders, withDeviceName, storageUsage, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
 
 const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -52,4 +52,16 @@ test("withDeviceName: sets, replaces and removes a device name", () => {
 test("keyHolders: every active device including the recovery device", () => {
   const devices = new Map([dev("a"), dev("r", "recovery"), dev("c", "device", false)]);
   assert.deepEqual(keyHolders(devices).map(d => d.id), ["a", "r"]);
+});
+
+test("storageUsage: text, share and level of the storage bar", () => {
+  const MB = 1024 * 1024;
+  assert.deepEqual(storageUsage({ used: 0.4 * MB, quota: 2 * MB }), { text: "0.4 MB of 2 MB used", fraction: 0.2, percent: 20, level: "ok" });
+  assert.equal(storageUsage({ used: 0, quota: 2 * MB }).text, "< 0.1 MB of 2 MB used");
+  assert.equal(storageUsage({ used: 0.06 * MB, quota: 2 * MB }).text, "0.1 MB of 2 MB used");
+  assert.equal(storageUsage({ used: 1.5 * MB, quota: 2 * MB }).level, "ok");
+  assert.equal(storageUsage({ used: 1.6 * MB, quota: 2 * MB }).level, "warn");
+  const full = storageUsage({ used: 2 * MB, quota: 2 * MB });
+  assert.deepEqual([full.level, full.fraction, full.text], ["full", 1, "2 MB of 2 MB used"]);
+  assert.equal(storageUsage({ used: 3 * MB, quota: 2 * MB }).fraction, 1);
 });

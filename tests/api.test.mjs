@@ -9,7 +9,7 @@ test("429 and the storage quota answer get readable messages and keep their stat
   assert.equal(rate.message, "Too many attempts. Try again later.");
   const quota = new ApiError(413, { detail: "storage quota exceeded" });
   assert.equal(quota.status, 413);
-  assert.equal(quota.message, "Sync storage is full (2 MB).");
+  assert.equal(quota.message, "Sync storage is full.");
 });
 
 test("other answers keep status and detail", () => {

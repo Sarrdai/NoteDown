@@ -100,7 +100,10 @@ async function loadKeys() {
 
 // One download / merge / upload pass; false when the server moved on meanwhile.
 async function step() {
-  const files = await api.listFiles();
+  const { files, quota } = await api.listFiles();
+  const used = files.reduce((sum, f) => sum + f.size, 0);
+  const { usage } = state.sync;
+  if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });
   if (!state.sync.file) {
     if (!files.length) return createFile();
     // Another device created the file first: take it over, merging everything.
@@ -188,7 +191,7 @@ async function adopt({ name, identity, identityKey, device }) {
   fileKey = null;
   setSync({
     enabled: true, simulated: false, name, identity, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, recoveryKey: "", status: "syncing", error: "",
+    device: await c.keyId(device.sign.publicKey), file: null, usage: null, recoveryKey: "", status: "syncing", error: "",
   });
 }
 
@@ -251,7 +254,7 @@ export async function restore(recoveryKey) {
       }
     }
     // Milestone 1: the private file is the identity's only file.
-    const [file] = await api.listFiles();
+    const [file] = (await api.listFiles()).files;
     if (file) {
       const got = await api.getFile(file.id);
       const key = await c.unwrapFileKey(got.key, r.recovery.enc);
