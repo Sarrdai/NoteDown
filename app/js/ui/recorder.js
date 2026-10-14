@@ -44,7 +44,8 @@ export function initRecorder({ onTap, onTranscript }) {
       onInterim: t => { if (rec) { rec.interim = t; preview(); } },
       onFinal: t => { if (rec) { rec.finals.push(t.trim()); rec.interim = ""; preview(); } },
       onLevel: level,
-      onError: code => { showSnackbar(code === "not-allowed" ? "Microphone access was denied" : "Dictation stopped: " + code); cancel(); },
+      // After cancel(), so its "Dictation cancelled" doesn't hide the reason.
+      onError: code => { cancel(); showSnackbar(code === "not-allowed" ? "Microphone access was denied" : "Dictation stopped: " + code); },
     });
     app.classList.add("recording");
     $("recorder").hidden = false;

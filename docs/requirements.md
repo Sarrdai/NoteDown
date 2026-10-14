@@ -269,7 +269,8 @@ before the first live test).
 - Speech is recognized in the device language. The prototype uses the
   browser's speech recognition (Chrome, Edge, Safari; needs https or
   localhost) and replays a sample transcript with `?dictation=demo`;
-  the app uses the platform's recognizer (app phase).
+  the Android app uses Android's speech recognizer and asks for the
+  microphone permission on first use.
 
 ### Multi-select
 

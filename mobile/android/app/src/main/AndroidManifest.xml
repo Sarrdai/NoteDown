@@ -41,4 +41,11 @@
     <!-- Scanning a QR code to link a device: getUserMedia in the web view (Capacitor asks at runtime). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Dictation: Android's SpeechRecognizer (DictationPlugin); the query makes the recognizer visible from Android 11 on. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 </manifest>

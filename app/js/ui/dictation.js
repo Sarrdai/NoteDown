@@ -1,14 +1,18 @@
 // Speech input with a live transcript and the microphone's input level.
 // Uses the browser's Web Speech API (Chrome, Edge, Safari; needs https or
-// localhost). With ?dictation=demo the prototype replays
-// app/sample/dictation.md instead, so the flow can be tried and tested
-// without a microphone.
+// localhost); in the Android app, whose web view has none, Android's
+// speech recognizer through the native Dictation plugin
+// (mobile/android/.../DictationPlugin.java). With ?dictation=demo the
+// prototype replays app/sample/dictation.md instead, so the flow can be
+// tried and tested without a microphone.
+import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const NativeDictation = Capacitor.isNativePlatform() ? registerPlugin("Dictation") : null;
 const demo = new URLSearchParams(location.search).get("dictation") === "demo";
 
 export function dictationAvailable() {
-  return demo || Boolean(SpeechRecognition && window.isSecureContext);
+  return demo || Boolean(NativeDictation) || Boolean(SpeechRecognition && window.isSecureContext);
 }
 
 /**
@@ -17,7 +21,40 @@ export function dictationAvailable() {
  * Returns { stop(): Promise (resolves after the last final segment), cancel() }.
  */
 export function startDictation(cb) {
-  return demo ? demoSession(cb) : speechSession(cb);
+  return demo ? demoSession(cb) : NativeDictation ? nativeSession(cb) : speechSession(cb);
+}
+
+// One native session ends after a pause, like the browser's; it is
+// restarted until stopped. Errors are Web Speech error codes.
+function nativeSession({ onInterim, onFinal, onLevel, onError }) {
+  let active = true, cancelled = false, resolveStop = null;
+  const start = () => NativeDictation.start({ lang: navigator.language || "en-US" })
+    .catch(err => fail(err.code || "start-failed"));
+  const fail = code => { if (!active) return; active = false; onError(code); };
+  const listeners = [
+    NativeDictation.addListener("partial", e => { if (!cancelled) onInterim(e.text); }),
+    NativeDictation.addListener("final", e => { if (!cancelled && e.text) onFinal(e.text); }),
+    NativeDictation.addListener("level", e => { if (active) onLevel(e.value); }),
+    NativeDictation.addListener("error", e => { if (e.code !== "no-speech" && e.code !== "aborted") fail(e.code); }),
+    NativeDictation.addListener("end", () => { if (active) { onLevel(0); start(); } else close(); }),
+  ];
+  const close = () => {
+    listeners.forEach(l => l.then(h => h.remove()));
+    if (resolveStop) resolveStop();
+  };
+  start();
+
+  return {
+    stop() {
+      active = false;
+      return new Promise(resolve => {
+        resolveStop = resolve;
+        NativeDictation.stop();
+        setTimeout(resolve, 1500); // the recognizer may never answer
+      });
+    },
+    cancel() { active = false; cancelled = true; NativeDictation.cancel(); close(); },
+  };
 }
 
 function speechSession({ onInterim, onFinal, onLevel, onError }) {
