@@ -1,6 +1,6 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 22
+LAST_ID: 23
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
 elaborated with the user, built into the prototype, and then leaves this file for
@@ -41,6 +41,7 @@ The column stays the last one, so a row added without it still reads right.
 | 8 | Rate limits per IP address on the server | Live test setup (2026-10-13): `docs/sync-and-sharing.md` → "Server" asks for them, but creating identities, relay slots and challenges is unlimited today. Open: a store shared across Cloud Run instances, or Google's load balancer / Cloud Armor (not free). Raised to 1: the live server is public, and it is the only open item that lets anyone fill the database. | klein | 1 |  |
 | 15 | "Sign out this device" with local erase | Security review (2026-10-14): a device can't remove itself, and nothing clears its local data — after using a public PC the notes and device keys stay there and keep syncing until another device removes it. A button that takes the own device off the list and clears localStorage and IndexedDB. | klein | 1 |  |
 | 17 | Pad file ciphertexts to fixed sizes | Security review (2026-10-14): AES-GCM adds only 28 bytes, so the server sees each file's exact size in bytes. Padding the plaintext to steps (e.g. 4 KiB) hides it; changes the file ciphertext format in `docs/server-api.md`. Raised to 1: a format change is cheapest before milestone 2 adds shared files. | klein | 1 |  |
+| 23 | People circles next to the table of contents, as a filter | User request (2026-10-14): a second overview beside the contents lists the circles the user shares with — single contacts and groups — and choosing one filters the list to that circle's notes; + there creates the new note in that circle (each circle is one file already, `docs/sync-and-sharing.md`). Open: whether a contact also shows the groups they are in (recommended: no, a circle is its exact member set, so + has one target); entries for "All" and "Private"; tab or second section in the contents sidebar and sheet; contacts without shared notes yet (+ would start the circle); archive and search on top of the filter. Built in the prototype on the sample, so it is decided before milestone 2 builds shared files. | mittel | 1 |  |
 | 1 | Reminders / notifications for due dates | Came up while scoping due dates (2026-10-13): a due date is shown as a chip today, but nothing reminds the user. Open: time of day, per note or global, platform notifications in the web app. | mittel | 2 |  |
 | 4 | Verify a contact added by invitation link | Sync without accounts (2026-10-13): a contact scanned in person is verified, one added by link is only as safe as the messenger it came through. Scanning their code later, or comparing a short safety code, would verify it. | klein | 2 | milestone 2 |
 | 12 | App icon and splash screen | Live test setup (2026-10-13): the Android test build still shows Capacitor's default icon and splash. Open: the icon itself (Catppuccin Mauve?), adaptive icon, web app manifest icon. | klein | 2 |  |
