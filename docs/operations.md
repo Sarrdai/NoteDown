@@ -139,7 +139,9 @@ Cloud Run serves a custom domain once Google knows the domain is yours.
    notedown-api.example.com --region europe-west1` shows the status.
 5. Add the repository variable `API_HOST` = `notedown-api.example.com`:
    the web and Android deploys write it into `app/config.json`, where the
-   app finds its sync server (without it, sync can't be turned on).
+   app finds its sync server (without it, sync can't be turned on); the
+   same file holds `web`, the web app's address (`WEB_HOST`), which
+   invitation links start with.
    Both host variables hold the bare host name (no `https://`); the
    deploys stop with an error on a URL or the `example.com` placeholder
    (`scripts/check-host.sh`).
@@ -159,6 +161,8 @@ The key is created once, by you, and kept like a password.
    ```
 
    It asks for a password (one for the keystore and the key).
+   Print the certificate fingerprint now, step 5 needs it:
+   `keytool -list -v -keystore notedown-release.jks -alias notedown | grep SHA256:`
 2. Keep `notedown-release.jks` and the password in your password manager
    — losing them means users have to reinstall later. In Cloud Shell,
    download the file (⋮ → *Download*) and then delete both files there.
@@ -167,6 +171,19 @@ The key is created once, by you, and kept like a password.
    - `ANDROID_KEYSTORE_BASE64` = content of `notedown-release.b64`,
    - `ANDROID_KEYSTORE_PASSWORD` = the password.
 4. *Actions* → *Android* → *Run workflow* on `main`.
+
+5. **Invitation links open the app** (Android App Link): put the
+   fingerprint from item 1 (`AA:BB:…`, 32 pairs) in place of the
+   `REPLACE:WITH:…` placeholder in `app/.well-known/assetlinks.json` and
+   merge it into `main`. The web deploy serves the file at
+   `https://notedown.example.com/.well-known/assetlinks.json`, which is how
+   Android checks that the app may open links of that host; the Android
+   build takes the host from the repository variable `WEB_HOST` (step 1).
+   Until then (and in debug builds, which are signed with another key) an
+   invitation link opens in the browser, and "Add contact" → "Paste link"
+   takes it. Check on the phone after installing:
+   `adb shell pm get-app-links io.github.sarrdai.notedown` shows the host
+   as `verified`.
 
 Without these secrets the workflow still builds a **debug** APK (as a
 workflow artifact) but publishes no release.

@@ -1,12 +1,14 @@
 // Incoming contact requests (docs/sync-and-sharing.md → "Contacts"): someone
 // who scanned this user's code or opened their invitation link asks to
-// become a contact, and this user confirms or declines. Simulated in the
-// sample (`state.sync.requests`). A request shows as a card above the open
+// become a contact, and this user confirms or declines. The requests come
+// from the server in each sync round (sync/contacts.js) and are simulated in
+// the sample; both are in `state.sync.requests`. A request shows as a card above the open
 // notes until it is decided (chosen 2026-10-14 over a dialog that opens by
 // itself, which interrupts, and a dot on the sync icon, easy to miss), and
 // in Sync & sharing → "Contact requests".
 import { state, subscribe, setSync } from "../store.js";
-import { registerPage, openPanel, go, isPanelOpen, panelPage, addContact, closePanel } from "./sync-panel.js";
+import { registerPage, openPanel, go, isPanelOpen, panelPage, panelData, addContact, contactAdded, closePanel, action } from "./sync-panel.js";
+import { confirmRequest, declineRequest } from "../sync/contacts.js";
 import { loadSharingSample } from "../sample.js";
 import { h, text, button } from "./dom.js";
 import { requestAvatarHtml, requestHow as how } from "./people.js";
@@ -24,8 +26,11 @@ export function initContactRequests() {
 function update() {
   const requests = state.sync.enabled ? state.sync.requests || [] : [];
   renderCards(state.view === "open" ? requests : []);
-  // On "My code" the request is what the user waits for: show it at once.
-  if (requests.length && isPanelOpen() && panelPage() === "myCode") go("contactRequest", { request: requests[0] });
+  // On "My code" the request is what the user waits for: show it at once (the real code's own request).
+  if (isPanelOpen() && panelPage() === "myCode") {
+    const mine = state.sync.simulated ? requests[0] : requests.find(r => r.id === panelData().invite?.id);
+    if (mine) go("contactRequest", { request: mine });
+  }
 }
 
 function renderCards(requests) {
@@ -49,8 +54,11 @@ function take(r) {
 function decline(r, { closing = false } = {}) {
   const index = state.sync.requests.findIndex(x => x.id === r.id);
   take(r);
+  // Real: the invitation is deleted on the server once the Undo window is over.
+  const keep = state.sync.simulated ? null : declineRequest(r.id);
   if (closing) closePanel();
   showSnackbar("Request declined", () => {
+    if (keep) keep();
     const list = [...state.sync.requests];
     list.splice(index, 0, r);
     setSync({ requests: list });
@@ -71,7 +79,10 @@ registerPage("contactRequest", {
   render: data => {
     const r = data.request;
     data.name ??= r.name;
-    const confirm = button("Confirm", "primary", () => { take(r); addContact(data.name.trim(), r.via); });
+    const { btn: confirm, error } = action("Confirm", async () => {
+      if (state.sync.simulated) { take(r); addContact(data.name.trim(), r.via); return; }
+      contactAdded(await confirmRequest(r.id, data.name.trim()));
+    });
     confirm.disabled = !data.name.trim();
     const input = h("input", {
       type: "text", class: "input", autocomplete: "off", autocapitalize: "words", spellcheck: "false", maxlength: "40",
@@ -86,6 +97,7 @@ registerPage("contactRequest", {
       h("label", { class: "field" }, h("span", { class: "field-label" }, "Name"), input,
         h("span", { class: "field-hint" }, `Only you see this name. ${r.name} suggested it.`)),
       h("div", { class: "sheet-actions" }, confirm, button("Decline", "outline", () => decline(r, { closing: true }))),
+      error,
     ];
   },
 });

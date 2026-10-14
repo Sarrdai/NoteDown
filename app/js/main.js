@@ -6,7 +6,8 @@ import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
-import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sync-panel.js";
+import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite } from "./ui/sync-panel.js";
+import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
@@ -398,8 +399,9 @@ function applyUrlOptions() {
   return p.get("sample") !== null || syncOff ? { sync: !syncOff } : null;
 }
 
-// The sync server: app/config.json, written by the deploy workflows; empty
-// in the repository, so a local copy has no sync unless ?api= sets one.
+// The sync server (`api`) and the web address invitation links start with
+// (`web`): app/config.json, written by the deploy workflows; empty in the
+// repository, so a local copy has no sync unless ?api= sets one.
 async function loadConfig() {
   try { return await (await fetch(new URL("../config.json", import.meta.url), { cache: "no-store" })).json(); } catch { return {}; }
 }
@@ -417,8 +419,10 @@ async function start() {
   if (sample) replaceFiles(await loadSampleState(sample));
   else if (!hadFile) await loadWelcome();
   initSyncSim();
-  initSync(readApi() || (await loadConfig()).api);
+  const config = await loadConfig();
+  initSync(readApi() || config.api, webAddress(config.web));
   render();
+  initInviteLinks(openInvite);
   // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
   initReminders({ open: showDue });
   document.body.dataset.ready = "1";

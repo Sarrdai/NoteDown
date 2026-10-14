@@ -1,9 +1,9 @@
 // How contacts and circles look: names, stable colors (`--person-N` tokens)
 // and the small avatars used by the share dialog and the shared markers.
-import { state } from "../store.js";
+import { contacts } from "../store.js";
 import { circleLabel, colorIndex, initials, visibleMembers } from "../core/sharing.js";
 
-const contact = id => state.sync.contacts.find(c => c.id === id);
+const contact = id => contacts().find(c => c.id === id);
 
 /** A contact's name; the raw id when the contact was removed. */
 export const nameOf = id => contact(id)?.name ?? id;

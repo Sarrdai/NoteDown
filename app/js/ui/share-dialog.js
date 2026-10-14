@@ -4,7 +4,7 @@
 // shared with them, mixed = only some are, unchecked = none. Saving moves
 // each note into the file of its new set of people (docs/sync-and-sharing.md
 // → "Files").
-import { state, circleOf, shareNotes, removeNotes } from "../store.js";
+import { state, circleOf, shareNotes, removeNotes, contacts } from "../store.js";
 import { circleKey, circleLabel, shareState } from "../core/sharing.js";
 import { h, text, button } from "./dom.js";
 import { openPanel, registerPage, closePanel, go, setStack } from "./sync-panel.js";
@@ -23,7 +23,7 @@ export function openShareDialog(ids) {
 
 function initialStates(ids) {
   const sets = ids.map(circleOf);
-  return Object.fromEntries(state.sync.contacts.map(c => [c.id, shareState(sets, c.id)]));
+  return Object.fromEntries(contacts().map(c => [c.id, shareState(sets, c.id)]));
 }
 
 // The member ids each note ends up with: its own members, plus the contacts
@@ -90,12 +90,12 @@ const leavable = ids => {
 registerPage("share", {
   title: data => data.ids.length === 1 ? "Share note" : `Share ${data.ids.length} notes`,
   render: data => {
-    // A contact added from here comes back checked.
-    data.onContactAdded = c => { data.states[c.id] = "all"; };
+    // A contact added from here comes back checked, unless the request is still open.
+    data.onContactAdded = c => { if (!c.pending) data.states[c.id] = "all"; };
     return [
       text("Only the people you pick can read it. Everyone you share with can edit, close and share it too."),
-      state.sync.contacts.some(c => !c.pending)
-        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, state.sync.contacts.filter(c => !c.pending).map(c => contactRow(c, data)))
+      contacts().some(c => !c.pending)
+        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, contacts().filter(c => !c.pending).map(c => contactRow(c, data)))
         : null,
       h("button", { class: "share-row add", type: "button", onclick: () => go("addContact", { mode: "scan" }) },
         h("span", { class: "row-icon", html: icon("plus") }), h("span", { class: "row-title" }, "Add contact")),

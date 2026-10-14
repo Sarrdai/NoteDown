@@ -1,6 +1,8 @@
 // Linking a device by QR code (docs/server-api.md → "Linking a device"): the
 // code the new device shows, the message the linked device leaves for it in
-// the relay slot, and the name a device suggests for itself. No I/O.
+// the relay slot, and the name a device suggests for itself; also the
+// invitation link of a contact request and its card (→ "Contacts and
+// invitations"). No I/O.
 
 const PREFIX = "notedown:link?";
 const KEY = /^[A-Za-z0-9_-]{43}$/;     // b64u of 32 bytes
@@ -33,6 +35,43 @@ export function parseRelayMessage(message) {
   if (!message || message.v !== 1 || typeof message.identity !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(message.identity)) return null;
   return { identity: message.identity, name: cleanName(message.name) };
 }
+
+// ---------- contact invitations ----------
+
+const ID = /^[A-Za-z0-9_-]{22}$/;   // b64u of 16 bytes: identity IDs and invitation secrets
+const INVITE_LINK = /https?:\/\/[^\s#]*\/invite\/?#\S+/i;
+
+/** The invitation link (also the text of the "My code" QR code): `<web>/invite/#v=1&id=<identity>&s=<secret>&name=<name>`. */
+export function invitationLink({ web, identity, secret, name }) {
+  return `${web.replace(/\/+$/, "")}/invite/#` + new URLSearchParams({ v: "1", id: identity, s: secret, name: cleanName(name) });
+}
+
+/**
+ * `{ identity, secret, name }` of an invitation link, or null when the text holds none. Surrounding
+ * whitespace and text around the link (a messenger's greeting) are ignored; the part before `/invite/`
+ * is not checked, so a link of any copy of the app (web, Android, a local test server) is read.
+ */
+export function parseInvitationLink(text) {
+  const link = typeof text === "string" ? INVITE_LINK.exec(text.trim()) : null;
+  if (!link) return null;
+  const p = new URLSearchParams(link[0].slice(link[0].indexOf("#") + 1));
+  const [identity, secret] = [p.get("id") || "", p.get("s") || ""];
+  if (p.get("v") !== "1" || !ID.test(identity) || !ID.test(secret)) return null;
+  return { identity, secret, name: cleanName(p.get("name")) };
+}
+
+/** The card a requester seals for the inviter's devices: who they are and the secret that proves they had the link. */
+export function contactCard(identity, name, secret) {
+  return { v: 1, identity, name: cleanName(name), secret };
+}
+
+/** `{ identity, name, secret }` of an opened card, or null when it is malformed. */
+export function parseContactCard(card) {
+  if (!card || card.v !== 1 || !ID.test(card.identity) || !ID.test(card.secret)) return null;
+  return { identity: card.identity, name: cleanName(card.name), secret: card.secret };
+}
+
+// ---------- device names ----------
 
 const BROWSERS = [[/EdgA?\//, "Edge"], [/OPR\//, "Opera"], [/SamsungBrowser\//, "Samsung Internet"], [/Firefox\/|FxiOS\//, "Firefox"],
   [/Chrome\/|CriOS\//, "Chrome"], [/Safari\//, "Safari"]];

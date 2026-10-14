@@ -3,8 +3,11 @@
 // server on 127.0.0.1:8765. Browser contexts stand in for devices: A turns
 // sync on, B joins with the recovery key, D links by QR code (A really scans
 // it: Chromium's fake camera plays a video of D's code), all edit (also the
-// same note at once), A removes B, and C restores. Every step checks that the
-// devices end up with the same file. Note texts come from app/sample/notes.md.
+// same note at once), A removes B, and C restores. Then contacts: E (Lea) pastes
+// A's invitation link, A confirms the request on the card above the notes; F (Tom)
+// scans A's "My code" with the fake camera and A declines; stale, own and
+// repeated invitations are refused. Every step checks that the devices end up
+// with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
 "use strict";
@@ -24,6 +27,8 @@ const AGENTS = {
   A: "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
   B: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
   C: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  E: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+  F: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
   D: "Mozilla/5.0 (Linux; Android 14; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
 };
 const shots = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : null;
@@ -35,9 +40,10 @@ const sample = Object.fromEntries(fs.readFileSync(path.join(ROOT, "app/sample/no
 function serve() {
   const server = http.createServer((req, res) => {
     const file = path.join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname));
-    if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
-    fs.createReadStream(file).pipe(res);
+    const found = fs.existsSync(file) && fs.statSync(file).isDirectory() ? path.join(file, "index.html") : file;   // like a static host
+    if (!found.startsWith(ROOT) || !fs.existsSync(found) || fs.statSync(found).isDirectory()) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { "Content-Type": TYPES[path.extname(found)] || "application/octet-stream" });
+    fs.createReadStream(found).pipe(res);
   });
   return new Promise(resolve => server.listen(PORT, "127.0.0.1", () => resolve(server)));
 }
@@ -54,6 +60,7 @@ async function device(browser, name, viewport, api = true) {
   await page.evaluate(async () => {
     window.__store = await import("/app/js/store.js");
     window.__sync = await import("/app/js/sync/client.js");
+    window.__contacts = await import("/app/js/sync/contacts.js");
   });
   page.label = name;
   return page;
@@ -69,6 +76,29 @@ async function openPanel(page) {
   await page.click("#moreBtn");
   await page.locator(".menu-item", { hasText: "Sync & sharing" }).click();
 }
+
+// Turns sync on through the panel, as a new user does; closes the panel.
+async function turnOnSync(page, name) {
+  await openPanel(page);
+  await page.getByRole("button", { name: "Turn on sync" }).click();
+  await page.fill("#syncBody input", name);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.check("#keySaved");
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByText("This device", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+}
+
+// "Add contact" → "Paste link" with `link`; leaves the page on "Name the contact".
+async function pasteLink(page, link) {
+  await openPanel(page);
+  await page.getByRole("button", { name: "Add contact" }).click();
+  await page.fill('input[aria-label="Paste link"]', link);
+  await page.getByRole("button", { name: "Paste link", exact: true }).click();
+  await page.getByRole("heading", { name: "Name the contact" }).waitFor();
+}
+
+const contactLines = page => fileText(page).then(t => t.match(/<!-- contact .*-->/g) || []);
 
 async function shot(page, name) {
   if (shots) await page.screenshot({ path: path.join(shots, `sync-${name}.png`) });
@@ -290,6 +320,139 @@ async function main() {
       await addNote(a, sample.s03);
       await converge(a, d);
       assert.ok((await bodies(d)).includes(sample.s03));
+    });
+
+    // ---------- contacts ----------
+    let e, f, link;
+    await step("E (Lea) turns on sync and pastes A's invitation link; the request is pending", async () => {
+      e = await device(browser, "E", { width: 1440, height: 900 });
+      await turnOnSync(e, "Lea");
+      await openPanel(a);
+      await a.getByRole("button", { name: "Add contact" }).click();
+      await a.getByRole("tab", { name: "Invite by link" }).click();
+      link = await a.locator('input[aria-label="Invitation link"]').inputValue();
+      assert.match(link, /^http:\/\/127\.0\.0\.1:8766\/app\/invite\/#v=1&id=[\w-]{22}&s=[\w-]{22}&name=Sam$/);
+      await a.getByText("The link works once, for 7 days.").waitFor();
+      await shot(a, "invite-link-phone");
+      await a.keyboard.press("Escape");
+      await a.keyboard.press("Escape");
+      await openPanel(e);
+      await e.getByRole("button", { name: "Add contact" }).click();
+      await shot(e, "add-contact-desktop");
+      await e.keyboard.press("Escape");
+      await e.keyboard.press("Escape");
+      await pasteLink(e, "  " + link + "\n");
+      assert.equal(await e.locator('input[aria-label="Contact name"]').inputValue(), "Sam", "the inviter's name is the suggestion");
+      await shot(e, "name-contact-desktop");
+      await e.getByRole("button", { name: "Send request" }).click();
+      await e.getByText("Request sent to Sam").waitFor();
+      await e.getByText("Waiting for confirmation").waitFor();
+      await shot(e, "contact-pending-desktop");
+      assert.match((await contactLines(e)).join(), /name=Sam color=1 pending=\S+ -->/);
+      await e.keyboard.press("Escape");
+    });
+
+    await step("A sees the request card and confirms; both have each other as contacts", async () => {
+      await sync(a);
+      const card = a.locator("#requestCards .request-card");
+      await card.getByText("Lea wants to be your contact").waitFor();
+      await card.getByText("Opened your invitation link").waitFor();
+      await shot(a, "request-card-phone");
+      await card.getByRole("button", { name: "Confirm" }).click();
+      assert.equal(await a.locator('input[aria-label="Contact name"]').inputValue(), "Lea");
+      await shot(a, "request-page-phone");
+      await a.locator("#syncBody").getByRole("button", { name: "Confirm" }).click();
+      await a.getByText("Lea added").waitFor();
+      await a.locator("#syncBody").getByText("Lea", { exact: true }).waitFor();
+      await shot(a, "contacts-phone");
+      assert.equal(await a.locator("#requestCards .request-card").count(), 0, "the card is gone");
+      await a.keyboard.press("Escape");
+      await sync(e);
+      await e.getByText("Sam confirmed your request").waitFor();
+      assert.doesNotMatch((await contactLines(e)).join(), /pending/, "E's contact is confirmed");
+      await openPanel(e);
+      await e.getByText("Waiting for confirmation").waitFor({ state: "detached" });
+      await shot(e, "contacts-desktop");
+      await e.keyboard.press("Escape");
+      await converge(a, d);
+      await converge(e);
+      assert.match((await contactLines(a)).join(), /name=Lea color=1 -->/);
+      assert.match((await contactLines(d)).join(), /name=Lea color=1 -->/, "A's other device has Lea too");
+      assert.match((await contactLines(e)).join(), /name=Sam color=1 -->/);
+    });
+
+    await step("the invite page forwards a visited link into the app; a contact can't be added twice", async () => {
+      const again = await a.evaluate(async () => (await window.__contacts.createInvitation("link")).text);
+      await e.goto(again);
+      await e.waitForFunction(() => document.body.dataset.ready === "1");
+      await e.evaluate(async () => {   // the page was loaded anew
+        window.__store = await import("/app/js/store.js");
+        window.__sync = await import("/app/js/sync/client.js");
+        window.__contacts = await import("/app/js/sync/contacts.js");
+      });
+      await e.getByRole("heading", { name: "Name the contact" }).waitFor();
+      assert.equal(await e.locator('input[aria-label="Contact name"]').inputValue(), "Sam");
+      assert.equal(new URL(e.url()).hash, "", "the fragment is taken out of the address");
+      await e.getByRole("button", { name: "Send request" }).click();
+      await e.getByText("Sam is already your contact.").waitFor();
+      await shot(e, "contact-error-desktop");
+      await e.keyboard.press("Escape");
+      await e.keyboard.press("Escape");
+    });
+
+    await step("F (Tom) scans A's My code; A sees the request at once and declines it", async () => {
+      f = await device(browser, "F", { width: 820, height: 1180 });
+      await turnOnSync(f, "Tom");
+      await openPanel(a);
+      await a.getByRole("button", { name: "My code" }).click();
+      const code = await a.locator(".qr[data-code]").getAttribute("data-code");
+      assert.match(code, /\/invite\/#v=1&id=/);
+      await a.getByText("The code works once, for 10 minutes.").waitFor();
+      await shot(a, "my-code-phone");
+      await showToCamera(code);
+      await openPanel(f);
+      await f.getByRole("button", { name: "Add contact" }).click();
+      await f.getByRole("heading", { name: "Name the contact" }).waitFor({ timeout: 15000 });   // scanned
+      assert.equal(await f.locator('input[aria-label="Contact name"]').inputValue(), "Sam");
+      await f.fill('input[aria-label="Contact name"]', "Samuel");
+      await f.getByRole("button", { name: "Send request" }).click();
+      await f.getByText("Request sent to Samuel").waitFor();
+      await shot(f, "contact-pending-tablet");
+      await sync(a);   // A is on "My code": the request opens by itself
+      await a.locator("#syncBody").getByText("Tom wants to be your contact").waitFor();
+      await a.locator("#syncBody").getByText("Scanned your code").waitFor();
+      await shot(a, "request-code-phone");
+      await a.locator("#syncBody").getByRole("button", { name: "Decline" }).click();
+      await a.getByText("Request declined").waitFor();
+      assert.equal(await a.locator("#requestCards .request-card").count(), 0);
+      assert.doesNotMatch((await contactLines(a)).join(), /name=Tom/, "declined: no contact");
+      await f.keyboard.press("Escape");
+    });
+
+    await step("a used, an own and a made-up invitation are refused", async () => {
+      // A declined request is never reported back: F's contact stays pending until F removes it.
+      await assert.rejects(f.evaluate(t => window.__contacts.sendRequest(t, "Sam"), link), /already sent a request to Samuel/);
+      await f.evaluate(() => window.__contacts.removeContact(window.__store.state.file.contacts[0].id));
+      await assert.rejects(f.evaluate(t => window.__contacts.sendRequest(t, "Sam"), link), /expired or was already used/);
+      const own = await f.evaluate(async () => (await window.__contacts.createInvitation("link")).text);
+      await assert.rejects(f.evaluate(t => window.__contacts.sendRequest(t, "Me"), own), /own code/);
+      await assert.rejects(f.evaluate(() => window.__contacts.sendRequest("hello", "x")), /not a NoteDown invitation/);
+      await pasteLink(f, link);
+      await f.getByRole("button", { name: "Send request" }).click();
+      await f.getByText("This code or link has expired or was already used").waitFor();
+      await shot(f, "contact-expired-tablet");
+      await f.keyboard.press("Escape");
+      assert.deepEqual(await contactLines(f), [], "nothing was added");
+    });
+
+    await step("removing a contact removes the pair on both sides", async () => {
+      await openPanel(e);
+      await e.getByRole("button", { name: "Remove Sam" }).click();
+      await e.getByRole("button", { name: "Remove", exact: true }).click();
+      await e.getByText("Sam removed").waitFor();
+      assert.deepEqual(await contactLines(e), []);
+      await converge(a, d);
+      await e.keyboard.press("Escape");
     });
 
     await step("without a server, sync can't be turned on", async () => {

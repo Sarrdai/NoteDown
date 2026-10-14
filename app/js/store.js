@@ -26,8 +26,10 @@ export const DEFAULT_SETTINGS = {
 // `identityKey` (b64u), `device` (this device's ID) and `file` ({ id, version,
 // base text }) of the private file; the device keys live in IndexedDB.
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
-// `recoveryKey`, `devices` (the other devices' names), `contacts` and
-// `requests` (incoming contact requests: { id, name, via }).
+// `recoveryKey`, `devices` (the other devices' names) and `contacts`; real
+// contacts are in the private file (`contacts()`). `requests` are the incoming
+// contact requests, { id, name, via } (real: also `identity`), from the
+// server in each round (sync/contacts.js) or simulated.
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
@@ -147,9 +149,22 @@ export function sharedCircles() {
   return state.shared.map(s => [...s.members]);
 }
 
+/** The user's contacts, [{ id, name, color, pending? }]: the markers of the private file (synced; the
+ *  id is the contact's identity ID), in the sample the simulated list in the sync state. */
+export function contacts() {
+  return state.sync.simulated ? state.sync.contacts : state.file.contacts || [];
+}
+
+/** Replaces the contacts of the private file (real sync); saved, synced and shown like any change. */
+export function setContacts(list) {
+  state.file.contacts = list;
+  saveFiles();
+  emit("structure");
+}
+
 /** Whether the people overview (#23) shows: sync on and at least one contact. */
 export function hasPeople() {
-  return state.sync.enabled && state.sync.contacts.length > 0;
+  return state.sync.enabled && contacts().length > 0;
 }
 
 /** The people filter in effect: null (all) when the overview isn't shown. */

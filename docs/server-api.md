@@ -91,7 +91,7 @@ first confirms (decided 2026-10-14: showing a code or sending a link
 alone doesn't add anyone). Code and link are the same text:
 
 ```
-https://<web app>/invite#v=1&id=<identity id>&s=<secret>&name=<name>
+https://<web app>/invite/#v=1&id=<identity id>&s=<secret>&name=<name>
 ```
 
 - `id` is the inviter's identity ID, i.e. the fingerprint of its identity

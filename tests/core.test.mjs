@@ -112,3 +112,26 @@ test("file format: an order marker round-trips; without ids it is an empty order
   assert.deepEqual(parseNotesFile(serializeNotesFile({ notes: [], order: { ids: [], modified: "2026-10-14T09:00Z" } })).order, { ids: [], modified: "2026-10-14T09:00Z" });
   assert.equal(parseNotesFile(sample).order, null);
 });
+
+test("file format: contacts round-trip after the devices and before the order, text after a marker is dropped", () => {
+  const contacts = [
+    { id: "TGVhSWRlbnRpdHkxMjM0NQ", name: "Lea Müller", color: 2 },
+    { id: "VG9tSWRlbnRpdHkxMjM0NTY", name: "Tom", color: 4, pending: "2026-10-14T09:00Z" },
+  ];
+  const file = parseNotesFile(sample);
+  const text = serializeNotesFile({
+    ...file, devices: [{ id: "d1", name: "Phone" }], contacts, order: { ids: ["s02"], modified: "2026-10-14T09:00Z" },
+  });
+  assert.match(text, /<!-- device id=d1 name=Phone -->\n\n<!-- contact id=TGVhSWRlbnRpdHkxMjM0NQ name=Lea%20M%C3%BCller color=2 -->\n\n<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z -->\n\n<!-- order /);
+  const parsed = parseNotesFile(text);
+  assert.deepEqual(parsed.contacts, contacts);
+  assert.equal(parsed.notes.length, file.notes.length);
+  assert.deepEqual(parsed.devices, [{ id: "d1", name: "Phone" }]);
+  // Text below a contact marker is not part of any note.
+  const extra = parseNotesFile("<!-- contact id=a name=A color=1 -->\nstray text\n");
+  assert.deepEqual(extra.contacts, [{ id: "a", name: "A", color: 1 }]);
+  assert.deepEqual(extra.notes, []);
+  // A bad color falls back to slot 1; a marker without a name is ignored.
+  assert.deepEqual(parseNotesFile("<!-- contact id=a name=A color=9 -->\n\n<!-- contact id=b color=2 -->").contacts, [{ id: "a", name: "A", color: 1 }]);
+  assert.deepEqual(parseNotesFile("").contacts, []);
+});

@@ -3,7 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, MAX_NAME } from "../app/js/core/linking.js";
+import {
+  linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, MAX_NAME, invitationLink, parseInvitationLink, contactCard, parseContactCard,
+} from "../app/js/core/linking.js";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { mergeNotesFiles } from "../app/js/core/merge.js";
 import * as c from "../app/js/core/crypto.js";
@@ -70,4 +72,44 @@ test("merge: device names added on both sides are kept; a removal wins over no c
   const remote = { ...base, devices: [{ id: "a", name: "A" }, { id: "d", name: "D" }] };
   const out = mergeNotesFiles(base, local, remote).file.devices;
   assert.deepEqual(out.map(d => d.id).sort(), ["a", "c", "d"]);
+});
+
+const identity = "A".repeat(22), secret = "B".repeat(22);
+
+test("invitation link: round-trips identity, secret and name; short enough for a QR code", () => {
+  const link = invitationLink({ web: "https://notedown.example.org/", identity, secret, name: "Lea Müller & Co" });
+  assert.ok(link.startsWith("https://notedown.example.org/invite/#v=1&id="), link);
+  assert.ok(link.length < 200, link.length);
+  assert.deepEqual(parseInvitationLink(link), { identity, secret, name: "Lea Müller & Co" });
+  assert.equal(parseInvitationLink(invitationLink({ web: "http://127.0.0.1:8766/app", identity, secret, name: "" })).name, "");
+});
+
+test("invitation link: read from pasted text with whitespace or a greeting around it; other text is refused", () => {
+  const link = invitationLink({ web: "https://notedown.example.org", identity, secret, name: "Sam" });
+  assert.equal(parseInvitationLink(`  \n${link}\t\n`).identity, identity);
+  assert.equal(parseInvitationLink(`Join me on NoteDown: ${link} see you!`).secret, secret);
+  assert.equal(parseInvitationLink("http://x.test/app/invite#v=1&id=" + identity + "&s=" + secret).identity, identity);   // without the slash
+  assert.equal(parseInvitationLink("https://example.org"), null);
+  assert.equal(parseInvitationLink("notedown:link?v=1&slot=x"), null);
+  assert.equal(parseInvitationLink(link.replace("v=1", "v=2")), null);
+  assert.equal(parseInvitationLink(link.replace(identity, "short")), null);
+  assert.equal(parseInvitationLink(link.replace(secret, "B".repeat(21))), null);
+  assert.equal(parseInvitationLink("https://example.org/page#v=1&id=" + identity + "&s=" + secret), null, "needs /invite");
+  assert.equal(parseInvitationLink(null), null);
+});
+
+test("invitation link: the name is capped like a device name", () => {
+  const link = invitationLink({ web: "https://x.test", identity, secret, name: "n".repeat(80) });
+  assert.equal(parseInvitationLink(link).name.length, MAX_NAME);
+});
+
+test("contact card: build and parse with validation", () => {
+  const card = contactCard(identity, "  Sam  ", secret);
+  assert.deepEqual(card, { v: 1, identity, name: "Sam", secret });
+  assert.deepEqual(parseContactCard(JSON.parse(JSON.stringify(card))), { identity, name: "Sam", secret });
+  assert.equal(parseContactCard({ ...card, v: 2 }), null);
+  assert.equal(parseContactCard({ ...card, identity: "x" }), null);
+  assert.equal(parseContactCard({ ...card, secret: 5 }), null);
+  assert.equal(parseContactCard(null), null);
+  assert.equal(parseContactCard({ ...card, name: 7 }).name, "");
 });

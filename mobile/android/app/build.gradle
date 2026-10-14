@@ -10,6 +10,8 @@ android {
         // CI passes its run number, so every test build installs over the last one.
         versionCode((System.getenv("VERSION_CODE") ?: "1") as int)
         versionName "0.1.${System.getenv("VERSION_CODE") ?: "0"}"
+        // The host of invitation links the app opens (App Link, AndroidManifest.xml): the web address, WEB_HOST in CI.
+        manifestPlaceholders = [webHost: System.getenv("WEB_HOST") ?: "notedown.example.com"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

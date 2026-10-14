@@ -17,13 +17,14 @@ jobs:
     env:
       VERSION_CODE: ${{ github.run_number }}
       HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      WEB_HOST: ${{ vars.WEB_HOST }}   # the host of the App Link for invitation links (AndroidManifest.xml)
     defaults:
       run:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v7
       # A placeholder or a URL instead of a host name breaks the deployed app.
-      - run: ../scripts/check-host.sh API_HOST
+      - run: ../scripts/check-host.sh API_HOST WEB_HOST
         env:
           API_HOST: ${{ vars.API_HOST }}
       - uses: actions/setup-node@v7
@@ -36,10 +37,13 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      # The app finds its sync server in app/config.json (empty in the repository).
+      # The app finds its sync server and the web address that invitation links start with
+      # in app/config.json (empty in the repository).
       - if: vars.API_HOST != ''
         run: |
-          echo '{ "api": "https://${{ vars.API_HOST }}" }' > ../app/config.json
+          web=''
+          if [ -n "$WEB_HOST" ]; then web=", \"web\": \"https://$WEB_HOST\""; fi
+          echo "{ \"api\": \"https://${{ vars.API_HOST }}\"$web }" > ../app/config.json
       - run: npx cap sync android
 
       - name: Build signed release APK

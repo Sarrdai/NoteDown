@@ -96,3 +96,25 @@ test("merge: a custom order changed on one side is taken; changed on both, the n
   assert.deepEqual(mergeNotesFiles(f(null), f(null), remote).file.order.ids, ["r"]);
   assert.equal(mergeNotesFiles(f(null), f(null), f(null)).file.order, null);
 });
+
+test("merge: contacts per id — the changed side wins, both new ones stay, a removal stays", () => {
+  const lea = { id: "lea", name: "Lea", color: 2 };
+  const tom = { id: "tom", name: "Tom", color: 4, pending: "2026-10-14T09:00Z" };
+  const mia = { id: "mia", name: "Mia", color: 1 };
+  const withContacts = contacts => ({ notes: [], contacts });
+  const base = withContacts([lea, tom]);
+  // This device sees Tom's confirmation (pending dropped) and renames Lea; the other adds Mia and removes nothing.
+  const local = withContacts([{ ...lea, name: "Lea M." }, { id: "tom", name: "Tom", color: 4 }]);
+  const remote = withContacts([lea, tom, mia]);
+  const out = mergeNotesFiles(base, local, remote).file.contacts;
+  assert.deepEqual(Object.fromEntries(out.map(c => [c.id, c])), {
+    lea: { ...lea, name: "Lea M." }, tom: { id: "tom", name: "Tom", color: 4 }, mia,
+  });
+  // A contact removed on one side stays removed; changed on both, the remote one wins.
+  assert.deepEqual(mergeNotesFiles(base, withContacts([tom]), base).file.contacts, [tom]);
+  assert.deepEqual(mergeNotesFiles(base, base, withContacts([lea])).file.contacts, [lea]);
+  const both = mergeNotesFiles(base, withContacts([{ ...lea, name: "L" }, tom]), withContacts([{ ...lea, name: "R" }, tom])).file.contacts;
+  assert.equal(both.find(c => c.id === "lea").name, "R");
+  // Files without contacts (shared files) merge to none.
+  assert.deepEqual(mergeNotesFiles(file(), file(), file()).file.contacts, []);
+});

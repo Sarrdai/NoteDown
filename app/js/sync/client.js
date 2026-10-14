@@ -6,7 +6,8 @@
 // foreground, gets the focus or goes online, while the app is visible every
 // 5 s that grows to 30 s as long as nothing changes (any change, focus or
 // user request makes it 5 s again), and when the user asks (opening Sync &
-// sharing, pull to refresh). The sample
+// sharing, pull to refresh); each round also brings contact requests and
+// confirmations (contacts.js). The sample
 // (`state.sync.simulated`) never reaches this module.
 import { state, setSync, setPrivateFile, fileText, onFilesChanged, eraseStoredState } from "../store.js";
 import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
@@ -15,6 +16,7 @@ import * as c from "../core/crypto.js";
 import { onlyUntouchedWelcome, keyHolders, withDeviceName, nextPollDelay, POLL_MIN_MS } from "../core/sync-state.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel } from "../core/linking.js";
 import { createApi, ApiError, NetworkError } from "./api.js";
+import { initContacts, contactsRound } from "./contacts.js";
 import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
@@ -33,10 +35,12 @@ let moved = false;       // the running sync downloaded or uploaded something
 const active = () => api && state.sync.enabled && !state.sync.simulated;
 const emptyFile = () => parseNotesFile("");
 
-/** Starts sync against the server at `apiUrl` (none: sync can't be turned on). */
-export function initSync(apiUrl) {
+/** Starts sync against the server at `apiUrl` (none: sync can't be turned on); `webUrl` is the address
+ *  of this app on the web, the start of invitation links (none: no links can be made). */
+export function initSync(apiUrl, webUrl = "") {
   if (!apiUrl) return;
   api = createApi(apiUrl, () => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
+  initContacts({ api: () => api, keys: () => keys, loadKeys, chain, web: () => webUrl });
   onFilesChanged(() => { resetPoll(); schedule(AFTER_CHANGE_MS); });
   const wake = () => { resetPoll(); schedule(0); };
   document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
@@ -98,6 +102,7 @@ async function round() {
     await loadKeys();
     let done = false;
     for (let i = 0; i < ATTEMPTS && !done; i++) done = await step();
+    await contactsRound();
     const wait = busySince + MIN_BUSY_MS - Date.now();
     if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
     setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false });
@@ -127,6 +132,9 @@ async function loadKeys() {
   if (!fileKey && state.sync.file) fileKey = await getSecret("file:" + state.sync.file.id) || null;
 }
 
+// The private file is the one only this identity is a member of; the others are shared files.
+const privateFile = (files, identity) => files.find(f => f.members.length === 1 && f.members[0] === identity);
+
 // One download / merge / upload pass; false when the server moved on meanwhile.
 async function step() {
   const { files, quota } = await api.listFiles();
@@ -134,9 +142,10 @@ async function step() {
   const { usage } = state.sync;
   if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });
   if (!state.sync.file) {
-    if (!files.length) return createFile();
+    const found = privateFile(files, state.sync.identity);
+    if (!found) return createFile();
     // Another device created the file first: take it over, merging everything.
-    setSync({ file: { id: files[0].id, version: 0, base: "" } });
+    setSync({ file: { id: found.id, version: 0, base: "" } });
   }
   const f = state.sync.file;
   const server = files.find(x => x.id === f.id);
@@ -286,8 +295,7 @@ export async function restore(recoveryKey) {
         entries = (await api.getIdentity(identity)).entries;   // another device appended first
       }
     }
-    // Milestone 1: the private file is the identity's only file.
-    const [file] = (await api.listFiles()).files;
+    const file = privateFile((await api.listFiles()).files, identity);
     if (file) {
       const got = await api.getFile(file.id);
       const key = await c.unwrapFileKey(got.key, r.recovery.enc);

@@ -4,7 +4,7 @@
 // that circle; a long-press (or right-click) on a contact lists the groups
 // they are in, to jump there.
 import { circleEntries, groupsWith, circleKey } from "../core/sharing.js";
-import { state, setUi, sharedCircles, activeCircle } from "../store.js";
+import { state, setUi, sharedCircles, activeCircle, contacts } from "../store.js";
 import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people.js";
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
@@ -29,7 +29,7 @@ function leading(e) {
 
 /** Renders the overview; `count(key)` gives a circle's notes in the current view. */
 export function renderPeople(count) {
-  const entries = circleEntries(state.sync.contacts, sharedCircles(), nameOf);
+  const entries = circleEntries(contacts(), sharedCircles(), nameOf);
   const active = activeCircle();
   $("peopleList").replaceChildren(...entries.map(e => {
     const b = document.createElement("button");

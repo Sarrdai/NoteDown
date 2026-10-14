@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-flavor="latte">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NoteDown invitation</title>
+  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/catppuccin.css">
+  <link rel="stylesheet" href="../css/app.css">
+  <style>
+    body { display: grid; place-items: center; min-height: 100dvh; margin: 0; padding: 16px; background: var(--bg); color: var(--text); font-family: var(--font); }
+    main { max-width: 360px; text-align: center; }
+    main p { margin: 0 0 16px; color: var(--text-muted); }
+    main a { display: inline-block; text-decoration: none; }
+  </style>
+  <script>
+    // The link's fragment (identity, secret, name) never reaches a server: the app takes it from the address.
+    if (matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.flavor = "mocha";
+    addEventListener("DOMContentLoaded", () => { document.getElementById("open").href = "../" + location.hash; });
+    location.replace("../" + location.hash);
+  </script>
+</head>
+<body>
+  <main>
+    <h1>NoteDown</h1>
+    <p>Opening your invitation…</p>
+    <a id="open" class="btn primary" href="../">Open NoteDown</a>
+  </main>
+</body>
+</html>

@@ -7,6 +7,7 @@ import {
   b64u, fromB64u, canonicalJson, keyId, entryHash, recoveryKeyBytes, deriveRecovery, generateDeviceKeys,
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
   decryptFile, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
+  newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
 } from "../app/js/core/crypto.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./fixtures/crypto-vectors.json", import.meta.url), "utf8"));
@@ -292,4 +293,44 @@ test("file key: unwraps the Python wrapped key; JS wrap round trips; fits the li
 
   const other = await generateDeviceKeys();
   await assert.rejects(unwrapFileKey(wrapped, other.enc));
+});
+
+test("invitation: ID, message and signature match Python", async () => {
+  const v = vectors.invite;
+  assert.equal(await invitationId(fromB64u(v.secret, 16)), v.id);
+  assert.equal(text(invitationMessage(v.id)), v.message);
+  const phone = await deviceFrom(vectors.phone);
+  assert.equal(await signInvitation(phone.sign.privateKey, v.id), v.signature); // Ed25519 is deterministic
+  assert.equal(await verifyInvitation(phone.sign.publicKey, v.signature, v.id), true);
+});
+
+test("invitation: a fresh secret has 16 bytes and its own ID; a wrong key, ID or signature fails", async () => {
+  const secret = newInvitationSecret();
+  assert.equal(secret.length, 16);
+  assert.notDeepEqual(secret, newInvitationSecret());
+  const id = await invitationId(secret);
+  assert.match(id, /^[A-Za-z0-9_-]{22}$/);
+  const device = await generateDeviceKeys(), other = await generateDeviceKeys();
+  const sig = await signInvitation(device.sign.privateKey, id);
+  assert.equal(await verifyInvitation(device.sign.publicKey, sig, id), true);
+  assert.equal(await verifyInvitation(other.sign.publicKey, sig, id), false);
+  assert.equal(await verifyInvitation(device.sign.publicKey, sig, await invitationId(newInvitationSecret())), false);
+  assert.equal(await verifyInvitation(device.sign.publicKey, "not-base64!", id), false);
+  assert.equal(await verifyInvitation(device.sign.publicKey, sig.slice(0, 40), id), false);
+});
+
+test("contact card: opens Python's sealed card; JS seal round trips, fits the limit and is no wrapped key", async () => {
+  const phone = await deviceFrom(vectors.phone);
+  const v = vectors.contact_card;
+  assert.deepEqual(await openContactCard(v.sealed, phone.enc), v.card);
+  const card = { v: 1, identity: "I".repeat(22), name: "Zoë ".repeat(10).trim(), secret: "S".repeat(22) };
+  const sealed = await sealContactCard(card, phone.enc.publicKey);
+  assert.ok(sealed.length <= 512, sealed.length);
+  assert.deepEqual(await openContactCard(sealed, phone.enc), card);
+  assert.notEqual(sealed, await sealContactCard(card, phone.enc.publicKey));
+  const other = await generateDeviceKeys();
+  await assert.rejects(openContactCard(sealed, other.enc));
+  // Separate HKDF labels: a card is no relay payload and no wrapped key, and the other way round.
+  await assert.rejects(openContactCard(await wrapFileKey(generateFileKey(), phone.enc.publicKey), phone.enc));
+  await assert.rejects(unwrapFileKey(sealed, phone.enc));
 });

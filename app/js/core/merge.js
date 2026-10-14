@@ -6,7 +6,7 @@
 import { newId } from "./notes-file.js";
 
 /**
- * Three-way merge of parsed notes files ({ preamble, notes, moved, devices, order }).
+ * Three-way merge of parsed notes files ({ preamble, notes, moved, devices, contacts, order }).
  * Returns { file, displaced }: `displaced` lists { base, note } for notes
  * edited on one side while the other moved them to another file; the caller
  * re-applies each with applyDisplaced to the file the note moved to, or to
@@ -36,7 +36,7 @@ export function mergeNotesFiles(base, local, remote) {
     else if (out?.moved) moved.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved, devices: mergeDevices(base, local, remote), order: mergeOrder(base, local, remote) }, displaced };
+  return { file: { preamble, notes, moved, devices: mergeMarkers(base, local, remote, "devices"), contacts: mergeMarkers(base, local, remote, "contacts"), order: mergeOrder(base, local, remote) }, displaced };
 }
 
 // A custom order (backlog #24, #25) is one list: the side that changed it
@@ -50,14 +50,15 @@ function mergeOrder(base, local, remote) {
   return l.modified > r.modified ? l : r;
 }
 
-// Device names (private file): per device id, the side that changed it wins,
-// the remote one when both did; a name removed on one side stays removed.
-function mergeDevices(base, local, remote) {
-  const [b, l, r] = [base, local, remote].map(f => new Map((f.devices || []).map(d => [d.id, d.name])));
+// Device names and contacts (private file): per id, the side that changed a
+// marker wins, the remote one when both did; a marker removed on one side
+// stays removed.
+function mergeMarkers(base, local, remote, list) {
+  const [b, l, r] = [base, local, remote].map(f => new Map((f[list] || []).map(m => [m.id, JSON.stringify(m)])));
   const out = [];
   for (const id of new Set([...r.keys(), ...l.keys()])) {
-    const name = l.get(id) === b.get(id) ? r.get(id) : r.get(id) === b.get(id) ? l.get(id) : r.get(id) ?? l.get(id);
-    if (name !== undefined) out.push({ id, name });
+    const marker = l.get(id) === b.get(id) ? r.get(id) : r.get(id) === b.get(id) ? l.get(id) : r.get(id) ?? l.get(id);
+    if (marker !== undefined) out.push(JSON.parse(marker));
   }
   return out;
 }
