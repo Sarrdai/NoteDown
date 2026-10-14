@@ -272,12 +272,11 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .fab { --level: 0; }
 .fab::before {
   content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: -1;
-  background: var(--danger); opacity: 0; transition: opacity 0.15s;
+  background: var(--danger); opacity: 0; transition: opacity 0.15s, transform 0.1s linear;
 }
 .app.recording .fab { background: var(--danger); border-radius: 50%; transform: scale(1.12); }
-.app.recording .fab::before { opacity: 0.3; transform: scale(calc(1.15 + var(--level) * 0.9)); }
+.app.recording .fab::before { opacity: 0.3; transform: scale(calc(1.1 + var(--level) * 0.5)); }
 .app.rec-locked .fab { transform: none; }
-.fab { touch-action: none; -webkit-touch-callout: none; }
 .recorder { position: fixed; z-index: 14; inset: auto 0 0 0; pointer-events: none; }
 .recorder > * { pointer-events: auto; }
 .rec-preview {
@@ -775,7 +774,8 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   width: var(--fab-size); height: var(--fab-size); border: 0; border-radius: 18px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-high);
-  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  /* none: a pan would fire pointercancel and end a held dictation (ui/recorder.js). */
+  touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
 }
 .fab .icon { width: 28px; height: 28px; stroke-width: 2.4; }
 .fab:active { transform: scale(0.96); }
