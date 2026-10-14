@@ -137,8 +137,8 @@ function metaHtml(n) {
     const d = dueLabel(n.due);
     parts.push(`<button type="button" class="chip due-chip ${d.kind}" aria-label="${esc(d.text + ", change due date")}">${icon("calendar")}${d.text}</button>`);
   } else {
-    // An empty slot to set one (the label is hidden in variant B).
-    parts.push(`<button type="button" class="chip due-chip due-add" aria-label="Set due date">${icon("calendar")}<span class="due-add-label">Due date</span></button>`);
+    // An empty slot to set one.
+    parts.push(`<button type="button" class="chip due-chip due-add">${icon("calendar")}Due date</button>`);
   }
   const key = state.settings.sort[state.view].key;
   const field = { created: "created", closed: "closed" }[key] || "modified";

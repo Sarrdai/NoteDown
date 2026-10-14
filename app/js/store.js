@@ -20,7 +20,6 @@ export const DEFAULT_SETTINGS = {
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
-  dueSlot: "label",          // prototype variant: empty due chip as icon + label (A) | icon only (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

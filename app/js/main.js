@@ -28,7 +28,6 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
-const DUE_SLOTS = { label: "Icon and label (A)", icon: "Icon only (B)" }; // prototype variant
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
@@ -82,7 +81,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.classList.toggle("due-slot-icon", s.dueSlot === "icon");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = sortOf();
@@ -273,8 +271,6 @@ function moreMenu() {
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     { label: "Simulate reminder", onSelect: simulateReminder },
-    { section: "Prototype: empty due date" },
-    ...Object.entries(DUE_SLOTS).map(([id, label]) => ({ label, checked: s.dueSlot === id, onSelect: () => updateSettings({ dueSlot: id }) })),
   ].filter(Boolean));
 }
 
@@ -354,7 +350,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (DUE_SLOTS[p.get("dueslot")]) patch.dueSlot = p.get("dueslot");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).
