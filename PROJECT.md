@@ -101,11 +101,11 @@ prototype with `?dictation=demo`, which replays
 | `app/js/sample.js` | Prototype only: loads the sample notes and the sample identity (`?sample`) |
 | `app/welcome.md` | The welcome note a first start shows (onboarding; the only note text outside `app/sample/`) |
 | `app/sample/` | `notes.md`: the sample notes, in the real file format — the only source of example content (CLAUDE.md); `sharing.json`: the sample user, devices, contacts and which notes are shared with whom; `dictation.md`: the transcript `?dictation=demo` replays |
-| `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), `qrcode.esm.js` (qrcode-generator, draws QR codes), `jsqr.esm.js` (jsQR, decodes camera frames; Apache-2.0), each with its license (the others MIT) |
+| `app/vendor/` | Third-party code, committed as files: `marked` (Markdown rendering), `codemirror.esm.js` (the editor; one bundle of the CodeMirror 6 packages listed in `scripts/vendor/`), `qrcode.esm.js` (qrcode-generator, draws QR codes), `jsqr.esm.js` (jsQR, decodes camera frames; Apache-2.0), `capacitor-core.esm.js` (`@capacitor/core`, reaches the Android app's native plugins), each with its license (the others MIT) |
 
 Rules: plain HTML/CSS/JS as ES modules, no framework, no external
 requests at runtime; third-party code only as a vendored file with its
-license. The CodeMirror and jsQR bundles and the qrcode copy are generated
+license. The CodeMirror and jsQR bundles and the qrcode and Capacitor copies are generated
 from the versions pinned in `scripts/vendor/`: to add an export or update
 one, edit `scripts/vendor/*.entry.js` / `package.json` and run `npm install && npm run build` in `scripts/vendor/`
 (only needed when changing it — the app itself never needs a build). New logic that doesn't touch the DOM goes into `app/js/core/`
@@ -159,8 +159,10 @@ Decided on 2026-10-13, once function and look stood:
   the prototype.
 - **Editor:** CodeMirror 6, as in the prototype.
 - **Speech:** the browser's Web Speech API on the web; on Android (whose
-  web view has none) a Capacitor speech-recognition plugin behind the
-  same `startDictation` interface (`app/js/ui/dictation.js`).
+  web view has none) Android's `SpeechRecognizer` through the app's own
+  Capacitor plugin (`DictationPlugin.java`, see "Android app") behind the
+  same `startDictation` interface (`app/js/ui/dictation.js`) — the
+  community plugin reports neither errors nor the input level.
 - A UI framework, if any, is decided later; `app/js/core/` stays
   framework-free either way.
 - **Backend:** Python with FastAPI, a stateless API
@@ -198,7 +200,8 @@ additive statements).
 
 `mobile/` holds the Capacitor configuration (`webDir` is `../app`) and
 the generated Android project in `mobile/android/`; the copied web files
-are not committed. The APK is built by CI (`.github/workflows/android.yml`);
+are not committed. Native code of our own sits next to `MainActivity.java`,
+which registers it: `DictationPlugin.java` (speech input). The APK is built by CI (`.github/workflows/android.yml`);
 locally it needs Node, JDK 21 and the Android SDK:
 
 ```bash

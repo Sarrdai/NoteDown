@@ -1,13 +1,15 @@
 {
   "private": true,
-  "description": "Pinned sources of the generated files in app/vendor/ (codemirror.esm.js, jsqr.esm.js, qrcode.esm.js) — rebuild with `npm install && npm run build` here (PROJECT.md → \"Prototype\").",
+  "description": "Pinned sources of the generated files in app/vendor/ (codemirror.esm.js, jsqr.esm.js, qrcode.esm.js, capacitor-core.esm.js) \u2014 rebuild with `npm install && npm run build` here (PROJECT.md \u2192 \"Prototype\").",
   "scripts": {
-    "build": "npm run build:codemirror && npm run build:jsqr && npm run build:qrcode",
+    "build": "npm run build:codemirror && npm run build:jsqr && npm run build:qrcode && npm run build:capacitor",
     "build:codemirror": "esbuild codemirror.entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=../../app/vendor/codemirror.esm.js",
     "build:jsqr": "esbuild jsqr.entry.js --bundle --format=esm --minify --legal-comments=eof --outfile=../../app/vendor/jsqr.esm.js && cp node_modules/jsqr/LICENSE ../../app/vendor/jsqr.LICENSE",
-    "build:qrcode": "cp node_modules/qrcode-generator/dist/qrcode.mjs ../../app/vendor/qrcode.esm.js"
+    "build:qrcode": "cp node_modules/qrcode-generator/dist/qrcode.mjs ../../app/vendor/qrcode.esm.js",
+    "build:capacitor": "cp node_modules/@capacitor/core/dist/index.js ../../app/vendor/capacitor-core.esm.js && cp node_modules/@capacitor/core/LICENSE ../../app/vendor/capacitor-core.LICENSE"
   },
   "devDependencies": {
+    "@capacitor/core": "8.5.3",
     "@codemirror/commands": "6.11.1",
     "@codemirror/language": "6.13.1",
     "@codemirror/state": "6.7.6",
