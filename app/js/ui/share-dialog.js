@@ -82,7 +82,9 @@ function paint(row, s) {
   box.innerHTML = MARK[s];
 }
 
+// Real mode can't leave yet: the leaver is no member of the remaining people's file, so it can't move the notes there.
 const leavable = ids => {
+  if (!state.sync.simulated) return false;
   const keys = new Set(ids.map(id => circleKey(circleOf(id))));
   return keys.size === 1 && !keys.has("");
 };

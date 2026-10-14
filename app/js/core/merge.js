@@ -70,6 +70,46 @@ export function applyDisplaced(file, { base, note }) {
   return { ...file, notes: [...file.notes.filter(n => n.id !== note.id), ...merged.file.notes] };
 }
 
+/**
+ * The notes of a merged shared file that a protected note has to be saved from: present before the
+ * merge (`before`), gone after it (`merged`) and not moved on (no moved marker) — another member
+ * deleted them. `isProtected(id)` is this device's setting, which never leaves the device
+ * (docs/sync-and-sharing.md → "Files").
+ */
+export function protectedDeleted(before, merged, isProtected) {
+  const there = new Set([...merged.notes, ...(merged.moved || [])].map(n => n.id));
+  return before.notes.filter(n => isProtected(n.id) && !there.has(n.id));
+}
+
+/** True when `file` has moved notes away since `base` (a moved marker `base` doesn't have): its upload has to wait
+ *  until the files the notes moved to are on the server. */
+export function movedAway(base, file) {
+  const had = new Set((base.moved || []).map(m => m.id));
+  return (file.moved || []).some(m => !had.has(m.id));
+}
+
+/**
+ * A private copy of a note that came back into a shared file (the person was removed and added again)
+ * gets a new ID, so no two notes share one. `ids`: the IDs of the notes in the shared files.
+ * → { file, renamed: [{ from, to }] }
+ */
+export function renameDuplicates(file, ids) {
+  const renamed = [];
+  const notes = file.notes.map(n => {
+    if (!ids.has(n.id)) return n;
+    const copy = { ...n, id: newId() };
+    renamed.push({ from: n.id, to: copy.id });
+    return copy;
+  });
+  return { file: { ...file, notes }, renamed };
+}
+
+/** The parsed file with `notes` added (a note that came back clears its moved marker). */
+export function adoptNotes(file, notes) {
+  const ids = new Set(notes.map(n => n.id));
+  return { ...file, notes: [...file.notes, ...notes], moved: (file.moved || []).filter(m => !ids.has(m.id)) };
+}
+
 /** Moves a note from one parsed file to another, leaving a moved marker. */
 export function moveNote(from, to, id, now) {
   const note = from.notes.find(n => n.id === id);

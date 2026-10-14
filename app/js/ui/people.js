@@ -5,8 +5,8 @@ import { circleLabel, colorIndex, initials, visibleMembers } from "../core/shari
 
 const contact = id => contacts().find(c => c.id === id);
 
-/** A contact's name; the raw id when the contact was removed. */
-export const nameOf = id => contact(id)?.name ?? id;
+/** A contact's name; "Unknown" for someone in a shared file who isn't (any more) a contact. */
+export const nameOf = id => contact(id)?.name ?? "Unknown";
 
 /** "Lea & Tom" */
 export const membersLabel = members => circleLabel(members.map(nameOf));

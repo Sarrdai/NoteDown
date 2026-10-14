@@ -1,7 +1,8 @@
-// Real sync of the private file with the server (docs/sync-and-sharing.md →
-// "Identity and devices", "Sync"; protocol: docs/server-api.md). Turning sync
-// on creates the identity, linking by QR code or restoring with the recovery
-// key adds this device, and each round downloads, merges and uploads the end-to-end encrypted file.
+// Real sync with the server (docs/sync-and-sharing.md → "Identity and devices",
+// "Sync"; protocol: docs/server-api.md). Turning sync on creates the identity,
+// linking by QR code or restoring with the recovery key adds this device, and
+// each round downloads, merges and uploads the end-to-end encrypted files — the
+// private one and the shared ones (files.js).
 // Rounds run shortly after a change, on start, when the app comes back to the
 // foreground, gets the focus or goes online, while the app is visible every
 // 5 s that grows to 30 s as long as nothing changes (any change, focus or
@@ -9,14 +10,14 @@
 // sharing, pull to refresh); each round also brings contact requests and
 // confirmations (contacts.js). The sample
 // (`state.sync.simulated`) never reaches this module.
-import { state, setSync, setPrivateFile, fileText, onFilesChanged, eraseStoredState } from "../store.js";
-import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
-import { mergeNotesFiles } from "../core/merge.js";
+import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState } from "../store.js";
+import { parseNotesFile } from "../core/notes-file.js";
 import * as c from "../core/crypto.js";
-import { onlyUntouchedWelcome, keyHolders, withDeviceName, nextPollDelay, POLL_MIN_MS } from "../core/sync-state.js";
+import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS } from "../core/sync-state.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel } from "../core/linking.js";
 import { createApi, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
+import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored } from "./files.js";
 import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
@@ -26,7 +27,6 @@ const SLOT_POLL_MS = 2000;
 
 let api = null;
 let keys = null;         // this device's { sign, enc } key pairs
-let fileKey = null;      // the private file's key (32 bytes)
 let caller = null;       // while restoring: the recovery device signs in
 let running = null, again = false, timer = null, busySince = 0;
 let pollTimer = null, pollDelay = POLL_MIN_MS;
@@ -41,6 +41,7 @@ export function initSync(apiUrl, webUrl = "") {
   if (!apiUrl) return;
   api = createApi(apiUrl, () => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
   initContacts({ api: () => api, keys: () => keys, loadKeys, chain, web: () => webUrl });
+  initFiles({ api: () => api, keys: () => keys, chain, busy, moved: () => { moved = true; } });
   onFilesChanged(() => { resetPoll(); schedule(AFTER_CHANGE_MS); });
   const wake = () => { resetPoll(); schedule(0); };
   document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
@@ -101,8 +102,18 @@ async function round() {
   try {
     await loadKeys();
     let done = false;
-    for (let i = 0; i < ATTEMPTS && !done; i++) done = await step();
+    let failure = null;   // a problem with a file doesn't keep back the contacts
+    for (let i = 0; i < ATTEMPTS && !done && !failure; i++) {
+      try {
+        const pass = await filesRound();
+        if (pass.again) again = true;
+        done = pass.done;
+      } catch (e) {
+        failure = e;
+      }
+    }
     await contactsRound();
+    if (failure) throw failure;
     const wait = busySince + MIN_BUSY_MS - Date.now();
     if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
     setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false });
@@ -129,86 +140,6 @@ function busy() {
 async function loadKeys() {
   keys ||= await getSecret("device");
   if (!keys) throw new Error("This device's keys are missing");
-  if (!fileKey && state.sync.file) fileKey = await getSecret("file:" + state.sync.file.id) || null;
-}
-
-// The private file is the one only this identity is a member of; the others are shared files.
-const privateFile = (files, identity) => files.find(f => f.members.length === 1 && f.members[0] === identity);
-
-// One download / merge / upload pass; false when the server moved on meanwhile.
-async function step() {
-  const { files, quota } = await api.listFiles();
-  const used = files.reduce((sum, f) => sum + f.size, 0);
-  const { usage } = state.sync;
-  if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });
-  if (!state.sync.file) {
-    const found = privateFile(files, state.sync.identity);
-    if (!found) return createFile();
-    // Another device created the file first: take it over, merging everything.
-    setSync({ file: { id: found.id, version: 0, base: "" } });
-  }
-  const f = state.sync.file;
-  const server = files.find(x => x.id === f.id);
-  if (!server) throw new Error("The notes file is missing on the server");
-  if (server.version < f.version) throw new Error("The server sent an older version than this device has seen");
-  const local = fileText();
-  if (server.version > f.version || !fileKey) {
-    busy();
-    const remote = await download(f.id);
-    if (remote.version < f.version) throw new Error("The server sent an older version than this device has seen");
-    if (fileText() !== local) return false;       // edited meanwhile: start over
-    const merged = mergeNotesFiles(parseNotesFile(f.base), parseNotesFile(local), parseNotesFile(remote.text)).file;
-    if (serializeNotesFile(merged) !== local) setPrivateFile(merged);
-    setSync({ file: { id: f.id, version: remote.version, base: remote.text } });
-    if (fileText() === remote.text) return true;
-  } else if (local === f.base) return true;
-  busy();
-  return upload(state.sync.file.version, fileText());
-}
-
-async function download(id) {
-  moved = true;
-  const r = await api.getFile(id);
-  if (!r.key) throw new Error("No key for this device on the server");
-  const key = await c.unwrapFileKey(r.key, keys.enc);
-  if (!fileKey || c.b64u(key) !== c.b64u(fileKey)) {   // renewed after a device was removed
-    fileKey = key;
-    await setSecret("file:" + id, key);
-  }
-  return { version: r.version, text: await c.decryptFile(key, r.ciphertext) };
-}
-
-// PUT of `text` on top of `baseVersion`; with `holders`, the key is (re)wrapped
-// for them. False on a version conflict.
-async function upload(baseVersion, text, holders = null, key = fileKey) {
-  const id = state.sync.file.id;
-  const body = { base_version: baseVersion, ciphertext: await c.encryptFile(key, text) };
-  if (holders) body.keys = await wrapFor(holders, key);
-  try {
-    const { version } = await api.putFile(id, body);
-    moved = true;
-    setSync({ file: { id, version, base: text } });
-    if (fileText() !== text) again = true;
-    return true;
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 409) return false;
-    throw e;
-  }
-}
-
-async function wrapFor(devices, key) {
-  return Object.fromEntries(await Promise.all(devices.map(async d => [d.id, await c.wrapFileKey(key, d.enc)])));
-}
-
-// The private file's first upload, with its key wrapped for every device.
-async function createFile() {
-  busy();
-  const { devices } = await chain();
-  const id = c.b64u(globalThis.crypto.getRandomValues(new Uint8Array(16)));
-  fileKey = c.generateFileKey();
-  await setSecret("file:" + id, fileKey);
-  setSync({ file: { id, version: 0, base: "" } });
-  return upload(0, fileText(), keyHolders(devices));
 }
 
 // The verified device list: { devices (Map), entries }.
@@ -228,10 +159,10 @@ async function adopt({ name, identity, identityKey, device }) {
   await clearSecrets();
   await setSecret("device", device);
   keys = device;
-  fileKey = null;
+  forgetKeys();
   setSync({
     enabled: true, simulated: false, name, identity, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, usage: null, recoveryKey: "", status: "syncing", error: "",
+    device: await c.keyId(device.sign.publicKey), file: null, files: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "",
   });
 }
 
@@ -271,7 +202,7 @@ export async function restore(recoveryKey) {
   const recoveryId = await c.keyId(r.recovery.sign.publicKey);
   const device = await c.generateDeviceKeys();
   const deviceId = await c.keyId(device.sign.publicKey);
-  let remote = null;
+  let remote = [];
   // The recovery device signs in for everything below, reading the list included.
   caller = { identity, device: recoveryId, sign: r.recovery.sign.privateKey };
   try {
@@ -295,25 +226,14 @@ export async function restore(recoveryKey) {
         entries = (await api.getIdentity(identity)).entries;   // another device appended first
       }
     }
-    const file = privateFile((await api.listFiles()).files, identity);
-    if (file) {
-      const got = await api.getFile(file.id);
-      const key = await c.unwrapFileKey(got.key, r.recovery.enc);
-      await api.addKeys(file.id, { [deviceId]: await c.wrapFileKey(key, device.enc.publicKey) });
-      remote = { id: file.id, version: got.version, key, text: await c.decryptFile(key, got.ciphertext) };
-    }
+    // Every file of the identity, the shared ones too: the key is wrapped for the new device.
+    remote = await readForRestore((await api.listFiles()).files, r.recovery.enc, deviceId, device.enc.publicKey);
   } finally {
     caller = null;
     api.forgetToken();
   }
   await adopt({ name: state.sync.name, identity, identityKey: r.identity.publicKey, device });
-  if (remote) {
-    fileKey = remote.key;
-    await setSecret("file:" + remote.id, remote.key);
-    const local = onlyUntouchedWelcome(state.file) ? emptyFile() : state.file;
-    setPrivateFile(mergeNotesFiles(emptyFile(), local, parseNotesFile(remote.text)).file);
-    setSync({ file: { id: remote.id, version: remote.version, base: remote.text } });
-  }
+  await installRestored(remote, identity, onlyUntouchedWelcome(state.file) ? emptyFile() : state.file);
   nameThisDevice();
   await syncNow();
 }
@@ -399,7 +319,7 @@ export async function linkDevice(text) {
   }
   await syncNow();
   await loadKeys();
-  if (!state.sync.file || !fileKey) throw new Error("Sync first, then link the device");
+  if (!state.sync.file) throw new Error("Sync first, then link the device");
   const record = { id: await c.keyId(c.fromB64u(code.sign, 32)), kind: "device", sign: code.sign, enc: code.enc };
   for (let entries = (await chain()).entries; ;) {
     const body = await c.newEntry(state.sync.identity, entries, "add", record);
@@ -411,7 +331,7 @@ export async function linkDevice(text) {
       entries = (await chain()).entries;   // another device appended first
     }
   }
-  await api.addKeys(state.sync.file.id, { [record.id]: await c.wrapFileKey(fileKey, c.fromB64u(code.enc, 32)) });
+  await grantKeys(record.id, c.fromB64u(code.enc, 32));   // the key of every file, the shared ones too
   if (code.name) {
     setPrivateFile(withDeviceName(state.file, record.id, code.name));
     await syncNow();
@@ -425,26 +345,20 @@ export async function linkDevice(text) {
 
 /**
  * Removes another device: appends the removal to the device list, then
- * renews the file key so the removed device can't read later versions.
+ * renews the key of every file (the shared ones too) so the removed device
+ * can't read later versions. A key that can't be renewed now stays on a list
+ * (`state.sync.renew`) and is renewed by a later round.
  */
 export async function removeDevice(id) {
   await syncNow();
   await loadKeys();
-  const { devices, entries } = await chain();
+  const { entries } = await chain();
   const body = await c.newEntry(state.sync.identity, entries, "remove", { id });
   await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
-  devices.get(id).active = false;
   setPrivateFile(withDeviceName(state.file, id, null));
-  const key = c.generateFileKey();
-  for (let i = 0; i < ATTEMPTS; i++) {
-    if (await upload(state.sync.file.version, fileText(), keyHolders(devices), key)) {
-      fileKey = key;
-      await setSecret("file:" + state.sync.file.id, key);
-      return;
-    }
-    await syncNow();
-  }
-  throw new Error("Couldn't renew the file key; try again");
+  markRenew();
+  for (let i = 0; i < ATTEMPTS && state.sync.renew.length; i++) await syncNow();
+  if (state.sync.renew.length) throw new Error("The device is removed, but the file keys couldn't be renewed yet; sync will try again");
 }
 
 /**
@@ -457,7 +371,8 @@ export async function eraseDevice() {
   clearTimeout(timer);
   api = null;   // no sync round starts from here on
   eraseStoredState();
-  keys = fileKey = null;
+  keys = null;
+  forgetKeys();
   await deleteDatabase();
 }
 
@@ -471,7 +386,7 @@ export async function signOut() {
   await syncNow();
   if (state.sync.status === "error") throw new Error(state.sync.error || "Sync failed");
   await loadKeys();
-  if (state.sync.file && fileText() !== state.sync.file.base) throw new Error("Your latest changes aren't synced yet; try again");
+  if (unsynced()) throw new Error("Your latest changes aren't synced yet; try again");
   for (let entries = (await chain()).entries; ;) {
     const body = await c.newEntry(state.sync.identity, entries, "remove", { id: state.sync.device });
     try {
