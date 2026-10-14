@@ -172,6 +172,19 @@ before the first live test).
     device run against the server. Contacts and sharing are only
     simulated, in the sample (`?sample`, `?sync=off`, ⋮ → Go offline);
     outside it they are hidden until milestone 2.*
+  - **Contact requests** (milestone 2, decided 2026-10-14): scanning a
+    code or opening an invitation link sends a **request** ("Send
+    request"); the contact shows "Waiting for confirmation" and can't be
+    shared with yet. The one who showed the code or sent the link
+    confirms: the request shows as a **card above the open notes**
+    ("Mia wants to be your contact", Decline / Confirm, which asks for the
+    name) until it is decided, and in Sync & sharing → "Contact
+    requests"; on "My code" it opens at once. Chosen over a dialog that
+    opens by itself (interrupts, and a link request often comes hours
+    later) and a dot on the sync icon (easy to miss). Code and link work
+    once (10 minutes / 7 days); on Android the link opens the app, and
+    "Add contact" takes a pasted link. *Prototype: simulated in the sample
+    (⋮ → "Simulate contact request").*
   - **Linking by QR code** (decided 2026-10-13): the new device shows its
     code under "Link this device", with the recovery key below as the way
     without a camera (e.g. two desktops). On a synced device, "Link a

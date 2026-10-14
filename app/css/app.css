@@ -628,14 +628,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 @keyframes synced-tint { from { color: var(--accent); } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 
-/* Incoming contact requests (ui/contact-requests.js). Prototype variants:
-   a card above the notes (A), the request page as a dialog (B), a dot on
-   the sync icon (C). */
-#syncBtn { position: relative; }
-#syncBtn.has-request::after {
-  content: ""; position: absolute; top: 9px; right: 9px; width: 9px; height: 9px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
-}
+/* Incoming contact requests (ui/contact-requests.js): a card above the open notes. */
 .request-cards { display: flex; flex-direction: column; gap: 12px; max-width: 780px; margin: 0 auto; padding: 8px 16px 0; }
 .request-cards[hidden] { display: none; }
 .request-cards + .list { padding-top: 12px; }

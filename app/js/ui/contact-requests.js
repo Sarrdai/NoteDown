@@ -1,11 +1,10 @@
 // Incoming contact requests (docs/sync-and-sharing.md → "Contacts"): someone
 // who scanned this user's code or opened their invitation link asks to
 // become a contact, and this user confirms or declines. Simulated in the
-// sample (`state.sync.requests`). Where a request shows is an open decision
-// (setting `contactRequest`, ⋮ → "Prototype: contact request"):
-// "card" a card above the notes, "dialog" the request page opens by itself,
-// "badge" a dot on the sync icon. Every variant also lists the requests in
-// Sync & sharing.
+// sample (`state.sync.requests`). A request shows as a card above the open
+// notes until it is decided (chosen 2026-10-14 over a dialog that opens by
+// itself, which interrupts, and a dot on the sync icon, easy to miss), and
+// in Sync & sharing → "Contact requests".
 import { state, subscribe, setSync } from "../store.js";
 import { registerPage, openPanel, go, isPanelOpen, panelPage, addContact, closePanel } from "./sync-panel.js";
 import { loadSharingSample } from "../sample.js";
@@ -14,7 +13,6 @@ import { requestAvatarHtml, requestHow as how } from "./people.js";
 import { showSnackbar } from "./snackbar.js";
 
 const $ = id => document.getElementById(id);
-const shown = new Set();   // dialog variant: requests already opened once
 
 const requestAvatar = (r, cls) => h("span", { html: requestAvatarHtml(r, cls) }).firstChild;
 
@@ -25,17 +23,9 @@ export function initContactRequests() {
 
 function update() {
   const requests = state.sync.enabled ? state.sync.requests || [] : [];
-  const variant = state.settings.contactRequest;
-  $("syncBtn").classList.toggle("has-request", variant === "badge" && requests.length > 0);
-  renderCards(variant === "card" && state.view === "open" ? requests : []);
-  if (!requests.length) return;
-  // On "My code" the request is what the user waits for: show it at once, in every variant.
-  if (isPanelOpen() && panelPage() === "myCode") { shown.add(requests[0].id); go("contactRequest", { request: requests[0] }); return; }
-  if (variant !== "dialog" || isPanelOpen() || state.editingId) return;
-  const next = requests.find(r => !shown.has(r.id));
-  if (!next) return;
-  shown.add(next.id);
-  openPanel("contactRequest", { request: next });
+  renderCards(state.view === "open" ? requests : []);
+  // On "My code" the request is what the user waits for: show it at once.
+  if (requests.length && isPanelOpen() && panelPage() === "myCode") go("contactRequest", { request: requests[0] });
 }
 
 function renderCards(requests) {
