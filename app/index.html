@@ -44,8 +44,10 @@
       </header>
       <div class="selectbar keep-editing" id="selectBar" role="toolbar" aria-label="Selection" hidden>
         <button class="icon-btn" id="selCancel" aria-label="Cancel selection"></button>
+        <button class="icon-btn" id="selToc" aria-label="Contents"></button>
         <span class="sel-count" id="selCount" aria-live="polite"></span>
         <div class="sel-actions" id="selActions"></div>
+        <button class="icon-btn" id="selMore" aria-haspopup="menu" aria-label="More actions"></button>
       </div>
       <div class="pull-indicator" id="pullIndicator" aria-hidden="true"></div>
       <div class="list" id="list"></div>
@@ -77,7 +79,7 @@
     <div class="dialog-scrim keep-editing" id="orderDialog" hidden>
       <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="orderTitle">
         <h2 class="dialog-title" id="orderTitle"></h2>
-        <p class="dialog-hint">Drag to change the order.</p>
+        <p class="dialog-hint" id="orderHint">Drag to change the order.</p>
         <ol class="order-list" id="orderList"></ol>
         <div class="dialog-actions">
           <button class="btn" id="orderCancel">Cancel</button>

@@ -22,7 +22,7 @@ Current state, edited in place when a decision changes.
 | Table of contents | Bottom sheet, opened from the top bar | Fixed sidebar on the left | Fixed sidebar on the left |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
-| Multi-select | Contextual top bar: ✕, count, action icons | Same | Same, actions with labels |
+| Multi-select | Contextual top bar: ✕, contents button, count, main action icons, rest under ⋮ | Contextual top bar: ✕, count, action icons | Same, actions with labels |
 | Panels (Sync & sharing, share dialog) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
 - One primary action per view, as a floating button at the bottom
@@ -42,14 +42,16 @@ Current state, edited in place when a decision changes.
 - **Tap or click** is the main action on content: into a note's text =
   edit, on a task checkbox = toggle, on the round button = close /
   reopen, on a link = open.
-- **Long-press** is reserved for secondary modes: on a note it starts
-  multi-select, on + it starts dictation. Nothing essential is
+- **Long-press** is reserved for secondary modes: on a note or a
+  contents entry it starts multi-select, on + it starts dictation. Nothing essential is
   long-press-only on the desktop (Ctrl/Shift+click, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
   normal one and the primary action button is hidden; a tap anywhere on
-  an item toggles it, nothing inside the item acts. The back button and
+  an item toggles it, nothing inside the item acts. The note list and the
+  contents share one selection, and the user can switch between them
+  while selecting. The back button and
   `Esc` leave the mode first. A selected item is marked by the accent
-  border only.
+  border only; a selected part of an item by an accent tint.
 - Touch screens: rendered notes don't offer native text selection or
   the long-press callout, so the long-press stays free for multi-select;
   text is selected in the editor or copied with Copy.
@@ -87,7 +89,9 @@ Current state, edited in place when a decision changes.
   immediately and offer **Undo** in a snackbar for 5 seconds instead of
   asking for confirmation first.
 - Confirmation dialogs only where the user has something to adjust: the
-  order for Copy and Merge (drag an entry's grip), the people for Share.
+  order for Copy and Merge (drag an entry's grip; Merge shows it even for
+  a single part, as the confirmation of what moves), the people for
+  Share.
 - Panels with several pages (Sync & sharing) go one page back with the
   back button, `Esc` or the system back gesture, and close from the
   first page; the primary button of a page (on the Sync & sharing

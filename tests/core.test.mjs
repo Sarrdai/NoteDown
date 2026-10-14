@@ -49,8 +49,9 @@ test("query: view filter, search and sort with missing values last", () => {
 test("query: table of contents counts levels from the highest heading present", () => {
   const notes = [createNote("## A\n### A1\n#### A1a", "t", "1"), createNote("Plain note. More.", "t", "2")];
   const toc = tableOfContents(notes);
-  assert.equal(toc.maxLevel, 3);
-  assert.deepEqual(toc.entries.map(e => [e.noteId, e.level, e.text]), [["1", 1, "A"], ["1", 2, "A1"], ["1", 3, "A1a"], ["2", 1, "Plain note."]]);
+  assert.equal(toc.maxLevel, 4); // the untitled note hangs below A1a
+  assert.deepEqual(toc.entries.map(e => [e.noteId, e.level, e.text]), [["1", 1, "A"], ["1", 2, "A1"], ["1", 3, "A1a"], ["2", 4, "Plain note."]]);
+  assert.deepEqual(tableOfContents([notes[1]]).entries.map(e => [e.key, e.level, e.fromHeading]), [["2#0", 1, false]]);
 });
 
 test("query: closedOn counts notes closed on that day", () => {

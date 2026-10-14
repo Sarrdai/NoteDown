@@ -1,13 +1,21 @@
-// Multi-select: a long-press on a note (or Ctrl+click) starts it, taps add
-// or remove notes, Shift+click selects a range. The selection bar acts on the
-// selected notes; Copy and Merge first confirm the order in a dialog where it
-// can be changed by drag and drop. Ends with ✕, Esc, the back button, an
-// empty selection or an action that removes the notes from view.
-import { selectedInOrder, rangeIds, copyText, mergedNote, previewLine } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, mergeNotes } from "../store.js";
-import { endEdit } from "./note-list.js";
+// Multi-select over the note list and the table of contents: one selection
+// of sections (core/selection.js). A long-press on a note (or Ctrl+click)
+// selects it whole, a long-press on a contents entry selects that section
+// with everything below it; then taps add or remove in either place, and
+// Shift+click selects a range. The selection bar acts on the selection;
+// Copy and Merge first confirm the order in a dialog where it can be
+// changed by drag and drop. Ends with ✕, Esc, the back button, an empty
+// selection or an action that removes the notes from view.
+import { tableOfContents } from "../core/query.js";
+import {
+  rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
+  copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
+} from "../core/selection.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge } from "../store.js";
+import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
+import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
 
 const HOLD_MS = 450;
@@ -15,21 +23,24 @@ const MOVE_TOLERANCE = 10;
 
 const $ = id => document.getElementById(id);
 const list = () => $("list");
-let opts = null;      // { viewNotes, onMerged }
-let anchor = null;    // last note toggled, start of a Shift range
+let opts = null;      // { viewNotes, onMerged, onChange }
+let anchorNote = null; // last note toggled, start of a Shift range in the list
+let anchorKey = null;  // same for the contents
 let press = null;     // { id, x, y, timer } while a finger / button is down
 let swallowClick = false;
 let dialog = null;    // { onConfirm } while the order dialog is open
 let active = false;
 
 export const isSelecting = () => active;
+const entries = () => tableOfContents(opts.viewNotes()).entries;
 
 export function initSelection(options) {
   opts = options;
   $("selCancel").innerHTML = icon("close");
   $("selCancel").addEventListener("click", () => endSelection());
+  $("selMore").innerHTML = icon("more");
   $("orderCancel").addEventListener("click", closeDialog);
-  $("orderOk").addEventListener("click", () => { const fn = dialog.onConfirm; closeDialog(); fn(orderedFromDialog()); });
+  $("orderOk").addEventListener("click", () => { const fn = dialog.onConfirm, ordered = orderedFromDialog(); closeDialog(); fn(ordered); });
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
   const l = list();
@@ -98,21 +109,48 @@ function onClick(e) {
   e.stopPropagation();
 }
 
+// A card toggles its whole note (a partly selected one becomes whole).
 function toggle(id) {
   if (!isSelecting()) begin();
-  if (state.selected.has(id)) state.selected.delete(id);
-  else state.selected.add(id);
-  anchor = id;
-  if (state.selected.size === 0) endSelection();
-  else update();
+  state.selected = toggleNote(entries(), state.selected, id);
+  anchorNote = id;
+  changed();
 }
 
 function selectRange(id) {
   if (!isSelecting()) begin();
   const order = [...list().querySelectorAll(".note")].map(el => el.dataset.id);
-  for (const x of rangeIds(order, anchor, id)) state.selected.add(x);
-  anchor = id;
-  update();
+  state.selected = selectNotes(entries(), state.selected, rangeIds(order, anchorNote, id));
+  anchorNote = id;
+  changed();
+}
+
+/** Contents entry: toggles the section with what is below it (ui/toc.js). */
+export function toggleSection(key) {
+  const all = entries();
+  const i = all.findIndex(e => e.key === key);
+  if (i < 0) return;
+  if (!isSelecting()) begin();
+  state.selected = toggleEntry(all, state.selected, i);
+  anchorKey = key;
+  changed();
+}
+
+/** Contents entry with Shift: from the last toggled entry to this one. */
+export function selectSectionRange(key) {
+  const all = entries();
+  const i = all.findIndex(e => e.key === key);
+  const a = all.findIndex(e => e.key === anchorKey);
+  if (i < 0) return;
+  if (!isSelecting()) begin();
+  state.selected = selectEntryRange(all, state.selected, a < 0 ? i : a, i);
+  anchorKey = key;
+  changed();
+}
+
+function changed() {
+  if (state.selected.size === 0) endSelection();
+  else update();
 }
 
 function begin() {
@@ -127,59 +165,78 @@ export function endSelection({ fromHistory = false } = {}) {
   active = false;
   closeDialog();
   state.selected.clear();
-  anchor = null;
+  anchorNote = anchorKey = null;
   update();
   if (!fromHistory && history.state && history.state.selecting) history.back();
 }
 
-/** After a render: forget selected notes that are no longer in view. */
+/** After a render: forget selected sections that are no longer in view. */
 export function syncSelection(visible) {
   if (!isSelecting()) return;
-  const ids = new Set(visible.map(n => n.id));
-  for (const id of state.selected) if (!ids.has(id)) state.selected.delete(id);
+  const keys = new Set(tableOfContents(visible).entries.map(e => e.key));
+  for (const k of state.selected) if (!keys.has(k)) state.selected.delete(k);
   if (state.selected.size === 0) endSelection();
   else update();
 }
 
-// Marks the selected notes and fills the bar with the view's actions.
+// The selection as parts with their notes.
+function current() {
+  const parts = selectedParts(entries(), state.selected);
+  const notes = Object.fromEntries(parts.map(p => [p.noteId, note(p.noteId)]));
+  const byNote = Object.keys(notes).map(id => [notes[id], parts.filter(p => p.noteId === id)]);
+  return { parts, notes, byNote, whole: parts.every(p => p.whole) };
+}
+
+// Marks the selection and fills the bar with the view's actions.
 function update() {
-  const n = state.selected.size;
-  $("app").classList.toggle("selecting", n > 0);
-  $("selectBar").hidden = n === 0;
-  for (const el of list().querySelectorAll(".note")) el.classList.toggle("selected", state.selected.has(el.dataset.id));
-  if (n === 0) return;
-  $("selCount").textContent = `${n} selected`;
+  const on = state.selected.size > 0;
+  $("app").classList.toggle("selecting", on);
+  $("selectBar").hidden = !on;
+  for (const el of list().querySelectorAll(".note")) markSelected(el);
+  opts.onChange();
+  if (!on) return;
+  const { parts, byNote, whole } = current();
+  $("selCount").innerHTML = `${parts.length}<span class="sel-word"> selected</span>`;
   const archive = state.view === "closed";
+  const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
+    && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
+  // Close, Share and Delete act on whole notes; `menu` = under ⋮ on the phone.
   const actions = [
-    archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close },
+    archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
-    !archive && state.sync.simulated && { id: "share", label: "Share", run: share },   // real sharing: milestone 2
-    !archive && { id: "merge", label: "Merge", run: merge, disabled: n < 2 },
-    { id: "trash", label: "Delete", run: remove },
+    !archive && state.sync.simulated && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },   // real sharing: milestone 2
+    !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
+    { id: "trash", label: "Delete", run: remove, disabled: !whole },
+    !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },
+    !archive && { id: "indent", label: "Demote headings", run: () => shift(1), disabled: !canShift(1), menu: true },
   ].filter(Boolean);
   $("selActions").replaceChildren(...actions.map(a => {
     const b = document.createElement("button");
-    b.className = "sel-action";
+    b.className = "sel-action" + (a.menu ? " in-menu" : "");
     b.dataset.action = a.id;
     b.disabled = !!a.disabled;
     b.setAttribute("aria-label", a.label);
+    b.title = a.label;
     b.innerHTML = icon(a.id) + `<span class="sel-label">${a.label}</span>`;
     b.addEventListener("click", a.run);
     return b;
   }));
+  const more = actions.filter(a => a.menu);
+  $("selMore").hidden = more.length === 0;
+  $("selMore").onclick = () => openMenu($("selMore"), more.map(a => ({ label: a.label, disabled: a.disabled, onSelect: a.run })));
 }
 
-const selectedNotes = () => selectedInOrder(opts.viewNotes(), [...state.selected]);
+const noteIds = () => current().parts.map(p => p.noteId);
 const count = (n, word) => n === 1 ? `Note ${word}` : `${n} notes ${word}`;
 
 function close() {
-  const ids = [...state.selected];
+  const ids = noteIds();
   endSelection();
   showSnackbar(count(ids.length, "archived"), setStatuses(ids, "closed"));
 }
 
 function reopen() {
-  const ids = [...state.selected];
+  const ids = noteIds();
   endSelection();
   showSnackbar(count(ids.length, "reopened"), setStatuses(ids, "open"));
 }
@@ -187,7 +244,7 @@ function reopen() {
 // The selection ends first; its history entry is
 // gone before the dialog takes its own (the back key would close the dialog otherwise).
 function share() {
-  const ids = [...state.selected];
+  const ids = noteIds();
   const onEntry = history.state && history.state.selecting;
   endSelection();
   if (!onEntry) return openShareDialog(ids);
@@ -198,26 +255,39 @@ function share() {
 }
 
 function remove() {
-  const ids = [...state.selected];
+  const ids = noteIds();
   endSelection();
   showSnackbar(count(ids.length, "deleted"), removeNotes(ids));
 }
 
-function copy() {
-  const notes = selectedNotes();
-  const done = async ordered => {
-    const ok = await writeClipboard(copyText(ordered));
-    showSnackbar(ok ? (ordered.length === 1 ? "Note copied" : `${ordered.length} notes copied`) : "Copying isn't allowed here");
-  };
-  if (notes.length === 1) done(notes);
-  else openDialog(`Copy ${notes.length} notes`, "Copy", notes, done);
+// Headings of the selected parts one level up (-1) or down (+1); the selection stays.
+function shift(delta) {
+  for (const [n, ps] of current().byNote) setBody(n.id, shiftHeadings(n.body, ps, delta));
 }
 
+const what = (parts, whole) => `${parts.length} ${whole ? "notes" : "parts"}`;
+
+function copy() {
+  const { parts, notes, whole } = current();
+  const done = async ordered => {
+    const ok = await writeClipboard(copyText(ordered.map(p => partText(notes[p.noteId].body, p))));
+    const label = ordered.length === 1 ? (whole ? "Note copied" : "Copied") : `${what(ordered, whole)} copied`;
+    showSnackbar(ok ? label : "Copying isn't allowed here");
+  };
+  if (parts.length === 1) done(parts);
+  else openDialog(`Copy ${what(parts, whole)}`, "Copy", parts, notes, done);
+}
+
+// Merge and "move to a new note" are one mechanism: the parts, in the
+// confirmed order, become a new note and leave their notes.
 function merge() {
-  openDialog(`Merge ${state.selected.size} notes`, "Merge", selectedNotes(), ordered => {
+  const { parts, notes, whole } = current();
+  const single = parts.length === 1;
+  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, ordered => {
     endSelection();
-    const { note: merged, undo } = mergeNotes(ordered.map(n => n.id), mergedNote(ordered));
-    opts.onMerged(merged, undo);
+    const m = mergeParts(notes, ordered);
+    const { note: created, undo } = applyMerge(m.changes, m);
+    opts.onMerged(created, undo, whole ? "Notes merged" : "Moved to a new note");
   });
 }
 
@@ -236,11 +306,12 @@ async function writeClipboard(text) {
 
 // ---------- order dialog ----------
 
-function openDialog(title, okLabel, notes, onConfirm) {
-  dialog = { onConfirm };
+function openDialog(title, okLabel, parts, notes, onConfirm) {
+  dialog = { onConfirm, parts };
   $("orderTitle").textContent = title;
   $("orderOk").textContent = okLabel;
-  $("orderList").replaceChildren(...notes.map(orderItem));
+  $("orderHint").hidden = parts.length < 2;
+  $("orderList").replaceChildren(...parts.map((p, i) => orderItem(partPreview(notes[p.noteId].body, p), i)));
   $("orderDialog").hidden = false;
   $("orderOk").focus({ preventScroll: true });
 }
@@ -252,17 +323,16 @@ function closeDialog() {
 }
 
 function orderedFromDialog() {
-  return [...$("orderList").children].map(li => note(li.dataset.id)).filter(Boolean);
+  return [...$("orderList").children].map(li => dialog.parts[Number(li.dataset.part)]);
 }
 
-function orderItem(n) {
+function orderItem({ text, fromHeading }, i) {
   const li = document.createElement("li");
   li.className = "order-item";
-  li.dataset.id = n.id;
-  const { text, fromHeading } = previewLine(n);
+  li.dataset.part = i;
   const label = document.createElement("span");
   label.className = "order-text" + (fromHeading ? "" : " plain");
-  label.textContent = text;
+  label.textContent = text || "Untitled";
   const grip = document.createElement("button");
   grip.className = "order-grip";
   grip.setAttribute("aria-label", "Move (drag, or arrow keys)");
