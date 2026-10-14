@@ -119,6 +119,15 @@ before the first live test).
   keys of every file it could read, so it can't read anything changed
   afterwards — without a new recovery key and without bothering contacts
   (decided 2026-10-13 over only blocking it or a new identity).
+- **Signing out this device** (backlog #15): Sync & sharing → "Sign out
+  this device" takes the device off the device list by itself and erases
+  everything NoteDown keeps on it (notes, settings, keys); the app then
+  starts fresh — for a public or borrowed computer. It syncs first; if
+  that fails (offline), "Erase without signing out" erases anyway, with
+  the warning that unsynced changes are lost and the device stays listed
+  until another one removes it. No new file key: a device that erases
+  itself needs none, and one that may have been copied is removed from
+  another device, which renews it. *Prototype: 2026-10-14.*
 - The server is built to scale to many users (stateless API, database,
   later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
