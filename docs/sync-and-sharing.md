@@ -230,6 +230,18 @@ devices don't keep re-uploading the same notes in each other's order.
 - The UI is decided and in the prototype (`docs/requirements.md` → "Sync
   and sharing" → "Where it is operated"). Real sync covers milestone 1
   (`app/js/sync/`); the rest is simulated in the sample.
+- **Milestone 2 must keep** (decided 2026-10-14, only simulated so far;
+  each needs a test in `tests/merge.test.mjs` or `scripts/e2e-sync.js`):
+  1. A shared note another member deletes while this device has it
+     pinned is not dropped: the sync merge moves it into the private
+     file instead, still pinned ("Files" → "Pins stay local").
+  2. Pins never reach a file or the server: a note deleted on another of
+     the user's own devices goes here too, pinned or not, and a newly
+     linked device starts without pins.
+  3. A merge across circles with "Share with …" may create the file of
+     a new member set (everyone involved): its key is wrapped for all
+     members' devices on the first upload; "Private copy" never writes
+     to a shared file (`docs/requirements.md` → "Multi-select").
 - **Milestone 1 client details:** the private file is the identity's only
   file on the server (milestone 2 needs a way to tell it from shared
   files); device names live in the private file (`docs/file-format.md` →
