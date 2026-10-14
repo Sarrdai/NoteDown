@@ -1,6 +1,6 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 26
+LAST_ID: 27
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
 elaborated with the user, built into the prototype, and then leaves this file for
@@ -41,6 +41,7 @@ The column stays the last one, so a row added without it still reads right.
 | 4 | Verify a contact added by invitation link | Sync without accounts (2026-10-13): a contact scanned in person is verified, one added by link is only as safe as the messenger it came through. Scanning their code later, or comparing a short safety code, would verify it. | klein | 2 | milestone 2 |
 | 18 | Device list only for authenticated callers | Security review (2026-10-14): `GET /v1/identities/{id}` needs no auth, so anyone who knows an identity ID can read its device count and when devices were added or removed. Open: contacts need the list in milestone 2 to wrap keys for each other's devices. Built together with milestone 2, which decides who counts as authenticated for a list. | klein | 2 | milestone 2 |
 | 26 | Monochrome notification icon for reminders (Android) | Follow-up of backlog #1 (2026-10-14): due-date reminders use the local-notifications plugin, whose small status-bar icon defaults to the launcher icon; Android draws it as a white silhouette, so the note card may show as a plain square. A monochrome `ic_stat_*` drawable from `app/icons/icon.svg` (`scripts/make-icons.js`) fixes it; check on a device. | klein | 2 |  |
+| 27 | Storage quota of shared files for every member | Server for milestone 2 (2026-10-14): the quota is checked only for the uploading identity, while a shared file counts for every member — so one member's upload can push another member over their 2 MB without anyone being blocked, and that member's own uploads then fail. Open question: check every member's quota on upload (a member near the limit then blocks the others' edits), count a shared file only for its creator, or split it between the members. | klein | 2 | milestone 2 |
 | 2 | Home-screen widget for quick capture | Quick capture from the phone's home screen (2026-10-13); app shortcuts "New note" / "Dictate" are planned for the app phase, a widget would go further (e.g. showing open notes). | mittel | 3 | app shortcuts (app phase) |
 | 9 | Object store for the encrypted files | Live test setup (2026-10-13): Postgres holds the files for now; Neon's free plan has 0.5 GB. When files outgrow it, move them to an object store (e.g. Cloudflare R2, 10 GB free) behind the same API. | mittel | 3 |  |
 | 10 | iOS app | Technology decision (2026-10-13): Android and web first. Capacitor's iOS project, an Apple developer account (99 $/year), signing and TestFlight for tests. Lowered to 3: Android and web first, milestone 2 before a third platform. | mittel | 3 |  |
