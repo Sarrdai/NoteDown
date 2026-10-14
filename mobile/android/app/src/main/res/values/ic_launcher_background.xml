@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Catppuccin Latte Mauve, the background of app/icons/icon.svg. -->
+    <color name="ic_launcher_background">#8839EF</color>
 </resources>

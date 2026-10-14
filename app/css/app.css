@@ -759,22 +759,3 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .note.closed .status:hover { color: var(--done); }
   .note.closed .status:hover .icon { opacity: 1; }
 }
-
-/* Prototype only: app icon proposals (icon-variants.js). */
-.dialog.icon-preview { width: min(560px, 100%); }
-.ip-body { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.ip-wall {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 18px; padding: 16px;
-  border-radius: 14px; background: var(--ctp-crust); color: var(--ctp-text);
-}
-.ip-tile { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.75rem; }
-.ip-icon { position: relative; overflow: hidden; }
-.ip-icon img { position: absolute; left: -25%; top: -25%; max-width: none; }
-.ip-icon.circle { border-radius: 50%; }
-.ip-icon.squircle { border-radius: 30%; }
-.ip-icon.rounded { border-radius: 12%; }
-.ip-splashes { display: flex; gap: 10px; }
-.ip-splash {
-  display: flex; align-items: center; justify-content: center; width: 124px; height: 220px;
-  border-radius: 14px; border: 1px solid var(--border); background: var(--ctp-base);
-}

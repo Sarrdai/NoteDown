@@ -41,7 +41,7 @@ the live test setup is described in `docs/operations.md`.
 | `mobile/` | The Android app: a Capacitor shell around `app/` (see "Android app") |
 | `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority, effort and dependencies |
-| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup and alerts, `docs/operations.md`), `make-icons.js` (renders `app/icons/icon.svg` into the web and Android icon files, run by hand after changing the icon), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
 
 ## Device tiers
 
@@ -89,6 +89,8 @@ prototype with `?dictation=demo`, which replays
 | Path | Content |
 |---|---|
 | `app/index.html` | The single page |
+| `app/icons/` | The app icon: `icon.svg` is the source (Android adaptive-icon grid); `favicon.svg` and the PNGs are generated from it by `scripts/make-icons.js`, like the Android icons in `mobile/android/…/res/mipmap-*` |
+| `app/manifest.webmanifest` | Web app manifest: name, icons, colors for "add to home screen" |
 | `app/css/catppuccin.css` | The four Catppuccin flavors as `--ctp-*` variables (generated from `@catppuccin/palette`, don't edit) |
 | `app/css/app.css` | All styles; colors only via the semantic tokens at its top |
 | `app/js/core/` | Framework-free logic: file format (`notes-file.js`), Markdown helpers (`markdown.js`), view queries — filter, sort, table of contents, protected first, what a delete keeps (`query.js`), editing commands (`md-commands.js`), multi-select over notes and sections, copy text, heading shifts and merge / move to a new note (`selection.js`), sync merge of two versions of a file (`merge.js`), sharing helpers — circle names, share tri-state, recovery key, contacts and their colors, fake QR grid (`sharing.js`), sync cryptography — encodings, canonical JSON, key derivation, the signed device list, challenge signing, file encryption and key wrapping, on WebCrypto (`crypto.js`), the sync client's small decisions — device rows, which keys to wrap, the untouched welcome note (`sync-state.js`). No DOM access; covered by `tests/*.test.mjs` |
@@ -116,12 +118,11 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table.
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
-| `icon` | `a` · `b` · `c` | App icon proposal (backlog #12): favicon and ⋮ → "Preview icon…" (launcher masks, splash); sources `app/icons/icon-*.svg` |
 | `view` | `closed` | Start in the archive |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
@@ -202,7 +203,11 @@ additive statements).
 `mobile/` holds the Capacitor configuration (`webDir` is `../app`) and
 the generated Android project in `mobile/android/`; the copied web files
 are not committed. Native code of our own sits next to `MainActivity.java`,
-which registers it: `DictationPlugin.java` (speech input). The APK is built by CI (`.github/workflows/android.yml`);
+which registers it: `DictationPlugin.java` (speech input). The launcher
+icon (adaptive: Mauve background, foreground and monochrome layer) and the
+splash screen (androidx core-splashscreen: the icon on `splash_background`,
+Latte base / Mocha base in `values-night`) are ours, not Capacitor's
+defaults; their PNGs come from `scripts/make-icons.js`. The APK is built by CI (`.github/workflows/android.yml`);
 locally it needs Node, JDK 21 and the Android SDK:
 
 ```bash

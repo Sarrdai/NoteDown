@@ -400,6 +400,13 @@ before the first live test).
   Latte, dark = Mocha) by default; all four flavors (Latte, Frappé,
   Macchiato, Mocha) can be chosen. Accent color: Mauve. *Prototype:
   round 1, under ⋮.*
+- **App icon** (backlog #12, decided 2026-10-14 over an "N" with a down
+  arrow and the round done button alone): a note card with the round
+  done button on Mauve — it says "notes" and echoes the app's own cards.
+  Android shows it as an adaptive icon (with a one-color layer for themed
+  icons), the web app as favicon and in its manifest. The Android splash
+  screen shows it on the Catppuccin base color: Latte in light, Mocha in
+  dark system mode.
 - App labels are English for now; a German translation can follow.
 - Notes are shown as **separate cards** (decided 2026-10-13 over one
   continuous page): each note's boundary is clear for tapping into it and
