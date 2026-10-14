@@ -135,3 +135,16 @@ test("file format: contacts round-trip after the devices and before the order, t
   assert.deepEqual(parseNotesFile("<!-- contact id=a name=A color=9 -->\n\n<!-- contact id=b color=2 -->").contacts, [{ id: "a", name: "A", color: 1 }]);
   assert.deepEqual(parseNotesFile("").contacts, []);
 });
+
+test("file format: a contact's home server round-trips percent-encoded; absent means the default server", () => {
+  const contacts = [
+    { id: "a", name: "A", color: 2, server: "https://notes.example.org/api" },
+    { id: "b", name: "B", color: 3, server: "http://127.0.0.1:8765", pending: "2026-10-14T09:00Z" },
+    { id: "c", name: "C", color: 4 },
+  ];
+  const text = serializeNotesFile({ ...parseNotesFile(""), contacts });
+  assert.match(text, /<!-- contact id=a name=A color=2 server=https%3A%2F%2Fnotes\.example\.org%2Fapi -->/);
+  assert.match(text, /color=3 server=http%3A%2F%2F127\.0\.0\.1%3A8765 pending=2026-10-14T09:00Z -->/);
+  assert.deepEqual(parseNotesFile(text).contacts, contacts);
+  assert.equal("server" in parseNotesFile("<!-- contact id=c name=C color=4 -->").contacts[0], false);
+});

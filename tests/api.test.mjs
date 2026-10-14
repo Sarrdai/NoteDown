@@ -17,3 +17,11 @@ test("other answers keep status and detail", () => {
   assert.equal(new ApiError(409, { detail: "version conflict", version: 2 }).message, "409: version conflict");
   assert.equal(new ApiError(500, null).message, "HTTP 500");
 });
+
+test("createApis: one client per server, the same one for the same address", async () => {
+  const { createApis } = await import("../app/js/sync/api.js");
+  const apis = createApis(() => ({}));
+  assert.equal(apis("https://a.test/api"), apis("https://a.test/api/"));
+  assert.notEqual(apis("https://a.test/api"), apis("https://b.test/api"));
+  apis.forgetTokens();
+});

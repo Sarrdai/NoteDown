@@ -65,7 +65,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], devices =
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id} name=${encodeURIComponent(d.name)} -->`);
   for (const c of contacts) {
-    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.pending ? " pending=" + c.pending : ""} -->`);
+    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""} -->`);
   }
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
@@ -103,11 +103,12 @@ function decodeName(text) {
   try { return decodeURIComponent(text); } catch { return text; }
 }
 
-// A contact: `color` is a slot 1–6 (1 when missing or invalid), `pending` the time the request was sent.
+// A contact: `color` is a slot 1–6 (1 when missing or invalid), `server` the contact's home server (absent = the default), `pending` the time the request was sent.
 function finishContact(meta) {
   const color = Number(meta.color);
   return {
     id: meta.id, name: decodeName(meta.name), color: Number.isInteger(color) && color >= 1 && color <= 6 ? color : 1,
+    ...(meta.server && { server: decodeName(meta.server) }),
     ...(meta.pending && { pending: meta.pending }),
   };
 }
