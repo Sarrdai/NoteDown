@@ -210,9 +210,15 @@ before the first live test).
 - The **main view** shows the open notes; the **archive** shows the
   closed ones. Both look alike; the archive has a clearly different
   background tint. *Prototype: round 1.*
-- A note is closed with its own round check button in front of its first
-  line — distinct from the square task checkboxes inside the text. It
-  moves to the archive, with "Note archived · Undo". *Prototype: round 1.*
+- A note is closed with its own round check button in the bottom right
+  corner of its card — distinct from the square task checkboxes inside
+  the text. It moves to the archive, with "Note archived · Undo". The
+  card's bottom bar is its only tool bar: the meta line (shared marker,
+  due date, date) on the left, the shield of a protected note and the
+  round button on the right; the text above takes the card's full width
+  (decided 2026-10-14 over a left column with the round button and the
+  shield, which narrowed every note). *Prototype: round 1; bottom bar
+  2026-10-14.*
 - The **archive button** in the main view shows how many notes were closed
   today; the count resets at midnight. In the archive the same button
   reads **Notes** (no count) and leads back, so one place switches
@@ -223,8 +229,11 @@ before the first live test).
   contents switches between both views like pages: the archive lies to
   the right of the notes (swipe left to open it, right to go back); the
   other view moves in with the finger and the page snaps to whichever
-  side it was let go past half (or flicked to). Top bar and contents stay
-  in place and are only refilled. The title at the left of the top bar
+  side it was let go past half (or flicked to). The contents list (the
+  tablet's sidebar, the phone's open sheet) moves along the same way;
+  the top bar and the contents' head stay in place and are only refilled
+  (decided 2026-10-14: contents that jumped only at the end irritated).
+  The title at the left of the top bar
   says where the user is. The view button stays as the visible way.
   *Prototype: 2026-10-14; pager behavior 2026-10-14 (swiping only worked
   on some tries and only switched after the gesture).*
@@ -241,7 +250,7 @@ before the first live test).
 - **Protected** notes can't be deleted: Delete and Empty archive leave
   them alone until the protection is removed. Notes are protected with
   **Protect / Unprotect** in the selection bar ("Multi-select"); a
-  protected note shows a **shield** under its round button, which
+  protected note shows a **shield** left of its round button, which
   removes the protection with one tap (decided 2026-10-14 over a button
   on every note: protecting is rare, the notes stay calm and keep their
   full width). Named "protected" with a shield, not "pinned" (which
@@ -386,8 +395,9 @@ before the first live test).
   on an empty item ends the list. Bold / italic never wrap the list or
   heading marker. *Prototype: round 2.*
 - The text is saved on every change. Editing ends with **Done**, `Esc`,
-  or a tap anywhere outside the note and its toolbar; the tapped target
-  then acts normally (e.g. starts editing that note). *Prototype: round 2.*
+  the Android back button / gesture, or a tap anywhere outside the note
+  and its toolbar; the tapped target then acts normally (e.g. starts
+  editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
   (cycles ## → ### → #### → none), bullet list, task checkbox, outdent /
   indent, bold, italic, link, **due date** (today, tomorrow, in a week,

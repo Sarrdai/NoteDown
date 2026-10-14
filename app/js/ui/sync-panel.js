@@ -19,7 +19,7 @@ import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
 } from "../core/sharing.js";
-import { h, text, button } from "./dom.js";
+import { h, text, button, pushEntry, leaveEntry } from "./dom.js";
 import { qrFigure, scannerView, cameraScanner } from "./qr.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
@@ -44,7 +44,7 @@ export function initSyncPanel() {
   // Android back: the panel sits on one history entry; further pages go back inside it.
   window.addEventListener("popstate", () => {
     if (!isOpen) return;
-    if (stack.length > 1) { stack.pop(); render(); history.pushState({ syncPanel: true }, ""); }
+    if (stack.length > 1) { stack.pop(); render(); pushEntry({ syncPanel: true }); }
     else close({ fromHistory: true });
   });
   subscribe(kind => {
@@ -79,7 +79,7 @@ export function openPanel(page, data = {}) {
   returnFocus = document.activeElement;
   stack = [{ page, data }];
   $("syncPanel").hidden = false;
-  history.pushState({ syncPanel: true }, "");
+  pushEntry({ syncPanel: true });
   render();
 }
 
@@ -110,7 +110,7 @@ function close({ fromHistory = false } = {}) {
   pendingInvite = null;
   leavePage();
   $("syncPanel").hidden = true;
-  if (!fromHistory && history.state && history.state.syncPanel) history.back();
+  if (!fromHistory) leaveEntry("syncPanel");
   if (returnFocus && returnFocus.focus) returnFocus.focus();
 }
 

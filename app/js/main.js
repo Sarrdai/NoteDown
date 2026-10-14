@@ -12,7 +12,7 @@ import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
-import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
+import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
@@ -126,6 +126,27 @@ function emptyText(view, search) {
     : view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
 }
 
+// What moves in a view swipe (ui/view-swipe.js): the list column below the
+// top bar, and the contents list where it shows (the sidebar, the open sheet).
+function swipeLanes() {
+  const lanes = [{
+    move: document.querySelector(".main"),
+    rect: () => {
+      const box = document.querySelector(".main").getBoundingClientRect();
+      return { top: $("topbar").getBoundingClientRect().bottom, left: box.left, width: box.width };
+    },
+    preview: previewView,
+  }];
+  const toc = $("tocList");
+  if (toc.getClientRects().length && getComputedStyle(toc).visibility === "visible") lanes.push({
+    move: toc,
+    rect: () => { const r = toc.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
+    preview: view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; },
+    peekClass: "toc-peek",
+  });
+  return lanes;
+}
+
 // What the other view will show once the swipe lands there (ui/view-swipe.js):
 // the circle filter chip and the list as setView will render them, not live.
 function previewView(view) {
@@ -180,6 +201,7 @@ function setView(view) {
   setUi({ view, search: "", topId: null });
   app.classList.remove("searching");
   window.scrollTo(0, 0);
+  $("tocList").scrollTop = 0;
 }
 
 function newNote() {
@@ -373,14 +395,14 @@ function wire() {
   });
   // Swiping sideways switches views: the archive lies right of the notes. It
   // starts anywhere on the list and on the contents (also the open sheet),
-  // which stays in place and is refilled once the view has switched.
+  // whose list moves along.
   initViewSwipe({
     canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("recording")
       && !!target.closest(".main, .toc-panel, .scrim") && !target.closest(".topbar, .selectbar, .toc-handle, .toc-head"),
     view: () => state.view,
     setView,
-    preview: previewView,
+    lanes: swipeLanes,
   });
 }
 

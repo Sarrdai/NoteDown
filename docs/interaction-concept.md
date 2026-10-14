@@ -44,8 +44,8 @@ Current state, edited in place when a decision changes.
 ## Input
 
 - **Tap or click** is the main action on content: into a note's text =
-  edit, on a task checkbox = toggle, on the round button = close /
-  reopen, on a link = open.
+  edit, on a task checkbox = toggle, on the round button (bottom right
+  of the card) = close / reopen, on a link = open.
 - **Long-press** is reserved for secondary modes: on a note or a
   contents entry it starts multi-select, on + it starts dictation. Nothing essential is
   long-press-only on the desktop (Ctrl/Shift+click, keyboard).
@@ -64,15 +64,21 @@ Current state, edited in place when a decision changes.
   the list or the contents (also the open sheet); the list follows the
   finger and the other view's page moves in beside it; let go past half
   the width or with a flick, it snaps onto the other view, otherwise
-  back; past either end it only gives a little. The top bar and the
-  contents don't move — they stay as they are (an open sheet stays open)
-  and are refilled once the view has switched. Not while editing,
+  back; past either end it only gives a little. The contents list
+  where it shows (sidebar, open sheet) moves along in step, the other
+  view's contents moving in beside it; the top bar and the contents' head
+  stay in place (an open sheet stays open) and are refilled once the view
+  has switched. Not while editing,
   selecting or recording; content that scrolls sideways itself (a wide
   table) keeps the gesture. Desktop has no touch, the view button
   switches there.
 - **Bottom sheets** (phone) have a handle: a tap opens fully or closes,
   dragging leaves the sheet at any height, a flick or a drag near the
   bottom closes.
+- **Back** (Android button or gesture) closes the innermost layer first:
+  a dialog or panel page, the selection, the editor (editing ends), the
+  open contents sheet; only then does it leave the app. Each layer sits
+  on its own history entry.
 - **Pull to refresh** (phone and tablet, while sync is on): pulling the
   list down from its top syncs now; a round indicator follows the finger
   and spins until the sync is over. Desktop syncs by opening Sync &
