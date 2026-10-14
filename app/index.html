@@ -14,7 +14,7 @@
 <body>
   <div class="app" id="app" data-view="open">
     <aside class="toc-panel" id="tocPanel" aria-label="Contents">
-      <div class="toc-handle" aria-hidden="true"></div>
+      <button class="toc-handle" id="tocHandle" aria-label="Contents" aria-expanded="false"></button>
       <div class="toc-head">
         <span class="toc-title">Contents</span>
         <div class="panel-tabs" id="panelTabs" role="tablist" aria-label="Sidebar">
@@ -36,7 +36,6 @@
 
     <main class="main">
       <header class="topbar" id="topbar">
-        <button class="icon-btn" id="tocBtn" aria-label="Contents"></button>
         <h1 class="title" id="title">Notes</h1>
         <label class="search" id="search">
           <span class="search-icon" id="searchIcon"></span>
@@ -45,16 +44,15 @@
         </label>
         <button class="icon-btn" id="searchBtn" aria-label="Search"></button>
         <button class="icon-btn labelled" id="sortBtn" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="sortLabel"></span></button>
+        <button class="icon-btn" id="syncBtn" hidden></button>
         <button class="icon-btn labelled" id="viewBtn">
           <span class="view-face to-archive"><span class="btn-icon"></span><span class="btn-label">Archive</span><span class="count" id="archiveCount">0</span></span>
           <span class="view-face to-notes"><span class="btn-icon"></span><span class="btn-label">Notes</span></span>
         </button>
-        <button class="icon-btn" id="syncBtn" hidden></button>
         <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More"></button>
       </header>
       <div class="selectbar keep-editing" id="selectBar" role="toolbar" aria-label="Selection" hidden>
         <button class="icon-btn" id="selCancel" aria-label="Cancel selection"></button>
-        <button class="icon-btn" id="selToc" aria-label="Contents"></button>
         <span class="sel-count" id="selCount" aria-live="polite"></span>
         <div class="sel-actions" id="selActions"></div>
         <button class="icon-btn" id="selMore" aria-haspopup="menu" aria-label="More actions"></button>

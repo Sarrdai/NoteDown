@@ -8,6 +8,7 @@ import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sync-panel.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
+import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
 import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
@@ -128,11 +129,6 @@ function renderCircleFilter() {
   const lead = !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
   $("filterChipLabel").innerHTML = lead + `<span></span>`;
   $("filterChipLabel").lastChild.textContent = circleName(circle);
-}
-
-function openPanel(tab) {
-  setUi({ panelTab: tab });
-  setTocOpen(true);
 }
 
 subscribe(kind => {
@@ -294,7 +290,7 @@ function download() {
 }
 
 function wire() {
-  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -305,8 +301,6 @@ function wire() {
   // One button switches between the notes and the archive, in the same place.
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", sortMenu);
-  $("tocBtn").addEventListener("click", () => openPanel("toc"));
-  $("selToc").addEventListener("click", () => openPanel("toc"));
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("filterClear").addEventListener("click", () => pickCircle(null));
   $("moreBtn").addEventListener("click", moreMenu);
@@ -342,6 +336,14 @@ function wire() {
     canPull: target => state.sync.enabled && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
     onRefresh: syncOnRequest,
+  });
+  // Swiping the list sideways switches views: the archive lies right of the notes.
+  initViewSwipe({
+    canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+      && !app.classList.contains("toc-open") && !app.classList.contains("recording")
+      && !!target.closest(".main") && !target.closest(".topbar, .selectbar"),
+    view: () => state.view,
+    setView,
   });
 }
 
