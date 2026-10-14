@@ -37,9 +37,10 @@ identity federation (short-lived tokens, no stored key), limited to
 skipped, not failed.
 
 **Free-tier limits that matter:** Cloud Run 2 million requests per
-month (a synced app that is open polls every 5 s, about 130,000 requests
-a month for a device open all working day; while nothing changes the
-interval grows to 30 s, so a mostly idle device needs about 20,000), and the service is capped at 2 instances; Artifact Registry
+month (a synced app that is open polls every 5 s with two requests — the
+file list and the open invitations — about 260,000 requests a month for
+a device open all working day; while nothing changes the interval grows
+to 30 s, so a mostly idle device needs about 40,000), and the service is capped at 2 instances; Artifact Registry
 0.5 GB (the setup keeps the 5 newest images); Neon 0.5 GB of data and a
 database that sleeps after 5 idle minutes (the first request afterwards
 takes about a second; compute hours are limited on the free plan).
