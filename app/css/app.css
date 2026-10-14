@@ -189,21 +189,22 @@ button { font: inherit; color: inherit; }
 
 .note.editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
 
-/* Pin (a setting of this device): a pinned note shows the pin under its
-   round button; a tap unpins it. Pinning itself is in the selection bar. */
-.pin {
+/* Protection from deletion (a setting of this device): a protected note
+   shows a shield under its round button; a tap removes the protection.
+   Protecting itself is in the selection bar. */
+.protect-mark {
   grid-column: 1; grid-row: 1 / 3; align-self: start; justify-self: center;
   position: relative; width: 28px; height: 28px; margin-top: 32px; padding: 0;
   display: none; align-items: center; justify-content: center;
   border: 0; border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer;
 }
-.note.lead-heading .pin { margin-top: 36px; }
-.pin .icon { width: 17px; height: 17px; fill: currentColor; }
-.pin::after { content: ""; position: absolute; inset: -6px -2px; }
-.pin:hover { background: var(--surface-hover); }
-.pin:focus-visible { outline: 2px solid var(--accent); }
-.note.pinned .pin { display: inline-flex; }
-.app.selecting .pin { pointer-events: none; }
+.note.lead-heading .protect-mark { margin-top: 36px; }
+.protect-mark .icon { width: 17px; height: 17px; fill: currentColor; }
+.protect-mark::after { content: ""; position: absolute; inset: -6px -2px; }
+.protect-mark:hover { background: var(--surface-hover); }
+.protect-mark:focus-visible { outline: 2px solid var(--accent); }
+.note.protected .protect-mark { display: inline-flex; }
+.app.selecting .protect-mark { pointer-events: none; }
 
 /* ---------- live-preview editor (CodeMirror, ui/live-preview.js) ---------- */
 .editor-host { cursor: text; }

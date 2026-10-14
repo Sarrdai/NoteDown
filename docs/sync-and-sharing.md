@@ -58,12 +58,12 @@ carries the merge logic (`app/js/core/merge.js`, tested in
   others silently: the user picks a private copy (the shared notes stay)
   or sharing the result with everyone involved
   (`docs/requirements.md` → "Multi-select").
-- **Pins stay local** (`docs/requirements.md` → "Main view and
+- **Protection stays local** (`docs/requirements.md` → "Main view and
   archive"): when someone else deletes a shared note that this device
-  has pinned, the note isn't lost here — it becomes a private note on
-  this device, still pinned. A note deleted on another of the user's
-  own devices goes everywhere, as pins aren't synced. *Prototype: not
-  yet — shared files are simulated until milestone 2.*
+  has protected, the note isn't lost here — it becomes a private note
+  on this device, still protected. A note deleted on another of the
+  user's own devices goes everywhere, as protection isn't synced.
+  *Prototype: not yet — shared files are simulated until milestone 2.*
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who
@@ -233,11 +233,11 @@ devices don't keep re-uploading the same notes in each other's order.
 - **Milestone 2 must keep** (decided 2026-10-14, only simulated so far;
   each needs a test in `tests/merge.test.mjs` or `scripts/e2e-sync.js`):
   1. A shared note another member deletes while this device has it
-     pinned is not dropped: the sync merge moves it into the private
-     file instead, still pinned ("Files" → "Pins stay local").
-  2. Pins never reach a file or the server: a note deleted on another of
-     the user's own devices goes here too, pinned or not, and a newly
-     linked device starts without pins.
+     protected is not dropped: the sync merge moves it into the private
+     file instead, still protected ("Files" → "Protection stays local").
+  2. Protection never reaches a file or the server: a note deleted on
+     another of the user's own devices goes here too, protected or not,
+     and a newly linked device starts without protected notes.
   3. A merge across circles with "Share with …" may create the file of
      a new member set (everyone involved): its key is wrapped for all
      members' devices on the first upload; "Private copy" never writes
