@@ -96,9 +96,12 @@ before the first live test).
   keeps at most **2 MB** of encrypted files per identity — thousands of
   notes; the user wants to raise it later as a paid option — and limits
   per IP address how often identities and linking slots are created
-  (`docs/server-api.md` → "Limits"). Hitting a limit shows in the sync
-  status ("Sync storage is full (2 MB).", "Too many attempts. Try again
-  later.").
+  (`docs/server-api.md` → "Limits"). Sync & sharing ends with a
+  **Storage** bar ("0.4 MB of 2 MB used"; warning color from 80 %, red
+  at 100 % with how to free space — archived notes count too), so the
+  user sees the quota coming (user request 2026-10-14); hitting a limit
+  also shows in the sync status ("Sync storage is full.", "Too many
+  attempts. Try again later."). *Prototype: 2026-10-14.*
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one
