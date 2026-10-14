@@ -45,14 +45,14 @@ export function initToolbar() {
     if (!b) return;
     if (b.id === "toolbarDone") return endEdit();
     const cmd = b.dataset.cmd;
-    if (cmd === "due") return dueMenu(b);
+    if (cmd === "due") return openDueMenu(b, state.editingId);
     if (cmd === "mic") return toggleDictation(b);
     currentEditor()?.run(cmd);
   });
 
   $("dueInput").addEventListener("change", e => {
-    if (state.editingId && e.target.value) setDue(state.editingId, e.target.value);
-    currentEditor()?.view.focus();
+    if (dueTarget && e.target.value) setDue(dueTarget, e.target.value);
+    refocus(dueTarget);
   });
 
   onEditingChange(id => {
@@ -79,18 +79,23 @@ export function initToolbar() {
   new ResizeObserver(reveal).observe(bar);
 }
 
-function dueMenu(anchor) {
-  const id = state.editingId;
+// The note whose date "Pick a date…" sets.
+let dueTarget = null;
+const refocus = id => { if (id && id === state.editingId) currentEditor()?.view.focus(); };
+
+/** The due-date menu of a note: from the toolbar and from the note's due chip. */
+export function openDueMenu(anchor, id) {
   const n = note(id);
   if (!n) return;
   const t = today();
-  const pick = due => { setDue(id, due); currentEditor()?.view.focus(); };
+  const pick = due => { setDue(id, due); refocus(id); };
   openMenu(anchor, [
     { section: "Due date" },
     { label: "Today", checked: n.due === t, onSelect: () => pick(t) },
     { label: "Tomorrow", checked: n.due === addDays(t, 1), onSelect: () => pick(addDays(t, 1)) },
     { label: "In a week", checked: n.due === addDays(t, 7), onSelect: () => pick(addDays(t, 7)) },
     { label: "Pick a date…", onSelect: () => {
+      dueTarget = id;
       const input = $("dueInput");
       input.value = n.due || t;
       try { input.showPicker(); } catch { input.focus(); input.click(); }
