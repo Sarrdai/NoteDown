@@ -102,7 +102,9 @@ of a custom order, first to last (backlog #24):
 
 In the private file it is the user's own **Custom** order: ids from any
 of the user's files (ids are unique across files), so shared notes can be
-ordered without the other members seeing it. `modified` is the time of
+ordered without the other members seeing it. In a shared file it is the
+circle's **Shared order** (backlog #25), listing that file's notes and
+set by any member. `modified` is the time of
 the last change (UTC); without `ids` the order is empty. Ids of notes
 that no longer exist are dropped on the next save. Merging takes the list
 the changed side wrote, the newer one when both changed it. Other editors

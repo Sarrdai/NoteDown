@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -36,8 +36,16 @@ const DIR_LABELS = {
 
 const phone = window.matchMedia("(max-width: 599px)");
 
-const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: state.settings.sort[state.view], order: customOrder() });
-const isCustom = () => !!SORT_KEYS[state.settings.sort[state.view].key].custom;
+// "Shared order" (#25) exists only in the view of a circle with people;
+// elsewhere a view set to it shows the user's own custom order.
+const sharedCircle = () => activeCircle() || null;
+function sortOf() {
+  const sort = state.settings.sort[state.view];
+  return SORT_KEYS[sort.key].circleOnly && !sharedCircle() ? { key: "custom", dir: "asc" } : sort;
+}
+const orderIds = () => sortOf().key === "shared" ? circleOrder(sharedCircle()) : customOrder();
+const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: sortOf(), order: orderIds() });
+const isCustom = () => !!SORT_KEYS[sortOf().key].custom;
 
 // The members a new note goes to: those of the circle the list is filtered to.
 const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
@@ -74,7 +82,7 @@ function render() {
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
-  const sort = s.sort[state.view];
+  const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
   const count = closedOn(allNotes(), today());
@@ -91,7 +99,7 @@ function render() {
   const tiles = onTop ? protectedFirst(notes, isProtected) : notes;
   // Custom order: a divider above the first note not sorted yet (protected
   // ones stay on top with "Protected first").
-  const sorted = new Set(customOrder());
+  const sorted = new Set(orderIds());
   const unsorted = isCustom() ? tiles.find(n => !sorted.has(n.id) && !(onTop && isProtected(n.id)) && n.id !== state.topId) : null;
   renderList(tiles, { dividerBefore: unsorted?.id ?? null, onArrange: arrange });
   syncSelection(notes);
@@ -178,19 +186,25 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
-// The custom order's arrange dialog over the notes the list shows.
+// The arrange dialog over the notes the list shows: the user's own custom
+// order, or the shared order of the circle in view.
 function arrange() {
   const shown = inView(circleNotes(activeCircle()));
-  const { sorted, unsorted } = customSplit(shown, customOrder());
-  openArrange({
+  const key = sortOf().key === "shared" ? sharedCircle() : null;
+  const { sorted, unsorted } = customSplit(shown, orderIds());
+  const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
+  openArrange(key ? {
+    title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
+    save: ids => showSnackbar("Shared order saved", setCircleOrder(key, next(ids))),
+  } : {
     sorted, unsorted,
-    save: ids => showSnackbar("Order saved", setCustomOrder(rearrange(customOrder(), shown.map(n => n.id), ids))),
+    save: ids => showSnackbar("Order saved", setCustomOrder(next(ids))),
   });
 }
 
 function sortMenu() {
-  const sort = state.settings.sort[state.view];
-  const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
+  const sort = sortOf();
+  const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.archiveOnly || state.view === "closed") && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
   const onTop = state.settings.protectedFirst[state.view];
