@@ -218,7 +218,7 @@ No accounts and no passwords: a device signs a challenge.
 
 | What | Limit |
 |---|---|
-| Storage per identity (decoded ciphertext of all files it is a member of) | 2 MB |
+| Storage per identity (decoded ciphertext of all files it is a member of, shared ones in full) | 2 MB |
 | Files per identity (it is a member of) | 50 |
 | Open invitations per identity | 20 |
 | Members per file | 20 |
@@ -228,10 +228,14 @@ No accounts and no passwords: a device signs a challenge.
 | `POST /v1/identities` | 10 per day per IP address |
 | `POST /v1/relay` | 30 per hour per IP address |
 
-The storage quota is checked on `PUT /v1/files/{id}` for the uploading
-identity (the replaced file's old size doesn't count; a shared file
-counts for every member) and answers 413 `storage quota exceeded`;
-it is one constant for now, to be raised later as a paid option.
+Storage quota and file count are checked on `PUT /v1/files/{id}` for
+**every member** of the file, since a shared file counts in full for each
+of them (backlog #27; so the usage the app shows is the one enforced).
+The replaced file's old size doesn't count. Over a limit the upload
+answers 413 `{"detail": "storage quota exceeded" | "too many files",
+"members": [<identity IDs over the limit>]}`, so the app can say whose
+storage is full. The quota is one constant for now, to be raised later
+as a paid option.
 
 The rate limits count per client IP in fixed windows (counters in
 Postgres, shared by all server instances); IPv6 addresses count per /64

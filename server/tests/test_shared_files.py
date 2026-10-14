@@ -140,13 +140,18 @@ def test_quota_and_file_count_are_per_member_over_all_files(people):
     # The shared file counts for Bob as well as for Alice.
     assert upload(bob.client, bob.h, 0, b"p" * half, keys=keys_for(bob), file_id=fid()).status_code == 200
     r = create_shared(bob, carol, data=b"p")
-    assert r.status_code == 413 and r.json() == {"detail": "storage quota exceeded"}
-    assert upload(alice.client, alice.h, 0, b"p" * half, keys=keys_for(alice), file_id=fid()).status_code == 200
-    # Replacing the shared file doesn't count its old size, a bigger one doesn't fit for the uploader.
+    assert r.status_code == 413 and r.json() == {"detail": "storage quota exceeded", "members": [bob.id]}
+    # Bob is full, so Alice can't grow the file they share although she has room (backlog #27).
     shared = alice.client.get("/v1/files", headers=alice.h).json()["files"]
     shared = next(f["id"] for f in shared if len(f["members"]) == 2)
-    assert upload(alice.client, alice.h, 1, b"s" * 10, file_id=shared).status_code == 200
-    assert upload(alice.client, alice.h, 2, b"s" * (half + 1), file_id=shared).status_code == 413
+    r = upload(alice.client, alice.h, 1, b"s" * (half + 1), file_id=shared)
+    assert r.status_code == 413 and r.json() == {"detail": "storage quota exceeded", "members": [bob.id]}
+    # Replacing the shared file doesn't count its old size: the same size or smaller fits.
+    assert upload(alice.client, alice.h, 1, b"s" * half, file_id=shared).status_code == 200
+    assert upload(alice.client, alice.h, 0, b"p" * half, keys=keys_for(alice), file_id=fid()).status_code == 200
+    # Now both are full; everyone over the limit is named.
+    r = upload(bob.client, bob.h, 2, b"s" * (half + 1), file_id=shared)
+    assert r.status_code == 413 and r.json()["members"] == sorted([alice.id, bob.id])
 
 
 def test_the_file_count_limit_counts_shared_files_for_every_member(people):
@@ -157,10 +162,12 @@ def test_the_file_count_limit_counts_shared_files_for_every_member(people):
     assert upload(alice.client, alice.h, 0, keys=keys_for(alice), file_id=fid()).status_code == 200
     for friend in friends:
         assert create_shared(alice, friend).status_code == 200
-    # Alice is a member of 50 files now. The limit is checked for the uploader.
+    # Alice is a member of 50 files now: a new contact can't share a file with her either.
     other = people()
     alice.befriend(other)
-    assert create_shared(alice, other).status_code == 413
+    assert create_shared(alice, other).json() == {"detail": "too many files", "members": [alice.id]}
+    r = create_shared(other, alice)
+    assert r.status_code == 413 and r.json() == {"detail": "too many files", "members": [alice.id]}
 
 
 def test_removing_a_device_deletes_its_keys_in_every_file_it_belongs_to(people):
