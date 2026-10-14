@@ -40,7 +40,7 @@ the live test setup is described in `docs/operations.md`.
 | `server/` | The sync server (see "Server") |
 | `mobile/` | The Android app: a Capacitor shell around `app/` (see "Android app") |
 | `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
-| `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority and effort |
+| `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority, effort and dependencies |
 | `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup, `docs/operations.md`), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
 
 ## Device tiers
