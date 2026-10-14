@@ -327,6 +327,10 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .app.selecting .fab { display: none; }
 .app.selecting .note, .app.selecting .note-body { cursor: pointer; -webkit-user-select: none; user-select: none; }
 /* A held note shows no text selection or callout on touch screens. */
+/* The mouse selects a note by its frame (ui/selection.js); the edited note's frame stays inert. */
+@media (hover: hover) {
+  .note:not(.editing) { cursor: pointer; }
+}
 @media (hover: none) {
   .note:not(.editing) .note-body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 }

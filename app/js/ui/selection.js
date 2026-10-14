@@ -1,12 +1,13 @@
 // Multi-select over the note list and the table of contents: one selection
-// of sections (core/selection.js). A long-press on a note (or Ctrl+click)
-// selects it whole, a long-press on a contents entry selects that section
-// with everything below it; then taps add or remove in either place, and
-// Shift+click selects a range. The selection bar acts on the selection;
-// Copy and Merge first confirm the order in a dialog where it can be
-// changed by drag and drop. Ends with ✕, Esc, the back button, an empty
-// selection or an action that removes the notes from view. Delete asks
-// first (ui/confirm.js) and leaves protected notes alone.
+// of sections (core/selection.js). A long-press on a note (or Ctrl+click, or
+// a mouse click on the card's frame) selects it whole, a long-press on a
+// contents entry selects that section with everything below it; then taps
+// add or remove in either place, and Shift+click selects a range. The
+// selection bar acts on the selection; Copy and Merge first confirm the
+// order in a dialog where it can be changed by drag and drop. Ends with ✕,
+// Esc, the back button, an empty selection or an action that removes the
+// notes from view. Delete asks first (ui/confirm.js) and leaves protected
+// notes alone.
 import { tableOfContents, deleteGroups } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
@@ -33,6 +34,7 @@ let anchorNote = null; // last note toggled, start of a Shift range in the list
 let anchorKey = null;  // same for the contents
 let press = null;     // { id, x, y, timer } while a finger / button is down
 let swallowClick = false;
+let frameDown = false; // the mouse went down on a card's frame (desktop)
 let dialog = null;    // { onConfirm } while the order dialog is open
 let active = false;
 
@@ -81,8 +83,14 @@ export function initSelection(options) {
   });
 }
 
+// A card's frame: its margin and the free part of the meta line, outside the
+// text and the controls.
+const onFrame = target => !target.closest(".note-body, button, a, input");
+
 function onPointerDown(e) {
   swallowClick = false;
+  // Only with the mouse: on touch the frame is a small target and the long-press stays.
+  frameDown = e.pointerType === "mouse" && onFrame(e.target);
   if (e.button !== 0 || isSelecting() || e.ctrlKey || e.metaKey || e.shiftKey) return;
   const el = e.target.closest(".note");
   if (!el || el.dataset.id === state.editingId) return; // long-press in the editor selects text
@@ -114,7 +122,7 @@ function onClick(e) {
   if (!el || el.dataset.id === state.editingId) return;
   const id = el.dataset.id;
   if (e.shiftKey) selectRange(id);
-  else if (e.ctrlKey || e.metaKey || isSelecting()) toggle(id);
+  else if (e.ctrlKey || e.metaKey || isSelecting() || (frameDown && onFrame(e.target))) toggle(id);
   else return;
   e.preventDefault();
   e.stopPropagation();
