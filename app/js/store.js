@@ -214,6 +214,23 @@ export function note(id) {
   return allNotes().find(n => n.id === id);
 }
 
+/** The user's custom order (backlog #24): note ids, kept in the private
+ *  file (synced, but only the user's devices see it). */
+export function customOrder() {
+  return state.file.order?.ids || [];
+}
+
+/** Sets the custom order, without ids of notes that are gone; returns a
+ *  function that undoes it. */
+export function setCustomOrder(ids) {
+  const before = state.file.order || null;
+  const known = new Set(allNotes().map(n => n.id));
+  state.file.order = { ids: ids.filter(id => known.has(id)), modified: timestamp() };
+  saveFiles();
+  emit("structure");
+  return () => { state.file.order = before; saveFiles(); emit("structure"); };
+}
+
 export const isProtected = id => state.protectedIds.has(id);
 
 /** Protects notes from deletion on this device, or removes that (`on` false);

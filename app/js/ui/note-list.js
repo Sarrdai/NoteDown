@@ -16,8 +16,18 @@ import { openShareDialog } from "./share-dialog.js";
 
 const list = () => document.getElementById("list");
 
-export function renderList(notes) {
-  list().replaceChildren(...notes.map(noteElement));
+/** Renders the tiles; `dividerBefore` (a note id) puts the custom order's
+ *  "Not sorted yet" divider above that note (backlog #24). */
+export function renderList(notes, { dividerBefore = null, onArrange } = {}) {
+  list().replaceChildren(...notes.flatMap(n => n.id === dividerBefore ? [divider(onArrange), noteElement(n)] : [noteElement(n)]));
+}
+
+function divider(onArrange) {
+  const el = document.createElement("div");
+  el.className = "unsorted-divider";
+  el.innerHTML = `<span>Not sorted yet</span><button class="link-btn">Arrange…</button>`;
+  el.querySelector("button").addEventListener("click", onArrange);
+  return el;
 }
 
 // A tap on the shared marker opens the share dialog.

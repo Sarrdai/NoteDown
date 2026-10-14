@@ -375,6 +375,16 @@ button { font: inherit; color: inherit; }
 .order-grip:focus-visible { outline: 2px solid var(--accent); }
 .order-item.dragging .order-grip { cursor: grabbing; color: var(--accent); }
 .order-item:only-child .order-grip { visibility: hidden; } /* one part: nothing to order */
+/* The custom order's arrange dialog (#24): sorted rows, a line, unsorted rows. */
+.arrange-toggle { flex: none; margin-right: -4px; color: var(--text-muted); }
+.order-item.unsorted { counter-increment: none; }
+.order-item.unsorted::before { display: none; }
+.order-item.unsorted .order-text { color: var(--text-muted); }
+.arrange-line {
+  display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
+}
+.arrange-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 /* Merge across circles: private copy or shared with everyone involved. */
 .merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .choice {
@@ -621,6 +631,11 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .md pre code { background: none; padding: 0; }
 .md blockquote { margin: 0.5em 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--text-muted); }
 
+/* Custom order (#24): the line above the notes not sorted yet. */
+.unsorted-divider { display: flex; align-items: center; gap: 10px; margin: 6px 0 -2px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.unsorted-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); order: 1; }
+.unsorted-divider .link-btn { order: 2; border: 0; padding: 4px 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; letter-spacing: 0; text-transform: none; font-size: 0.85rem; cursor: pointer; }
+.unsorted-divider .link-btn:hover { background: var(--surface-hover); }
 .empty { max-width: 780px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-muted); }
 
 /* ---------- table of contents ---------- */

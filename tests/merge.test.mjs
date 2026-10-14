@@ -84,3 +84,15 @@ test("merge: moving back removes the marker in the target", () => {
   assert.deepEqual(back.to.notes, [s01]);
   assert.deepEqual(back.from.moved, [{ id: "s01", moved: "2026-10-13T10:00" }]);
 });
+
+test("merge: a custom order changed on one side is taken; changed on both, the newer list wins", () => {
+  const o = (ids, modified) => ({ ids, modified });
+  const f = order => ({ notes: [], order });
+  const base = f(o(["a"], "2026-10-14T08:00Z"));
+  assert.deepEqual(mergeNotesFiles(base, f(o(["b", "a"], "2026-10-14T09:00Z")), base).file.order.ids, ["b", "a"]);
+  assert.deepEqual(mergeNotesFiles(base, base, f(o(["c"], "2026-10-14T09:00Z"))).file.order.ids, ["c"]);
+  const local = f(o(["l"], "2026-10-14T10:00Z")), remote = f(o(["r"], "2026-10-14T09:00Z"));
+  assert.deepEqual(mergeNotesFiles(base, local, remote).file.order.ids, ["l"]);
+  assert.deepEqual(mergeNotesFiles(f(null), f(null), remote).file.order.ids, ["r"]);
+  assert.equal(mergeNotesFiles(f(null), f(null), f(null)).file.order, null);
+});

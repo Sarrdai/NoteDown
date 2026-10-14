@@ -243,6 +243,21 @@ before the first live test).
   last edited, newest first; in the archive closed, newest first.
   Notes without the sort value (no due date) always come last. The choice
   is remembered per view. *Prototype: round 1.*
+- **Custom** (backlog #24) is one more sort option, in the main view and
+  the archive: the user's own order. Notes start **not sorted yet**; the
+  sort menu's **Arrange…** (and the same link on the list's divider)
+  opens a dialog like the merge order dialog, where notes move above a
+  line by drag (or arrow keys) or with + / −, and are ordered there. The
+  list shows the sorted notes first, then a thin divider "Not sorted
+  yet" and the rest by last edited (decided 2026-10-14: new notes always
+  land there, so nothing reshuffles the arranged part). A custom order has
+  no direction. The dialog arranges what the list shows (circle filter
+  and search applied); other notes keep their places in the order. Save
+  offers Undo. There is one custom order only (several named orders go
+  too far for now). It is **synced but private**: one marker in the
+  private file lists the note ids (`docs/file-format.md`), so shared notes
+  can be ordered too without the other members seeing it; when two devices
+  changed it, the newer list wins. *Prototype: 2026-10-14.*
 - **Protected first** (a switch in the sort menu, remembered per view,
   off by default) shows protected notes first, then the others, each group in
   the chosen order. It only orders the notes in the list; the table of

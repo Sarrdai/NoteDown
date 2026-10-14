@@ -7,7 +7,7 @@ done, with an optional due date. Open notes form the main list, done ones
 move to a read-only archive. Notes live in plain Markdown files: one
 private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by person or
-group.
+group. Besides the usual sort options, notes can be put in a custom order.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. A
 long-press on a note starts multi-select to close, copy, share, merge,
