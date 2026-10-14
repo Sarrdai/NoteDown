@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
-  circleKey, circleLabel, shareState, initials, splitIntoCircles, generateRecoveryKey,
+  circleKey, circleLabel, circleEntries, groupsWith, shareState, initials, splitIntoCircles, generateRecoveryKey,
   normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo,
   colorIndex, nextColor, visibleMembers, mergeCircle,
 } from "../app/js/core/sharing.js";
@@ -46,6 +46,8 @@ test("sample sharing: every listed note exists exactly once and members are cont
   for (const id of ids) assert.ok(sample.notes.some(n => n.id === id), id);
   const contacts = sharing.contacts.map(c => c.id);
   for (const g of sharing.shared) for (const m of g.members) assert.ok(contacts.includes(m), m);
+  // A shared order (backlog #25) only lists notes of its own circle.
+  for (const g of sharing.shared.filter(g => g.order)) for (const id of g.order) assert.ok(g.notes.includes(id), id);
 });
 
 test("splitIntoCircles: notes leave the private file without markers", () => {
@@ -143,4 +145,22 @@ test("mergeCircle: one circle stays, across circles a private copy or everyone i
   assert.deepEqual(mergeCircle([[], []], "share"), { members: [], keepShared: false });
   assert.deepEqual(mergeCircle([[], ["lea"], ["tom", "lea"]], "copy"), { members: [], keepShared: true });
   assert.deepEqual(mergeCircle([[], ["lea"], ["tom", "lea"]], "share"), { members: ["lea", "tom"], keepShared: false });
+});
+
+test("circleEntries: all, private, contacts A–Z (also without a file), then groups by label", () => {
+  const contacts = [{ id: "tom", name: "Tom" }, { id: "lea", name: "Lea" }, { id: "sam", name: "Sam" }];
+  const names = { tom: "Tom", lea: "Lea", sam: "Sam" };
+  const entries = circleEntries(contacts, [["tom", "sam"], ["lea"], ["tom", "lea"]], id => names[id]);
+  assert.deepEqual(entries.map(e => [e.key, e.kind]), [
+    [null, "all"], ["", "private"], ["lea", "contact"], ["sam", "contact"], ["tom", "contact"],
+    ["lea+tom", "group"], ["sam+tom", "group"],
+  ]);
+  assert.deepEqual(entries[5].members, ["lea", "tom"]);
+});
+
+test("groupsWith: circles of several people that contain the contact", () => {
+  const circles = [["lea"], ["lea", "tom"], ["sam", "tom"]];
+  assert.deepEqual(groupsWith("lea", circles), [["lea", "tom"]]);
+  assert.deepEqual(groupsWith("sam", circles), [["sam", "tom"]]);
+  assert.deepEqual(groupsWith("max", circles), []);
 });

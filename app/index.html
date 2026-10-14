@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>NoteDown</title>
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="css/catppuccin.css">
   <link rel="stylesheet" href="css/app.css">
   <script type="module" src="js/main.js"></script>
@@ -14,6 +17,10 @@
       <div class="toc-handle" aria-hidden="true"></div>
       <div class="toc-head">
         <span class="toc-title">Contents</span>
+        <div class="panel-tabs" id="panelTabs" role="tablist" aria-label="Sidebar">
+          <button class="panel-tab" role="tab" data-tab="toc" aria-selected="true">Contents</button>
+          <button class="panel-tab" role="tab" data-tab="people" aria-selected="false">People</button>
+        </div>
         <div class="stepper" role="group" aria-label="Heading levels">
           <button class="icon-btn small" id="tocLess" aria-label="Fewer levels"></button>
           <span class="stepper-value" id="tocDepth">2</span>
@@ -21,6 +28,9 @@
         </div>
       </div>
       <nav class="toc-list" id="tocList"></nav>
+      <section class="people-pane" id="peoplePane" aria-label="People">
+        <nav class="people-list" id="peopleList"></nav>
+      </section>
     </aside>
     <div class="scrim" id="scrim"></div>
 
@@ -49,6 +59,9 @@
         <div class="sel-actions" id="selActions"></div>
         <button class="icon-btn" id="selMore" aria-haspopup="menu" aria-label="More actions"></button>
       </div>
+      <div class="filter-bar" id="filterBar" hidden>
+        <span class="filter-chip" id="filterChip"><span id="filterChipLabel"></span><button class="icon-btn small" id="filterClear" aria-label="Show all notes"></button></span>
+      </div>
       <div class="pull-indicator" id="pullIndicator" aria-hidden="true"></div>
       <div class="list" id="list"></div>
       <p class="empty" id="empty" hidden></p>
@@ -71,6 +84,14 @@
       <button class="toolbar-done" id="toolbarDone">Done</button>
     </div>
     <input type="date" id="dueInput" class="visually-hidden keep-editing" tabindex="-1" aria-hidden="true">
+    <div class="notice keep-editing" id="reminderNotice" role="button" tabindex="0" hidden>
+      <img class="notice-icon" src="icons/icon-192.png" alt="">
+      <div class="notice-text">
+        <div class="notice-app">NoteDown · now</div>
+        <div class="notice-title" id="noticeTitle"></div>
+        <div class="notice-body" id="noticeBody"></div>
+      </div>
+    </div>
     <div class="snackbar keep-editing" id="snackbar" role="status" hidden>
       <span id="snackText"></span>
       <button id="snackUndo">Undo</button>
@@ -88,6 +109,17 @@
         </div>
       </div>
     </div>
+    <div class="dialog-scrim keep-editing" id="arrangeDialog" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="arrangeTitle">
+        <h2 class="dialog-title" id="arrangeTitle">Custom order</h2>
+        <p class="dialog-hint" id="arrangeHint"></p>
+        <ol class="order-list arrange-list" id="arrangeList"></ol>
+        <div class="dialog-actions">
+          <button class="btn" id="arrangeCancel">Cancel</button>
+          <button class="btn primary" id="arrangeOk">Save</button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-scrim keep-editing" id="confirmDialog" hidden>
       <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
         <h2 class="dialog-title" id="confirmTitle"></h2>
@@ -100,6 +132,24 @@
         <div class="dialog-actions">
           <button class="btn" id="confirmCancel">Cancel</button>
           <button class="btn primary danger" id="confirmOk"></button>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-scrim keep-editing" id="reminderDialog" hidden>
+      <div class="dialog reminder" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
+        <h2 class="dialog-title" id="reminderTitle">Reminders</h2>
+        <p class="dialog-hint">On the due day, one notification lists the open notes due that day.</p>
+        <label class="setting-row">
+          <span class="setting-label">Remind me of due notes</span>
+          <input type="checkbox" class="switch" id="reminderOn" role="switch">
+        </label>
+        <label class="setting-row" id="reminderTimeRow">
+          <span class="setting-label">Time of day</span>
+          <input type="time" class="time-input" id="reminderTimeInput">
+        </label>
+        <p class="dialog-hint setting-note" id="reminderHint"></p>
+        <div class="dialog-actions">
+          <button class="btn primary" id="reminderDone">Done</button>
         </div>
       </div>
     </div>

@@ -190,6 +190,8 @@ async function main() {
     });
 
     await step("B picks up a change on A by itself within the 5 s poll", async () => {
+      // B has idled, so its poll delay has grown; getting the focus makes it 5 s again.
+      await b.evaluate(() => window.dispatchEvent(new Event("focus")));
       await addNote(a, sample.s08);
       await sync(a);
       await b.waitForFunction(body => window.__store.allNotes().some(n => n.body === body), sample.s08, { timeout: 8000 });
@@ -198,6 +200,8 @@ async function main() {
       await openPanel(b);
       await b.locator("#syncFoot", { hasText: "Syncing…" }).waitFor();
       await b.locator("#syncFoot", { hasText: "Synced · just now" }).waitFor();
+      await b.locator("#syncBody", { hasText: /MB of 2 MB used/ }).waitFor();   // the storage line, from the file list
+      assert.equal(await b.locator(".storage-bar").getAttribute("role"), "progressbar");
       await b.keyboard.press("Escape");
     });
 
@@ -234,8 +238,9 @@ async function main() {
       assert.doesNotMatch(await fileText(a), /name=Chrome%20on%20Windows/, "B's name is gone");
     });
 
+    let c;
     await step("C restores with the recovery key after the removal", async () => {
-      const c = await device(browser, "C", { width: 820, height: 1180 });
+      c = await device(browser, "C", { width: 820, height: 1180 });
       await openPanel(c);
       await c.getByRole("button", { name: "Link to an existing device" }).click();
       await c.fill("#syncBody input", key);
@@ -245,6 +250,46 @@ async function main() {
       await converge(a, c, d);
       assert.ok((await bodies(c)).includes(sample.s07));
       for (const name of ["Chrome on Android", "NoteDown app on Android"]) await c.getByText(name).waitFor();
+    });
+
+    await step("C signs out: erased, off A's device list, A keeps syncing", async () => {
+      // C's panel is still open on the overview from restoring.
+      await c.getByRole("button", { name: "Sign out this device" }).click();
+      await c.getByText("Your notes stay on your other devices.").waitFor();
+      await shot(c, "sign-out-tablet");
+      // Offline, signing out fails and erasing alone is offered; nothing is erased yet.
+      await c.context().setOffline(true);
+      await c.getByRole("button", { name: "Sign out and erase", exact: true }).click();
+      await c.getByRole("button", { name: "Erase without signing out" }).waitFor();
+      await c.getByText("Changes not synced yet are lost").waitFor();
+      await shot(c, "sign-out-failed-tablet");
+      assert.equal((await syncState(c)).enabled, true, "still signed in");
+      await c.context().setOffline(false);
+      await Promise.all([
+        c.waitForNavigation(),
+        c.getByRole("button", { name: "Sign out and erase", exact: true }).click(),
+      ]);
+      await c.waitForFunction(() => document.body.dataset.ready === "1");
+      await c.evaluate(async () => { window.__store = await import("/app/js/store.js"); });
+      const left = await c.evaluate(async () => ({
+        keys: Object.keys(localStorage).sort(),
+        databases: (await indexedDB.databases()).map(d => d.name),
+        sync: window.__store.state.sync.enabled,
+        notes: window.__store.allNotes().length,
+      }));
+      assert.equal(left.sync, false, "sync is off");
+      assert.equal(left.notes, 1, "first start: the welcome note");
+      assert.deepEqual(left.databases, [], "no IndexedDB left");
+      assert.ok(left.keys.every(k => ["notedown.api", "notedown.file", "notedown.shared", "notedown.sync"].includes(k)), `only first-start keys: ${left.keys}`);
+      await shot(c, "signed-out-tablet");
+      // A's verified list no longer has C, and A, D keep syncing.
+      await sync(a);
+      await openPanel(a);
+      await a.getByText("Chrome on Linux").waitFor({ state: "detached" });
+      await a.keyboard.press("Escape");
+      await addNote(a, sample.s03);
+      await converge(a, d);
+      assert.ok((await bodies(d)).includes(sample.s03));
     });
 
     await step("without a server, sync can't be turned on", async () => {

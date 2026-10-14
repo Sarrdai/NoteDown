@@ -50,8 +50,6 @@ export function renderToc(notes) {
 export function initToc() {
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
-  $("tocBtn").addEventListener("click", () => setTocOpen(true));
-  $("selToc").addEventListener("click", () => setTocOpen(true));
   $("scrim").addEventListener("click", () => setTocOpen(false));
 
   const listEl = $("tocList");

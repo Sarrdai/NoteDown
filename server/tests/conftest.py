@@ -52,12 +52,24 @@ class Identity:
         return entry
 
 
+def make_client(rate_limits: bool):
+    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
+        conn.execute(
+            "DROP TABLE IF EXISTS file_keys, files, devices, device_entries, identities, relay, rate_limits")
+    settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=rate_limits)
+    with TestClient(create_app(settings)) as c:
+        yield c
+
+
 @pytest.fixture
 def client():
-    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
-        conn.execute("DROP TABLE IF EXISTS file_keys, files, devices, device_entries, identities, relay")
-    with TestClient(create_app(Settings(DATABASE_URL, SECRET, ["https://localhost"]))) as c:
-        yield c
+    """Rate limits off: most tests register identities from the same address."""
+    yield from make_client(False)
+
+
+@pytest.fixture
+def limited_client():
+    yield from make_client(True)
 
 
 def token(client: TestClient, identity: Identity, device: Keys) -> dict:

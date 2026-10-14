@@ -3,10 +3,17 @@
 // is fetched by signing a challenge and kept until shortly before it expires.
 import { signChallenge } from "../core/crypto.js";
 
+// The server's answers that get a sentence of their own in the sync status.
+function describe(status, body) {
+  if (status === 429) return "Too many attempts. Try again later.";
+  if (status === 413 && body && body.detail === "storage quota exceeded") return "Sync storage is full.";
+  return body && body.detail ? `${status}: ${body.detail}` : `HTTP ${status}`;
+}
+
 /** A non-2xx answer: `status` and the parsed body (`detail`, maybe `version` / `seq`). */
 export class ApiError extends Error {
   constructor(status, body) {
-    super(body && body.detail ? `${status}: ${body.detail}` : `HTTP ${status}`);
+    super(describe(status, body));
     this.status = status;
     this.body = body || {};
   }
@@ -53,7 +60,7 @@ export function createApi(baseUrl, who) {
     createIdentity: (identityKey, entries) => call("POST", "/v1/identities", { identity_key: identityKey, entries }),
     getIdentity: id => call("GET", `/v1/identities/${id}`),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
-    listFiles: () => call("GET", "/v1/files", undefined, true).then(r => r.files),
+    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota }) => ({ files, quota })),   // each file with its `size`
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),

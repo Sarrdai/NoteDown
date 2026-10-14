@@ -1,8 +1,10 @@
 import os
 
+import psycopg
+
 from notedown_server.protocol import b64u
 
-from conftest import Identity, Keys, token
+from conftest import DATABASE_URL, Identity, Keys, token
 
 FILE = b64u(os.urandom(16))
 
@@ -16,6 +18,15 @@ def upload(client, headers, base, data=b"cipher", keys=None, file_id=FILE):
 
 def test_health(client):
     assert client.get("/health").json() == {"ok": True}
+    assert client.get("/health/live").json() == {"ok": True}
+
+
+def test_pool_replaces_connections_the_database_closed(client):
+    # Neon closes idle connections when it suspends; the next request must still work.
+    with psycopg.connect(DATABASE_URL, autocommit=True) as admin:
+        admin.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                      "WHERE datname = current_database() AND pid <> pg_backend_pid()")
+    assert client.get("/health").status_code == 200
 
 
 def test_identity_is_created_once_and_readable(client, setup):

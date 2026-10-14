@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
+  reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -26,10 +27,12 @@ export const DEFAULT_SETTINGS = {
 // base text }) of the private file; the device keys live in IndexedDB.
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
 // `recoveryKey`, `devices` (the other devices' names) and `contacts`.
+// `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
+// `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null,
-  recoveryKey: "", devices: [], contacts: [], offline: false, status: "synced", lastSync: null, error: "",
+  recoveryKey: "", devices: [], contacts: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
@@ -41,6 +44,8 @@ export const state = {
   settings: structuredClone(DEFAULT_SETTINGS),
   view: "open",              // open | closed
   search: "",
+  panelTab: "toc",           // sidebar / sheet tab: toc | people
+  circle: null,              // people filter (#23): null = all, else a circleKey ("" = private); not remembered
   editingId: null,
   topId: null,               // a new note stays on top until its first edit ends
   protectedIds: new Set(),   // ids protected from deletion: a setting of this device, not synced
@@ -54,8 +59,20 @@ function emit(kind) { listeners.forEach(fn => fn(kind)); }
 function read(key) {
   try { return localStorage.getItem(key); } catch { return null; }
 }
+let erased = false;
 function write(key, value) {
+  if (erased) return;
   try { localStorage.setItem(key, value); } catch { /* storage unavailable: keep in memory */ }
+}
+
+/** Removes everything NoteDown stored in localStorage (every `notedown.` key)
+ *  and stops writing for the rest of this page's life, so a late change can't
+ *  bring a key back before the page reloads (signing out). */
+export function eraseStoredState() {
+  erased = true;
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith("notedown.")) localStorage.removeItem(key);
+  } catch { /* storage unavailable: nothing stored */ }
 }
 
 /** Loads stored state; returns false when there is no stored file yet. */
@@ -74,6 +91,7 @@ export function load() {
     // Stored before real sync existed: the sample's simulated identity.
     if (sync.enabled && !sync.identity) sync.simulated = true;
     sync.status = sync.enabled && sync.offline ? "offline" : "synced";
+    sync.storageFull = false;
     state.sync = sync;
   } catch { /* keep defaults */ }
   try {
@@ -121,6 +139,28 @@ export function allNotes() {
 function holderOf(id) {
   if (state.file.notes.some(n => n.id === id)) return { members: [], file: state.file };
   return state.shared.find(s => s.file.notes.some(n => n.id === id)) || null;
+}
+
+/** The member ids of every shared file. */
+export function sharedCircles() {
+  return state.shared.map(s => [...s.members]);
+}
+
+/** Whether the people overview (#23) shows: sync on and at least one contact. */
+export function hasPeople() {
+  return state.sync.enabled && state.sync.contacts.length > 0;
+}
+
+/** The people filter in effect: null (all) when the overview isn't shown. */
+export function activeCircle() {
+  return hasPeople() ? state.circle : null;
+}
+
+/** The notes of one circle (circleKey, "" = private); every note for null. */
+export function circleNotes(key) {
+  if (key === null) return allNotes();
+  if (key === "") return state.file.notes;
+  return state.shared.find(s => circleKey(s.members) === key)?.file.notes || [];
 }
 
 /** The member ids of the circle a note lives in ([] = private). */
@@ -175,6 +215,40 @@ export function note(id) {
   return allNotes().find(n => n.id === id);
 }
 
+/** The user's custom order (backlog #24): note ids, kept in the private
+ *  file (synced, but only the user's devices see it). */
+export function customOrder() {
+  return state.file.order?.ids || [];
+}
+
+/** Sets the custom order, without ids of notes that are gone; returns a
+ *  function that undoes it. */
+export function setCustomOrder(ids) {
+  const before = state.file.order || null;
+  const known = new Set(allNotes().map(n => n.id));
+  state.file.order = { ids: ids.filter(id => known.has(id)), modified: timestamp() };
+  saveFiles();
+  emit("structure");
+  return () => { state.file.order = before; saveFiles(); emit("structure"); };
+}
+
+/** The shared order of a circle (backlog #25): note ids, kept in that
+ *  circle's file, so every member sees and edits the same order. */
+export function circleOrder(key) {
+  return state.shared.find(s => circleKey(s.members) === key)?.file.order?.ids || [];
+}
+
+/** Sets a circle's shared order; returns a function that undoes it. */
+export function setCircleOrder(key, ids) {
+  const file = fileFor(key.split("+"));
+  const before = file.order || null;
+  const known = new Set(file.notes.map(n => n.id));
+  file.order = { ids: ids.filter(id => known.has(id)), modified: timestamp() };
+  saveFiles();
+  emit("structure");
+  return () => { file.order = before; saveFiles(); emit("structure"); };
+}
+
 export const isProtected = id => state.protectedIds.has(id);
 
 /** Protects notes from deletion on this device, or removes that (`on` false);
@@ -210,10 +284,11 @@ export function setDue(id, due) {
   emit("note:" + id);
 }
 
-/** A new note always starts in the private file. */
-export function addNote(body) {
+/** A new note starts in the private file, or in the file of `memberIds`
+ *  (the circle the list is filtered to, #23), created on first use. */
+export function addNote(body, memberIds = []) {
   const n = createNote(body, timestamp());
-  state.file.notes.unshift(n);
+  fileFor(memberIds).notes.unshift(n);
   saveFiles();
   return n;
 }

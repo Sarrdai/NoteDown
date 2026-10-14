@@ -225,7 +225,49 @@ test("file: decrypts the Python ciphertext, round trips, fresh nonce each time",
   assert.notEqual(fromB64u(a).subarray(0, 12).join(), fromB64u(b).subarray(0, 12).join());
   assert.equal(await decryptFile(key, a), vectors.file.text);
   assert.equal(await decryptFile(key, await encryptFile(key, "")), "");
-  assert.equal(fromB64u(a).length, 12 + new TextEncoder().encode(vectors.file.text).length + 16);
+  assert.equal(fromB64u(a).length, 12 + 4096 + 16);
+  assert.equal(fromB64u(vectors.file.ciphertext).length, 12 + 4096 + 16);
+});
+
+test("file: an unpadded ciphertext from before padding still decrypts", async () => {
+  const key = hex(vectors.legacy_file.key);
+  const legacy = fromB64u(vectors.legacy_file.ciphertext);
+  assert.equal(legacy.length, 12 + new TextEncoder().encode(vectors.legacy_file.text).length + 16);
+  assert.equal(await decryptFile(key, vectors.legacy_file.ciphertext), vectors.legacy_file.text);
+});
+
+// The AES-GCM plaintext of an encryptFile result, to look at the padding itself.
+async function plaintextOf(key, ciphertext) {
+  const raw = fromB64u(ciphertext);
+  const aes = await globalThis.crypto.subtle.importKey("raw", key, "AES-GCM", false, ["decrypt"]);
+  return new Uint8Array(await globalThis.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: raw.subarray(0, 12) }, aes, raw.subarray(12)));
+}
+
+test("file: padding is 0x80 then zeros up to the next multiple of 4096 bytes", async () => {
+  const key = generateFileKey();
+  const cases = [
+    ["", 4096], ["a", 4096], ["a".repeat(4094), 4096], ["a".repeat(4095), 4096],
+    ["a".repeat(4096), 8192], ["a".repeat(8191), 8192], ["a".repeat(8192), 12288],
+  ];
+  for (const [text, size] of cases) {
+    const ciphertext = await encryptFile(key, text);
+    const plain = await plaintextOf(key, ciphertext);
+    assert.equal(fromB64u(ciphertext).length, 12 + size + 16, `${text.length} bytes`);
+    assert.equal(plain.length, size);
+    const used = new TextEncoder().encode(text).length;
+    assert.equal(plain[used], 0x80);
+    assert.ok(plain.subarray(used + 1).every(b => b === 0));
+    assert.equal(await decryptFile(key, ciphertext), text);
+  }
+});
+
+test("file: texts ending in a multi-byte character or in a 0x80 byte round trip", async () => {
+  const key = generateFileKey();
+  // " " is E2 80 80: it ends in the marker byte itself.
+  for (const text of ["Zoë\n", "ends in an emoji \u{1f600}", "ends in 0x80  ", "a".repeat(4094) + "ä", " ".repeat(1366)]) {
+    assert.equal(await decryptFile(key, await encryptFile(key, text)), text);
+  }
 });
 
 test("file: wrong key or changed data is rejected", async () => {

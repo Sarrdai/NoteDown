@@ -7,13 +7,13 @@
 // only simulated for the sample (`state.sync.simulated`), where "Simulate
 // scan" stands in for the camera (docs/sync-and-sharing.md → "Identity and
 // devices", "Contacts").
-import { state, subscribe, setSync, replaceFiles } from "../store.js";
+import { state, subscribe, setSync, replaceFiles, eraseStoredState } from "../store.js";
 import { syncNow } from "../sync-sim.js";
 import {
-  syncNow as syncReal, turnOn, restore, removeDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
+  syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
-import { deviceRows } from "../core/sync-state.js";
+import { deviceRows, storageUsage } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
@@ -28,6 +28,7 @@ const real = () => !state.sync.simulated;
 let stack = [];          // [{ page, data }]; the last entry is on screen
 let isOpen = false;
 let returnFocus = null;
+let shownUsage = null, shownFull = false;   // `state.sync.usage` / `storageFull` the overview was drawn with
 let leave = null;        // turns off what the page on screen started (camera)
 
 export function initSyncPanel() {
@@ -42,7 +43,12 @@ export function initSyncPanel() {
     if (stack.length > 1) { stack.pop(); render(); history.pushState({ syncPanel: true }, ""); }
     else close({ fromHistory: true });
   });
-  subscribe(kind => { if (kind === "sync") updateStatus(); });
+  subscribe(kind => {
+    if (kind !== "sync") return;
+    updateStatus();
+    // The first round after opening brings the usage: show it without a reopen.
+    if (isOpen && top().page === "overview" && (state.sync.usage !== shownUsage || state.sync.storageFull !== shownFull)) render({ keepScroll: true });
+  });
   setInterval(updateStatus, 20000);
   loadSharingSample();   // warm the sample identity for the simulated scans
 }
@@ -202,6 +208,16 @@ function action(label, run, cls = "primary") {
     }
   });
   return { btn, error };
+}
+
+// After an erase the page restarts at the first start. `?sample` / `?sync=off`
+// would load the sample again, so they are dropped from the address.
+function restart() {
+  const url = new URL(location.href);
+  url.searchParams.delete("sample");
+  url.searchParams.delete("sync");
+  if (url.href === location.href) location.reload();
+  else location.replace(url);
 }
 
 function deviceName() {
@@ -449,7 +465,54 @@ const PAGES = {
       ];
     },
   },
+
+  signOut: {
+    title: "Sign out this device",
+    render: data => {
+      // Signing out can fail (offline, server): then erasing alone is offered.
+      const forced = action("Erase without signing out", async () => {
+        await eraseDevice();
+        restart();
+      }, "outline danger");
+      const fallback = h("div", { class: "sheet-actions", hidden: true },
+        text("Changes not synced yet are lost, and this device stays on your device list until you remove it from another device."),
+        forced.btn, forced.error);
+      const { btn, error } = action("Sign out and erase", async () => {
+        if (real()) {
+          try { await signOut(); } catch (e) { fallback.hidden = false; throw e; }
+        } else eraseStoredState();
+        restart();
+      }, "primary danger");
+      const rest = data.others === false
+        ? " Your notes stay on the server, encrypted; you get them back on any device with your recovery key."
+        : data.others ? " Your notes stay on your other devices." : "";
+      return [
+        text("This device is taken off your device list, and all notes, settings and keys NoteDown keeps on it are erased." + rest),
+        h("div", { class: "sheet-actions" }, btn, button("Cancel", "", back)),
+        error,
+        fallback,
+      ];
+    },
+  },
 };
+
+// The Storage section: used share of the server quota, hidden while unknown.
+function storageSection() {
+  const { usage } = state.sync;
+  shownUsage = usage;
+  shownFull = state.sync.storageFull;
+  if (!usage) return null;
+  const u = storageUsage(usage, shownFull);
+  return [
+    section("Storage"),
+    h("div", {
+      class: "storage-bar", role: "progressbar", "aria-label": "Sync storage used", "data-level": u.level,
+      "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(u.percent), "aria-valuetext": u.text,
+    }, h("div", { class: "storage-fill", style: `width: ${u.percent}%` })),
+    text(u.text, "sheet-text storage-text"),
+    u.level === "full" && text("Sync storage is full. Delete notes you no longer need (archived ones count too) to sync again.", "field-error"),
+  ];
+}
 
 // Real sync: this identity's devices (loaded from the server) and, until
 // sharing is built, a note instead of the contacts.
@@ -470,9 +533,12 @@ function realOverview(data) {
         })))
       : text(data.failed ? `Couldn't load the devices: ${data.failed}` : "Loading…", "sheet-text muted"),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
+    h("div", { class: "button-row" }, button("Sign out this device", "outline danger",
+      () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
     section("Contacts"),
     text("Sharing notes with contacts comes in the next step.", "sheet-text muted"),
-  ];
+    storageSection(),
+  ].flat();
 }
 
 // The sample: simulated devices and contacts.
@@ -484,6 +550,7 @@ function simulatedOverview() {
       row({ icon: "device", title: "This device", sub: deviceName() }),
       devices.map((name, i) => row({ icon: "device", title: name, remove: () => removeFromList("devices", i, name) }))),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
+    h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
 
     section("Contacts"),
     contacts.length
@@ -493,7 +560,8 @@ function simulatedOverview() {
     h("div", { class: "button-row" },
       button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
       button("My code", "outline", () => go("myCode"))),
-  ];
+    storageSection(),
+  ].flat();
 }
 
 // Linking a device from this one (both modes) and the pages only the sample reaches: contacts.

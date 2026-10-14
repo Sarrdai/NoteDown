@@ -5,8 +5,8 @@
 // date falls on today — "due today", "overdue" and the archive count stay
 // meaningful whenever the prototype is opened.
 import { today, addDays } from "./ui/format.js";
-import { parseNotesFile } from "./core/notes-file.js";
-import { splitIntoCircles, generateRecoveryKey, nextColor } from "./core/sharing.js";
+import { parseNotesFile, timestamp } from "./core/notes-file.js";
+import { splitIntoCircles, generateRecoveryKey, nextColor, circleKey } from "./core/sharing.js";
 
 export async function loadSample() {
   const text = await (await fetch(new URL("../sample/notes.md", import.meta.url))).text();
@@ -35,12 +35,16 @@ export async function loadSampleState({ sync = true } = {}) {
   if (!sync) return { file, shared: [], sync: { simulated: true } };
   const s = await loadSharingSample();
   const split = splitIntoCircles(file, s.shared);
+  // A shared order a member set (backlog #25), simulated until milestone 2.
+  for (const g of s.shared.filter(g => g.order)) {
+    split.shared.find(c => circleKey(c.members) === circleKey(g.members)).file.order = { ids: [...g.order], modified: timestamp() };
+  }
   return {
     file: split.file,
     shared: split.shared,
     sync: {
       enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
-      devices: [...s.devices], contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
+      devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
       offline: false, status: "synced", lastSync: Date.now(),
     },
   };

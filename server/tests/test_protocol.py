@@ -31,7 +31,8 @@ def test_chain_tracks_added_and_removed_devices():
     lambda e: e.update(seq=5),
     lambda e: e.update(prev="x"),
     lambda e: e["device"].update(kind="tablet"),
-    lambda e: e.update(sig=e["sig"][:-2] + "AA"),
+    # The first character: all its bits count (the last one carries ignored padding bits).
+    lambda e: e.update(sig=("B" if e["sig"][0] == "A" else "A") + e["sig"][1:]),
     lambda e: e.update(seq=1.0),
     lambda e: e.update(signer=["identity"]),
     lambda e: e["device"].update(kind=["device"]),

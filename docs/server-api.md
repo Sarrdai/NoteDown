@@ -50,7 +50,12 @@ in HPKE, RFC 9180): `b64u(ephemeral X25519 public key ‖ nonce ‖
 AES-GCM(wrap key, file key))`, where the wrap key is HKDF-SHA256 over
 the X25519 shared secret with an empty salt and info `notedown-wrap` ‖
 ephemeral public key ‖ recipient public key, and the nonce has 12 bytes. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
-the UTF-8 Markdown file, a fresh nonce per upload.
+the padded UTF-8 Markdown file, a fresh nonce per upload. Padding
+(ISO/IEC 7816-4 style, so the server sees sizes only in 4 KiB steps):
+one `0x80` byte, then `0x00` bytes up to the next multiple of 4096 bytes
+(a plaintext that already is a multiple gets a full extra block);
+decrypting strips trailing `0x00`s and then one `0x80`. Files uploaded
+before padding existed have no `0x80` marker and are read as they are.
 
 ## Device list
 
@@ -95,10 +100,11 @@ No accounts and no passwords: a device signs a challenge.
 | Method and path | Auth | Request → response |
 |---|---|---|
 | `GET /health` | — | → `{"ok": true}` when the database answers |
+| `GET /health/live` | — | → `{"ok": true}` without touching the database (the uptime check, so Neon can sleep) |
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
 | `GET /v1/identities/{id}` | — | → `{"identity_key", "entries"}` |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated"}]}` of the identity |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size"}], "quota"}` of the identity; `size` is the decoded ciphertext in bytes, `quota` the storage limit per identity (so the app can show the usage) |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
@@ -135,16 +141,28 @@ No accounts and no passwords: a device signs a challenge.
   device, wrap the file keys for it.
 - Errors are `{"detail": "<message>"}` with 400 (malformed), 401 (no or
   invalid token), 403 (not allowed), 404, 409 (conflict), 413 (too
-  large).
+  large, or the storage quota is used up), 429 (rate limit; the
+  `Retry-After` header gives the seconds until the window ends).
 
 ## Limits
 
 | What | Limit |
 |---|---|
-| File size (decoded ciphertext) | 5 MB |
+| Storage per identity (decoded ciphertext of all its files) | 2 MB |
 | Files per identity | 50 |
 | Devices on a list (active) | 20 |
 | Relay payload | 8 KB |
+| `POST /v1/identities` | 10 per day per IP address |
+| `POST /v1/relay` | 30 per hour per IP address |
 
-Rate limits per IP address (`docs/sync-and-sharing.md` → "Server") are
-not built yet (`FEATURE_BACKLOG.md`).
+The storage quota is checked on `PUT /v1/files/{id}` (the replaced
+file's old size doesn't count) and answers 413 `storage quota exceeded`;
+it is one constant for now, to be raised later as a paid option.
+
+The rate limits count per client IP in fixed windows (counters in
+Postgres, shared by all server instances); IPv6 addresses count per /64
+prefix. The client IP is the last entry of `X-Forwarded-For`, which
+Cloud Run's front end appends (earlier entries come from the client and
+can be forged), or the socket peer without that header. Authenticated
+calls and reads are not limited. The environment variable
+`RATE_LIMITS=off` disables the limits (tests, the local end-to-end run).

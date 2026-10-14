@@ -9,6 +9,7 @@
   - [Main view and archive](#main-view-and-archive)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
+  - [People circles as a filter](#people-circles-as-a-filter)
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
@@ -85,11 +86,24 @@ before the first live test).
 
 - **Sync across devices** through NoteDown's own server, so notes written
   on the phone show up in the web app on the desktop. It runs
-  automatically (after changes, on opening, on reconnect) with a status
-  indicator.
+  automatically (after changes, on opening, on reconnect, and while
+  open every 5 s, slowing to 30 s while nothing changes — backlog #21,
+  to stay within the free tiers) with a status indicator.
 - **End-to-end encrypted:** the server stores only encrypted files and
   never holds a key that decrypts them — notes are private by default,
-  even from whoever runs the server.
+  even from whoever runs the server. Files are padded to 4 KiB steps
+  before encryption, so the server doesn't learn their exact size
+  either (backlog #17).
+- **Abuse protection without accounts** (backlog #8): the default server
+  keeps at most **2 MB** of encrypted files per identity — thousands of
+  notes; the user wants to raise it later as a paid option — and limits
+  per IP address how often identities and linking slots are created
+  (`docs/server-api.md` → "Limits"). Sync & sharing ends with a
+  **Storage** bar ("0.4 MB of 2 MB used"; warning color from 80 %, red
+  at 100 % with how to free space — archived notes count too), so the
+  user sees the quota coming (user request 2026-10-14); hitting a limit
+  also shows in the sync status ("Sync storage is full.", "Too many
+  attempts. Try again later."). *Prototype: 2026-10-14.*
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one
@@ -110,6 +124,15 @@ before the first live test).
   keys of every file it could read, so it can't read anything changed
   afterwards — without a new recovery key and without bothering contacts
   (decided 2026-10-13 over only blocking it or a new identity).
+- **Signing out this device** (backlog #15): Sync & sharing → "Sign out
+  this device" takes the device off the device list by itself and erases
+  everything NoteDown keeps on it (notes, settings, keys); the app then
+  starts fresh — for a public or borrowed computer. It syncs first; if
+  that fails (offline), "Erase without signing out" erases anyway, with
+  the warning that unsynced changes are lost and the device stays listed
+  until another one removes it. No new file key: a device that erases
+  itself needs none, and one that may have been copied is removed from
+  another device, which renews it. *Prototype: 2026-10-14.*
 - The server is built to scale to many users (stateless API, database,
   later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
@@ -209,8 +232,21 @@ before the first live test).
   accent-colored when due today. In the archive the due date is shown
   without warning colors. *Prototype: round 1 (display only; setting it
   comes with the editor toolbar, round 2).*
-- Reminders / notifications for due dates are not part of the scope yet
-  (backlog #1).
+- **Reminders for due dates** (backlog #1): on a note's due day, at one
+  time of day for all notes (default 09:00), one notification lists the
+  open notes due that day ("2 notes due today" and their titles); tapping
+  it shows the main list, unfiltered, with those notes highlighted. Closed
+  notes and notes without a due date never remind; no per-note times.
+  Off until turned on under ⋮ → "Reminders…" (a dialog with a switch and
+  the time), which is when the platform asks for notification permission.
+  A **setting of this device**, not synced, since the permission is per
+  device. The Android app schedules local notifications on the device, so
+  they come while the app is closed; the web app reminds only while it is
+  open — the browser can't wake a closed web app without server push —
+  and the dialog says so. *Prototype: 2026-10-14 (⋮ → Prototype →
+  "Simulate reminder" shows the notification).* Why a dialog in ⋮: it is
+  a device-wide setting that needs its one line of explanation; offered
+  only in the due-date menu it would read as per note.
 
 ### Sorting and search
 
@@ -220,6 +256,30 @@ before the first live test).
   last edited, newest first; in the archive closed, newest first.
   Notes without the sort value (no due date) always come last. The choice
   is remembered per view. *Prototype: round 1.*
+- **Custom** (backlog #24) is one more sort option, in the main view and
+  the archive: the user's own order. Notes start **not sorted yet**; the
+  sort menu's **Arrange…** (and the same link on the list's divider)
+  opens a dialog like the merge order dialog, where notes move above a
+  line by drag (or arrow keys) or with + / −, and are ordered there. The
+  list shows the sorted notes first, then a thin divider "Not sorted
+  yet" and the rest by last edited (decided 2026-10-14: new notes always
+  land there, so nothing reshuffles the arranged part). A custom order has
+  no direction. The dialog arranges what the list shows (circle filter
+  and search applied); other notes keep their places in the order. Save
+  offers Undo. There is one custom order only (several named orders go
+  too far for now). It is **synced but private**: one marker in the
+  private file lists the note ids (`docs/file-format.md`), so shared notes
+  can be ordered too without the other members seeing it; when two devices
+  changed it, the newer list wins. *Prototype: 2026-10-14.*
+- **Shared order** (backlog #25): in the view of a circle with people
+  ("People circles as a filter") the sort menu also offers "Shared
+  order" — an order of that circle's notes kept in the circle's own file,
+  so every member sees and edits the same one; any member may set it,
+  none has to. It works like Custom (Arrange…, "Not sorted yet", Undo; the
+  dialog says who sees it) and merges the same way, the newer list
+  winning. Outside a circle's view a view set to it shows the user's own
+  Custom order. *Prototype: 2026-10-14, simulated on the sample's shared
+  files (Lea's circle carries one); milestone 2 builds shared files.*
 - **Protected first** (a switch in the sort menu, remembered per view,
   off by default) shows protected notes first, then the others, each group in
   the chosen order. It only orders the notes in the list; the table of
@@ -249,6 +309,31 @@ before the first live test).
   button — within thumb reach, and the list stays visible above it
   (decided 2026-10-13 over a side drawer). Tablet and desktop show it as
   a fixed sidebar.
+
+### People circles as a filter
+
+- Next to the table of contents a **People** overview lists the circles
+  the user shares with (backlog #23): **All notes** and **Private** on
+  top, then every contact A–Z — each entry is only the circle of that one
+  person, also a contact nothing is shared with yet — then every group
+  (a circle of several, named by its members, A–Z). Each entry shows how
+  many of its notes the current view holds. *Prototype: 2026-10-14.*
+- Picking an entry **filters the list** to that circle's notes; archive,
+  search and sort apply on top, and the table of contents follows. The
+  active filter shows as a **chip with ×** above the list, which clears
+  it; the filter is not remembered across starts (it starts at All).
+- **+** (and dictation) in a filtered list creates the note **in that
+  circle** — for a contact without shared notes this starts the circle
+  (each circle is one file, `docs/sync-and-sharing.md`). Without a
+  filter, or under Private, a new note is private.
+- A **long-press** (desktop: right-click) on a contact lists the groups
+  they are in, to jump to one.
+- Placement: **tabs "Contents | People"** at the top of the sidebar
+  (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
+  over a second section below the contents (both lists get cramped) and a
+  separate phone sheet (one more top-bar icon on a full bar). The tabs
+  only show while sync is on and there are contacts; until milestone 2
+  that is the sample (`?sample`).
 
 ### Creating and editing
 
@@ -391,6 +476,13 @@ before the first live test).
   Latte, dark = Mocha) by default; all four flavors (Latte, Frappé,
   Macchiato, Mocha) can be chosen. Accent color: Mauve. *Prototype:
   round 1, under ⋮.*
+- **App icon** (backlog #12, decided 2026-10-14 over an "N" with a down
+  arrow and the round done button alone): a note card with the round
+  done button on Mauve — it says "notes" and echoes the app's own cards.
+  Android shows it as an adaptive icon (with a one-color layer for themed
+  icons), the web app as favicon and in its manifest. The Android splash
+  screen shows it on the Catppuccin base color: Latte in light, Mocha in
+  dark system mode.
 - App labels are English for now; a German translation can follow.
 - Notes are shown as **separate cards** (decided 2026-10-13 over one
   continuous page): each note's boundary is clear for tapping into it and

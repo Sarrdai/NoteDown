@@ -119,6 +119,14 @@ rely on the operating system's own storage encryption for the local copy.
   recovery key nor the contacts change. (Decided over only blocking the
   device, which leaves it able to decrypt later copies, and over a new
   identity, which needs a new recovery key and warns every contact.)
+- **Signing out a device** (⋮ → Sync & sharing → "Sign out this device",
+  e.g. after using a public PC) syncs once, takes the device itself off
+  the device list and erases everything NoteDown stored on it: notes,
+  settings, sync state and keys. The file key is **not** renewed — a
+  device that erases itself needs no lock-out; one that may have been
+  copied is removed from another device instead, which renews. If
+  signing out fails (offline), "Erase without signing out" erases
+  alone; the device then stays listed until another one removes it.
 - **Restoring:** the recovery key counts as one more device — file keys
   are always wrapped for it too — so entering it on a new device brings
   everything back, the only way when no linked device is left. All
@@ -171,8 +179,10 @@ rely on the operating system's own storage encryption for the local copy.
   merges and uploads again.
 - Sync runs **automatically**: shortly after a change, when the app opens,
   comes back to the foreground or gets the focus, when it reconnects, and
-  every 5 s while it is visible, so a change from another device shows up
-  within seconds; and on request (opening Sync & sharing, pull to
+  every 5 s while it is visible — growing to 30 s while nothing changes
+  and back to 5 s on any change, focus or request, to spare the free tiers
+  — so a change from another device shows up within seconds to half a
+  minute; and on request (opening Sync & sharing, pull to
   refresh). The server has no push: long polling would arrive in about a
   second but keeps a Cloud Run instance billed while any app is open, far
   beyond the free tier (decided 2026-10-13). While a note is being
@@ -209,8 +219,8 @@ devices don't keep re-uploading the same notes in each other's order.
   list), files (ciphertext + version, file keys wrapped per device) and
   which identities may access which file, and short-lived relay slots
   for linking devices and contacts.
-- Sees, unavoidably: which anonymous identities share files, file sizes,
-  times of change and IP addresses — no names, emails or contents.
+- Sees, unavoidably: which anonymous identities share files, file sizes
+  (in 4 KiB steps), times of change and IP addresses — no names, emails or contents.
 - **Abuse protection** without accounts: a storage quota per identity
   and rate limits per IP address; payment, if it comes, can stay
   anonymous (an account number instead of an email).
@@ -220,7 +230,9 @@ devices don't keep re-uploading the same notes in each other's order.
   identities and access; for the test phase Postgres holds the encrypted
   files too, an object store follows when size calls for it (`PROJECT.md`
   → "Technology direction"). The protocol byte for byte is
-  `docs/server-api.md`; rate limits per IP are not built yet (backlog).
+  `docs/server-api.md`. Built: 2 MB of storage per identity (the app shows
+  how much is used, from the file list every sync round fetches), and per-IP
+  limits on creating identities (10 per day) and relay slots (30 per hour).
 
 ## Open points
 

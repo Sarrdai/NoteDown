@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf } from "./store.js";
+import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -10,12 +10,16 @@ import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sy
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { renderList, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, initToc, setTocOpen } from "./ui/toc.js";
+import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
+import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
+import { initArrange, openArrange } from "./ui/arrange.js";
+import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
 
@@ -24,15 +28,31 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
-const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc" };
+const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
 const DIR_LABELS = {
   title: ["A–Z", "Z–A"],
   due: ["Soonest first", "Latest first"],
   default: ["Oldest first", "Newest first"],
 };
 
+const phone = window.matchMedia("(max-width: 599px)");
+
+// "Shared order" (#25) exists only in the view of a circle with people;
+// elsewhere a view set to it shows the user's own custom order.
+const sharedCircle = () => activeCircle() || null;
+function sortOf() {
+  const sort = state.settings.sort[state.view];
+  return SORT_KEYS[sort.key].circleOnly && !sharedCircle() ? { key: "custom", dir: "asc" } : sort;
+}
+const orderIds = () => sortOf().key === "shared" ? circleOrder(sharedCircle()) : customOrder();
+const inView = notes => viewNotes(notes, { status: state.view, search: state.search, sort: sortOf(), order: orderIds() });
+const isCustom = () => !!SORT_KEYS[sortOf().key].custom;
+
+// The members a new note goes to: those of the circle the list is filtered to.
+const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
+
 function currentNotes() {
-  const notes = viewNotes(allNotes(), { status: state.view, search: state.search, sort: state.settings.sort[state.view] });
+  const notes = inView(circleNotes(activeCircle()));
   const i = notes.findIndex(n => n.id === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
   return notes;
@@ -63,7 +83,7 @@ function render() {
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
-  const sort = s.sort[state.view];
+  const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
   const count = closedOn(allNotes(), today());
@@ -73,15 +93,46 @@ function render() {
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
 
   renderSyncStatus();
+  renderCircleFilter();
   const notes = currentNotes();
   // "Protected first" orders only the tiles; the contents keep the sort order.
-  renderList(s.protectedFirst[state.view] ? protectedFirst(notes, isProtected) : notes);
+  const onTop = s.protectedFirst[state.view];
+  const tiles = onTop ? protectedFirst(notes, isProtected) : notes;
+  // Custom order: a divider above the first note not sorted yet (protected
+  // ones stay on top with "Protected first").
+  const sorted = new Set(orderIds());
+  const unsorted = isCustom() ? tiles.find(n => !sorted.has(n.id) && !(onTop && isProtected(n.id)) && n.id !== state.topId) : null;
+  renderList(tiles, { dividerBefore: unsorted?.id ?? null, onArrange: arrange });
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
   empty.hidden = notes.length > 0;
+  const circle = activeCircle();
   empty.textContent = state.search ? `No notes match “${state.search}”.`
+    : circle && state.view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
+    : circle === "" && state.view === "open" ? "No private notes. Tap + to add one."
     : state.view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
+}
+
+// The people overview and the chip of the active filter above the list.
+function renderCircleFilter() {
+  const people = hasPeople();
+  app.classList.toggle("has-people", people);
+  app.dataset.tab = people ? state.panelTab : "toc";
+  for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
+  if (people) renderPeople(key => inView(circleNotes(key)).length);
+  const circle = activeCircle();
+  $("filterBar").hidden = circle === null;
+  if (circle === null) return;
+  const members = circle ? circle.split("+") : [];
+  const lead = !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
+  $("filterChipLabel").innerHTML = lead + `<span></span>`;
+  $("filterChipLabel").lastChild.textContent = circleName(circle);
+}
+
+function openPanel(tab) {
+  setUi({ panelTab: tab });
+  setTocOpen(true);
 }
 
 subscribe(kind => {
@@ -107,7 +158,7 @@ function newNote() {
   endSelection();
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote("## ");
+  const n = addNote("## ", newNoteMembers());
   state.topId = n.id;
   render();
   window.scrollTo(0, 0);
@@ -118,7 +169,7 @@ function newNote() {
 function addDictatedNote(text) {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote(text);
+  const n = addNote(text, newNoteMembers());
   state.topId = n.id;
   render();
   window.scrollTo(0, 0);
@@ -136,9 +187,25 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
+// The arrange dialog over the notes the list shows: the user's own custom
+// order, or the shared order of the circle in view.
+function arrange() {
+  const shown = inView(circleNotes(activeCircle()));
+  const key = sortOf().key === "shared" ? sharedCircle() : null;
+  const { sorted, unsorted } = customSplit(shown, orderIds());
+  const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
+  openArrange(key ? {
+    title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
+    save: ids => showSnackbar("Shared order saved", setCircleOrder(key, next(ids))),
+  } : {
+    sorted, unsorted,
+    save: ids => showSnackbar("Order saved", setCustomOrder(next(ids))),
+  });
+}
+
 function sortMenu() {
-  const sort = state.settings.sort[state.view];
-  const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.archiveOnly || state.view === "closed");
+  const sort = sortOf();
+  const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.archiveOnly || state.view === "closed") && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
   const onTop = state.settings.protectedFirst[state.view];
@@ -146,8 +213,11 @@ function sortMenu() {
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
-    { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
-    { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
+    // A custom order has no direction; it is arranged instead.
+    ...(SORT_KEYS[sort.key].custom ? [{ label: "Arrange…", onSelect: arrange }] : [
+      { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
+      { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
+    ]),
     { separator: true },
     { label: "Protected first", checked: onTop, onSelect: () => updateSettings({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
   ]);
@@ -193,13 +263,26 @@ function moreMenu() {
     archive && { label: "Empty archive…", disabled: !deletable, onSelect: emptyArchive },
     archive && { separator: true },
     { label: "Sync & sharing…", onSelect: openSyncPanel },
+    { label: "Reminders…", onSelect: openReminderDialog },
     { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
+    { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
+}
+
+// A tapped reminder shows its notes: the open notes, unfiltered, the first one scrolled into view.
+function showDue(ids) {
+  endSelection();
+  if (state.view !== "open") setView("open");
+  setUi({ search: "", circle: null });
+  app.classList.remove("searching");
+  const first = document.querySelector(`.note[data-id="${ids[0]}"]`);
+  first?.scrollIntoView({ block: "center" });
+  ids.forEach(flashNote);
 }
 
 function download() {
@@ -211,7 +294,7 @@ function download() {
 }
 
 function wire() {
-  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["tocBtn", "toc"], ["selToc", "toc"], ["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -222,6 +305,10 @@ function wire() {
   // One button switches between the notes and the archive, in the same place.
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", sortMenu);
+  $("tocBtn").addEventListener("click", () => openPanel("toc"));
+  $("selToc").addEventListener("click", () => openPanel("toc"));
+  $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
+  $("filterClear").addEventListener("click", () => pickCircle(null));
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
   $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
@@ -242,8 +329,11 @@ function wire() {
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
   initToc();
+  // Picking a circle on the phone closes the sheet; the chip above the list shows it.
+  initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); } });
   initMenu();
   initConfirm();
+  initArrange();
   initToolbar();
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
@@ -291,6 +381,8 @@ async function start() {
   initSyncSim();
   initSync(readApi() || (await loadConfig()).api);
   render();
+  // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
+  initReminders({ open: showDue });
   document.body.dataset.ready = "1";
 }
 

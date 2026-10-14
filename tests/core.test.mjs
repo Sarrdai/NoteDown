@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask } from "../app/js/core/markdown.js";
-import { viewNotes, sortNotes, tableOfContents, closedOn, protectedFirst, deleteGroups } from "../app/js/core/query.js";
+import { viewNotes, sortNotes, customSplit, rearrange, tableOfContents, closedOn, protectedFirst, deleteGroups } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -85,4 +85,30 @@ test("query: delete groups keep protected notes and split shared ones", () => {
   const notes = ["a", "b", "c", "d"].map(id => n(id));
   const g = deleteGroups(notes, { isProtected: id => id === "b" || id === "d", isShared: id => id === "c" || id === "d" });
   assert.deepEqual([g.kept, g.private, g.shared].map(xs => xs.map(x => x.id)), [["b", "d"], ["a"], ["c"]]);
+});
+
+test("custom order: listed notes in list order, the rest by last edited, newest first", () => {
+  const notes = parseNotesFile(sample).notes.filter(n => n.status === "open");
+  const [a, b, c] = notes.map(n => n.id);
+  const { sorted, unsorted } = customSplit(notes, [c, "gone", a]);
+  assert.deepEqual(sorted.map(n => n.id), [c, a]);
+  assert.equal(unsorted.length, notes.length - 2);
+  assert.ok(unsorted.every((n, i) => !i || unsorted[i - 1].modified >= n.modified));
+  const view = viewNotes(notes, { status: "open", sort: { key: "custom", dir: "asc" }, order: [b] });
+  assert.equal(view[0].id, b);
+});
+
+test("rearrange: shown notes refill their old places, new ones go last, hidden ones stay", () => {
+  assert.deepEqual(rearrange(["a", "x", "b", "y"], ["a", "b", "c"], ["c", "a", "b"]), ["c", "x", "a", "y", "b"]);
+  assert.deepEqual(rearrange(["a", "x", "b"], ["a", "b"], ["b"]), ["b", "x"]);
+  assert.deepEqual(rearrange([], ["a"], ["a"]), ["a"]);
+});
+
+test("file format: an order marker round-trips; without ids it is an empty order", () => {
+  const file = parseNotesFile(sample);
+  const text = serializeNotesFile({ ...file, order: { ids: ["s02", "s01"], modified: "2026-10-14T09:00Z" } });
+  assert.match(text, /<!-- order modified=2026-10-14T09:00Z ids=s02,s01 -->\n$/);
+  assert.deepEqual(parseNotesFile(text).order, { ids: ["s02", "s01"], modified: "2026-10-14T09:00Z" });
+  assert.deepEqual(parseNotesFile(serializeNotesFile({ notes: [], order: { ids: [], modified: "2026-10-14T09:00Z" } })).order, { ids: [], modified: "2026-10-14T09:00Z" });
+  assert.equal(parseNotesFile(sample).order, null);
 });

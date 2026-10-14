@@ -35,6 +35,7 @@
   --accent-soft: color-mix(in srgb, var(--ctp-mauve) 16%, transparent);
   --danger: var(--ctp-red);
   --danger-soft: color-mix(in srgb, var(--ctp-red) 14%, transparent);
+  --warning: var(--ctp-peach);
   --done: var(--ctp-green);
   --link: var(--ctp-blue);
   --code-bg: var(--ctp-surface0);
@@ -374,6 +375,16 @@ button { font: inherit; color: inherit; }
 .order-grip:focus-visible { outline: 2px solid var(--accent); }
 .order-item.dragging .order-grip { cursor: grabbing; color: var(--accent); }
 .order-item:only-child .order-grip { visibility: hidden; } /* one part: nothing to order */
+/* The custom order's arrange dialog (#24): sorted rows, a line, unsorted rows. */
+.arrange-toggle { flex: none; margin-right: -4px; color: var(--text-muted); }
+.order-item.unsorted { counter-increment: none; }
+.order-item.unsorted::before { display: none; }
+.order-item.unsorted .order-text { color: var(--text-muted); }
+.arrange-line {
+  display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
+}
+.arrange-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 /* Merge across circles: private copy or shared with everyone involved. */
 .merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .choice {
@@ -404,6 +415,44 @@ button { font: inherit; color: inherit; }
 .btn.primary.danger { background: var(--danger); color: var(--on-accent); }
 .btn.primary.danger:hover { background: color-mix(in srgb, var(--danger) 88%, var(--text)); }
 .btn.primary.danger:disabled:hover { background: var(--danger); }
+
+/* Reminders (#1): the settings dialog and the notification banner (ui/reminders.js). */
+.dialog.reminder { width: min(400px, 100%); }
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px;
+  padding: 4px 8px; border-radius: 10px; cursor: pointer;
+}
+.setting-row:hover { background: var(--surface-hover); }
+.setting-row.off { color: var(--text-faint); cursor: default; }
+.setting-row.off:hover { background: transparent; }
+.setting-label { font-weight: 600; }
+.setting-note { margin-top: 8px; }
+.switch {
+  appearance: none; flex: none; position: relative; width: 48px; height: 28px; margin: 0;
+  border-radius: 999px; background: var(--ctp-surface1); cursor: pointer; transition: background 0.15s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ctp-base); box-shadow: var(--shadow); transition: transform 0.15s;
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(20px); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.time-input {
+  flex: none; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: var(--text); font: inherit; color-scheme: light dark;
+}
+.time-input:disabled { color: var(--text-faint); }
+.notice {
+  position: fixed; z-index: 55; top: calc(8px + var(--safe-top)); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: flex-start; gap: 12px; width: min(420px, calc(100% - 16px)); padding: 12px 14px;
+  border-radius: 18px; background: var(--ctp-surface0); color: var(--text); box-shadow: var(--shadow-high); cursor: pointer;
+}
+.notice-icon { flex: none; width: 36px; height: 36px; border-radius: 10px; }
+.notice-text { flex: 1; min-width: 0; }
+.notice-app { font-size: 0.78rem; color: var(--text-muted); }
+.notice-title { font-weight: 700; }
+.notice-body { font-size: 0.9rem; color: var(--text-muted); white-space: pre-line; }
 
 /* ---------- Sync & sharing panel ---------- */
 /* Centered dialog on tablet and desktop, full-screen sheet on the phone. */
@@ -468,6 +517,11 @@ button { font: inherit; color: inherit; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .sync-status[data-status="syncing"] .sync-dot { animation: none; } }
 
+.storage-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.storage-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+.storage-bar[data-level="warn"] .storage-fill { background: var(--warning); }
+.storage-bar[data-level="full"] .storage-fill { background: var(--danger); }
+.storage-text { margin: -6px 0 0; }
 .sheet-card { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
 .sheet-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px 6px 14px; }
 .sheet-row + .sheet-row { border-top: 1px solid var(--border); }
@@ -615,6 +669,11 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .md pre code { background: none; padding: 0; }
 .md blockquote { margin: 0.5em 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--text-muted); }
 
+/* Custom order (#24): the line above the notes not sorted yet. */
+.unsorted-divider { display: flex; align-items: center; gap: 10px; margin: 6px 0 -2px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.unsorted-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); order: 1; }
+.unsorted-divider .link-btn { order: 2; border: 0; padding: 4px 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; letter-spacing: 0; text-transform: none; font-size: 0.85rem; cursor: pointer; }
+.unsorted-divider .link-btn:hover { background: var(--surface-hover); }
 .empty { max-width: 780px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-muted); }
 
 /* ---------- table of contents ---------- */
@@ -655,6 +714,53 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .toc-more { font-style: normal; font-size: 0.75rem; font-weight: 650; color: var(--accent); }
 .toc-empty { padding: 12px 10px; color: var(--text-faint); font-size: 0.9rem; }
 .scrim { display: none; }
+
+/* ---------- people overview (#23) ---------- */
+.panel-tabs, .people-pane { display: none; }
+.panel-tabs { flex: 1; min-width: 0; max-width: 200px; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
+.panel-tab {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 0; padding: 5px 7px; border-radius: 999px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 0.84rem; font-weight: 600; color: var(--text-muted);
+}
+.panel-tab[aria-selected="true"] { background: var(--ctp-base); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.15); }
+.people-pane { flex-direction: column; min-height: 0; }
+.people-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; overscroll-behavior: contain; }
+.people-entry {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 10px;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left;
+  font: inherit; font-size: 0.92rem; color: var(--text);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.people-entry:hover { background: var(--surface-hover); }
+.people-entry.active, .people-entry.active:hover { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.people-lead { flex: none; width: 38px; display: inline-flex; justify-content: center; color: var(--text-muted); }
+.people-lead > .avatar { width: 28px; height: 28px; font-size: 0.72rem; }
+.people-lead > .icon { width: 18px; height: 18px; }
+.people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-count { font-size: 0.8rem; font-weight: 650; color: var(--text-faint); }
+.people-entry.none .people-name { color: var(--text-muted); }
+/* Thin gaps between everything / private, the contacts and the groups. */
+.people-entry.contact:not(.contact + .contact), .people-entry.group:not(.group + .group) { margin-top: 8px; }
+
+/* With contacts, tabs switch the sidebar / sheet between Contents and People. */
+.app.has-people .panel-tabs { display: flex; }
+.app.has-people .toc-head { gap: 8px; padding-left: 10px; }
+.app.has-people .toc-head .toc-title { display: none; }
+.app.has-people .stepper .icon-btn.small { min-width: 28px; padding: 0 4px; }
+.app.has-people[data-tab="people"] :is(.toc-list, .stepper) { display: none; }
+.app.has-people[data-tab="people"] .people-pane { display: flex; flex: 1; }
+
+/* The active filter as a chip above the list. */
+.filter-bar { max-width: 780px; margin: 0 auto; padding: 8px 16px 0; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 2px 2px 8px;
+  border-radius: 999px; background: var(--accent-soft); color: var(--text); font-size: 0.88rem; font-weight: 600;
+}
+.filter-chip > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.filter-chip > span > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-chip > span > .icon { width: 16px; height: 16px; color: var(--text-muted); }
+.filter-chip .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--accent-soft); }
 
 /* ---------- FAB, snackbar, menu ---------- */
 .fab {
@@ -747,13 +853,14 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .app.toc-open .toc-panel { transform: none; }
   .toc-handle { display: block; width: 40px; height: 5px; margin: 8px auto 0; border-radius: 999px; background: var(--ctp-surface2); flex: none; }
   .toc-head { height: 48px; }
+  .filter-bar { padding: 8px 12px 0; }
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }
   .sel-word, .sel-action.in-menu { display: none; }
   #selToc, #selMore:not([hidden]) { display: inline-flex; }
 }
 @media (hover: none) {
-  .icon-btn:hover, .toc-entry:hover, .menu-item:hover { background: transparent; }
+  .icon-btn:hover, .toc-entry:hover, .people-entry:not(.active):hover, .menu-item:hover { background: transparent; }
   .status:hover { color: var(--text-faint); }
   .status:hover .icon { opacity: 0; }
   .note.closed .status:hover { color: var(--done); }

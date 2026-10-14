@@ -3,20 +3,21 @@
 // on creates the identity, linking by QR code or restoring with the recovery
 // key adds this device, and each round downloads, merges and uploads the end-to-end encrypted file.
 // Rounds run shortly after a change, on start, when the app comes back to the
-// foreground, gets the focus or goes online, every 5 s while it is visible,
-// and when the user asks (opening Sync & sharing, pull to refresh). The sample
+// foreground, gets the focus or goes online, while the app is visible every
+// 5 s that grows to 30 s as long as nothing changes (any change, focus or
+// user request makes it 5 s again), and when the user asks (opening Sync &
+// sharing, pull to refresh). The sample
 // (`state.sync.simulated`) never reaches this module.
-import { state, setSync, setPrivateFile, fileText, onFilesChanged } from "../store.js";
+import { state, setSync, setPrivateFile, fileText, onFilesChanged, eraseStoredState } from "../store.js";
 import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
 import { mergeNotesFiles } from "../core/merge.js";
 import * as c from "../core/crypto.js";
-import { onlyUntouchedWelcome, keyHolders, withDeviceName } from "../core/sync-state.js";
+import { onlyUntouchedWelcome, keyHolders, withDeviceName, nextPollDelay, POLL_MIN_MS } from "../core/sync-state.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel } from "../core/linking.js";
 import { createApi, ApiError, NetworkError } from "./api.js";
-import { getSecret, setSecret, clearSecrets } from "./keystore.js";
+import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
-const POLL_MS = 5000;
 const ATTEMPTS = 3;
 const MIN_BUSY_MS = 800;   // "syncing" stays long enough to be seen
 const SLOT_POLL_MS = 2000;
@@ -26,6 +27,8 @@ let keys = null;         // this device's { sign, enc } key pairs
 let fileKey = null;      // the private file's key (32 bytes)
 let caller = null;       // while restoring: the recovery device signs in
 let running = null, again = false, timer = null, busySince = 0;
+let pollTimer = null, pollDelay = POLL_MIN_MS;
+let moved = false;       // the running sync downloaded or uploaded something
 
 const active = () => api && state.sync.enabled && !state.sync.simulated;
 const emptyFile = () => parseNotesFile("");
@@ -34,14 +37,36 @@ const emptyFile = () => parseNotesFile("");
 export function initSync(apiUrl) {
   if (!apiUrl) return;
   api = createApi(apiUrl, () => caller || { identity: state.sync.identity, device: state.sync.device, sign: keys.sign.privateKey });
-  onFilesChanged(() => schedule(AFTER_CHANGE_MS));
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) schedule(0); });
+  onFilesChanged(() => { resetPoll(); schedule(AFTER_CHANGE_MS); });
+  const wake = () => { resetPoll(); schedule(0); };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
   // The Android app (Capacitor) reports coming back to the foreground as "resume".
-  for (const target of [document, window]) target.addEventListener("resume", () => schedule(0));
-  window.addEventListener("focus", () => schedule(0));
-  window.addEventListener("online", () => schedule(0));
-  setInterval(() => { if (!document.hidden) schedule(0); }, POLL_MS);
-  schedule(0);
+  for (const target of [document, window]) target.addEventListener("resume", wake);
+  window.addEventListener("focus", wake);
+  window.addEventListener("online", wake);
+  wake();
+}
+
+// Polling: one timer that re-arms itself. A poll round that moved nothing
+// waits longer next time; anything that happens makes the delay 5 s again.
+// Hidden tabs don't poll.
+function armPoll() {
+  clearTimeout(pollTimer);
+  if (api) pollTimer = setTimeout(poll, pollDelay);
+}
+
+function resetPoll() {
+  pollDelay = POLL_MIN_MS;
+  armPoll();
+}
+
+async function poll() {
+  if (!api) return;
+  if (document.hidden) return armPoll();
+  await syncNow();
+  if (!api) return;   // erased meanwhile
+  if (moved) resetPoll();
+  else { pollDelay = nextPollDelay(pollDelay, false); armPoll(); }
 }
 
 /** True when this copy of the app knows a sync server. */
@@ -56,11 +81,13 @@ function schedule(ms) {
  *  user asked for it, so it shows "syncing" even when nothing changed. */
 export function syncNow({ show = false } = {}) {
   if (!active()) return Promise.resolve();
+  if (show) resetPoll();
   if (show && !state.editingId) busy();
   if (running) { again = true; return running; }
+  moved = false;
   running = (async () => {
     do { again = false; await round(); } while (again);
-  })().finally(() => { running = null; });
+  })().finally(() => { running = null; if (moved) resetPoll(); });
   return running;
 }
 
@@ -73,13 +100,15 @@ async function round() {
     for (let i = 0; i < ATTEMPTS && !done; i++) done = await step();
     const wait = busySince + MIN_BUSY_MS - Date.now();
     if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-    setSync({ status: "synced", lastSync: Date.now(), error: "" });
+    setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false });
   } catch (e) {
     fail(e);
   }
 }
 
 function fail(e) {
+  const storageFull = e instanceof ApiError && e.status === 413 && e.body.detail === "storage quota exceeded";
+  if (state.sync.storageFull !== storageFull) setSync({ storageFull });
   if (e instanceof NetworkError) return setSync({ status: "offline", error: "" });
   // The server refuses a device that is no longer on the list (401 after a fresh token).
   const removed = e instanceof ApiError && (e.status === 401 || e.status === 403);
@@ -100,7 +129,10 @@ async function loadKeys() {
 
 // One download / merge / upload pass; false when the server moved on meanwhile.
 async function step() {
-  const files = await api.listFiles();
+  const { files, quota } = await api.listFiles();
+  const used = files.reduce((sum, f) => sum + f.size, 0);
+  const { usage } = state.sync;
+  if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });
   if (!state.sync.file) {
     if (!files.length) return createFile();
     // Another device created the file first: take it over, merging everything.
@@ -126,6 +158,7 @@ async function step() {
 }
 
 async function download(id) {
+  moved = true;
   const r = await api.getFile(id);
   if (!r.key) throw new Error("No key for this device on the server");
   const key = await c.unwrapFileKey(r.key, keys.enc);
@@ -144,6 +177,7 @@ async function upload(baseVersion, text, holders = null, key = fileKey) {
   if (holders) body.keys = await wrapFor(holders, key);
   try {
     const { version } = await api.putFile(id, body);
+    moved = true;
     setSync({ file: { id, version, base: text } });
     if (fileText() !== text) again = true;
     return true;
@@ -188,7 +222,7 @@ async function adopt({ name, identity, identityKey, device }) {
   fileKey = null;
   setSync({
     enabled: true, simulated: false, name, identity, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, recoveryKey: "", status: "syncing", error: "",
+    device: await c.keyId(device.sign.publicKey), file: null, usage: null, recoveryKey: "", status: "syncing", error: "",
   });
 }
 
@@ -251,7 +285,7 @@ export async function restore(recoveryKey) {
       }
     }
     // Milestone 1: the private file is the identity's only file.
-    const [file] = await api.listFiles();
+    const [file] = (await api.listFiles()).files;
     if (file) {
       const got = await api.getFile(file.id);
       const key = await c.unwrapFileKey(got.key, r.recovery.enc);
@@ -388,4 +422,42 @@ export async function removeDevice(id) {
     await syncNow();
   }
   throw new Error("Couldn't renew the file key; try again");
+}
+
+/**
+ * Erases everything NoteDown keeps on this device (notes, settings, sync
+ * state in localStorage; device and file keys in IndexedDB) and stops syncing.
+ * The caller reloads the page afterwards.
+ */
+export async function eraseDevice() {
+  clearTimeout(pollTimer);
+  clearTimeout(timer);
+  api = null;   // no sync round starts from here on
+  eraseStoredState();
+  keys = fileKey = null;
+  await deleteDatabase();
+}
+
+/**
+ * Signs this device out: syncs, then appends the removal of this device to the
+ * device list (signed by itself) and erases the local data. The file key is
+ * not renewed: a device that erases itself needs no lock-out, and one that was
+ * copied is removed from another device, which renews it.
+ */
+export async function signOut() {
+  await syncNow();
+  if (state.sync.status === "error") throw new Error(state.sync.error || "Sync failed");
+  await loadKeys();
+  if (state.sync.file && fileText() !== state.sync.file.base) throw new Error("Your latest changes aren't synced yet; try again");
+  for (let entries = (await chain()).entries; ;) {
+    const body = await c.newEntry(state.sync.identity, entries, "remove", { id: state.sync.device });
+    try {
+      await api.appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      entries = (await chain()).entries;   // another device appended first
+    }
+  }
+  await eraseDevice();
 }

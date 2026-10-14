@@ -384,6 +384,12 @@ function orderItem({ text, fromHeading }, i) {
   const label = document.createElement("span");
   label.className = "order-text" + (fromHeading ? "" : " plain");
   label.textContent = text || "Untitled";
+  li.append(label, orderGrip(li));
+  return li;
+}
+
+/** The drag handle of an order row (also the custom order's arrange dialog). */
+export function orderGrip(li) {
   const grip = document.createElement("button");
   grip.className = "order-grip";
   grip.setAttribute("aria-label", "Move (drag, or arrow keys)");
@@ -396,8 +402,7 @@ function orderItem({ text, fromHeading }, i) {
     e.preventDefault();
     grip.focus();
   });
-  li.append(label, grip);
-  return li;
+  return grip;
 }
 
 // Drag by the grip: the row follows the pointer and the others make room.
