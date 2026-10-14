@@ -58,7 +58,9 @@ export function createApi(baseUrl, who) {
 
   return {
     createIdentity: (identityKey, entries) => call("POST", "/v1/identities", { identity_key: identityKey, entries }),
-    getIdentity: id => call("GET", `/v1/identities/${id}`),
+    // Authenticated; `invitation` names an open invitation of `id` (the way to read a stranger's list).
+    getIdentity: (id, invitation) => call(
+      "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
     listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota }) => ({ files, quota })),   // each file with its `size`
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),

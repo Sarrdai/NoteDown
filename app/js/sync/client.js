@@ -262,17 +262,19 @@ export async function restore(recoveryKey) {
   const recoveryId = await c.keyId(r.recovery.sign.publicKey);
   const device = await c.generateDeviceKeys();
   const deviceId = await c.keyId(device.sign.publicKey);
-  let found;
-  try {
-    found = await api.getIdentity(identity);
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) throw new Error("No notes are synced with this recovery key");
-    throw e;
-  }
-  if (found.identity_key !== c.b64u(r.identity.publicKey)) throw new Error("The server answered with another identity");
   let remote = null;
+  // The recovery device signs in for everything below, reading the list included.
   caller = { identity, device: recoveryId, sign: r.recovery.sign.privateKey };
   try {
+    let found;
+    try {
+      found = await api.getIdentity(identity);
+    } catch (e) {
+      // An unknown identity can't sign in (401) or isn't there (404).
+      if (e instanceof ApiError && (e.status === 404 || e.status === 401)) throw new Error("No notes are synced with this recovery key");
+      throw e;
+    }
+    if (found.identity_key !== c.b64u(r.identity.publicKey)) throw new Error("The server answered with another identity");
     for (let entries = found.entries; ;) {
       await c.verifyChain(r.identity.publicKey, entries);
       const body = await c.newEntry(identity, entries, "add", await c.deviceRecord(device, "device"));
@@ -342,11 +344,24 @@ export async function waitForLink({ device, slot }, cancelled) {
     message = parseRelayMessage(await c.openRelayMessage(payload, device.enc));
   } catch { /* not sealed for this device */ }
   if (!message) throw new Error("The other device sent an answer this device can't read");
-  const { identity_key: identityKey, entries } = await api.getIdentity(message.identity);
+  // Reading a list needs a token: this device signs in as itself, which works only once it is on the list.
+  const deviceId = await c.keyId(device.sign.publicKey);
+  caller = { identity: message.identity, device: deviceId, sign: device.sign.privateKey };
+  let list;
+  try {
+    list = await api.getIdentity(message.identity);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) throw new Error("This device isn't on the device list; scan the code again");
+    throw e;
+  } finally {
+    caller = null;
+    api.forgetToken();
+  }
+  const { identity_key: identityKey, entries } = list;
   const keyBytes = c.fromB64u(identityKey, 32);
   if (await c.keyId(keyBytes) !== message.identity) throw new Error("The server answered with another identity");
   const devices = await c.verifyChain(keyBytes, entries);
-  if (!devices.get(await c.keyId(device.sign.publicKey))?.active) throw new Error("This device isn't on the device list; scan the code again");
+  if (!devices.get(deviceId)?.active) throw new Error("This device isn't on the device list; scan the code again");
   if (onlyUntouchedWelcome(state.file)) setPrivateFile(emptyFile());
   await adopt({ name: message.name, identity: message.identity, identityKey: keyBytes, device });
   await syncNow();

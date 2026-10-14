@@ -160,12 +160,12 @@ No accounts and no passwords: a device signs a challenge.
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
-| `POST /v1/invitations` | yes | `{"id", "kind", "sig"}` (`kind` `code` or `link`) → 201 `{"expires"}`; 409 if the ID exists, 413 with 20 open |
+| `POST /v1/invitations` | yes | `{"id", "kind", "sig"}` (`kind` `code` or `link`) → 201 `{"expires"}`; 400 for an invalid ID, kind or a `sig` that isn't the calling device's signature, 409 if the ID exists, 413 with 20 open |
 | `GET /v1/invitations` | yes | → `{"invitations": [{"id", "kind", "device", "sig", "expires", "request"}]}` of the identity; `device` is the signing device, `request` `null` or `{"identity", "card"}` with the card sealed for the calling device (`null` if none is) |
-| `DELETE /v1/invitations/{iid}` | yes | → 204: the inviter withdraws it or declines its request |
-| `POST /v1/invitations/{iid}/request` | yes | `{"cards": {device id: sealed card}}` → 204; 404 unknown or expired, 409 already requested, 403 own invitation |
+| `DELETE /v1/invitations/{iid}` | yes | → 204: the inviter withdraws it or declines its request (also when it is gone; nothing happens for anyone else) |
+| `POST /v1/invitations/{iid}/request` | yes | `{"cards": {device id: sealed card}}` → 204; 404 unknown or expired, 409 already requested, 403 own invitation, 400 for no card, a card over 512 characters or not `b64u`, or a device that isn't an active device of the inviter |
 | `GET /v1/contacts` | yes | → `{"contacts": [identity id]}` |
-| `POST /v1/contacts` | yes | `{"invitation"}` → 201 `{"identity"}`: confirms the request on one's own invitation |
+| `POST /v1/contacts` | yes | `{"invitation"}` → 201 `{"identity"}`: confirms the request on one's own invitation; 404 without one |
 | `DELETE /v1/contacts/{id}` | yes | → 204 (also when they were no contact) |
 | `POST /v1/relay` | — | → 201 `{"slot", "expires"}`, a 10-minute mailbox |
 | `PUT /v1/relay/{slot}` | yes | `{"payload"}` → 204, once (409 after that) |
@@ -176,8 +176,11 @@ No accounts and no passwords: a device signs a challenge.
   when the file is created and never changes (`docs/sync-and-sharing.md`
   → "Files"); the private file is the file of the set of one.
 - **Upload** (`PUT /v1/files/{fid}`): `base_version` 0 creates the file
-  and needs `keys`, and `members` (the caller plus contacts of the
-  caller; default: the caller alone). Each member set has at most one
+  and needs `keys`, and may name `members` (the caller plus contacts of
+  the caller, at most 20, no duplicates; default: the caller alone; 400
+  if malformed or without the caller, 403 if one is no contact of the
+  caller). On later uploads `members` may be left out or must be the
+  file's set (400 otherwise). Each member set has at most one
   file: creating a second answers 409 with the existing file's `id` and
   `version`, so two devices sharing at the same time don't split it.
   With `keys` the whole set of wrapped keys is replaced (renewing the
