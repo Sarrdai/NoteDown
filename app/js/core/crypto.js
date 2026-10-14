@@ -379,3 +379,21 @@ export function sealContactCard(card, recipientEncPublic) {
 export async function openContactCard(sealed, encKeyPair) {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-contact", sealed, encKeyPair)));
 }
+
+// ---------- safety codes (docs/sync-and-sharing.md → "Contacts") ----------
+
+const SAFETY_ITERATIONS = 100000;
+const SAFETY_GROUPS = 5;
+
+/**
+ * The safety code of two identities, the same on both phones: 20 digits in groups of four, from
+ * PBKDF2-SHA256 over both identity IDs in sorted order. 66 bits and the slow hash make a forged contact
+ * whose code matches too costly to find (someone in the middle needs two identities with equal codes).
+ */
+export async function safetyCode(identityA, identityB) {
+  const pair = [identityA, identityB].sort(byCodePoint).join(":");
+  const key = await subtle().importKey("raw", utf8(pair), "PBKDF2", false, ["deriveBits"]);
+  const bits = new DataView(await subtle().deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: utf8("notedown-safety-code-v1"), iterations: SAFETY_ITERATIONS }, key, 32 * SAFETY_GROUPS));
+  return Array.from({ length: SAFETY_GROUPS }, (_, i) => String(bits.getUint32(4 * i) % 10000).padStart(4, "0")).join(" ");
+}

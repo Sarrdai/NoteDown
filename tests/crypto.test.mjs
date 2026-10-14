@@ -334,3 +334,13 @@ test("contact card: opens Python's sealed card; JS seal round trips, fits the li
   await assert.rejects(openContactCard(await wrapFileKey(generateFileKey(), phone.enc.publicKey), phone.enc));
   await assert.rejects(unwrapFileKey(sealed, phone.enc));
 });
+
+test("safetyCode: the same for both sides, 5 groups of 4 digits, different per pair", async () => {
+  const { safetyCode } = await import("../app/js/core/crypto.js");
+  const a = "TGVhSWRlbnRpdHkxMjM0NQ", b = "VG9tSWRlbnRpdHkxMjM0NTY", c = "U2FtSWRlbnRpdHkxMjM0NTY";
+  const ab = await safetyCode(a, b);
+  assert.equal(ab, "0236 6534 4560 2936 6818");   // pinned: both phones must keep computing the same code
+  assert.equal(await safetyCode(b, a), ab);
+  assert.notEqual(await safetyCode(a, c), ab);
+  assert.equal(await safetyCode(a, b), ab);
+});

@@ -17,7 +17,7 @@
 const MARKER = /^<!-- (note|device|contact|member|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
 /** Parses a NoteDown file into { preamble, notes, moved, devices, contacts, members, order }
- *  (`members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, pending? }], `order`: { ids, modified } or null). */
+ *  (`members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
@@ -65,7 +65,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], devices =
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id} name=${encodeURIComponent(d.name)} -->`);
   for (const c of contacts) {
-    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""} -->`);
+    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""} -->`);
   }
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
@@ -103,13 +103,15 @@ function decodeName(text) {
   try { return decodeURIComponent(text); } catch { return text; }
 }
 
-// A contact: `color` is a slot 1–6 (1 when missing or invalid), `server` the contact's home server (absent = the default), `pending` the time the request was sent.
+// A contact: `color` is a slot 1–6 (1 when missing or invalid), `server` the contact's home server (absent = the default), `pending` the time the request was sent,
+// `verified` the time the user verified the contact (absent = not verified).
 function finishContact(meta) {
   const color = Number(meta.color);
   return {
     id: meta.id, name: decodeName(meta.name), color: Number.isInteger(color) && color >= 1 && color <= 6 ? color : 1,
     ...(meta.server && { server: decodeName(meta.server) }),
     ...(meta.pending && { pending: meta.pending }),
+    ...(meta.verified && { verified: meta.verified }),
   };
 }
 

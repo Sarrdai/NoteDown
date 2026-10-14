@@ -20,7 +20,9 @@ const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&
 /** One initials circle, HTML. `cls` adds modifiers such as "small". */
 export function avatarHtml(id, cls = "") {
   if (!contact(id)) return `<span class="avatar stranger ${cls}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;   // not a contact: neutral
-  return `<span class="avatar person ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;
+  const c = contact(id);
+  const unverified = !c.pending && !c.verified ? " unverified" : "";   // backlog #4: variant B badges it
+  return `<span class="avatar person ${cls}${unverified}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;
 }
 
 /** The avatar of someone asking to become a contact (no contact yet: color from the request id). */

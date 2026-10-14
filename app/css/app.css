@@ -672,6 +672,47 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .request-hero { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 4px; }
 .request-title { margin: 8px 0 0; font-size: 1.1rem; font-weight: 700; text-align: center; }
 .avatar.large { width: 64px; height: 64px; font-size: 1.4rem; }
+
+/* Verifying a contact (backlog #4, ui/verify-contact.js). */
+.row-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; align-self: stretch; margin: -6px 0 -6px -14px; padding: 6px 0 6px 14px;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px;
+}
+.row-open:hover { background: var(--surface-hover); }
+.row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row-sub.unverified-sub { color: var(--warning); font-weight: 600; }
+.verify-state { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 0; font-weight: 650; color: var(--warning); }
+.verify-state.ok { color: var(--done); }
+.verify-state .icon { width: 18px; height: 18px; }
+.safety-code {
+  margin: 4px 0 0; padding: 14px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; text-align: center; white-space: nowrap; word-spacing: 0.1em;
+}
+.verify-btn {
+  flex: none; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent;
+  color: var(--accent); font: inherit; font-size: 0.85rem; font-weight: 650; cursor: pointer;
+}
+.verify-btn::after { content: ""; position: absolute; inset: -6px -4px; }
+.verify-btn { position: relative; }
+.share-notices { display: flex; flex-direction: column; gap: 8px; }
+.share-notices:empty { display: none; }
+.share-notice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 10px 10px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 14%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+.share-notice .row-title { white-space: normal; }
+.notice-icon { flex: none; display: inline-flex; color: var(--warning); }
+.avatar.unverified { position: relative; }
+/* Variants (main.js → VERIFY_HINTS): C notice when sharing, A label in every list, B badge on the avatar. */
+.share-unverified, .share-notices, .avatar.unverified::after { display: none; }
+.app:not(.verify-label):not(.verify-badge) .verify-btn { display: none; }
+.app.verify-label .share-unverified { display: inline; }
+.app.verify-share .share-notices:not(:empty) { display: flex; }
+.app.verify-badge .avatar.unverified:not(.small)::after {
+  content: "!"; display: flex; align-items: center; justify-content: center; position: absolute; right: -3px; bottom: -3px;
+  width: 15px; height: 15px; border-radius: 50%; background: var(--warning); color: var(--on-person);
+  box-shadow: 0 0 0 2px var(--surface); font-size: 0.62rem; font-weight: 800;
+}
 @media (prefers-reduced-motion: reduce) {
   #syncBtn .spin, #syncBtn path { animation: none !important; stroke-dashoffset: 0 !important; }
 }

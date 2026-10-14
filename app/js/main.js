@@ -9,6 +9,7 @@ import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite } from "./ui/sync-panel.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
+import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
@@ -30,6 +31,10 @@ const $ = id => document.getElementById(id);
 const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
+// Prototype variants of an open decision (orchestrate → variants.md), backlog #4: where "Not verified"
+// shows, and how the verify page looks.
+const VERIFY_HINTS = { share: "Notice when sharing (C)", label: "Label in every list (A)", badge: "Badge on the avatar (B)" };
+const VERIFY_LAYOUTS = { page: "One page (A)", tabs: "Tabs (B)" };
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
 const DIR_LABELS = {
@@ -84,6 +89,7 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
+  for (const id of Object.keys(VERIFY_HINTS)) app.classList.toggle("verify-" + id, s.verifyHint === id);
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = sortOf();
@@ -322,6 +328,10 @@ function moreMenu() {
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
+    { section: "Prototype: not verified hint" },
+    ...Object.entries(VERIFY_HINTS).map(([id, label]) => ({ label, checked: s.verifyHint === id, onSelect: () => updateSettings({ verifyHint: id }) })),
+    { section: "Prototype: verify page" },
+    ...Object.entries(VERIFY_LAYOUTS).map(([id, label]) => ({ label, checked: s.verifyLayout === id, onSelect: () => updateSettings({ verifyLayout: id }) })),
   ].filter(Boolean));
 }
 
@@ -411,6 +421,8 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (VERIFY_HINTS[p.get("verifyhint")]) patch.verifyHint = p.get("verifyhint");
+  if (VERIFY_LAYOUTS[p.get("verifylayout")]) patch.verifyLayout = p.get("verifylayout");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

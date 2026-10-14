@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS = {
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
+  verifyHint: "share",       // prototype variant (#4): where "Not verified" shows (share | label | badge)
+  verifyLayout: "page",      // prototype variant (#4): the verify page (page | tabs)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -32,7 +34,7 @@ export const DEFAULT_SETTINGS = {
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
 // `recoveryKey`, `devices` (the other devices' names) and `contacts`; real
 // contacts are in the private file (`contacts()`). `requests` are the incoming
-// contact requests, { id, name, via } (real: also `identity`), from the
+// contact requests, { id, name, via, inPerson } (`inPerson`: made on a code this device showed; real: also `identity`), from the
 // server in each round (sync/contacts.js) or simulated.
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
@@ -176,7 +178,7 @@ export function sharedCircles() {
   return state.shared.map(s => [...s.members]);
 }
 
-/** The user's contacts, [{ id, name, color, pending? }]: the markers of the private file (synced; the
+/** The user's contacts, [{ id, name, color, server?, pending?, verified? }]: the markers of the private file (synced; the
  *  id is the contact's identity ID), in the sample the simulated list in the sync state. */
 export function contacts() {
   return state.sync.simulated ? state.sync.contacts : state.file.contacts || [];
@@ -187,6 +189,13 @@ export function setContacts(list) {
   state.file.contacts = list;
   saveFiles();
   emit("structure");
+}
+
+/** Changes one contact (both modes): the private file's marker, in the sample the simulated list. */
+export function updateContact(id, patch) {
+  const list = contacts().map(c => (c.id === id ? { ...c, ...patch } : c));
+  if (state.sync.simulated) setSync({ contacts: list });
+  else setContacts(list);
 }
 
 /** Whether the people overview (#23) shows: sync on and at least one contact. */

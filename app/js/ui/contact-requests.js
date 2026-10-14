@@ -71,7 +71,7 @@ export async function simulateRequest() {
   const taken = new Set([...state.sync.requests, ...state.sync.contacts].map(x => x.id));
   let id = "req-" + request.name.toLowerCase();
   for (let i = 2; taken.has(id); i++) id = `req-${request.name.toLowerCase()}-${i}`;
-  setSync({ requests: [...state.sync.requests, { id, name: request.name, via: request.via }] });
+  setSync({ requests: [...state.sync.requests, { id, name: request.name, via: request.via, inPerson: request.via === "scan" }] });
 }
 
 registerPage("contactRequest", {

@@ -21,6 +21,7 @@ export const GONE = "This code or link has expired or was already used";
 
 let ctx = null;                   // { api(server), home(), defaultServer(), keys(), loadKeys(), chain(), web() }, from sync/client.js
 let code = null;                  // promise of the open "My code" invitation
+const codes = new Set();          // ids of the "My code" invitations this device showed: their requests were made in person
 const checked = new Map();        // "<invitation id>:<requester>" → the verified request, or null
 const declined = new Set();       // invitation ids declined and waiting for their DELETE
 const confirmedListeners = new Set();
@@ -74,24 +75,26 @@ export function myCode() {
 
 function renewCode() {
   code = createInvitation("code");
-  code.catch(() => { code = null; });
+  code.then(inv => codes.add(inv.id), () => { code = null; });
   return code;
 }
 
-/** `{ identity, name }` of an invitation link (the text of a scanned code or a pasted link), else null. */
+/** `{ identity, name, contact }` of an invitation link (the text of a scanned code or a pasted link), else null;
+ *  `contact` is the contact with that identity when there is one already (scanning their code verifies it). */
 export function readInvite(text) {
   const invite = parseInvitationLink(text);
-  return invite && { identity: invite.identity, name: invite.name };
+  return invite && { identity: invite.identity, name: invite.name, contact: contacts().find(x => x.id === invite.identity) || null };
 }
 
 // ---------- requesting ----------
 
 /**
  * Sends a contact request through the invitation in `text` and lists the inviter as a pending contact
- * named `name`: reads the inviter's device list with the invitation, checks that it belongs to the
+ * named `name` (`verified` when the code was scanned in person with NoteDown's scanner; an opened or
+ * pasted link may have been swapped on the way, backlog #4): reads the inviter's device list with the invitation, checks that it belongs to the
  * identity in the link, seals this user's card for each of the inviter's devices and posts it.
  */
-export async function sendRequest(text, name) {
+export async function sendRequest(text, name, { verified = false } = {}) {
   const invite = parseInvitationLink(text);
   if (!invite) throw new Error("That's not a NoteDown invitation.");
   if (invite.identity === state.sync.identity) throw new Error("That's your own code.");
@@ -121,7 +124,8 @@ export async function sendRequest(text, name) {
     if (e instanceof ApiError && e.status === 403) throw new Error("That's your own code.");
     throw e;
   }
-  const contact = { id: invite.identity, name: cleanName(name), color: nextColor(contacts()), ...(invite.server && invite.server !== ctx.defaultServer() && { server: invite.server }), pending: timestamp() };
+  const contact = { id: invite.identity, name: cleanName(name), color: nextColor(contacts()), ...(invite.server && invite.server !== ctx.defaultServer() && { server: invite.server }), pending: timestamp(),
+    ...(verified && { verified: timestamp() }) };
   setContacts([...contacts(), contact]);
   return contact;
 }
@@ -141,9 +145,13 @@ export async function confirmRequest(id, name) {
     throw e;
   }
   dropRequest(id);
-  // Both sides may have invited each other: the entry already there is confirmed.
+  // Both sides may have invited each other: the entry already there is confirmed. A code this device
+  // showed was scanned in person, so the contact is verified; a link is only as safe as the way it came,
+  // and the server's word on an invitation's kind is not proof (backlog #4).
   const known = contacts().find(x => x.id === request.identity);
-  const contact = { id: request.identity, name: cleanName(name), color: known ? known.color : nextColor(contacts()) };
+  const verified = known?.verified || (request.inPerson ? timestamp() : null);
+  const contact = { ...known, id: request.identity, name: cleanName(name), color: known ? known.color : nextColor(contacts()), ...(verified && { verified }) };
+  delete contact.pending;
   setContacts([...contacts().filter(x => x.id !== contact.id), contact]);
   return contact;
 }
@@ -204,7 +212,7 @@ async function verify(inv, devices) {
     const card = parseContactCard(await c.openContactCard(inv.request.card, ctx.keys().enc));
     if (!card || card.identity !== inv.request.identity || card.identity === state.sync.identity) return null;
     if (await c.invitationId(c.fromB64u(card.secret, 16)) !== inv.id) return null;
-    return { id: inv.id, identity: card.identity, name: card.name || "New contact", via: inv.kind === "link" ? "link" : "scan" };
+    return { id: inv.id, identity: card.identity, name: card.name || "New contact", via: inv.kind === "link" ? "link" : "scan", inPerson: codes.has(inv.id) };
   } catch {
     return null;
   }

@@ -148,3 +148,16 @@ test("file format: a contact's home server round-trips percent-encoded; absent m
   assert.deepEqual(parseNotesFile(text).contacts, contacts);
   assert.equal("server" in parseNotesFile("<!-- contact id=c name=C color=4 -->").contacts[0], false);
 });
+
+test("file format: a contact's verified time round-trips; absent means not verified", () => {
+  const contacts = [
+    { id: "a", name: "A", color: 2, verified: "2026-10-14T09:00Z" },
+    { id: "b", name: "B", color: 3, pending: "2026-10-14T09:00Z", verified: "2026-10-14T09:00Z" },
+    { id: "c", name: "C", color: 4 },
+  ];
+  const text = serializeNotesFile({ ...parseNotesFile(""), contacts });
+  assert.match(text, /<!-- contact id=a name=A color=2 verified=2026-10-14T09:00Z -->/);
+  assert.match(text, /color=3 pending=2026-10-14T09:00Z verified=2026-10-14T09:00Z -->/);
+  assert.deepEqual(parseNotesFile(text).contacts, contacts);
+  assert.equal("verified" in parseNotesFile("<!-- contact id=c name=C color=4 -->").contacts[0], false);
+});

@@ -8,6 +8,7 @@
 // where "Simulate scan" stands in for the camera (docs/sync-and-sharing.md →
 // "Identity and devices", "Contacts").
 import { state, subscribe, setSync, replaceFiles, eraseStoredState, contacts } from "../store.js";
+import { timestamp } from "../core/notes-file.js";
 import { syncNow } from "../sync-sim.js";
 import {
   syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
@@ -118,6 +119,20 @@ function back() {
   if (stack.length > 1) { stack.pop(); render(); } else close();
 }
 
+/** One page back (none when only one is left). */
+export function popPage() {
+  if (stack.length > 1) { stack.pop(); render({ keepScroll: true }); }
+}
+
+/** Redraws the page on screen (e.g. after switching its tab). */
+export function refreshPage() { render(); }
+
+/** Back to only `page`, e.g. the overview after a flow. */
+export function resetPanel(page) { reset(page); }
+
+/** What leaving the page on screen turns off (its camera). */
+export function onLeave(fn) { leave = fn; }
+
 export function go(page, data = {}) {
   stack.push({ page, data });
   render();
@@ -181,10 +196,13 @@ function segmented(options, current, onPick) {
     h("button", { class: "segment", role: "tab", type: "button", "aria-selected": String(id === current), onclick: () => onPick(id) }, label)));
 }
 
-function row({ icon: ic, avatar, title, sub, remove }) {
+function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
+  const lead = [
+    avatar ? h("span", { class: "avatar" + (unverified ? " unverified" : ""), "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
+    h("span", { class: "row-text" }, h("span", { class: "row-title" }, title), sub && h("span", { class: "row-sub" + (unverified ? " unverified-sub" : "") }, sub)),
+  ];
   return h("li", { class: "sheet-row" },
-    avatar ? h("span", { class: "avatar", "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
-    h("span", { class: "row-text" }, h("span", { class: "row-title" }, title), sub && h("span", { class: "row-sub" }, sub)),
+    open ? h("button", { class: "row-open", type: "button", onclick: open }, lead) : lead,
     remove && h("button", { class: "icon-btn", type: "button", "aria-label": `Remove ${title}`, html: icon("close"), onclick: remove }));
 }
 
@@ -289,17 +307,18 @@ function removeFromList(key, index, label) {
   });
 }
 
-/** Adds a contact (the sample); `pending` while the other side hasn't confirmed this user's request. */
+/** Adds a contact (the sample); `pending` while the other side hasn't confirmed this user's request;
+ *  verified when `via` is "scan" (in person), not when "link" (backlog #4). */
 export function addContact(name, via, { pending = false } = {}) {
   const id = contactId(name, state.sync.contacts.map(c => c.id));
-  const contact = { id, name, via, color: nextColor(state.sync.contacts), ...(pending && { pending: true }) };
+  const contact = { id, name, color: nextColor(state.sync.contacts), ...(pending && { pending: true }), ...(via === "scan" && { verified: timestamp() }) };
   setSync({ contacts: [...state.sync.contacts, contact] });
   contactAdded(contact);
   if (!pending) return;
   // The sample: the other side confirms a moment later, as a later sync round would bring it.
   setTimeout(() => {
     if (!state.sync.contacts.some(c => c.id === id && c.pending)) return;
-    setSync({ contacts: state.sync.contacts.map(c => c.id === id ? { id, name, via, color: c.color } : c) });
+    setSync({ contacts: state.sync.contacts.map(c => { if (c.id !== id) return c; const { pending: _, ...confirmed } = c; return confirmed; }) });
     if (isOpen && top().page === "overview") render({ keepScroll: true });
     showSnackbar(`${name} confirmed your request`);
   }, 4000);
@@ -316,6 +335,13 @@ export function contactAdded(contact) {
     render({ keepScroll: true });
   } else if (isOpen) reset("overview");
   showSnackbar(contact.pending ? `Request sent to ${contact.name}` : `${contact.name} added`);
+}
+
+// A scanned code of an existing contact: verified now, or already.
+function scannedContact(c) {
+  reset("overview");
+  if (c.verified) return showSnackbar(`${c.name} is already verified`);
+  import("./verify-contact.js").then(m => m.markVerified(c.id));
 }
 
 // A link opened in the app, from a tap on it, the Android App Link or the web page it forwards from.
@@ -587,7 +613,12 @@ function contactsSections(removeRow) {
     section("Contacts"),
     list.length
       ? h("ul", { class: "sheet-card" }, list.map((c, i) =>
-          row({ avatar: initials(c.name), title: c.name, sub: c.pending ? "Waiting for confirmation" : c.via === "link" ? "Added by link" : null, remove: () => removeRow(c, i) })))
+          row({
+            avatar: initials(c.name), title: c.name, remove: () => removeRow(c, i),
+            sub: c.pending ? "Waiting for confirmation" : c.verified ? null : "Not verified",
+            unverified: !c.pending && !c.verified,
+            open: !c.pending && (() => go("verifyContact", { id: c.id, tab: "code" })),
+          })))
       : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
     h("div", { class: "button-row" },
       button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
@@ -680,7 +711,7 @@ Object.assign(PAGES, {
           scannerView("Scan the code on your contact's phone."),
           h("div", { class: "button-row center" }, button("Simulate scan (prototype)", "", async () => {
             const sample = await loadSharingSample();
-            go("nameContact", { name: sample.scanSuggestion });
+            go("nameContact", { name: sample.scanSuggestion, via: "scan" });
           })),
           pasteLink(),
         ];
@@ -691,7 +722,9 @@ Object.assign(PAGES, {
         noCamera: "No camera found on this device.",
         onCode: text => {
           const found = readInvite(text);
-          if (found) go("nameContact", { text, name: found.name });
+          // The code of someone already a contact verifies them instead of asking again (backlog #4).
+          if (found?.contact && !found.contact.pending) scannedContact(found.contact);
+          else if (found) go("nameContact", { text, name: found.name, via: "scan" });
           return Boolean(found);
         },
       });
@@ -708,8 +741,8 @@ Object.assign(PAGES, {
       const input = textInput({ value: data.name, maxlength: "40", "aria-label": "Contact name" },
         v => { data.name = v; send.btn.disabled = !v.trim(); }, () => { if (!send.btn.disabled) send.btn.click(); });
       const send = action("Send request", async () => {
-        if (!real()) return addContact(data.name.trim(), "scan", { pending: true });
-        contactAdded(await sendRequest(data.text, data.name.trim()));
+        if (!real()) return addContact(data.name.trim(), data.via, { pending: true });
+        contactAdded(await sendRequest(data.text, data.name.trim(), { verified: data.via === "scan" }));
       });
       send.btn.disabled = !data.name.trim();
       return [
@@ -844,7 +877,7 @@ function pasteLink() {
       error.textContent = value ? "That's not a NoteDown invitation link." : "Paste the link into the field first.";
       input.focus();
     } else if (real()) go("nameContact", { text: value, name: found.name });
-    else go("nameContact", { name: (await loadSharingSample()).scanSuggestion });
+    else go("nameContact", { name: (await loadSharingSample()).scanSuggestion, via: "link" });
   };
   input.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
   return h("div", { class: "paste-link" },
