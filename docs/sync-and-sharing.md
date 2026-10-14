@@ -277,6 +277,9 @@ devices don't keep re-uploading the same notes in each other's order.
     speak a compatible API version; quota and rate limits stay per server;
   - the web app is still delivered from one place — only the Android app
     or a self-hosted web app avoids that.
+
+  What the implementation would have to change, the work packages and
+  the questions to settle first: `docs/decentralisation-plan.md`.
 - Until a lost device is removed, it can change or delete notes,
   including shared ones; a version history on the server (backlog #7)
   would let the user bring a file back.
