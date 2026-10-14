@@ -52,6 +52,10 @@ carries the merge logic (`app/js/core/merge.js`, tested in
   dropped 30 days after the move.
 - **All members are equal:** each can edit, close, reopen and delete a
   shared note, share it with further people, remove people, or leave.
+  Leaving marks the note; a remaining member's device then moves it into
+  the file without the leaver (`docs/file-format.md` → "Leaving a shared
+  note"). Members who aren't contacts show with their own display name
+  (`docs/file-format.md` → "Members").
   The whole note is shared, including status and due date — closed for
   one means closed for all.
 - **Merging across circles** never takes a shared note away from the
