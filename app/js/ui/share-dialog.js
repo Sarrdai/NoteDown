@@ -4,7 +4,7 @@
 // shared with them, mixed = only some are, unchecked = none. Saving moves
 // each note into the file of its new set of people (docs/sync-and-sharing.md
 // → "Files").
-import { state, circleOf, shareNotes, removeNotes, contacts } from "../store.js";
+import { state, circleOf, shareNotes, removeNotes, leaveNotes, contacts } from "../store.js";
 import { circleKey, circleLabel, shareState } from "../core/sharing.js";
 import { h, text, button } from "./dom.js";
 import { openPanel, registerPage, closePanel, go, setStack } from "./sync-panel.js";
@@ -55,7 +55,8 @@ function save(data) {
 }
 
 function leave(data) {
-  const undo = removeNotes(data.ids);
+  // Real sync: the notes are marked as left and a remaining member moves them on; the sample just removes them.
+  const undo = state.sync.simulated ? removeNotes(data.ids) : leaveNotes(data.ids);
   closePanel();
   showSnackbar(data.ids.length === 1 ? "You left the note" : "You left the notes", undo);
 }
@@ -82,9 +83,7 @@ function paint(row, s) {
   box.innerHTML = MARK[s];
 }
 
-// Real mode can't leave yet: the leaver is no member of the remaining people's file, so it can't move the notes there.
 const leavable = ids => {
-  if (!state.sync.simulated) return false;
   const keys = new Set(ids.map(id => circleKey(circleOf(id))));
   return keys.size === 1 && !keys.has("");
 };

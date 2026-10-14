@@ -8,9 +8,10 @@
 // A problem with one shared file (no key, a device list that doesn't check out) is
 // reported after the others have been synced. The sample (`state.sync.simulated`)
 // never reaches this module. Slots are named by circleKey: "" is the private file.
-import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, isProtected, setProtected } from "../store.js";
-import { parseNotesFile, serializeNotesFile } from "../core/notes-file.js";
-import { mergeNotesFiles, applyDisplaced, protectedDeleted, adoptNotes, movedAway, renameDuplicates } from "../core/merge.js";
+import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, isProtected, setProtected, contacts } from "../store.js";
+import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
+import { mergeNotesFiles, applyDisplaced, protectedDeleted, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
+import { circleKey } from "../core/sharing.js";
 import { matchFiles, fileMembers, allKeyHolders, hasContent } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
 import { ApiError, NetworkError } from "./api.js";
@@ -146,10 +147,9 @@ export async function filesRound() {
     slots.set(key, f || null);
   }
   for (const s of sharedFiles()) {
-    if (slots.has(s.key)) continue;
-    if (rec(s.key)) run.problems.push(new Error("A shared file is missing on the server"));
-    else if (hasContent(s.file)) slots.set(s.key, null);
+    if (!slots.has(s.key) && rec(s.key)) run.problems.push(new Error("A shared file is missing on the server"));
   }
+  addNewCircles(slots);
 
   // 1. Download what changed.
   const remote = new Map();
@@ -168,16 +168,17 @@ export async function filesRound() {
   }
 
   // 2. Merge them all at once, without waiting for anything.
-  const displaced = [], rescued = [];
+  const displaced = [], rescued = [], me = state.sync.identity;
   for (const [key, got] of remote) {
     const localText = textAt(key);
     const local = parseNotesFile(localText);
     const merged = mergeNotesFiles(parseNotesFile(rec(key).base), local, parseNotesFile(got.text));
     if (serializeNotesFile(merged.file) !== localText) putFile(key, merged.file);
     setRec(key, { id: rec(key).id, version: got.version, base: got.text });
-    displaced.push(...merged.displaced.map(d => ({ ...d, from: key })));
+    // A note this user left that another member moved on isn't an edit to follow.
+    displaced.push(...merged.displaced.filter(d => !hasLeft(d.note, me)).map(d => ({ ...d, from: key })));
     // Another member deleted a note this device has protected: it becomes a private note here.
-    if (key !== PRIVATE) rescued.push(...protectedDeleted(local, merged.file, isProtected));
+    if (key !== PRIVATE) rescued.push(...protectedDeleted(local, merged.file, isProtected).filter(n => !hasLeft(n, me)));
   }
   if (rescued.length) putFile(PRIVATE, adoptNotes(state.file, rescued));
   for (const d of displaced) {
@@ -186,6 +187,9 @@ export async function filesRound() {
     putFile(to, applyDisplaced(fileAt(to), d));
   }
 
+  rehomeLeft();
+  addNewCircles(slots);
+  for (const key of slots.keys()) if (key !== PRIVATE && (slots.get(key) === null || remote.has(key) || rec(key).version === slots.get(key).version)) writeMemberName(key);
   if (remote.size) {
     // A private copy of a note that is shared again (someone was removed and added back) becomes a note of its own.
     const ids = new Set(sharedFiles().flatMap(sf => sf.file.notes.map(n => n.id)));
@@ -216,6 +220,37 @@ export async function filesRound() {
   if (run.done && state.sync.renew.length) await renewPending(run);
   if (run.problems.length) throw run.problems[0];
   return { done: run.done, again: run.again };
+}
+
+// Local shared files with notes and no file on the server yet are created in this pass.
+function addNewCircles(slots) {
+  for (const s of sharedFiles()) if (!slots.has(s.key) && !rec(s.key) && hasContent(s.file)) slots.set(s.key, null);
+}
+
+// Notes a member left move into the file of the remaining members (docs/file-format.md → "Leaving a shared
+// note"), created on first use; only when the target file exists or all of its people are this user's contacts,
+// else a member who has them as contacts does it.
+function rehomeLeft() {
+  const me = state.sync.identity, now = timestamp();
+  const isContact = id => contacts().some(x => x.id === id && !x.pending);
+  for (const s of sharedFiles()) {
+    for (const note of s.file.notes.filter(n => n.left && n.left.length)) {
+      const target = rehomeTarget(note, fileMembers(me, circle(s.key)), me);
+      if (!target) continue;
+      const toKey = circleKey(target.others);
+      if (toKey !== PRIVATE && !rec(toKey) && !target.others.every(isContact)) continue;
+      const moved = rehomeNote(fileAt(s.key), fileAt(toKey) || emptyFile(), note.id, now);
+      putFile(s.key, moved.from);
+      putFile(toKey, moved.to);
+    }
+  }
+}
+
+// Each member's devices keep their own display name in the shared file (docs/file-format.md → "Members").
+function writeMemberName(key) {
+  const me = state.sync.identity, name = state.sync.name, file = fileAt(key);
+  if (!name || (file.members || []).some(m => m.id === me && m.name === name)) return;
+  putFile(key, { ...file, members: [...(file.members || []).filter(m => m.id !== me), { id: me, name }] });
 }
 
 async function download(id) {

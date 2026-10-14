@@ -36,7 +36,7 @@ export function mergeNotesFiles(base, local, remote) {
     else if (out?.moved) moved.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved, devices: mergeMarkers(base, local, remote, "devices"), contacts: mergeMarkers(base, local, remote, "contacts"), order: mergeOrder(base, local, remote) }, displaced };
+  return { file: { preamble, notes, moved, devices: mergeMarkers(base, local, remote, "devices"), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), order: mergeOrder(base, local, remote) }, displaced };
 }
 
 // A custom order (backlog #24, #25) is one list: the side that changed it
@@ -50,7 +50,7 @@ function mergeOrder(base, local, remote) {
   return l.modified > r.modified ? l : r;
 }
 
-// Device names and contacts (private file): per id, the side that changed a
+// Device names, contacts (private file) and member names (shared files): per id, the side that changed a
 // marker wins, the remote one when both did; a marker removed on one side
 // stays removed.
 function mergeMarkers(base, local, remote, list) {
@@ -119,6 +119,29 @@ export function moveNote(from, to, id, now) {
   };
 }
 
+/** True when `identity` left the note (the note is hidden on its devices). */
+export const hasLeft = (note, identity) => Boolean(identity && note.left && note.left.includes(identity));
+
+/**
+ * Where a note someone left goes: the ids of the members who remain (`members`: everyone in the file,
+ * `own` included) in the file of the people besides `own`, or null when this device's user left it
+ * (a leaver's device doesn't move it) or nobody did. → { others: ids of the target circle ([] = the private file) }.
+ */
+export function rehomeTarget(note, members, own) {
+  if (!note.left || !note.left.length || note.left.includes(own)) return null;
+  return { others: members.filter(m => m !== own && !note.left.includes(m)) };
+}
+
+/** Moves a note someone left into another parsed file, leaving a moved marker; the note drops `left`. */
+export function rehomeNote(from, to, id, now) {
+  const moved = moveNote(from, to, id, now);
+  return { from: moved.from, to: { ...moved.to, notes: moved.to.notes.map(n => (n.id === id ? withoutLeft(n) : n)) } };
+}
+
+function withoutLeft({ left, ...note }) {
+  return note;
+}
+
 // Field groups merged independently; created and id never change.
 const GROUPS = [["status", "closed"], ["due"], ["body"]];
 
@@ -136,7 +159,16 @@ function mergeNote(base, l, r, notes) {
   if (l.body !== r.body && (!base || (l.body !== base.body && r.body !== base.body))) {
     notes.push({ ...older, id: newId() });
   }
+  const left = unionLeft(l, r);
+  if (left) out.left = left;
+  else delete out.left;
   return out;
+}
+
+// Who left a note: the union of both sides (undefined when nobody).
+function unionLeft(...notes) {
+  const ids = [...new Set(notes.flatMap(n => n.left || []))];
+  return ids.length ? ids : undefined;
 }
 
 function states(file) {
@@ -152,5 +184,5 @@ function same(a, b) {
   if (!a || !b) return !a && !b;
   if (isNote(a) !== isNote(b)) return false;
   if (!isNote(a)) return true;
-  return ["status", "created", "modified", "due", "closed", "body"].every(k => a[k] === b[k]);
+  return ["status", "created", "modified", "due", "closed", "body"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
 }

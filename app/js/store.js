@@ -4,7 +4,7 @@
 // always a valid NoteDown file. `state.file` is the private file, each entry
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
-import { moveNote } from "./core/merge.js";
+import { moveNote, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT } from "./core/query.js";
 
@@ -147,15 +147,27 @@ export function setSharedFile(memberIds, file) {
 
 const allFiles = () => [state.file, ...state.shared.map(s => s.file)];
 
-/** Every note of every file. */
+// A note this user left stays in the shared file until a remaining member moves it; no view shows it.
+const visible = n => !hasLeft(n, state.sync.identity);
+
+/** Every note of every file (the ones this user left excluded). */
 export function allNotes() {
-  return allFiles().flatMap(f => f.notes);
+  return allFiles().flatMap(f => f.notes).filter(visible);
 }
 
 // The file that holds a note, with its member ids ([] = the private file).
 function holderOf(id) {
   if (state.file.notes.some(n => n.id === id)) return { members: [], file: state.file };
   return state.shared.find(s => s.file.notes.some(n => n.id === id)) || null;
+}
+
+/** The display name a shared file's markers give a member (someone who isn't a contact), or undefined. */
+export function memberName(id) {
+  for (const s of state.shared) {
+    const m = (s.file.members || []).find(x => x.id === id);
+    if (m) return m.name;
+  }
+  return undefined;
 }
 
 /** The member ids of every shared file. */
@@ -190,7 +202,7 @@ export function activeCircle() {
 export function circleNotes(key) {
   if (key === null) return allNotes();
   if (key === "") return state.file.notes;
-  return state.shared.find(s => circleKey(s.members) === key)?.file.notes || [];
+  return (state.shared.find(s => circleKey(s.members) === key)?.file.notes || []).filter(visible);
 }
 
 /** The member ids of the circle a note lives in ([] = private). */
@@ -412,6 +424,30 @@ function applyMove(from, to, id, now) {
   const moved = moveNote(from, to, id, now);
   Object.assign(from, moved.from);
   Object.assign(to, moved.to);
+}
+
+/** Leaves shared notes (real sync): marks them `left` with this user's identity ID; they disappear here and a
+ *  remaining member moves them on (docs/file-format.md → "Leaving a shared note"). Returns a function that undoes it. */
+export function leaveNotes(ids) {
+  const me = state.sync.identity;
+  const marked = [];
+  for (const id of ids) {
+    const holder = holderOf(id);
+    const n = holder?.members.length && holder.file.notes.find(x => x.id === id);
+    if (n && !hasLeft(n, me)) { n.left = [...(n.left || []), me]; marked.push(id); }
+  }
+  saveFiles();
+  emit("structure");
+  return () => {
+    for (const id of marked) {   // looked up again: a sync may have replaced the file, or a remaining member moved the note on
+      const n = holderOf(id)?.file.notes.find(x => x.id === id);
+      if (!n || !hasLeft(n, me)) continue;
+      n.left = n.left.filter(x => x !== me);
+      if (!n.left.length) delete n.left;
+    }
+    saveFiles();
+    emit("structure");
+  };
 }
 
 /** Moves notes into the file of exactly these people ([] = private), created

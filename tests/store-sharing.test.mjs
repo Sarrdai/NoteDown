@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
-import { state, replaceFiles, shareNotes, applyMerge, circleOf, sharedFiles } from "../app/js/store.js";
+import { state, replaceFiles, shareNotes, applyMerge, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName } from "../app/js/store.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [n1, n2, n3] = sample.notes;
@@ -37,4 +37,26 @@ test("sharing moves a note into the file of the new set and leaves a moved marke
   shareNotes([n3.id], ["lea"]);   // removing bob moves it on
   assert.deepEqual(circleOf(n3.id), ["lea"]);
   assert.deepEqual(sharedFiles().find(s => s.key === "bob+lea").file.moved.map(m => m.id), [n3.id]);
+});
+
+test("leaving marks the note, hides it everywhere here and Undo brings it back", () => {
+  start();
+  replaceFiles({ file: state.file, shared: state.shared, sync: { enabled: true, identity: "me" } });
+  const undo = leaveNotes([n1.id]);
+  assert.equal(allNotes().some(n => n.id === n1.id), false, "hidden");
+  assert.equal(circleNotes("bob").length, 0);
+  assert.deepEqual(sharedFiles().find(s => s.key === "bob").file.notes[0].left, ["me"]);
+  assert.match(texts().bob, / left=me -->/);
+  leaveNotes([n3.id]);
+  assert.equal(state.file.notes[0].left, undefined, "a private note can't be left");
+  undo();
+  assert.equal(allNotes().some(n => n.id === n1.id), true);
+  assert.doesNotMatch(texts().bob, /left=/);
+});
+
+test("member names: a non-contact member's name comes from the shared file", () => {
+  start();
+  state.shared[0].file.members = [{ id: "zed", name: "Zed" }];
+  assert.equal(memberName("zed"), "Zed");
+  assert.equal(memberName("nobody"), undefined);
 });

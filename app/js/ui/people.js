@@ -1,12 +1,13 @@
 // How contacts and circles look: names, stable colors (`--person-N` tokens)
 // and the small avatars used by the share dialog and the shared markers.
-import { contacts } from "../store.js";
+import { contacts, memberName } from "../store.js";
 import { circleLabel, colorIndex, initials, visibleMembers } from "../core/sharing.js";
 
 const contact = id => contacts().find(c => c.id === id);
 
-/** A contact's name; "Unknown" for someone in a shared file who isn't (any more) a contact. */
-export const nameOf = id => contact(id)?.name ?? "Unknown";
+/** A contact's name (the user's own); for someone in a shared file who isn't a contact the name that member
+ *  wrote into the file, else "Unknown". */
+export const nameOf = id => contact(id)?.name ?? memberName(id) ?? "Unknown";
 
 /** "Lea & Tom" */
 export const membersLabel = members => circleLabel(members.map(nameOf));
@@ -18,6 +19,7 @@ const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&
 
 /** One initials circle, HTML. `cls` adds modifiers such as "small". */
 export function avatarHtml(id, cls = "") {
+  if (!contact(id)) return `<span class="avatar stranger ${cls}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;   // not a contact: neutral
   return `<span class="avatar person ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;
 }
 

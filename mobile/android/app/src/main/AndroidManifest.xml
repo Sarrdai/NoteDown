@@ -23,7 +23,7 @@
             </intent-filter>
 
             <!-- Invitation links (https://<web app>/invite/#…) open the app: an App Link, verified through
-                 the web app's .well-known/assetlinks.json (docs/operations.md → "Android App Links"). -->
+                 the web app's .well-known/assetlinks.json, written by the web deploy (docs/operations.md → "5. Android signing key"). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

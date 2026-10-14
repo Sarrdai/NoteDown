@@ -623,8 +623,12 @@ async function main() {
       await convergeShared([a, e, f], a, d, e, f);
       assert.equal(await noteBody(e, noteM), await noteBody(f, noteM));
       assert.deepEqual(await circleOfNote(f, noteM), [await ident(a), await ident(e)].sort());
+      // Tom isn't Lea's contact: her name comes from the member marker she wrote into the shared file.
+      assert.equal(await f.evaluate(id => window.__store.memberName(id), await ident(e)), "Lea");
+      assert.match(await circleText(f, [a, e, f]), /<!-- member id=\S+ name=Lea -->/);
       await tidy(f);
       await f.evaluate(() => window.__store.setUi({ panelTab: "people" }));
+      await f.locator("#peopleList").getByText(/Lea/).waitFor();
       await shot(f, "people-group-tablet");
       await f.evaluate(() => window.__store.setUi({ panelTab: "toc" }));
       await shot(f, "shared-list-tablet");
@@ -665,11 +669,31 @@ async function main() {
       await converge(f);
     });
 
-    await step("leaving isn't offered in the share dialog yet; contacts removed later don't cut the shared file", async () => {
-      await a.evaluate(async id => (await import("/app/js/ui/share-dialog.js")).openShareDialog([id]), noteM);
-      await a.getByRole("checkbox", { name: "Tom" }).waitFor();
-      assert.equal(await a.getByRole("button", { name: "Leave" }).count(), 0);
-      await a.keyboard.press("Escape");
+    await step("Tom leaves a note shared with Sam and Lea: it disappears for him, Sam's device moves it into the file of the two", async () => {
+      await tidy(f);
+      await f.evaluate(async id => (await import("/app/js/ui/share-dialog.js")).openShareDialog([id]), noteM);
+      await shot(f, "leave-dialog-tablet");
+      await f.getByRole("button", { name: "Leave" }).click();
+      await f.getByText("You left the note").waitFor();
+      assert.equal(await noteBody(f, noteM), undefined, "hidden at once");
+      assert.match(await circleText(f, [a, e, f]), / left=\S+ -->/, "marked in the shared file");
+      await sync(f);
+      await sync(a);   // a remaining member moves it on
+      assert.deepEqual(await circleOfNote(a, noteM), [await ident(e)]);
+      assert.doesNotMatch(await circleText(a, [a, e]) , /left=/);
+      await convergeShared([a, e], a, d, e);
+      assert.deepEqual(await circleOfNote(e, noteM), [await ident(a)]);
+      assert.match(await circleText(a, [a, e, f]), new RegExp(`<!-- note id=${noteM} moved=`), "the old file keeps the moved marker");
+      await convergeShared([a, e, f], a, e, f);
+      assert.equal(await noteBody(f, noteM), undefined, "Tom doesn't see it any more");
+      assert.doesNotMatch(await fileText(f), new RegExp(`<!-- note id=${noteM} status`), "and it doesn't come back into his private file");
+      // Later edits go into the file of the two, which Tom isn't a member of.
+      await setBody(a, noteM, (await noteBody(a, noteM)) + "\n\nafter Tom left");
+      await convergeShared([a, e], a, e);
+      await sync(f);
+      assert.equal(await noteBody(f, noteM), undefined);
+      assert.equal(await f.evaluate(() => window.__store.allNotes().some(n => /after Tom left/.test(n.body))), false, "Tom can't read later edits");
+      assert.equal(await e.evaluate(() => window.__store.allNotes().some(n => /after Tom left/.test(n.body))), true);
       noteK = (await addNote(a, sample.s13)).id;   // for the contact removal below
       await a.evaluate(([i, m]) => window.__store.shareNotes([i], [m]), [noteK, await ident(e)]);
       await convergeShared([a, e], a, d, e);

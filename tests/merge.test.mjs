@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { toggleTask } from "../app/js/core/markdown.js";
-import { mergeNotesFiles, applyDisplaced, moveNote, protectedDeleted, adoptNotes, movedAway, renameDuplicates } from "../app/js/core/merge.js";
+import { mergeNotesFiles, applyDisplaced, moveNote, protectedDeleted, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../app/js/core/merge.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [s01, s03] = ["s01", "s03"].map(id => sample.notes.find(n => n.id === id));
@@ -158,4 +158,55 @@ test("renameDuplicates: a private copy of a note that is in a shared file again 
   assert.deepEqual(out.notes.map(n => n.id), [renamed[0].to, "s03"]);
   assert.equal(out.notes[0].body, s01.body, "the text is kept");
   assert.deepEqual(renameDuplicates(file(s03), new Set(["s01"])).renamed, []);
+});
+
+test("file format: left and member markers round-trip", () => {
+  const left = { ...s01, left: ["bob", "lea"] };
+  const text = serializeNotesFile({ preamble: "", notes: [left, s03], moved: [], members: [{ id: "sam", name: "Sam Ö" }] });
+  assert.match(text, / left=bob,lea -->/);
+  assert.match(text, /<!-- member id=sam name=Sam%20%C3%96 -->/);
+  const parsed = parseNotesFile(text);
+  assert.deepEqual(parsed.notes.find(n => n.id === "s01").left, ["bob", "lea"]);
+  assert.equal("left" in parsed.notes.find(n => n.id === "s03"), false, "no left attribute, no left field");
+  assert.deepEqual(parsed.members, [{ id: "sam", name: "Sam Ö" }]);
+});
+
+test("merge: left is the union of both sides; a change of left alone is taken", () => {
+  const base = file(s01);
+  const bob = file({ ...s01, left: ["bob"] });
+  assert.deepEqual(mergeNotesFiles(base, bob, base).file.notes[0].left, ["bob"]);
+  assert.deepEqual(mergeNotesFiles(base, base, bob).file.notes[0].left, ["bob"]);
+  const lea = file({ ...s01, left: ["lea"] });
+  assert.deepEqual(mergeNotesFiles(base, bob, lea).file.notes[0].left, ["bob", "lea"]);
+  // Left on one side, edited on the other: both stay.
+  const edited = file(edit(s01, 1, "2026-10-13T09:00"));
+  const out = mergeNotesFiles(base, bob, edited).file.notes[0];
+  assert.deepEqual(out.left, ["bob"]);
+  assert.equal(out.body, edited.notes[0].body);
+});
+
+test("merge: member names per id — each member's own marker is taken, a removal stays", () => {
+  const f = members => ({ ...file(), members });
+  const out = mergeNotesFiles(f([{ id: "a", name: "A" }]), f([{ id: "a", name: "A" }, { id: "b", name: "Bea" }]), f([{ id: "a", name: "Ann" }])).file;
+  assert.deepEqual(out.members, [{ id: "a", name: "Ann" }, { id: "b", name: "Bea" }]);
+});
+
+test("rehomeTarget: a remaining member moves a note someone left to the file of the others; a leaver doesn't", () => {
+  const left = { ...s01, left: ["bob"] };
+  assert.deepEqual(rehomeTarget(left, ["bob", "lea", "me"], "me"), { others: ["lea"] });
+  assert.deepEqual(rehomeTarget({ ...s01, left: ["bob", "lea"] }, ["bob", "lea", "me"], "me"), { others: [] }, "one member left: private");
+  assert.equal(rehomeTarget(left, ["bob", "lea", "me"], "bob"), null, "the leaver's own device does nothing");
+  assert.equal(rehomeTarget(s01, ["bob", "me"], "me"), null);
+  assert.equal(hasLeft(left, "bob"), true);
+  assert.equal(hasLeft(left, "me"), false);
+  assert.equal(hasLeft(left, ""), false);
+});
+
+test("rehomeNote: the note drops left, the old file keeps a moved marker", () => {
+  const left = { ...s01, left: ["bob"] };
+  const { from, to } = rehomeNote(file(left, s03), file(), "s01", "2026-10-14T10:00Z");
+  assert.deepEqual(from.notes.map(n => n.id), ["s03"]);
+  assert.deepEqual(from.moved, [{ id: "s01", moved: "2026-10-14T10:00Z" }]);
+  assert.equal("left" in to.notes[0], false);
+  assert.equal(to.notes[0].body, s01.body);
 });
