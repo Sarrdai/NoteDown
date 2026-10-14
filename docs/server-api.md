@@ -100,6 +100,7 @@ No accounts and no passwords: a device signs a challenge.
 | Method and path | Auth | Request → response |
 |---|---|---|
 | `GET /health` | — | → `{"ok": true}` when the database answers |
+| `GET /health/live` | — | → `{"ok": true}` without touching the database (the uptime check, so Neon can sleep) |
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
 | `GET /v1/identities/{id}` | — | → `{"identity_key", "entries"}` |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |

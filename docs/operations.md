@@ -8,6 +8,7 @@
 - [3. Google Cloud](#3-google-cloud)
 - [4. Server subdomain](#4-server-subdomain)
 - [5. Android signing key](#5-android-signing-key)
+- [6. Alerts](#6-alerts)
 - [Installing the test app](#installing-the-test-app)
 - [Checks](#checks)
 - [Day to day](#day-to-day)
@@ -40,8 +41,9 @@ month (a synced app that is open polls every 5 s, about 130,000 requests
 a month for a device open all working day), and the service is capped at 2 instances; Artifact Registry
 0.5 GB (the setup keeps the 5 newest images); Neon 0.5 GB of data and a
 database that sleeps after 5 idle minutes (the first request afterwards
-takes about a second). Google needs a billing account even within the
-free tier; a budget alert guards against surprises.
+takes about a second; compute hours are limited on the free plan).
+Google needs a billing account even within the free tier; a budget alert
+guards against surprises.
 
 ## Setup order
 
@@ -55,7 +57,8 @@ don't.
 3. Google Cloud project, then run `scripts/setup-gcp.sh`.
 4. Server subdomain on Cloud Run.
 5. Android signing key.
-6. Check everything (see "Checks").
+6. Alerts by email.
+7. Check everything (see "Checks").
 
 ## 1. Web app on GitHub Pages
 
@@ -167,6 +170,36 @@ The key is created once, by you, and kept like a password.
 Without these secrets the workflow still builds a **debug** APK (as a
 workflow artifact) but publishes no release.
 
+## 6. Alerts
+
+Two alerts mail you when the server has a problem:
+
+- **Server down:** an uptime check calls `/health/live` every 5 minutes
+  from 3 regions (Europe, Iowa, Virginia); the alert fires when it fails
+  from more than one region for 5 minutes. The endpoint doesn't touch
+  the database, so Neon still sleeps when nobody uses the app.
+- **Server errors:** 3 or more 5xx responses within 10 minutes — mostly
+  a database that is down or unreachable, noticed as soon as the app is
+  used.
+
+After the first successful server deploy (step 3, item 5), run the script a
+second time in Cloud Shell:
+
+```bash
+bash NoteDown/scripts/setup-gcp.sh <project-id>
+```
+
+Press Enter at the Neon prompt to keep the stored connection string, then
+enter the email address for the alerts. Google sends the alerts from
+`alerting-noreply@google.com`; check the spam folder the first time.
+
+Cost: the check runs about 26,000 times a month (3 regions × 12 per hour)
+— within the 1 million free uptime-check runs and 1.3 % of Cloud Run's 2
+million free requests. Alert policies are free; Google has announced a
+charge of $0.35 per month per metric in a policy from September 2027,
+which would be $0.70 a month for these two. The checks keep one Cloud Run
+instance warm; idle instances cost nothing with request-based billing.
+
 ## Installing the test app
 
 On the Android phone: open the repository's *Releases* → **android-test**
@@ -179,6 +212,8 @@ the browser when asked. Later builds install over it.
 |---|---|
 | `https://notedown.example.com` | The app opens, padlock in the address bar |
 | `https://notedown-api.example.com/health` | `{"ok":true}` |
+| Cloud Console → *Monitoring* → *Uptime checks* → `notedown-api live` | green in all 3 regions |
+| Cloud Console → *Monitoring* → *Alerting* | the policies `NoteDown server down` and `NoteDown server errors`, notifying your email |
 | *Actions* → latest *Server*, *Web*, *Android* runs on `main` | green; deploy jobs not skipped |
 | Releases → `android-test` | `notedown.apk`, build number of the latest run |
 
