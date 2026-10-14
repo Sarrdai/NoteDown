@@ -102,7 +102,10 @@ class Caller:
 
 
 def create_app(settings: Settings) -> FastAPI:
-    pool = ConnectionPool(settings.database_url, min_size=1, max_size=5, open=False)
+    # check: Neon closes idle connections when it suspends; test each one before use
+    # instead of failing the first request afterwards with a 500.
+    pool = ConnectionPool(settings.database_url, min_size=1, max_size=5, open=False,
+                          check=ConnectionPool.check_connection)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -185,6 +188,11 @@ def create_app(settings: Settings) -> FastAPI:
     def health():
         with pool.connection() as conn:
             conn.execute("SELECT 1")
+        return {"ok": True}
+
+    @app.get("/health/live")
+    def health_live():
+        # For the uptime check: no database access, so Neon can still sleep.
         return {"ok": True}
 
     @app.get("/v1/auth/challenge")
