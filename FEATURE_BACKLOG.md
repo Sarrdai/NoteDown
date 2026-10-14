@@ -1,6 +1,6 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 29
+LAST_ID: 32
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
 elaborated with the user, built into the prototype, and then leaves this file for
@@ -38,6 +38,9 @@ The column stays the last one, so a row added without it still reads right.
 
 | Nr | Vorschlag | Begründung | Aufwand | Prio | Abhängig von |
 |---|---|---|---|---|---|
+| 30 | Setting for links and images in notes | Security question (2026-10-14): any member of a shared note can add an image from another host, which every reader's device loads (that host sees IP address and reading time), and links lead anywhere. Links and images stay a wanted feature; a setting decides per source: **allowed**, **only after confirming** or **never** — global, overridable per circle (group), so the client blocks them. Open: synced or per device; does it apply to private notes; how "after confirming" looks (placeholder with the host to tap, a dialog with the full address before a link opens). | mittel | 1 |  |
+| 31 | Import of exported files | Export concept (2026-10-14): an export with metadata keeps the note markers, so it could be read back to restore notes. Not planned yet; whether it is worth it (and how ids that already exist are handled) is to be discussed. | mittel | 2 |  |
+| 32 | Integrity of the local file in the app phase | Security question (2026-10-14): whoever can write the local private file acts as the user — e.g. set `verified=` on a contact, or swap two contacts' `id`s so notes "shared with Lea" go to Tom (the server only refuses non-contacts); the change syncs to all own devices. Today the notes sit in browser storage, reachable only with developer tools; it matters once the app keeps them in the visible documents folder (`docs/requirements.md` → "Notes and storage"). Options: keep the files app-private and rely on Export for a readable copy, or keep security-relevant state (verification, contact ids) outside the editable file. Also to check: a member of a shared file could write a note with the id of one of the user's private notes (e.g. one that was shared before); the store looks notes up by id only. | mittel | 2 |  |
 | 2 | Home-screen widget for quick capture | Quick capture from the phone's home screen (2026-10-13); app shortcuts "New note" / "Dictate" are planned for the app phase, a widget would go further (e.g. showing open notes). | mittel | 3 | app shortcuts (app phase) |
 | 9 | Object store for the encrypted files | Live test setup (2026-10-13): Postgres holds the files for now; Neon's free plan has 0.5 GB. When files outgrow it, move them to an object store (e.g. Cloudflare R2, 10 GB free) behind the same API. | mittel | 3 |  |
 | 10 | iOS app | Technology decision (2026-10-13): Android and web first. Capacitor's iOS project, an Apple developer account (99 $/year), signing and TestFlight for tests. Lowered to 3: Android and web first, milestone 2 before a third platform. | mittel | 3 |  |
