@@ -31,7 +31,7 @@ export function createApi(baseUrl, who) {
         method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: "no-store",
       });
     } catch (e) {
-      throw new NetworkError(e.message);
+      throw new NetworkError("Can't reach the sync server. Check your connection and try again.");
     }
     if (res.status === 401 && auth && retry) { token = null; return call(method, path, body, auth, false); }
     const data = res.status === 204 ? null : await res.json().catch(() => null);
