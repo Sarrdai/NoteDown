@@ -54,13 +54,7 @@ export function parseNotesFile(text) {
 /** Writes { preamble, notes, moved, devices, contacts, members, order } back into the file format. */
 export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], contacts = [], members = [], order = null }) {
   const parts = preamble ? [preamble] : [];
-  for (const n of notes) {
-    const attrs = ["id=" + n.id, "status=" + n.status, "created=" + n.created, "modified=" + n.modified];
-    if (n.due) attrs.push("due=" + n.due);
-    if (n.closed) attrs.push("closed=" + n.closed);
-    if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
-    parts.push(`<!-- note ${attrs.join(" ")} -->\n${n.body.trim()}`);
-  }
+  for (const n of notes) parts.push(`${noteMarker(n)}\n${n.body.trim()}`);
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id} name=${encodeURIComponent(d.name)} -->`);
@@ -69,6 +63,15 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], devices =
   }
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
+}
+
+/** A note's marker line, `<!-- note id=… status=… … -->`. */
+export function noteMarker(n) {
+  const attrs = ["id=" + n.id, "status=" + n.status, "created=" + n.created, "modified=" + n.modified];
+  if (n.due) attrs.push("due=" + n.due);
+  if (n.closed) attrs.push("closed=" + n.closed);
+  if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
+  return `<!-- note ${attrs.join(" ")} -->`;
 }
 
 /** A new open note; `now` is a timestamp (see timestamp()). */

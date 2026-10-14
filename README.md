@@ -14,6 +14,9 @@ long-press on a note starts multi-select to close, copy, share, merge,
 protect or delete several notes at once (protected notes can't be
 deleted, and deleting always asks first); a long-press in the table of contents
 selects sections, which can be moved together into a new note.
+⋮ → Export saves the current view, or all files as a ZIP for a local
+backup, as Markdown — with or without a table of contents and the hidden
+metadata; the selection exports single notes or sections the same way.
 
 Notes stay on the device and work offline. Sync between phone, tablet
 and the web app, and sharing single notes with other people, run through

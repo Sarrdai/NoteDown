@@ -152,6 +152,34 @@
         </div>
       </div>
     </div>
+    <div class="dialog-scrim keep-editing" id="exportDialog" hidden>
+      <div class="dialog export" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+        <h2 class="dialog-title" id="exportTitle">Export</h2>
+        <p class="dialog-hint" id="exportHint"></p>
+        <div class="merge-choice" id="exportScope" role="radiogroup" aria-label="What to export"></div>
+        <div class="export-options">
+          <label class="setting-row" id="exportArchiveRow">
+            <span class="setting-label">Include archive</span>
+            <input type="checkbox" class="switch" id="exportArchive" role="switch">
+          </label>
+          <label class="setting-row">
+            <span class="setting-label">Table of contents</span>
+            <input type="checkbox" class="switch" id="exportToc" role="switch">
+          </label>
+          <label class="setting-row">
+            <span class="setting-text">
+              <span class="setting-label">Keep metadata</span>
+              <span class="setting-sub">Dates and status as hidden comments. Turn off to reuse the text anywhere.</span>
+            </span>
+            <input type="checkbox" class="switch" id="exportMeta" role="switch">
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn" id="exportCancel">Cancel</button>
+          <button class="btn primary" id="exportOk">Export</button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-scrim keep-editing" id="syncPanel" hidden>
       <div class="dialog sheet" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
         <header class="sheet-head">
