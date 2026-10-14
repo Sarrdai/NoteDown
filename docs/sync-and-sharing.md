@@ -138,18 +138,31 @@ rely on the operating system's own storage encryption for the local copy.
 
 ## Contacts
 
-- **In person:** a contact shows their QR code ("My code"), the user
-  scans it. The scanning device gets the contact's public key directly —
-  the contact is verified by construction. The scanned device receives
-  a contact request and confirms it, so both have each other.
+- **In person:** the user shows their code ("My code"), the contact scans
+  it — with NoteDown's scanner or the phone's own camera, the code is the
+  invitation link. The code carries the user's identity ID, which is the
+  fingerprint of their identity key, so the scanner gets the right key
+  by construction.
 - **Remote:** the user sends an **invitation link** through any
-  messenger. It carries the user's key fingerprint and a one-time token;
-  whoever opens it (installing NoteDown or opening the web app first)
-  becomes a contact on both sides. As safe as the channel it was sent
-  over.
+  messenger; whoever opens it (installing NoteDown or opening the web app
+  first) can send a contact request. As safe as the channel it was sent
+  over. On Android the link opens the app when it is installed (App
+  Link); "Add contact" also takes a pasted link.
+- **Every request is confirmed** by the one who showed the code or sent
+  the link (decided 2026-10-14): only then are both contacts of each
+  other. Code and link work once; a code for 10 minutes, a link for 7
+  days. The server can't forge a request: the link's secret is in it,
+  and it never sees that secret (`docs/server-api.md` → "Contacts and
+  invitations").
 - Contact names are **local**: the user names a contact; the contact's
-  own display name is the suggestion.
-- The app remembers each contact's key and warns if it ever changes.
+  own display name is the suggestion. The contact list lives in the
+  private file (`docs/file-format.md` → "Contacts"), so all the user's
+  devices share it.
+- **Device lists are private to contacts** (backlog #18): only the
+  identity itself, its contacts, the members of its shared files and
+  someone holding its open invitation may read it. The server therefore
+  knows which identities are contacts — it learns who shares with whom
+  anyway.
 
 ## Keys
 

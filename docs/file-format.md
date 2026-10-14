@@ -5,6 +5,7 @@
 - [Marker attributes](#marker-attributes)
 - [Moved notes](#moved-notes)
 - [Device names](#device-names)
+- [Contacts](#contacts)
 - [Custom order](#custom-order)
 - [Open points](#open-points)
 <!-- /toc -->
@@ -91,9 +92,29 @@ device's QR code suggests; removing a device drops its marker. Merging
 works per ID: the side that changed a name wins, a removal stays. Any
 text after a device marker is dropped, like after a moved marker.
 
+## Contacts
+
+The private file also holds the user's contacts, one marker each after
+the device markers, so every device of the identity has the same
+contacts and names while the server only knows pairs of identity IDs
+(`docs/server-api.md` → "Contacts and invitations"):
+
+```markdown
+<!-- contact id=TGVhSWRlbnRpdHkxMjM0NQ name=Lea color=2 -->
+<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z -->
+```
+
+`id` is the contact's identity ID, `name` the name the user gave the
+contact (percent-encoded; the contact's own display name is the
+suggestion), `color` the avatar color slot 1–6. `pending` marks a
+request this user sent that the other side hasn't confirmed yet (the
+time it was sent, UTC); it is dropped once the server lists the pair.
+Merging works per ID like device names: the side that changed a contact
+wins, a removal stays. Any text after a contact marker is dropped.
+
 ## Custom order
 
-A file can hold one order marker, after the device markers: the note ids
+A file can hold one order marker, after the device and contact markers: the note ids
 of a custom order, first to last (backlog #24):
 
 ```markdown
