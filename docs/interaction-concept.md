@@ -18,11 +18,11 @@ Current state, edited in place when a decision changes.
 
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
-| Top bar | Title; icons for contents, search, sort, archive (with count), sync status, ⋮ | Title, search field, icons | Title, search field, sort and archive with labels, sync status icon, ⋮ |
-| Table of contents and People (#23) | Bottom sheet, opened from the top bar; tabs "Contents \| People" once there are contacts | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
+| Top bar | Title; icons for search, sort, sync status, archive (with count), ⋮ | Title, search field, icons in the same order | Title, search field, sort with label, sync status icon, archive with label, ⋮ |
+| Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People" once there are contacts | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
-| Multi-select | Contextual top bar: ✕, contents button, count, main action icons, rest under ⋮ | Contextual top bar: ✕, count, action icons | Same, actions with labels |
+| Multi-select | Contextual top bar: ✕, count, main action icons, rest under ⋮; the contents handle stays | Contextual top bar: ✕, count, action icons | Same, actions with labels |
 | Panels (Sync & sharing, share dialog) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
 - One primary action per view, as a floating button at the bottom
@@ -32,10 +32,14 @@ Current state, edited in place when a decision changes.
   panels extend their background behind the system status bar and keep
   their controls below it, bottom elements stay above the gesture bar
   (safe-area insets; Android forces edge-to-edge from version 15).
-- The archive keeps the main view's layout; only the background tint and
-  the view button tell them apart: "Archive" in the main view turns into
-  "Notes" in the archive, in the same place and size, so one tap switches
-  back and forth (decided 2026-10-13 over a back button at the left).
+- The archive keeps the main view's layout; only the background tint, the
+  title and the view button tell them apart: "Archive" in the main view
+  turns into "Notes" in the archive, in the same place and size at the
+  right end of the top bar (only ⋮ after it), so one tap switches back and
+  forth (decided 2026-10-13 over a back button at the left). On touch
+  devices the archive also lies to the right of the notes (see "Input").
+- The phone keeps bottom elements clear of the contents handle: the +
+  button and the snackbar sit above it.
 
 ## Input
 
@@ -55,6 +59,15 @@ Current state, edited in place when a decision changes.
 - Touch screens: rendered notes don't offer native text selection or
   the long-press callout, so the long-press stays free for multi-select;
   text is selected in the editor or copied with Copy.
+- **Swipe sideways** (phone and tablet) on the list moves between the
+  notes and the archive, which lies to their right; the list follows the
+  finger, past a third of the width or with a flick the other view slides
+  in, otherwise it springs back; past either end it only gives a little.
+  Not while editing, selecting, recording or with the contents sheet open;
+  content that scrolls sideways itself (a wide table) keeps the gesture.
+- **Bottom sheets** (phone) have a handle: a tap opens fully or closes,
+  dragging leaves the sheet at any height, a flick or a drag near the
+  bottom closes.
 - **Pull to refresh** (phone and tablet, while sync is on): pulling the
   list down from its top syncs now; a round indicator follows the finger
   and spins until the sync is over. Desktop syncs by opening Sync &

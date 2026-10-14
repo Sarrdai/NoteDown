@@ -201,7 +201,15 @@ before the first live test).
 - The **archive button** in the main view shows how many notes were closed
   today; the count resets at midnight. In the archive the same button
   reads **Notes** (no count) and leads back, so one place switches
-  between both views. *Prototype: round 1; Notes button 2026-10-13.*
+  between both views. It sits at the right end of the top bar, only ⋮
+  after it. *Prototype: round 1; Notes button 2026-10-13; place
+  2026-10-14.*
+- On phone and tablet, **swiping the list sideways** switches between both
+  views: the archive lies to the right of the notes (swipe left to open
+  it, right to go back); the list follows the finger and springs back
+  when let go early. The title at the left of the top bar says where the
+  user is. The view button stays as the visible way. *Prototype:
+  2026-10-14.*
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*
@@ -310,10 +318,14 @@ before the first live test).
 - Tapping an entry scrolls to that place in the note and briefly
   highlights the note. A long-press on an entry selects sections
   ("Multi-select"); not in the archive.
-- On the phone it opens as a **bottom sheet** from the top bar's contents
-  button — within thumb reach, and the list stays visible above it
-  (decided 2026-10-13 over a side drawer). Tablet and desktop show it as
-  a fixed sidebar.
+- On the phone it is a **bottom sheet** whose **handle always peeks out at
+  the bottom** — within thumb reach, and the handle shows where it is
+  (decided 2026-10-13 over a side drawer; 2026-10-14 the handle replaced
+  the top bar's contents button). A tap on the handle opens it fully (up
+  to the top bar) or closes it; dragging the handle or the sheet's head
+  leaves it at any height, a drag below ~15 % or a flick down closes it.
+  The height is not remembered. While editing and recording the handle
+  gives way. Tablet and desktop show it as a fixed sidebar.
 
 ### People circles as a filter
 
@@ -414,9 +426,9 @@ before the first live test).
 - While selecting, a **contextual top bar** replaces the normal one: ✕,
   "n selected" (n = parts: whole notes and runs of adjacent sections) and
   the actions as icons (with labels on the desktop); the + button is
-  hidden. On the phone the bar keeps the **contents button**, so the
-  selection can be refined in the contents sheet and back, and shows only
-  the number; Share and the heading actions move under ⋮ there. Decided
+  hidden. On the phone the contents sheet's handle stays at the bottom,
+  so the selection can be refined in the contents and back; the bar shows
+  only the number there, and Share and the heading actions move under ⋮ there. Decided
   2026-10-13 over a bottom action bar (the thumb area and the list's
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
