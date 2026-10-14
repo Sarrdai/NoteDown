@@ -44,3 +44,13 @@ CREATE TABLE IF NOT EXISTS relay (
     payload text,
     expires timestamptz NOT NULL
 );
+
+-- Per-IP request counters in fixed windows (bucket = "<endpoint>:<ip or /64>"); stale rows are
+-- deleted by the next limited request.
+CREATE TABLE IF NOT EXISTS rate_limits (
+    bucket       text NOT NULL,
+    window_start timestamptz NOT NULL,
+    expires      timestamptz NOT NULL,
+    count        integer NOT NULL,
+    PRIMARY KEY (bucket, window_start)
+);

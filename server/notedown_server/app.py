@@ -1,5 +1,6 @@
 """The sync server's HTTP API (docs/server-api.md)."""
 
+import ipaddress
 import os
 import re
 from contextlib import asynccontextmanager
@@ -19,11 +20,15 @@ from . import auth
 from .protocol import (ProtocolError, b64u, entry_hash, from_b64u, is_id, key_id, verify_chain,
                        verify_signature)
 
-MAX_FILE_BYTES = 5 * 1024 * 1024
+# Total decoded ciphertext per identity; a constant for now (a paid option may raise it later).
+MAX_STORAGE_BYTES = 2 * 1024 * 1024
 MAX_FILES = 50
 MAX_WRAPPED_KEY = 512
 MAX_RELAY_PAYLOAD = 8 * 1024
 RELAY_MINUTES = 10
+# Per-IP limits on the unauthenticated endpoints that create something: (max requests, window seconds).
+LIMIT_IDENTITIES = (10, 24 * 3600)
+LIMIT_RELAY = (30, 3600)
 
 
 @dataclass
@@ -31,6 +36,7 @@ class Settings:
     database_url: str
     secret: bytes
     cors_origins: list[str]
+    rate_limits: bool = True   # switched off only for tests and the local end-to-end run
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -38,6 +44,7 @@ class Settings:
             database_url=os.environ["DATABASE_URL"],
             secret=os.environ["SERVER_SECRET"].encode(),
             cors_origins=[o for o in re.split(r"[,\s]+", os.environ.get("CORS_ORIGINS", "")) if o],
+            rate_limits=os.environ.get("RATE_LIMITS", "on").lower() != "off",
         )
 
 
@@ -69,6 +76,23 @@ class Keys(BaseModel):
 
 class RelayPayload(BaseModel):
     payload: str
+
+
+def client_ip(request: Request) -> str:
+    """The address rate limits count: IPv4 as is, IPv6 per /64 prefix."""
+    # Cloud Run's front end appends the address it received the request from to X-Forwarded-For,
+    # so the last entry is the client; earlier ones are client-supplied and can be forged.
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+    host = forwarded or (request.client.host if request.client else "unknown")
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped:
+            return str(address.ipv4_mapped)
+        return str(ipaddress.ip_network((address, 64), strict=False))
+    return str(address)
 
 
 @dataclass
@@ -114,6 +138,28 @@ def create_app(settings: Settings) -> FastAPI:
         return Caller(*claims)
 
     Authed = Annotated[Caller, Depends(caller)]
+
+    def rate_limit(name: str, limit: tuple[int, int]):
+        """A dependency counting this endpoint's requests per IP in fixed windows (table rate_limits)."""
+        maximum, window = limit
+
+        def check(request: Request) -> None:
+            if not settings.rate_limits:
+                return
+            with pool.connection() as conn:
+                conn.execute("DELETE FROM rate_limits WHERE expires < now()")
+                count, wait = conn.execute(
+                    "INSERT INTO rate_limits (bucket, window_start, expires, count) "
+                    "SELECT %(bucket)s, w, w + make_interval(secs => %(window)s), 1 FROM "
+                    "(SELECT to_timestamp(floor(extract(epoch FROM now()) / %(window)s) * %(window)s) AS w) t "
+                    "ON CONFLICT (bucket, window_start) DO UPDATE SET count = rate_limits.count + 1 "
+                    "RETURNING count, extract(epoch FROM expires - now())",
+                    {"bucket": f"{name}:{client_ip(request)}", "window": window}).fetchone()
+            if count > maximum:
+                raise HTTPException(429, "too many requests",
+                                    headers={"Retry-After": str(max(1, int(wait) + 1))})
+
+        return Depends(check)
 
     def check_keys(conn: psycopg.Connection, identity: str, keys: dict[str, str]) -> None:
         active = {r[0] for r in conn.execute(
@@ -185,7 +231,8 @@ def create_app(settings: Settings) -> FastAPI:
                 "DELETE FROM file_keys k USING files f WHERE k.file_id = f.id "
                 "AND f.owner = %s AND k.device_id = ANY(%s)", (identity, removed))
 
-    @app.post("/v1/identities", status_code=201)
+    @app.post("/v1/identities", status_code=201,
+              dependencies=[rate_limit("identities", LIMIT_IDENTITIES)])
     def create_identity(body: NewIdentity):
         identity_key = from_b64u(body.identity_key, 32)
         identity = key_id(identity_key)
@@ -253,10 +300,12 @@ def create_app(settings: Settings) -> FastAPI:
     @app.put("/v1/files/{file_id}")
     def put_file(file_id: str, body: Upload, who: Authed):
         require_file_id(file_id)
-        if len(body.ciphertext) > MAX_FILE_BYTES * 4 // 3 + 4:
-            raise HTTPException(413, "file too large")
+        if len(body.ciphertext) > MAX_STORAGE_BYTES * 4 // 3 + 4:
+            raise HTTPException(413, "storage quota exceeded")
         ciphertext = from_b64u(body.ciphertext)
         with pool.connection() as conn:
+            # Uploads of one identity queue up here, so the quota check below can't be raced.
+            conn.execute("SELECT 1 FROM identities WHERE id = %s FOR UPDATE", (who.identity,))
             if body.keys is not None:
                 check_keys(conn, who.identity, body.keys)
             row = conn.execute("SELECT owner, version FROM files WHERE id = %s FOR UPDATE",
@@ -267,6 +316,11 @@ def create_app(settings: Settings) -> FastAPI:
             if body.base_version != current:
                 return JSONResponse(status_code=409, content={
                     "detail": "version conflict", "version": current})
+            used = conn.execute(
+                "SELECT coalesce(sum(length(ciphertext)), 0) FROM files WHERE owner = %s AND id <> %s",
+                (who.identity, file_id)).fetchone()[0]
+            if used + len(ciphertext) > MAX_STORAGE_BYTES:
+                raise HTTPException(413, "storage quota exceeded")
             if row is None:
                 if not body.keys:
                     raise ProtocolError("a new file needs keys")
@@ -300,7 +354,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     # --- relay slots for linking a device ---
 
-    @app.post("/v1/relay", status_code=201)
+    @app.post("/v1/relay", status_code=201, dependencies=[rate_limit("relay", LIMIT_RELAY)])
     def create_slot():
         slot = b64u(os.urandom(16))
         with pool.connection() as conn:

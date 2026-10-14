@@ -3,10 +3,17 @@
 // is fetched by signing a challenge and kept until shortly before it expires.
 import { signChallenge } from "../core/crypto.js";
 
+// The server's answers that get a sentence of their own in the sync status.
+function describe(status, body) {
+  if (status === 429) return "Too many attempts. Try again later.";
+  if (status === 413 && body && body.detail === "storage quota exceeded") return "Sync storage is full (2 MB).";
+  return body && body.detail ? `${status}: ${body.detail}` : `HTTP ${status}`;
+}
+
 /** A non-2xx answer: `status` and the parsed body (`detail`, maybe `version` / `seq`). */
 export class ApiError extends Error {
   constructor(status, body) {
-    super(body && body.detail ? `${status}: ${body.detail}` : `HTTP ${status}`);
+    super(describe(status, body));
     this.status = status;
     this.body = body || {};
   }
