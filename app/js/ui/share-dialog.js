@@ -94,8 +94,8 @@ registerPage("share", {
     data.onContactAdded = c => { data.states[c.id] = "all"; };
     return [
       text("Only the people you pick can read it. Everyone you share with can edit, close and share it too."),
-      state.sync.contacts.length
-        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, state.sync.contacts.map(c => contactRow(c, data)))
+      state.sync.contacts.some(c => !c.pending)
+        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, state.sync.contacts.filter(c => !c.pending).map(c => contactRow(c, data)))
         : null,
       h("button", { class: "share-row add", type: "button", onclick: () => go("addContact", { mode: "scan" }) },
         h("span", { class: "row-icon", html: icon("plus") }), h("span", { class: "row-title" }, "Add contact")),

@@ -21,6 +21,14 @@ export function avatarHtml(id, cls = "") {
   return `<span class="avatar person ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;
 }
 
+/** The avatar of someone asking to become a contact (no contact yet: color from the request id). */
+export function requestAvatarHtml(r, cls = "") {
+  return `<span class="avatar person ${cls}" style="--c:var(--person-${colorIndex(r.id)})" aria-hidden="true">${esc(initials(r.name))}</span>`;
+}
+
+/** How a contact request came in. */
+export const requestHow = r => r.via === "link" ? "Opened your invitation link" : "Scanned your code";
+
 /** Overlapping avatars of a circle (max 3 and "+N"), HTML. */
 export function avatarStackHtml(members) {
   const { shown, more } = visibleMembers(members);

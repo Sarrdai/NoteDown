@@ -22,6 +22,7 @@ import { h, text, button } from "./dom.js";
 import { qrFigure, scannerView, cameraScanner } from "./qr.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
+import { requestAvatarHtml, requestHow } from "./people.js";
 
 const $ = id => document.getElementById(id);
 const real = () => !state.sync.simulated;
@@ -89,6 +90,11 @@ export function setStack(entries) {
 }
 
 export function closePanel() { close(); }
+
+export const isPanelOpen = () => isOpen;
+
+/** The page on screen while the panel is open. */
+export const panelPage = () => isOpen ? top().page : null;
 
 function close({ fromHistory = false } = {}) {
   if (!isOpen) return;
@@ -274,9 +280,10 @@ function removeFromList(key, index, label) {
   });
 }
 
-function addContact(name, via) {
+/** Adds a contact (the sample); `pending` while the other side hasn't confirmed this user's request. */
+export function addContact(name, via, { pending = false } = {}) {
   const id = contactId(name, state.sync.contacts.map(c => c.id));
-  const contact = { id, name, via, color: nextColor(state.sync.contacts) };
+  const contact = { id, name, via, color: nextColor(state.sync.contacts), ...(pending && { pending: true }) };
   setSync({ contacts: [...state.sync.contacts, contact] });
   // Opened from the share dialog: go back to it with the new contact listed.
   const asker = stack.findLastIndex(e => e.data.onContactAdded);
@@ -284,8 +291,16 @@ function addContact(name, via) {
     stack.length = asker + 1;
     stack[asker].data.onContactAdded(contact);
     render({ keepScroll: true });
-  } else reset("overview");
-  showSnackbar(`${name} added`);
+  } else if (isOpen) reset("overview");
+  if (!pending) { showSnackbar(`${name} added`); return; }
+  showSnackbar(`Request sent to ${name}`);
+  // The sample: the other side confirms a moment later, as a later sync round would bring it.
+  setTimeout(() => {
+    if (!state.sync.contacts.some(c => c.id === id && c.pending)) return;
+    setSync({ contacts: state.sync.contacts.map(c => c.id === id ? { id, name, via, color: c.color } : c) });
+    if (isOpen && top().page === "overview") render({ keepScroll: true });
+    showSnackbar(`${name} confirmed your request`);
+  }, 4000);
 }
 
 // The new device's QR code (real sync): a fresh relay slot, polled until a
@@ -552,10 +567,17 @@ function simulatedOverview() {
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
 
+    state.sync.requests.length > 0 && [
+      section("Contact requests"),
+      h("ul", { class: "sheet-card" }, state.sync.requests.map(r => h("li", { class: "sheet-row" },
+        h("span", { html: requestAvatarHtml(r) }).firstChild,
+        h("span", { class: "row-text" }, h("span", { class: "row-title" }, r.name), h("span", { class: "row-sub" }, requestHow(r))),
+        button("Review", "outline", () => go("contactRequest", { request: r }))))),
+    ],
     section("Contacts"),
     contacts.length
       ? h("ul", { class: "sheet-card" }, contacts.map((c, i) =>
-          row({ avatar: initials(c.name), title: c.name, sub: c.via === "link" ? "Added by link" : null, remove: () => removeFromList("contacts", i, c.name) })))
+          row({ avatar: initials(c.name), title: c.name, sub: c.pending ? "Waiting for confirmation" : c.via === "link" ? "Added by link" : null, remove: () => removeFromList("contacts", i, c.name) })))
       : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
     h("div", { class: "button-row" },
       button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
@@ -605,7 +627,7 @@ Object.assign(PAGES, {
         field.addEventListener("focus", () => field.select());
         return [
           tabs,
-          text("Send this link through any messenger. Whoever opens it becomes your contact."),
+          text("Send this link through any messenger. Whoever opens it can ask to become your contact; you confirm the request. The link works once, for 7 days."),
           field,
           h("div", { class: "sheet-actions" }, button("Copy link", "primary", async () => {
             if (navigator.share && matchMedia("(pointer: coarse)").matches) {
@@ -630,12 +652,13 @@ Object.assign(PAGES, {
   nameContact: {
     title: "Name the contact",
     render: data => {
-      const add = button("Add", "primary", () => addContact(data.name.trim(), "scan"));
+      const add = button("Send request", "primary", () => addContact(data.name.trim(), "scan", { pending: true }));
       add.disabled = !data.name.trim();
       const input = textInput({ value: data.name, maxlength: "40", "aria-label": "Contact name" },
         v => { data.name = v; add.disabled = !v.trim(); }, () => { if (!add.disabled) add.click(); });
       return [
         field("Name", input, "Only you see this name. Your contact suggested it."),
+        text("Your contact confirms the request on their device.", "sheet-text muted"),
         h("div", { class: "sheet-actions" }, add),
       ];
     },
@@ -646,7 +669,8 @@ Object.assign(PAGES, {
     render: () => [
       h("div", { class: "qr-wrap" }, qrFigure("me:" + state.sync.name + state.sync.recoveryKey, "Your contact code")),
       h("p", { class: "qr-name" }, state.sync.name),
-      text("Let a contact scan this code to connect.", "sheet-text center"),
+      text("Let a contact scan this code to connect. You confirm their request here.", "sheet-text center"),
+      h("div", { class: "button-row center" }, button("Simulate request (prototype)", "", () => import("./contact-requests.js").then(m => m.simulateRequest()))),
     ],
   },
 });

@@ -627,6 +627,30 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 #syncBtn.just-synced path + path { stroke-dasharray: 9; stroke-dashoffset: 9; animation: draw 0.45s 0.05s ease-out forwards; }
 @keyframes synced-tint { from { color: var(--accent); } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* Incoming contact requests (ui/contact-requests.js). Prototype variants:
+   a card above the notes (A), the request page as a dialog (B), a dot on
+   the sync icon (C). */
+#syncBtn { position: relative; }
+#syncBtn.has-request::after {
+  content: ""; position: absolute; top: 9px; right: 9px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
+}
+.request-cards { display: flex; flex-direction: column; gap: 12px; max-width: 780px; margin: 0 auto; padding: 8px 16px 0; }
+.request-cards[hidden] { display: none; }
+.request-cards + .list { padding-top: 12px; }
+.request-card {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 12px 12px 14px;
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: var(--radius);
+}
+.request-card .row-title { white-space: normal; }
+.request-actions { display: flex; gap: 8px; margin-left: auto; }
+@media (max-width: 599px) {
+  .request-actions { width: 100%; justify-content: flex-end; }
+}
+.request-hero { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 4px; }
+.request-title { margin: 8px 0 0; font-size: 1.1rem; font-weight: 700; text-align: center; }
+.avatar.large { width: 64px; height: 64px; font-size: 1.4rem; }
 @media (prefers-reduced-motion: reduce) {
   #syncBtn .spin, #syncBtn path { animation: none !important; stroke-dashoffset: 0 !important; }
 }

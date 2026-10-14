@@ -7,6 +7,7 @@ import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest } from "./ui/sync-panel.js";
+import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
@@ -28,6 +29,8 @@ const $ = id => document.getElementById(id);
 const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
+// Prototype variants of an open decision (orchestrate → variants.md).
+const REQUEST_VARIANTS = { card: "Card above the notes (A)", dialog: "Dialog (B)", badge: "Dot on the sync icon (C)" };
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
 const DIR_LABELS = {
@@ -296,7 +299,10 @@ function moreMenu() {
     { section: "Prototype" },
     { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
+    sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
+    { section: "Prototype: contact request" },
+    ...Object.entries(REQUEST_VARIANTS).map(([id, label]) => ({ label, checked: s.contactRequest === id, onSelect: () => updateSettings({ contactRequest: id }) })),
   ].filter(Boolean));
 }
 
@@ -362,6 +368,7 @@ function wire() {
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
   initSyncPanel();
+  initContactRequests();
   initPullRefresh({
     canPull: target => state.sync.enabled && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
@@ -385,6 +392,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (REQUEST_VARIANTS[p.get("request")]) patch.contactRequest = p.get("request");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

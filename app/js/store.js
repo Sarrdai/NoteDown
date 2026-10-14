@@ -20,19 +20,21 @@ export const DEFAULT_SETTINGS = {
   sort: structuredClone(DEFAULT_SORT),
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
+  contactRequest: "card",    // prototype variant: where an incoming contact request shows (card | dialog | badge)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
 // `identityKey` (b64u), `device` (this device's ID) and `file` ({ id, version,
 // base text }) of the private file; the device keys live in IndexedDB.
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
-// `recoveryKey`, `devices` (the other devices' names) and `contacts`.
+// `recoveryKey`, `devices` (the other devices' names), `contacts` and
+// `requests` (incoming contact requests: { id, name, via }).
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", identityKey: "", device: "", file: null,
-  recoveryKey: "", devices: [], contacts: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
+  recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
