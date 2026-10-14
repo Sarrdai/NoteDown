@@ -5,7 +5,7 @@
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote } from "./core/merge.js";
-import { circleKey } from "./core/sharing.js";
+import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT } from "./core/query.js";
 
 const FILE_KEY = "notedown.file";
@@ -263,14 +263,16 @@ export function setStatuses(ids, status) {
  * Merge and "move to a new note" (core/selection.js → mergeParts): sets each
  * source note's remaining body from `changes` ([{ id, body }], body null =
  * the note goes) and adds the new note ({ body, created, due }) at the top
- * of a file; returns { note, undo }. The new note stays in the circle of the
- * source notes when they all share one, else it is private; it is pinned
- * when one of them was.
+ * of a file; returns { note, undo }. The file follows core/sharing.js →
+ * mergeCircle: across circles, `mode` "copy" makes a private note and leaves
+ * the shared sources untouched, "share" puts it into the circle of everyone
+ * involved. The new note is pinned when one of the sources was.
  */
-export function applyMerge(changes, merged) {
+export function applyMerge(changes, merged, mode = "copy") {
   const ids = changes.map(c => c.id);
-  const keys = new Set(ids.map(id => circleKey(circleOf(id))));
-  const target = fileFor(keys.size === 1 ? circleOf(ids[0]) : []);
+  const { members, keepShared } = mergeCircle(ids.map(circleOf), mode);
+  const target = fileFor(members);
+  if (keepShared) changes = changes.filter(c => !circleOf(c.id).length);
   const now = timestamp();
   const edited = changes.filter(c => c.body !== null).map(c => {
     const n = note(c.id);

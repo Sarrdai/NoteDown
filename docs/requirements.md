@@ -350,7 +350,14 @@ before the first live test).
   date and due = the earliest due date of the notes involved (the content
   lived that long); last edited = now. A note left empty disappears; Undo
   brings everything back. The new note stays in the people circle of its
-  sources when they share one, else it is private.
+  sources when they share one. When the sources come from different
+  circles (private and shared, or two circles), the merge dialog asks
+  where it goes: **Private copy** (default) — the new note is private,
+  the shared sources stay as they are for everyone, only the private
+  ones give up their parts — or **Share with …** (names and avatars) —
+  the new note goes to the circle of everyone involved and all sources
+  give up their parts. Removing a shared note for the others stays a
+  separate, confirmed Delete. *Prototype: 2026-10-14.*
 - **Promote / Demote headings** move every heading in the selection one
   level up or down (`##` ↔ `###`), to correct levels quickly after a
   merge; disabled when a heading would leave levels 1–6. The selection

@@ -13,6 +13,8 @@ import {
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, isPinned, setPinned, circleOf } from "../store.js";
+import { mergeCircle } from "../core/sharing.js";
+import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
@@ -42,7 +44,12 @@ export function initSelection(options) {
   $("selCancel").addEventListener("click", () => endSelection());
   $("selMore").innerHTML = icon("more");
   $("orderCancel").addEventListener("click", closeDialog);
-  $("orderOk").addEventListener("click", () => { const fn = dialog.onConfirm, ordered = orderedFromDialog(); closeDialog(); fn(ordered); });
+  $("orderOk").addEventListener("click", () => {
+    const fn = dialog.onConfirm, ordered = orderedFromDialog();
+    const mode = $("orderChoice").querySelector("input:checked")?.value || "copy";
+    closeDialog();
+    fn(ordered, mode);
+  });
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
   const l = list();
@@ -307,16 +314,22 @@ function copy() {
 }
 
 // Merge and "move to a new note" are one mechanism: the parts, in the
-// confirmed order, become a new note and leave their notes.
+// confirmed order, become a new note and leave their notes. Across circles
+// the dialog asks where it goes (core/sharing.js → mergeCircle): a private
+// copy that leaves the shared notes as they are, or shared with everyone involved.
 function merge() {
   const { parts, notes, whole } = current();
   const single = parts.length === 1;
-  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, ordered => {
+  const circles = Object.keys(notes).map(circleOf);
+  const across = mergeCircle(circles, "copy").keepShared;
+  const choice = across ? mergeCircle(circles, "share").members : null;
+  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, (ordered, mode) => {
     endSelection();
     const m = mergeParts(notes, ordered);
-    const { note: created, undo } = applyMerge(m.changes, m);
-    opts.onMerged(created, undo, whole ? "Notes merged" : "Moved to a new note");
-  });
+    const { note: created, undo } = applyMerge(m.changes, m, mode);
+    const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
+    opts.onMerged(created, undo, message);
+  }, choice);
 }
 
 async function writeClipboard(text) {
@@ -334,14 +347,24 @@ async function writeClipboard(text) {
 
 // ---------- order dialog ----------
 
-function openDialog(title, okLabel, parts, notes, onConfirm) {
+// `shareWith` (member ids) adds the choice between a private copy and
+// sharing with these people; onConfirm gets the order and "copy" | "share".
+function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null) {
   dialog = { onConfirm, parts };
   $("orderTitle").textContent = title;
   $("orderOk").textContent = okLabel;
+  $("orderChoice").hidden = !shareWith;
+  $("orderChoice").innerHTML = shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
+    + choiceHtml("share", `Share with ${esc(membersLabel(shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(shareWith)) : "";
   $("orderHint").hidden = parts.length < 2;
   $("orderList").replaceChildren(...parts.map((p, i) => orderItem(partPreview(notes[p.noteId].body, p), i)));
   $("orderDialog").hidden = false;
-  $("orderOk").focus({ preventScroll: true });
+  $("orderOk").focus({ preventScroll: true, focusVisible: false });
+}
+
+function choiceHtml(value, title, hint, checked, extra = "") {
+  return `<label class="choice"><input type="radio" name="mergeMode" value="${value}"${checked ? " checked" : ""}>`
+    + `<span class="choice-text"><span class="choice-title">${title}</span><span class="choice-hint">${hint}</span></span>${extra}</label>`;
 }
 
 function closeDialog() {
