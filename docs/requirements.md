@@ -9,6 +9,7 @@
   - [Main view and archive](#main-view-and-archive)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
+  - [People circles as a filter](#people-circles-as-a-filter)
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
@@ -270,6 +271,31 @@ before the first live test).
   button — within thumb reach, and the list stays visible above it
   (decided 2026-10-13 over a side drawer). Tablet and desktop show it as
   a fixed sidebar.
+
+### People circles as a filter
+
+- Next to the table of contents a **People** overview lists the circles
+  the user shares with (backlog #23): **All notes** and **Private** on
+  top, then every contact A–Z — each entry is only the circle of that one
+  person, also a contact nothing is shared with yet — then every group
+  (a circle of several, named by its members, A–Z). Each entry shows how
+  many of its notes the current view holds. *Prototype: 2026-10-14.*
+- Picking an entry **filters the list** to that circle's notes; archive,
+  search and sort apply on top, and the table of contents follows. The
+  active filter shows as a **chip with ×** above the list, which clears
+  it; the filter is not remembered across starts (it starts at All).
+- **+** (and dictation) in a filtered list creates the note **in that
+  circle** — for a contact without shared notes this starts the circle
+  (each circle is one file, `docs/sync-and-sharing.md`). Without a
+  filter, or under Private, a new note is private.
+- A **long-press** (desktop: right-click) on a contact lists the groups
+  they are in, to jump to one.
+- Placement: **tabs "Contents | People"** at the top of the sidebar
+  (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
+  over a second section below the contents (both lists get cramped) and a
+  separate phone sheet (one more top-bar icon on a full bar). The tabs
+  only show while sync is on and there are contacts; until milestone 2
+  that is the sample (`?sample`).
 
 ### Creating and editing
 

@@ -20,6 +20,32 @@ export function mergeCircle(circles, mode) {
   return { members: [], keepShared: true };
 }
 
+/**
+ * The entries of the people overview (backlog #23), in order: everything,
+ * the private file, each contact A–Z (the circle of only that person, even
+ * before anything is shared with them) and each circle of several people,
+ * A–Z by its label. `circles` holds the member ids of the shared files,
+ * `nameOf` turns a contact id into a name. Each entry: { key, kind, members }
+ * with `key` null for everything, otherwise the circleKey ("" = private).
+ */
+export function circleEntries(contacts, circles, nameOf) {
+  const byName = (a, b) => a.label.localeCompare(b.label);
+  const people = contacts.map(c => ({ key: circleKey([c.id]), kind: "contact", members: [c.id], label: c.name }));
+  const groups = circles.filter(m => m.length > 1)
+    .map(m => ({ key: circleKey(m), kind: "group", members: [...m].sort(), label: circleLabel([...m].sort().map(nameOf)) }));
+  return [
+    { key: null, kind: "all", members: [] },
+    { key: "", kind: "private", members: [] },
+    ...people.sort(byName),
+    ...groups.sort(byName),
+  ].map(({ label, ...e }) => e);
+}
+
+/** The circles of several people that contain `contactId` (what a long-press on a contact offers). */
+export function groupsWith(contactId, circles) {
+  return circles.filter(m => m.length > 1 && m.includes(contactId));
+}
+
 /** "Lea" · "Lea & Tom" · "Lea, Tom & Grandma" ("" for nobody). */
 export function circleLabel(names) {
   if (names.length <= 1) return names[0] || "";

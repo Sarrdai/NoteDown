@@ -19,7 +19,7 @@ Current state, edited in place when a decision changes.
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
 | Top bar | Title; icons for contents, search, sort, archive (with count), sync status, ⋮ | Title, search field, icons | Title, search field, sort and archive with labels, sync status icon, ⋮ |
-| Table of contents | Bottom sheet, opened from the top bar | Fixed sidebar on the left | Fixed sidebar on the left |
+| Table of contents and People (#23) | Bottom sheet, opened from the top bar; tabs "Contents \| People" once there are contacts | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
 | Multi-select | Contextual top bar: ✕, contents button, count, main action icons, rest under ⋮ | Contextual top bar: ✕, count, action icons | Same, actions with labels |

@@ -662,6 +662,53 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .toc-empty { padding: 12px 10px; color: var(--text-faint); font-size: 0.9rem; }
 .scrim { display: none; }
 
+/* ---------- people overview (#23) ---------- */
+.panel-tabs, .people-pane { display: none; }
+.panel-tabs { flex: 1; min-width: 0; max-width: 200px; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
+.panel-tab {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 0; padding: 5px 7px; border-radius: 999px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 0.84rem; font-weight: 600; color: var(--text-muted);
+}
+.panel-tab[aria-selected="true"] { background: var(--ctp-base); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.15); }
+.people-pane { flex-direction: column; min-height: 0; }
+.people-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; overscroll-behavior: contain; }
+.people-entry {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 10px;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left;
+  font: inherit; font-size: 0.92rem; color: var(--text);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.people-entry:hover { background: var(--surface-hover); }
+.people-entry.active, .people-entry.active:hover { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.people-lead { flex: none; width: 38px; display: inline-flex; justify-content: center; color: var(--text-muted); }
+.people-lead > .avatar { width: 28px; height: 28px; font-size: 0.72rem; }
+.people-lead > .icon { width: 18px; height: 18px; }
+.people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-count { font-size: 0.8rem; font-weight: 650; color: var(--text-faint); }
+.people-entry.none .people-name { color: var(--text-muted); }
+/* Thin gaps between everything / private, the contacts and the groups. */
+.people-entry.contact:not(.contact + .contact), .people-entry.group:not(.group + .group) { margin-top: 8px; }
+
+/* With contacts, tabs switch the sidebar / sheet between Contents and People. */
+.app.has-people .panel-tabs { display: flex; }
+.app.has-people .toc-head { gap: 8px; padding-left: 10px; }
+.app.has-people .toc-head .toc-title { display: none; }
+.app.has-people .stepper .icon-btn.small { min-width: 28px; padding: 0 4px; }
+.app.has-people[data-tab="people"] :is(.toc-list, .stepper) { display: none; }
+.app.has-people[data-tab="people"] .people-pane { display: flex; flex: 1; }
+
+/* The active filter as a chip above the list. */
+.filter-bar { max-width: 780px; margin: 0 auto; padding: 8px 16px 0; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 2px 2px 8px;
+  border-radius: 999px; background: var(--accent-soft); color: var(--text); font-size: 0.88rem; font-weight: 600;
+}
+.filter-chip > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.filter-chip > span > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-chip > span > .icon { width: 16px; height: 16px; color: var(--text-muted); }
+.filter-chip .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--accent-soft); }
+
 /* ---------- FAB, snackbar, menu ---------- */
 .fab {
   position: fixed; z-index: 15; right: 20px; bottom: calc(20px + var(--safe-bottom));
@@ -753,13 +800,14 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .app.toc-open .toc-panel { transform: none; }
   .toc-handle { display: block; width: 40px; height: 5px; margin: 8px auto 0; border-radius: 999px; background: var(--ctp-surface2); flex: none; }
   .toc-head { height: 48px; }
+  .filter-bar { padding: 8px 12px 0; }
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }
   .sel-word, .sel-action.in-menu { display: none; }
   #selToc, #selMore:not([hidden]) { display: inline-flex; }
 }
 @media (hover: none) {
-  .icon-btn:hover, .toc-entry:hover, .menu-item:hover { background: transparent; }
+  .icon-btn:hover, .toc-entry:hover, .people-entry:not(.active):hover, .menu-item:hover { background: transparent; }
   .status:hover { color: var(--text-faint); }
   .status:hover .icon { opacity: 0; }
   .note.closed .status:hover { color: var(--done); }
