@@ -13,7 +13,7 @@ import {
   syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
-import { deviceRows } from "../core/sync-state.js";
+import { deviceRows, storageUsage } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
@@ -28,6 +28,7 @@ const real = () => !state.sync.simulated;
 let stack = [];          // [{ page, data }]; the last entry is on screen
 let isOpen = false;
 let returnFocus = null;
+let shownUsage = null;   // the `state.sync.usage` the overview was drawn with
 let leave = null;        // turns off what the page on screen started (camera)
 
 export function initSyncPanel() {
@@ -42,7 +43,12 @@ export function initSyncPanel() {
     if (stack.length > 1) { stack.pop(); render(); history.pushState({ syncPanel: true }, ""); }
     else close({ fromHistory: true });
   });
-  subscribe(kind => { if (kind === "sync") updateStatus(); });
+  subscribe(kind => {
+    if (kind !== "sync") return;
+    updateStatus();
+    // The first round after opening brings the usage: show it without a reopen.
+    if (isOpen && top().page === "overview" && state.sync.usage !== shownUsage) render({ keepScroll: true });
+  });
   setInterval(updateStatus, 20000);
   loadSharingSample();   // warm the sample identity for the simulated scans
 }
@@ -490,6 +496,23 @@ const PAGES = {
   },
 };
 
+// The Storage section: used share of the server quota, hidden while unknown.
+function storageSection() {
+  const { usage } = state.sync;
+  shownUsage = usage;
+  if (!usage) return null;
+  const u = storageUsage(usage);
+  return [
+    section("Storage"),
+    h("div", {
+      class: "storage-bar", role: "progressbar", "aria-label": "Sync storage used", "data-level": u.level,
+      "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(u.percent), "aria-valuetext": u.text,
+    }, h("div", { class: "storage-fill", style: `width: ${u.percent}%` })),
+    text(u.text, "sheet-text storage-text"),
+    u.level === "full" && text("Sync storage is full. Delete notes you no longer need (archived ones count too) to sync again.", "field-error"),
+  ];
+}
+
 // Real sync: this identity's devices (loaded from the server) and, until
 // sharing is built, a note instead of the contacts.
 function realOverview(data) {
@@ -513,7 +536,8 @@ function realOverview(data) {
       () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
     section("Contacts"),
     text("Sharing notes with contacts comes in the next step.", "sheet-text muted"),
-  ];
+    storageSection(),
+  ].flat();
 }
 
 // The sample: simulated devices and contacts.
@@ -535,7 +559,8 @@ function simulatedOverview() {
     h("div", { class: "button-row" },
       button("Add contact", "outline", () => go("addContact", { mode: "scan" })),
       button("My code", "outline", () => go("myCode"))),
-  ];
+    storageSection(),
+  ].flat();
 }
 
 // Linking a device from this one (both modes) and the pages only the sample reaches: contacts.

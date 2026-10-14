@@ -35,6 +35,7 @@
   --accent-soft: color-mix(in srgb, var(--ctp-mauve) 16%, transparent);
   --danger: var(--ctp-red);
   --danger-soft: color-mix(in srgb, var(--ctp-red) 14%, transparent);
+  --warning: var(--ctp-peach);
   --done: var(--ctp-green);
   --link: var(--ctp-blue);
   --code-bg: var(--ctp-surface0);
@@ -468,6 +469,11 @@ button { font: inherit; color: inherit; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .sync-status[data-status="syncing"] .sync-dot { animation: none; } }
 
+.storage-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.storage-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+.storage-bar[data-level="warn"] .storage-fill { background: var(--warning); }
+.storage-bar[data-level="full"] .storage-fill { background: var(--danger); }
+.storage-text { margin: -6px 0 0; }
 .sheet-card { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
 .sheet-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px 6px 14px; }
 .sheet-row + .sheet-row { border-top: 1px solid var(--border); }

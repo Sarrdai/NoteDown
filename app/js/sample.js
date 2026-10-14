@@ -40,7 +40,7 @@ export async function loadSampleState({ sync = true } = {}) {
     shared: split.shared,
     sync: {
       enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
-      devices: [...s.devices], contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
+      devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, { ...c, color: nextColor(list) }], []),
       offline: false, status: "synced", lastSync: Date.now(),
     },
   };

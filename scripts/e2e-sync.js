@@ -198,6 +198,8 @@ async function main() {
       await openPanel(b);
       await b.locator("#syncFoot", { hasText: "Syncing…" }).waitFor();
       await b.locator("#syncFoot", { hasText: "Synced · just now" }).waitFor();
+      await b.locator("#syncBody", { hasText: /MB of 2 MB used/ }).waitFor();   // the storage line, from the file list
+      assert.equal(await b.locator(".storage-bar").getAttribute("role"), "progressbar");
       await b.keyboard.press("Escape");
     });
 

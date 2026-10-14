@@ -27,6 +27,19 @@ def test_storage_quota_counts_all_files_of_the_identity(client, setup):
     assert upload(client, h, 2, b"a" * (MAX_STORAGE_BYTES - 9)).status_code == 413
 
 
+def test_file_list_reports_sizes_and_the_quota(client, setup):
+    identity, phone, _ = setup
+    h = token(client, identity, phone)
+    keys = {phone.id: b64u(b"k")}
+    assert client.get("/v1/files", headers=h).json() == {"files": [], "quota": MAX_STORAGE_BYTES}
+    other = b64u(os.urandom(16))
+    upload(client, h, 0, b"a" * 1000, keys=keys)
+    upload(client, h, 0, b"b" * 234, keys=keys, file_id=other)
+    listed = client.get("/v1/files", headers=h).json()
+    assert sorted(f["size"] for f in listed["files"]) == [234, 1000]
+    assert listed["quota"] == MAX_STORAGE_BYTES
+
+
 def test_a_file_over_the_quota_is_refused_early(client, setup):
     identity, phone, _ = setup
     h = token(client, identity, phone)
