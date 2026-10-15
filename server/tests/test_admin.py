@@ -50,6 +50,10 @@ ENDPOINTS = [
     ("PUT", "/v1/admin/identities/{id}/quota", {"quota": 1000}),
     ("GET", "/v1/admin/backup", None),
     ("POST", "/v1/admin/restore", {}),
+    ("GET", "/v1/admin/news", None),
+    ("POST", "/v1/admin/news", {"body": "x"}),
+    ("PUT", "/v1/admin/news/{id}", {"archived": True}),
+    ("DELETE", "/v1/admin/news/{id}", None),
 ]
 
 
@@ -101,7 +105,7 @@ def test_overview_counts(client, people, admin):
     got = client.get("/v1/admin/overview", headers=admin.h).json()
     assert got["identity"] == admin.id
     assert got["counts"] == {"identities": 3, "devices": 4, "files": 2, "shared_files": 1, "contacts": 1,
-                             "invitations": 1}
+                             "invitations": 1, "news": 0}
     assert got["storage"]["files"] == 150
     assert 0 < got["storage"]["database"] < got["storage"]["database_limit"] == 512 * 1024 * 1024
     assert got["quota"] == MAX_STORAGE_BYTES
@@ -223,7 +227,7 @@ def test_backup_format(client, people, admin):
     doc = r.json()
     assert doc["format"] == "notedown-backup" and doc["version"] == 1 and doc["created"]
     assert set(doc["tables"]) == {"identities", "device_entries", "files", "file_members", "file_keys", "contacts",
-                                  "invitations"}
+                                  "invitations", "news"}
     assert {r["id"] for r in doc["tables"]["identities"]} == {admin.id, alice.id, bob.id}
     assert set(doc["tables"]["identities"][0]) == {"id", "identity_key", "created", "quota"}
     assert [f["id"] for f in doc["tables"]["files"]] == [private]

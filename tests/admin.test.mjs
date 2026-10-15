@@ -5,8 +5,10 @@ import { readFileSync } from "node:fs";
 import {
   formatBytes, megabytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope,
   sortIdentities, defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText,
-  backupFileName, sampleBackup, createSampleAdmin, MB,
+  backupFileName, sampleBackup, createSampleAdmin, MB, BACKUP_TABLES, OPTIONAL_BACKUP_TABLES, MAX_NEWS_BODY,
+  MAX_NEWS_PUBLISHED, NEW_POST_TEXT, checkNewsBody, newsErrorText, newsTime, newsDateText, splitNews, newsFromNotes,
 } from "../app/js/core/admin.js";
+import { parseNotesFile } from "../app/js/core/notes-file.js";
 
 const sample = JSON.parse(readFileSync(new URL("../app/sample/admin.json", import.meta.url), "utf8"));
 
@@ -207,4 +209,124 @@ test("the sample backup passes the validator and restores the sample", async () 
   assert.deepEqual(await api.adminRestore(r.backup), { identities: 6, files: 8 });
   assert.equal((await api.adminIdentity(id)).quota_override, null, "the restore brought the old limit back");
   assert.equal(sampleBackup(sample).tables.file_members.length, 12);
+});
+
+// ---------- news ----------
+
+const samplePosts = newsFromNotes(parseNotesFile(readFileSync(new URL("../app/sample/news.md", import.meta.url), "utf8")).notes);
+
+test("the sample posts come from app/sample/news.md", () => {
+  assert.equal(samplePosts.length, 3);
+  assert.deepEqual(samplePosts.map(p => p.id), ["p03", "p02", "p01"]);
+  assert.ok(samplePosts.every(p => !p.archived && p.body.startsWith("## ") && p.created && p.modified));
+  assert.notEqual(samplePosts[1].created, samplePosts[1].modified, "one of them was edited");
+});
+
+test("checkNewsBody trims, refuses an empty text and more than 16 KB", () => {
+  assert.deepEqual(checkNewsBody("  ## Hello \n"), { body: "## Hello" });
+  assert.match(checkNewsBody("").error, /needs some text/);
+  assert.match(checkNewsBody(" \n\t").error, /needs some text/);
+  assert.match(checkNewsBody(null).error, /needs some text/);
+  assert.match(checkNewsBody("x".repeat(MAX_NEWS_BODY + 1)).error, /16 KB/);
+  assert.equal(checkNewsBody("x".repeat(MAX_NEWS_BODY)).body.length, MAX_NEWS_BODY);
+  assert.match(checkNewsBody("é".repeat(MAX_NEWS_BODY / 2 + 1)).error, /16 KB/, "counted in UTF-8 bytes");
+  assert.equal(NEW_POST_TEXT, "## ");
+});
+
+test("news dates and error sentences", () => {
+  assert.equal(newsTime("2026-10-15T09:00:12.345678+00:00"), "2026-10-15T09:00Z");
+  assert.equal(newsTime("nonsense"), "");
+  const rel = ts => (ts === "2026-10-15T09:00Z" ? "Today 09:00" : ts === "2026-10-14T16:00Z" ? "Yesterday 16:00" : "12 Oct");
+  const post = { created: "2026-10-14T16:00:00+00:00", modified: "2026-10-14T16:00:00+00:00" };
+  assert.equal(newsDateText(post, rel), "Published yesterday 16:00");
+  assert.equal(newsDateText({ ...post, modified: "2026-10-15T09:00:00+00:00" }, rel), "Published yesterday 16:00 · Edited today 09:00");
+  assert.equal(newsDateText({ created: "2026-10-01T09:00Z", modified: "2026-10-01T09:00Z" }, () => "12 Oct"), "Published 12 Oct");
+  assert.equal(newsErrorText(409, { detail: "too many news" }), "At most 20 posts can be published. Archive one first.");
+  assert.equal(newsErrorText(404, { detail: "unknown news" }), "This post no longer exists.");
+  assert.equal(newsErrorText(500, null), null);
+  assert.equal(newsErrorText(409, { detail: "version conflict" }), null);
+});
+
+test("splitNews: published and archived, each newest first", () => {
+  const posts = [
+    { id: "a", created: "2026-10-01T09:00Z", archived: false }, { id: "b", created: "2026-10-03T09:00Z", archived: true },
+    { id: "c", created: "2026-10-02T09:00Z", archived: false }, { id: "d", created: "2026-10-04T09:00Z", archived: true },
+  ];
+  const { published, archived } = splitNews(posts);
+  assert.deepEqual(published.map(p => p.id), ["c", "a"]);
+  assert.deepEqual(archived.map(p => p.id), ["d", "b"]);
+  assert.deepEqual(posts.map(p => p.id), ["a", "b", "c", "d"], "the input keeps its order");
+});
+
+test("the sample server keeps news in memory like the real one", async () => {
+  const api = createSampleAdmin(sample, samplePosts);
+  assert.deepEqual((await api.adminNews()).news.map(p => p.id), ["p03", "p02", "p01"]);
+  assert.equal((await api.adminOverview()).counts.news, 3);
+
+  const t1 = new Date("2026-10-15T10:00:00Z"), t2 = new Date("2026-10-15T11:00:00Z");
+  const made = await api.adminCreateNews("  ## Fresh  ", t1);
+  assert.deepEqual(made, { id: made.id, created: t1.toISOString(), modified: t1.toISOString() });
+  let posts = (await api.adminNews()).news;
+  assert.equal(posts[0].id, made.id, "newest first");
+  assert.equal(posts[0].body, "## Fresh");
+  assert.equal((await api.adminOverview()).counts.news, 4);
+
+  // modified moves with a different body only, not with an identical one or archiving.
+  await api.adminUpdateNews(made.id, { body: "## Fresh" }, t2);
+  await api.adminUpdateNews(made.id, { archived: true }, t2);
+  await api.adminUpdateNews(made.id, { archived: false }, t2);
+  assert.equal((await api.adminNews()).news[0].modified, t1.toISOString());
+  await api.adminUpdateNews(made.id, { body: "## Fresher", archived: true }, t2);
+  const edited = (await api.adminNews()).news.find(p => p.id === made.id);
+  assert.deepEqual([edited.body, edited.archived, edited.modified, edited.created], ["## Fresher", true, t2.toISOString(), t1.toISOString()]);
+  assert.equal((await api.adminOverview()).counts.news, 3, "archived posts are not counted");
+
+  await api.adminDeleteNews(made.id);
+  await api.adminDeleteNews(made.id);
+  assert.deepEqual((await api.adminNews()).news.map(p => p.id), ["p03", "p02", "p01"]);
+  assert.equal(samplePosts.length, 3, "the given posts are not changed");
+});
+
+test("the sample server refuses what the real one refuses", async () => {
+  const api = createSampleAdmin(sample, samplePosts);
+  await assert.rejects(() => api.adminCreateNews("  "), { status: 400 });
+  await assert.rejects(() => api.adminCreateNews("x".repeat(MAX_NEWS_BODY + 1)), { status: 400 });
+  await assert.rejects(() => api.adminUpdateNews("p01", {}), { status: 400 });
+  await assert.rejects(() => api.adminUpdateNews("p01", { archived: "yes" }), { status: 400 });
+  await assert.rejects(() => api.adminUpdateNews("p01", { body: "" }), { status: 400 });
+  await assert.rejects(() => api.adminUpdateNews("nobody", { archived: true }), { status: 404 });
+  // At most 20 published: fill up, then neither a new post nor publishing an archived one fits.
+  while ((await api.adminNews()).news.filter(p => !p.archived).length < MAX_NEWS_PUBLISHED) await api.adminCreateNews("## More");
+  await assert.rejects(() => api.adminCreateNews("## One too many"), { status: 409, body: { detail: "too many news" } });
+  await api.adminUpdateNews("p01", { archived: true });
+  await api.adminCreateNews("## Takes the room");
+  await assert.rejects(() => api.adminUpdateNews("p01", { archived: false }), { status: 409, body: { detail: "too many news" } });
+  await api.adminUpdateNews("p02", { body: "## Edited at the limit" });
+  await api.adminUpdateNews("p02", { archived: false });
+});
+
+test("the sample backup holds the news and a restore brings them back", async () => {
+  const api = createSampleAdmin(sample, samplePosts);
+  await api.adminUpdateNews("p01", { archived: true });
+  const { text } = await api.adminBackup(new Date("2026-10-15T08:00:00Z"));
+  const r = readBackup(text);
+  assert.deepEqual(r.backup.tables.news.map(n => [n.id, n.archived]), [["p03", false], ["p02", false], ["p01", true]]);
+  assert.deepEqual(Object.keys(r.backup.tables.news[0]).sort(), ["archived", "body", "created", "id", "modified"]);
+  await api.adminDeleteNews("p03");
+  await api.adminCreateNews("## New");
+  await api.adminRestore(r.backup);
+  assert.deepEqual((await api.adminNews()).news.map(p => [p.id, p.archived]), [["p03", false], ["p02", false], ["p01", true]]);
+});
+
+test("readBackup: the news table is optional but must be a list", () => {
+  const old = backup();
+  assert.ok(!("news" in old.tables) || Array.isArray(old.tables.news));
+  delete old.tables.news;
+  assert.ok(readBackup(JSON.stringify(old)).backup, "a backup from before news restores");
+  const withNews = backup();
+  withNews.tables.news = [];
+  assert.ok(readBackup(JSON.stringify(withNews)).backup);
+  withNews.tables.news = {};
+  assert.match(readBackup(JSON.stringify(withNews)).error, /"news" of the backup is not a list/);
+  assert.ok(BACKUP_TABLES.every(t => t !== "news") && OPTIONAL_BACKUP_TABLES.includes("news"));
 });

@@ -102,9 +102,20 @@ CREATE TABLE IF NOT EXISTS contacts (
 -- Per-identity storage quota override in bytes (admin endpoints); NULL = the default quota.
 ALTER TABLE identities ADD COLUMN IF NOT EXISTS quota bigint;
 
--- Server-wide state; for now only the restore epoch (key "epoch"), which changes whenever a backup is
--- restored so clients know the server went back in time.
+-- Server-wide state: the restore epoch (key "epoch"), which changes whenever a backup is restored so
+-- clients know the server went back in time, and the news version (key "news"), which changes with
+-- every change to the news posts.
 CREATE TABLE IF NOT EXISTS server_state (
     key   text PRIMARY KEY,
     value text NOT NULL
+);
+
+-- The owner's news posts (docs/server-api.md → "News"), plain Markdown, the same for everybody.
+-- `modified` changes only with the body; `archived` posts are not in the feed.
+CREATE TABLE IF NOT EXISTS news (
+    id       text PRIMARY KEY,
+    body     text NOT NULL,
+    created  timestamptz NOT NULL DEFAULT now(),
+    modified timestamptz NOT NULL DEFAULT now(),
+    archived boolean NOT NULL DEFAULT false
 );

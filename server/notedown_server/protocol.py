@@ -11,6 +11,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 MAX_DEVICES = 20
 MAX_MEMBERS = 20
+# News posts (docs/server-api.md → "News"): body size in UTF-8 bytes, published posts, posts in total.
+MAX_NEWS_BODY = 16 * 1024
+MAX_NEWS_PUBLISHED = 20
+MAX_NEWS = 200
 _B64U = re.compile(r"^[A-Za-z0-9_-]*$")
 _ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
 
@@ -44,6 +48,21 @@ def from_b64u(text: str, length: int | None = None) -> bytes:
 
 def is_id(text: object) -> bool:
     return isinstance(text, str) and bool(_ID.match(text))
+
+
+def check_news_body(body: object) -> str:
+    """A news post's Markdown: a string of 1 byte to 16 KiB (UTF-8) that is not only whitespace."""
+    if not isinstance(body, str) or not body.strip():
+        raise ProtocolError("body must be a non-empty string")
+    try:
+        size = len(body.encode("utf-8"))   # a lone surrogate is not UTF-8
+    except UnicodeEncodeError:
+        raise ProtocolError("body is not valid text")
+    if size > MAX_NEWS_BODY:
+        raise ProtocolError(f"body is longer than {MAX_NEWS_BODY} bytes")
+    if "\x00" in body:   # Postgres text can't hold it
+        raise ProtocolError("body must not contain NUL")
+    return body
 
 
 def canonical(value: object) -> bytes:
