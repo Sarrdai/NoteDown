@@ -808,6 +808,19 @@ this needs none of it.
   the new note goes to the circle of everyone involved and all sources
   give up their parts. Removing a shared note for the others stays a
   separate Delete. *Prototype: 2026-10-14.*
+- **Merge into an existing note** (decided 2026-10-15, user request: to
+  insert a note into another at a chosen place): the merge dialog's
+  **Into** picker offers "New note" (default) or one of the notes
+  involved. With a target, its sections are shown as fixed rows (indented
+  by level) and the parts are dragged between them (start: at the end); a
+  target selected whole stays as it is, its selected sections move like any
+  other part. Each part becomes a **sibling of the section before it** —
+  of the next one when that is deeper, so it never takes over a section's
+  subsections; level 2 without a heading around. The target keeps its
+  dates, status and circle ("Merged into “…” · Undo"); the sources give
+  up their parts, except notes shared in another circle than the target's,
+  which keep them for their members (the dialog says so) — like a private
+  copy. *Prototype: 2026-10-15.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked task items (`- [x]`, with the
   indented lines below them) of the selection leave their note — of the

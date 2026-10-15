@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
-import { state, replaceFiles, shareNotes, applyMerge, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses } from "../app/js/store.js";
+import { state, replaceFiles, shareNotes, applyMerge, applyMergeInto, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses } from "../app/js/store.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [n1, n2, n3] = sample.notes;
@@ -124,4 +124,28 @@ test("a note merged from a permanent one is permanent", () => {
   setStatuses([n1.id], "permanent");
   const { note: merged } = applyMerge([{ id: n1.id, body: null }, { id: n3.id, body: null }], { body: "merged", created: n1.created, due: null }, "copy");
   assert.equal(merged.status, "permanent");
+});
+
+test("merge into a private note: a shared source keeps its part, a private target changes, Undo restores", () => {
+  start();
+  const before = texts();
+  const old = note(n3.id).body;
+  const undo = applyMergeInto(n3.id, "merged", [{ id: n1.id, body: null }]);
+  assert.equal(note(n3.id).body, "merged");
+  assert.deepEqual(texts(), before, "the shared source stays for bob");
+  undo();
+  assert.equal(note(n3.id).body, old);
+});
+
+test("merge into a shared note: a private source gives its part up", () => {
+  replaceFiles({
+    file: { preamble: "", notes: [{ ...n3 }], moved: [] },
+    shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }], moved: [] } }],
+    sync: { enabled: true },
+  });
+  const undo = applyMergeInto(n1.id, "merged", [{ id: n3.id, body: null }]);
+  assert.equal(note(n3.id), undefined);
+  assert.equal(note(n1.id).body, "merged");
+  undo();
+  assert.equal(note(n3.id).id, n3.id);
 });
