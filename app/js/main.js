@@ -386,8 +386,8 @@ function renderFab() {
   const archive = state.view === "closed";
   fab.setAttribute("aria-label", archive ? "Empty archive" : "New note (hold to dictate)");
   fab.title = archive ? "Empty archive" : "";
-  const deletable = allNotes().some(n => n.status === "closed" && !isProtected(n.id));
-  fab.classList.toggle("inert", archive && !deletable);
+  // Also in the main view, so the bin a swipe brings in looks as it will.
+  fab.classList.toggle("inert", !allNotes().some(n => n.status === "closed" && !isProtected(n.id)));
 }
 const fabTap = () => state.view === "open" ? newNote() : !$("fab").classList.contains("inert") && emptyArchive();
 
@@ -494,6 +494,13 @@ function wire() {
     view: () => state.view,
     setView,
     lanes: swipeLanes,
+    // The + turns into the bin as the archive comes in (--archive: 0 notes, 1 archive).
+    follow: (pos, ms) => {
+      const fab = $("fab");
+      if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); return; }
+      fab.style.setProperty("--archive", pos);
+      fab.style.setProperty("--archive-ms", ms + "ms");
+    },
   });
 }
 

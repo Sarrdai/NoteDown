@@ -33,8 +33,9 @@ Current state, edited in place when a decision changes.
   fit, the theme and the prototype's tools.
 - One primary action per view, as a floating button: + at the bottom
   right in the main view; in the archive it moves to the bottom left and
-  turns into the red bin that empties the archive (animated; left, so it
-  is never taken for +). The snackbar then sits right of it.
+  turns into the red bin that empties the archive (animated, during a
+  swipe between the views in step with the finger; left, so it is never
+  taken for +). The snackbar then sits right of it.
 - The app draws edge-to-edge: top bars, the sidebar and full-screen
   panels extend their background behind the system status bar and keep
   their controls below it, bottom elements stay above the gesture bar
