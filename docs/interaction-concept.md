@@ -74,7 +74,7 @@ Current state, edited in place when a decision changes.
 - **Swipe sideways** (phone and tablet) moves between the notes and the
   archive, which lies to their right, like pages (the trash lies right of
   the archive, but a swipe only leads out of it, never in): it starts anywhere on
-  the list or the contents (also the open sheet); the list follows the
+  the list; the list follows the
   finger and the other view's page moves in beside it; let go past half
   the width or with a flick, it snaps onto the other view, otherwise
   back; past either end it only gives a little. The contents list
@@ -83,11 +83,19 @@ Current state, edited in place when a decision changes.
   stay in place (an open sheet stays open) and are refilled once the view
   has switched, but their background tint (also the closed sheet's)
   moves with the pages, split where the two views meet, in one straight
-  line with them also in a flick. The whole screen below the top bar takes the
-  swipe, also below the last card. Not while editing,
-  selecting or recording; content that scrolls sideways itself (a wide
-  table) keeps the gesture. Desktop has no touch, the view button
-  switches there.
+  line with them also in a flick. The whole screen below the top bar
+  except the contents panel takes the swipe, also below the last card.
+- **On the contents panel** (tablet sidebar, phone's open sheet, its tab
+  row included) the same swipe moves between its tabs Contents, People,
+  Labels instead, left to right, the same way: the tab's pane (Contents
+  with its level stepper) follows the finger, the neighbouring one moves
+  in beside it, the tab row is updated once it has switched; past the
+  first or last tab it only gives a little, it never switches the view
+  (decided 2026-10-15, user request: a swipe on the panel belongs to what
+  the panel shows).
+- Neither swipe works while editing, selecting or recording; content that
+  scrolls sideways itself (a wide table) keeps the gesture. Desktop has no
+  touch: the view button and the tabs switch there.
 - **Bottom sheets** (phone) have a handle: a tap opens fully or closes.
   The whole sheet is one surface: dragging it anywhere leaves it at any
   height, past the top it slides out at the top instead of scrolling

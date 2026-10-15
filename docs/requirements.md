@@ -361,8 +361,8 @@ paid features per user.
   after sort, and keeps its place in both views: the top bar keeps the
   same buttons in both. *Prototype: round 1; Notes button 2026-10-13;
   place 2026-10-15.*
-- On phone and tablet, **swiping sideways** anywhere on the list or the
-  contents switches between both views like pages: the archive lies to
+- On phone and tablet, **swiping sideways** anywhere on the list
+  switches between both views like pages: the archive lies to
   the right of the notes (swipe left to open it, right to go back); the
   other view moves in with the finger and the page snaps to whichever
   side it was let go past half (or flicked to). The contents list (the
@@ -373,6 +373,12 @@ paid features per user.
   says where the user is. The view button stays as the visible way.
   *Prototype: 2026-10-14; pager behavior 2026-10-14 (swiping only worked
   on some tries and only switched after the gesture).*
+- On the **contents panel** itself (tablet sidebar, phone sheet) the same
+  swipe switches between its tabs **Contents | People | Labels** instead
+  of the views, the same pager way; past the first or last tab it only
+  gives a little (decided 2026-10-15, user request: the tabs are then a
+  thumb's swipe away, the views stay on the list). *Prototype:
+  2026-10-15.*
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*
