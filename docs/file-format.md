@@ -39,6 +39,8 @@ Done by bank transfer, reference number in the banking app.
 - A note starts at its marker line `<!-- note … -->` and runs until the
   next marker or the end of the file. Its body is plain Markdown and may
   contain any headings, so the marker — not a heading — is the boundary.
+- Labels (`#travel`) are plain text in the body; the format has no
+  attribute for them (`docs/requirements.md` → "Labels").
 - Text before the first marker is the file's preamble (e.g. a title); it
   is kept unchanged.
 - When writing, notes are separated by one blank line and the body is

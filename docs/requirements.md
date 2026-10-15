@@ -11,11 +11,13 @@
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
   - [People circles as a filter](#people-circles-as-a-filter)
+  - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
   - [Export](#export)
+  - [Import from Google Keep](#import-from-google-keep)
   - [Quick capture](#quick-capture)
   - [Look](#look)
   - [Not in scope (for now)](#not-in-scope-for-now)
@@ -534,6 +536,34 @@ paid features per user.
   (opens Sync & sharing) — decided 2026-10-15 so the feature is there
   to be found.
 
+### Labels
+
+Decided 2026-10-15 (user request, together with the Google Keep import,
+whose labels need a place).
+
+- A label is a **#hashtag in the note's text** (`#travel`, `#home/garden`),
+  as in Obsidian: plain Markdown that other editors show, typed like any
+  text, no file format change (chosen over a hidden marker attribute,
+  which needs its own UI and is invisible elsewhere). It follows a space
+  or the line start and holds a letter (`# Heading`, `issue#5` and `#5`
+  are none); none in code or links. Labels compare case-insensitively.
+- Labels are part of the text, so everyone a note is shared with sees
+  them; there are no private labels on shared notes.
+- In a note a label shows as a small **chip**; tapping it **filters the
+  list** to the notes with that label. Circle filter, archive, search
+  and sort apply on top; the table of contents follows. The active
+  label shows as a **chip with ×** above the list, next to the circle's
+  chip; it is not remembered across starts.
+- A third tab **"Contents | People | Labels"** lists every label of the
+  current view (circle filter and search applied) A–Z with its count;
+  picking one filters, picking it again clears it. Without labels it
+  says how to add one. Chosen 2026-10-15 over a row of label chips above
+  the list: many labels (after an import) fit a list, and it works like
+  the people filter. The three tabs take the head's full width, the
+  contents' level stepper sits below them.
+- While a note is edited its labels show as plain text. *Prototype:
+  2026-10-15.*
+
 ### News from the server's owner
 
 Decided 2026-10-15 (user request): the server's owner needs a curated
@@ -751,7 +781,7 @@ one is worth it is discussed separately (backlog #31).
 
 - **What:** the top bar's **Export** button (⋮ → "Export…" when it
   doesn't fit) offers **This view** — the notes the list
-  shows (main view or archive, circle filter and search applied), in the
+  shows (main view or archive, circle and label filter and search applied), in the
   order it shows them — as one Markdown file, or **All files** — one
   Markdown file per NoteDown file, private plus one per circle with notes
   (named "Private.md", "Lea.md", "Lea & Tom.md"), packed into one ZIP.
@@ -774,6 +804,40 @@ one is worth it is discussed separately (backlog #31).
   `NoteDown-YYYY-MM-DD`. The web app downloads the file; the Android app
   hands it to the system's share sheet (save to Files, send) — *app
   phase*. *Prototype: 2026-10-14 (download).*
+
+### Import from Google Keep
+
+Decided 2026-10-15 (user request): someone moving from Google Keep should
+bring their notes along without copying them one by one.
+
+- **Source: a Google Takeout export** of Keep (one ZIP, one JSON file per
+  note) — the only way open to everyone: Keep's API serves Workspace
+  domains only, unofficial clients need the Google password token.
+- **An import page** at `<web app>/import/` (no link from the app, like
+  the admin page): a rare action stays out of the app. It needs no sign-in:
+  it writes into the private file of NoteDown in the same browser; sync,
+  if on, takes the notes to the other devices from there (Android users
+  import in a browser). An app tab that is open meanwhile follows the
+  change at once. The ZIP is read in the browser and never uploaded.
+- **Choose or drop** the ZIP (drag and drop on the desktop; tablet and
+  phone use the system's file picker).
+- **The preview is the result**: every note as a card like in the app,
+  rendered as it will be stored, newest first, with a summary on top
+  (notes, archived, pinned, how many in Keep's trash were left out). All
+  are selected; a tap on a card deselects it (All / None for everything).
+  **Import n notes** asks once more, then shows how many were imported
+  and leads to the app. Nothing is stored before that confirmation.
+- **Mapping:** title → `## Title`; text as it is; checklists → task
+  checkboxes (ticked stays ticked); labels → a last line of #labels
+  ("Labels"; spaces become `-`); created and edited dates are kept;
+  archived → closed, in the archive; pinned → permanent. Not taken over,
+  and said so on the card: images, recordings and drawings ("2 images not
+  imported"; a note with nothing but those can't be selected); a note
+  shared in Keep comes in private. Not in the export at all: reminders,
+  colors. Notes in Keep's trash are left out.
+- A second import of the same export brings the notes in again (no
+  duplicate detection yet, backlog #37). *Prototype: `app/import/`
+  (`?sample` previews `app/sample/keep.json`).*
 
 ### Quick capture
 
@@ -806,4 +870,5 @@ one is worth it is discussed separately (backlog #31).
 
 ### Not in scope (for now)
 
-Tags and folders / notebooks — until there is a concrete need.
+Folders / notebooks — until there is a concrete need (labels cover
+grouping).

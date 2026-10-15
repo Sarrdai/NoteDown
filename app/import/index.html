@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" data-flavor="latte">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>NoteDown Import</title>
+  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/catppuccin.css">
+  <link rel="stylesheet" href="../css/app.css">
+  <link rel="stylesheet" href="import.css">
+  <script type="module" src="import.js"></script>
+</head>
+<body>
+  <div class="imp" id="imp">
+    <header class="imp-top">
+      <div class="imp-top-row">
+        <h1>Import from Keep</h1>
+        <a class="btn" href="../">Open NoteDown</a>
+      </div>
+    </header>
+
+    <main class="imp-wrap" id="pickStep">
+      <section class="imp-intro">
+        <ol class="imp-steps">
+          <li>Open <a href="https://takeout.google.com/" target="_blank" rel="noopener">Google Takeout</a>, choose <b>Deselect all</b>, then tick only <b>Keep</b>.</li>
+          <li>Export once as a <b>.zip</b> file and download it.</li>
+          <li>Choose the ZIP here. You see every note first and pick the ones to take over.</li>
+        </ol>
+        <div class="imp-drop" id="drop">
+          <p class="imp-drop-text">Drop the Takeout ZIP here</p>
+          <button class="btn primary" id="chooseBtn" type="button">Choose ZIP…</button>
+          <p class="imp-error" id="pickError" hidden></p>
+        </div>
+        <p class="imp-hint">The file is read in this browser and never uploaded. Imported notes go to the private notes of NoteDown in this browser; with sync on, they reach your other devices from there.</p>
+      </section>
+    </main>
+
+    <main class="imp-wrap" id="previewStep" hidden>
+      <div class="imp-summary">
+        <p id="summary"></p>
+        <div class="imp-bulk">
+          <button class="btn" id="allBtn" type="button">All</button>
+          <button class="btn" id="noneBtn" type="button">None</button>
+        </div>
+      </div>
+      <div class="list imp-list" id="list"></div>
+    </main>
+
+    <main class="imp-wrap" id="doneStep" hidden>
+      <section class="imp-intro imp-done">
+        <h2 id="doneText"></h2>
+        <p class="imp-hint">They are in your notes now, with their dates; archived ones are in the archive. Labels from Keep are #labels in the text.</p>
+        <a class="btn primary" href="../">Open NoteDown</a>
+      </section>
+    </main>
+
+    <div class="imp-bar" id="actionBar" hidden>
+      <button class="btn" id="otherBtn" type="button">Other file</button>
+      <span class="imp-count" id="count" aria-live="polite"></span>
+      <button class="btn primary" id="importBtn" type="button"></button>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".zip,application/zip" hidden>
+  <div class="dialog-scrim" id="confirmDialog" hidden>
+    <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+      <h2 class="dialog-title" id="confirmTitle"></h2>
+      <p class="dialog-hint" id="confirmText"></p>
+      <label class="confirm-check" id="confirmCheckRow" hidden>
+        <input type="checkbox" id="confirmCheck">
+        <span id="confirmCheckLabel"></span>
+      </label>
+      <p class="confirm-warning" id="confirmWarning" hidden></p>
+      <div class="dialog-actions">
+        <button class="btn" id="confirmCancel">Cancel</button>
+        <button class="btn primary danger" id="confirmOk"></button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

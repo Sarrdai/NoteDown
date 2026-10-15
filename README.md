@@ -7,7 +7,7 @@ done, with an optional due date that can remind you on the day. Open notes form 
 move to a read-only archive. Notes live in plain Markdown files: one
 private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by person or
-group. Besides the usual sort options, notes can be put in a custom order.
+group, a Labels tab by the #labels written in the notes. Besides the usual sort options, notes can be put in a custom order.
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a
@@ -42,7 +42,9 @@ own linked device): what the server stores, the identities with their
 devices and files, a storage limit per identity, news posts for everyone
 using the server (they show as **News** at the top of the people
 overview), and backup / restore — `app/admin/?sample` shows it with
-sample data.
+sample data. Notes from Google Keep come in through `/import/`: choose
+the Google Takeout ZIP, check the preview of every note, import the ones
+you want (`app/import/?sample` shows it with sample data).
 
 ## Try the prototype
 

@@ -189,6 +189,7 @@ function metaHtml(n, view = state.view) {
 function onBodyClick(e, id) {
   const n = note(id);
   if (!n || state.editingId === id) return;
+  if (e.target.closest(".label-chip")) return;   // filters the list (ui/labels.js)
   if (n.news) {   // read-only; a tap counts as seen
     if (e.target.closest("input.task")) e.preventDefault();
     if (n.fresh) markNewsSeen([id]);

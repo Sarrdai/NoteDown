@@ -1,0 +1,257 @@
+{
+ "_comment": "A Google Keep export (Takeout) for the import page's ?sample: one entry per JSON file of Takeout/Keep/. Texts come from app/sample/notes.md.",
+ "files": [
+  {
+   "name": "Takeout/Keep/Weekly groceries.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "Weekly groceries",
+    "userEditedTimestampUsec": 1791880800000000,
+    "createdTimestampUsec": 1791878700000000,
+    "listContent": [
+     {
+      "text": "Oat milk",
+      "isChecked": true
+     },
+     {
+      "text": "Coffee beans (the Ethiopian ones)",
+      "isChecked": false
+     },
+     {
+      "text": "Tomatoes, basil, mozzarella",
+      "isChecked": false
+     },
+     {
+      "text": "Dishwasher tablets",
+      "isChecked": false
+     }
+    ],
+    "labels": [
+     {
+      "name": "Shopping"
+     }
+    ],
+    "sharees": [
+     {
+      "isOwner": true,
+      "email": "me@example.com"
+     },
+     {
+      "isOwner": false,
+      "email": "lea@example.com"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/2026-10-12T19_22_00.000+02_00.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "",
+    "userEditedTimestampUsec": 1791878100000000,
+    "createdTimestampUsec": 1791832920000000,
+    "textContent": "Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks."
+   }
+  },
+  {
+   "name": "Takeout/Keep/Book ideas.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": true,
+    "isArchived": false,
+    "title": "Book ideas",
+    "userEditedTimestampUsec": 1791710100000000,
+    "createdTimestampUsec": 1791710100000000,
+    "textContent": "The Overstory — Richard Powers\nPiranesi — Susanna Clarke\nSomething on the history of maps"
+   }
+  },
+  {
+   "name": "Takeout/Keep/Garden plan for spring.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "Garden plan for spring",
+    "userEditedTimestampUsec": 1791664200000000,
+    "createdTimestampUsec": 1790618400000000,
+    "textContent": "Move the strawberries to the sunny corner\nTry tomatoes again, but the small ones",
+    "labels": [
+     {
+      "name": "Home"
+     },
+     {
+      "name": "Garden"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/Call the dentist.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "Call the dentist",
+    "userEditedTimestampUsec": 1791549600000000,
+    "createdTimestampUsec": 1791549600000000,
+    "textContent": "Six-month check-up is due. Ask whether Tuesday mornings are possible."
+   }
+  },
+  {
+   "name": "Takeout/Keep/2026-10-07T07_10_00.000+02_00.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "",
+    "userEditedTimestampUsec": 1791532800000000,
+    "createdTimestampUsec": 1791357000000000,
+    "textContent": "Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.",
+    "attachments": [
+     {
+      "filePath": "1a2b3c.3gp",
+      "mimetype": "audio/3gp"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/Recipe_ lentil soup.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": true,
+    "isArchived": false,
+    "title": "Recipe: lentil soup",
+    "userEditedTimestampUsec": 1791315000000000,
+    "createdTimestampUsec": 1791111600000000,
+    "textContent": "Sweat onion, carrot and celery in olive oil\nAdd red lentils, tomato paste and stock\nSimmer for 20 minutes, blend half of it\nLemon juice and cumin at the end",
+    "labels": [
+     {
+      "name": "Recipes"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/Car.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "Car",
+    "userEditedTimestampUsec": 1790960400000000,
+    "createdTimestampUsec": 1790757000000000,
+    "listContent": [
+     {
+      "text": "Winter tyres",
+      "isChecked": false
+     },
+     {
+      "text": "Inspection sticker expires end of October",
+      "isChecked": false
+     }
+    ],
+    "labels": [
+     {
+      "name": "Paperwork"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/Pay the electricity bill.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": true,
+    "title": "Pay the electricity bill",
+    "userEditedTimestampUsec": 1791876600000000,
+    "createdTimestampUsec": 1791622800000000,
+    "textContent": "Done by bank transfer, reference number in the banking app.",
+    "labels": [
+     {
+      "name": "Paperwork"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/Holiday photos.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": true,
+    "title": "Holiday photos",
+    "userEditedTimestampUsec": 1791104400000000,
+    "createdTimestampUsec": 1789934400000000,
+    "textContent": "Sorted and backed up to the external drive.",
+    "labels": [
+     {
+      "name": "Travel"
+     }
+    ],
+    "attachments": [
+     {
+      "filePath": "4d5e6f.jpg",
+      "mimetype": "image/jpeg"
+     },
+     {
+      "filePath": "7a8b9c.jpg",
+      "mimetype": "image/jpeg"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/2026-09-21T10_00_00.000+02_00.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": false,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "",
+    "userEditedTimestampUsec": 1789984800000000,
+    "createdTimestampUsec": 1789984800000000,
+    "textContent": "",
+    "labels": [
+     {
+      "name": "Travel"
+     }
+    ],
+    "attachments": [
+     {
+      "filePath": "0d1e2f.jpg",
+      "mimetype": "image/jpeg"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Takeout/Keep/2026-09-15T12_00_00.000+02_00.json",
+   "json": {
+    "color": "DEFAULT",
+    "isTrashed": true,
+    "isPinned": false,
+    "isArchived": false,
+    "title": "",
+    "userEditedTimestampUsec": 1790686800000000,
+    "createdTimestampUsec": 1789473600000000,
+    "textContent": "Cancel the old phone contract. Confirmation arrived, ends on 31 December."
+   }
+  }
+ ]
+}
