@@ -225,11 +225,6 @@ export function updateContact(id, patch) {
   else setContacts(list);
 }
 
-/** Whether the people overview (#23) shows: sync on and at least one contact or news post. */
-export function hasPeople() {
-  return state.sync.enabled && (contacts().length > 0 || newsNotes().length > 0);
-}
-
 // ---------- news (core/news.js) ----------
 
 const newsPosts = () => (state.sync.enabled && state.sync.news?.posts) || [];
@@ -268,9 +263,9 @@ function setNewsStatus(ids, status) {
   return () => setNewsMarks(before);
 }
 
-/** The people filter in effect: null (all) when the overview isn't shown. */
+/** The people filter in effect: null for all notes. */
 export function activeCircle() {
-  return hasPeople() ? state.circle : null;
+  return state.circle;
 }
 
 /** The notes of one circle (circleKey, "" = private), its trash included (the views filter); every note for null. */
