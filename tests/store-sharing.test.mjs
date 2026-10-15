@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
-import { state, replaceFiles, shareNotes, applyMerge, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, restoreKept, keepAsOwn, sharedCircles } from "../app/js/store.js";
+import { state, replaceFiles, shareNotes, applyMerge, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses } from "../app/js/store.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [n1, n2, n3] = sample.notes;
@@ -61,35 +61,64 @@ test("member names: a non-contact member's name comes from the shared file", () 
   assert.equal(memberName("nobody"), undefined);
 });
 
-test("a kept note shows in its circle, not under Private; Restore shares it again, Undo keeps it again", () => {
+test("deleting a private note marks it in place: gone from the views, in the trash; Undo takes it back", () => {
   start();
-  state.file.notes[0].kept = "bob+lea";   // n3: the others deleted it, this device protected it
-  assert.deepEqual(keptCircle(n3.id), ["bob", "lea"]);
-  assert.deepEqual(circleOf(n3.id), [], "it lives in the private file");
-  assert.deepEqual(circleNotes("bob+lea").map(n => n.id), [n3.id], "shown in its circle");
-  assert.equal(circleNotes("").length, 0, "not under Private");
-  assert.ok(sharedCircles().some(m => m.join("+") === "bob+lea"), "its circle is listed although it has no file");
-  const undo = restoreKept(n3.id);
-  assert.deepEqual(circleOf(n3.id), ["bob", "lea"], "back in the circle's file");
-  assert.equal(note3().kept, undefined);
-  assert.deepEqual(state.file.moved.map(m => m.id), [n3.id]);
+  const undo = removeNotes([n3.id]);
+  assert.equal(allNotes().some(n => n.id === n3.id), false);
+  assert.deepEqual(trashNotes().map(n => n.id), [n3.id]);
+  assert.ok(note(n3.id).deleted, "marked with the time");
+  assert.equal(state.file.notes.length, 1, "still in the private file");
   undo();
-  assert.deepEqual(circleOf(n3.id), []);
-  assert.equal(note3().kept, "bob+lea");
+  assert.equal(note(n3.id).deleted, undefined);
+  assert.deepEqual(trashNotes(), []);
 });
 
-test("Keep as my own note drops the mark; sharing a kept note elsewhere drops it too, Undo brings it back", () => {
+test("deleting a shared note takes it out of its file and keeps it in the own trash, marked with its circle", () => {
   start();
-  state.file.notes[0].kept = "bob+lea";
-  const undo = keepAsOwn(n3.id);
-  assert.equal(note3().kept, undefined);
-  assert.deepEqual(circleNotes("").map(n => n.id), [n3.id], "now under Private");
+  const undo = removeNotes([n1.id]);
+  const bob = sharedFiles().find(s => s.key === "bob").file;
+  assert.deepEqual(bob.notes, [], "deleted for everyone in the circle");
+  assert.deepEqual(bob.moved, [], "no moved marker: the others' devices see a delete");
+  assert.equal(note(n1.id).kept, "bob");
+  assert.deepEqual(keptCircle(n1.id), ["bob"]);
+  assert.deepEqual(circleNotes("bob").map(n => n.id), [n1.id], "shown in its circle's trash");
+  assert.equal(circleNotes("").some(n => n.id === n1.id), false, "not under Private");
   undo();
-  assert.equal(note3().kept, "bob+lea");
-  const unshare = shareNotes([n3.id], ["bob"]);
-  assert.equal(note3().kept, undefined, "shared on purpose: no longer kept");
-  unshare();
-  assert.equal(note3().kept, "bob+lea");
+  assert.deepEqual(circleOf(n1.id), ["bob"]);
+  assert.deepEqual(trashNotes(), []);
 });
 
-function note3() { return allNotes().find(n => n.id === n3.id); }
+test("Restore puts a shared note back into its circle, as own note into the private file; Undo returns it to the trash", () => {
+  start();
+  removeNotes([n1.id]);
+  let undo = restoreNotes([n1.id]);
+  assert.deepEqual(circleOf(n1.id), ["bob"], "back in the circle's file");
+  assert.equal(note(n1.id).deleted, undefined);
+  undo();
+  assert.deepEqual(circleOf(n1.id), [], "in the trash again");
+  assert.equal(note(n1.id).kept, "bob");
+  undo = restoreNotes([n1.id], { own: true });
+  assert.deepEqual(circleOf(n1.id), []);
+  assert.deepEqual(circleNotes("").map(n => n.id).sort(), [n1.id, n3.id].sort(), "now a private note");
+  undo();
+  assert.equal(note(n1.id).kept, "bob");
+  assert.ok(sharedCircles().some(m => m.join("+") === "bob"));
+});
+
+test("Delete permanently and expiry remove trashed notes for good", () => {
+  start();
+  removeNotes([n1.id, n3.id]);
+  const undo = purgeNotes([n1.id]);
+  assert.equal(note(n1.id), undefined);
+  undo();
+  assert.ok(note(n1.id));
+  purgeExpiredTrash(Date.now() + 31 * 86400000);
+  assert.deepEqual(trashNotes(), []);
+});
+
+test("a note merged from a permanent one is permanent", () => {
+  start();
+  setStatuses([n1.id], "permanent");
+  const { note: merged } = applyMerge([{ id: n1.id, body: null }, { id: n3.id, body: null }], { body: "merged", created: n1.created, due: null }, "copy");
+  assert.equal(merged.status, "permanent");
+});

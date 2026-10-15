@@ -13,15 +13,15 @@ import { icon } from "./icons.js";
 const $ = id => document.getElementById(id);
 let onSave = null;
 let notes = new Map();   // id → note of the rows
-let archive = false;
+let view = "open";
 let unsortedBy = { key: "modified", dir: "desc" };   // as the list shows them
 
 /** Opens the dialog over `sorted` and `unsorted` notes; `save(ids)` gets the
  *  ids above the line, in order. */
-export function openArrange({ title = "Custom order", hint = "Only you see this order.", sorted, unsorted, save, archive: inArchive = false }) {
+export function openArrange({ title = "Custom order", hint = "Only you see this order.", sorted, unsorted, save, view: inView = "open" }) {
   onSave = save;
   notes = new Map([...sorted, ...unsorted].map(n => [n.id, n]));
-  archive = inArchive;
+  view = inView;
   unsortedBy = { key: "modified", dir: "desc" };
   $("arrangeSortLabel").textContent = SORT_KEYS[unsortedBy.key].label;
   $("arrangeTitle").textContent = title;
@@ -76,7 +76,7 @@ function sortUnsorted(by) {
 }
 
 function sortMenu() {
-  const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.custom && (!v.archiveOnly || archive));
+  const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.custom && (!v.views || v.views.includes(view)));
   const dirs = DIR_LABELS[unsortedBy.key] || DIR_LABELS.default;
   openMenu($("arrangeSort"), [
     { section: "Sort not sorted yet by" },

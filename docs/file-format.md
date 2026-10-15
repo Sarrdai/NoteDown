@@ -49,13 +49,14 @@ Done by bank transfer, reference number in the banking app.
 | Attribute | Required | Value |
 |---|---|---|
 | `id` | yes | Stable and unique across all files, as notes move between them (no spaces) |
-| `status` | yes | `open` or `closed` |
+| `status` | yes | `open`, `closed` or `permanent` (a note of lasting value that can't be closed; an unknown value reads as `open`) |
 | `created` | yes | Time in UTC, `YYYY-MM-DDTHH:MMZ` |
 | `modified` | yes | Time (UTC) of the last content change (closing or reopening doesn't count) |
 | `due` | no | Date `YYYY-MM-DD` |
 | `closed` | when closed | Time (UTC) the note was closed |
 | `left` | no | Shared files only: identity IDs of members who left the note, comma-separated (see "Leaving a shared note") |
-| `kept` | no | Private file only: the circle (member IDs joined with `+`, sorted) of a protected shared note the others deleted; the note is kept here and still shown in that circle (`docs/sync-and-sharing.md` → "Files: one per circle of people") |
+| `deleted` | no | Private file only: time (UTC) the note went into the trash; it is removed for good 30 days later (`docs/sync-and-sharing.md` → "Trash") |
+| `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of
 a shared file in different time zones agree on them; each device shows

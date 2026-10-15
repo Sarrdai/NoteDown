@@ -68,18 +68,25 @@
   --on-person: #ffffff;
 }
 
-/* The archive keeps the same layout on a tinted background (also its swipe preview). */
+/* The archive and the trash keep the same layout on a tinted background (also their swipe previews). */
 :root {
   --bg-archive: color-mix(in srgb, var(--ctp-mantle) 84%, var(--ctp-teal));
   --surface-archive: color-mix(in srgb, var(--ctp-base) 93%, var(--ctp-teal));
+  --bg-trash: color-mix(in srgb, var(--ctp-mantle) 88%, var(--ctp-maroon));
+  --surface-trash: color-mix(in srgb, var(--ctp-base) 95%, var(--ctp-maroon));
 }
 /* The other view's colors, for what stays in place while swiping (top bar, contents panel). */
 .app { --bg-other: var(--bg-archive); --surface-other: var(--surface-archive); }
-.app[data-view="closed"] { --bg-other: var(--ctp-mantle); --surface-other: var(--ctp-base); }
+.app[data-view="closed"], .app[data-view="trash"] { --bg-other: var(--ctp-mantle); --surface-other: var(--ctp-base); }
 .app[data-view="closed"], .swipe-peek[data-view="closed"] {
   --bg: var(--bg-archive);
   --surface: var(--surface-archive);
   --border: color-mix(in srgb, var(--ctp-surface0) 80%, var(--ctp-teal));
+}
+.app[data-view="trash"], .swipe-peek[data-view="trash"] {
+  --bg: var(--bg-trash);
+  --surface: var(--surface-trash);
+  --border: color-mix(in srgb, var(--ctp-surface0) 80%, var(--ctp-maroon));
 }
 
 * { box-sizing: border-box; }
@@ -126,7 +133,7 @@ button { font: inherit; color: inherit; }
 /* Swiping between notes and archive (ui/view-swipe.js): the list and the
    contents list follow the finger, the other view's pages (.swipe-peek) move
    in beside them. */
-.main.swiping :is(.filter-bar, .list, .empty), .toc-panel.swiping .toc-list { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
+.main.swiping :is(.filter-bar, .view-hint, .list, .empty), .toc-panel.swiping .toc-list { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
 /* The top bar and the contents panel (also the closed sheet) stay in place,
    but their color moves with the pages: two layers behind their content, this
    view's tint and the other's from its side (the archive lies to the right),
@@ -135,7 +142,7 @@ button { font: inherit; color: inherit; }
 .main.swiping .topbar { --pane: color-mix(in srgb, var(--bg) 88%, transparent); --pane-other: color-mix(in srgb, var(--bg-other) 88%, transparent); }
 .toc-panel.swiping { --pane: var(--bg); --pane-other: var(--bg-other); }
 .app { --other-side: 100%; }
-.app[data-view="closed"] { --other-side: -100%; }
+.app[data-view="closed"], .app[data-view="trash"] { --other-side: -100%; }
 :is(.main.swiping .topbar, .toc-panel.swiping) { background: transparent; overflow: clip; }
 :is(.main.swiping .topbar, .toc-panel.swiping)::before,
 :is(.main.swiping .topbar, .toc-panel.swiping)::after {
@@ -165,7 +172,7 @@ button { font: inherit; color: inherit; }
    size and place when the view changes. */
 #viewBtn { display: inline-grid; }
 .view-face { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.app[data-view="open"] .to-notes, .app[data-view="closed"] .to-archive { visibility: hidden; }
+.app[data-view="open"] .to-notes, .app:not([data-view="open"]) .to-archive { visibility: hidden; }
 /* The archive count sits on the icon's corner. */
 #viewBtn .count { margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; }
 #viewBtn { padding: 0 6px; }
@@ -204,10 +211,10 @@ mark.hit.current { background: var(--hit-current); color: var(--on-hit-current);
   padding: 8px 16px calc(var(--fab-size) + 40px + var(--safe-bottom));
 }
 /* The text takes the full width; the bar below it holds the meta line on the
-   left and the shield and the round button in the bottom right corner. */
+   left and the round button (or a permanent note's mark) in the bottom right corner. */
 .note {
   position: relative;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "body body body" "meta protect status";
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "body body" "meta status";
   align-items: center; column-gap: 2px;
   padding: 14px 10px 6px 16px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -255,21 +262,17 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 
 .note.editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
 
-/* Protection from deletion (a setting of this device): a protected note
-   shows a shield left of its round button; a tap removes the protection.
-   Protecting itself is in the selection bar. */
-.protect-mark {
-  grid-area: protect;
-  position: relative; width: 32px; height: 32px; margin-top: 4px; padding: 0;
-  display: none; align-items: center; justify-content: center;
-  border: 0; border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer;
+/* A permanent note (docs/requirements.md → "Permanent notes") can't be closed:
+   its mark takes the round button's place. */
+.permanent-mark {
+  grid-area: status; width: 36px; height: 36px; margin-top: 4px;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--accent);
 }
-.protect-mark .icon { width: 17px; height: 17px; fill: currentColor; }
-.protect-mark::after { content: ""; position: absolute; inset: -6px -2px; } /* 44 px tall touch target */
-.protect-mark:hover { background: var(--surface-hover); }
-.protect-mark:focus-visible { outline: 2px solid var(--accent); }
-.note.protected .protect-mark { display: inline-flex; }
-.app.selecting .protect-mark { pointer-events: none; }
+.permanent-mark .icon { width: 24px; height: 24px; stroke-width: 2.2; }
+
+/* A trashed note is read-only; a tap selects it (ui/selection.js). */
+.note.trashed .note-body { cursor: pointer; }
+.view-hint { max-width: 780px; margin: 0 auto; padding: 4px 16px 0; font-size: 0.85rem; color: var(--text-muted); }
 
 /* ---------- live-preview editor (CodeMirror, ui/live-preview.js) ---------- */
 .editor-host { cursor: text; }
@@ -370,7 +373,7 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .app.rec-locked .rec-lock { display: none; }
 
 /* ---------- multi-select (ui/selection.js) ---------- */
-.app.selecting .fab { display: none; }
+.app.selecting:not([data-view="trash"]) .fab { display: none; }   /* the trash's bin acts on the selection */
 .app.selecting .note, .app.selecting .note-body { cursor: pointer; -webkit-user-select: none; user-select: none; }
 /* A held note shows no text selection or callout on touch screens. */
 /* The mouse selects a note by its frame (ui/selection.js); the edited note's frame stays inert. */
@@ -682,17 +685,11 @@ button.shared-mark { cursor: pointer; }
 button.shared-mark::after { content: ""; position: absolute; inset: -11px -6px; }
 button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 999px; }
 
-/* A kept note (ui/kept.js): the others deleted it, it stays here because it is protected.
-   A dashed card, so it stands out in a long list, and the marker with its actions. */
-.note.kept:not(.selected):not(.editing) { border-style: dashed; border-color: var(--text-faint); box-shadow: none; }
+/* A note deleted from a shared file (ui/trash.js): the circle's avatars, crossed out. */
 .kept-mark .avatar-stack { position: relative; opacity: 0.55; }
 .kept-mark .avatar-stack::after {   /* struck through: gone for these people */
   content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px;
   background: var(--danger); transform: rotate(-20deg); border-radius: 1px;
-}
-.kept-label {
-  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px;
-  background: var(--danger-soft); color: var(--danger); font-size: 0.75rem;
 }
 
 /* Sync status: an icon in the top bar. "syncing" (spinning arrows) lasts at
@@ -933,10 +930,10 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .fab-face { grid-area: 1 / 1; display: inline-flex; }
 .fab-new { opacity: calc(1 - var(--archive)); transform: rotate(calc(var(--archive) * 90deg)) scale(calc(1 - var(--archive) * 0.6)); }
 .fab-empty { opacity: var(--archive); transform: rotate(calc((var(--archive) - 1) * 90deg)) scale(calc(0.4 + var(--archive) * 0.6)); }
-.app[data-view="closed"] .fab { --archive: 1; }
-.app[data-view="closed"] .fab.inert { box-shadow: none; cursor: default; }
+.app:not([data-view="open"]) .fab { --archive: 1; }
+.app:not([data-view="open"]) .fab.inert { box-shadow: none; cursor: default; }
 /* The snackbar steps aside for the bin. */
-.app[data-view="closed"] .snackbar { left: calc(var(--fab-left) + var(--fab-size) + 16px); max-width: calc(100% - var(--fab-left) - var(--fab-size) - 32px); }
+.app:not([data-view="open"]) .snackbar { left: calc(var(--fab-left) + var(--fab-size) + 16px); max-width: calc(100% - var(--fab-left) - var(--fab-size) - 32px); }
 
 .snackbar {
   position: fixed; z-index: 50; left: 16px; bottom: calc(24px + var(--safe-bottom));

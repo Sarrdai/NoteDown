@@ -8,9 +8,9 @@
 // A problem with one shared file (no key, a device list that doesn't check out) is
 // reported after the others have been synced. The sample (`state.sync.simulated`)
 // never reaches this module. Slots are named by circleKey: "" is the private file.
-import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, isProtected, setProtected, contacts, setNewsFeed } from "../store.js";
+import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, contacts, setNewsFeed } from "../store.js";
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
-import { mergeNotesFiles, applyDisplaced, protectedDeleted, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
+import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
 import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
@@ -200,7 +200,7 @@ export async function filesRound() {
   }
 
   // 2. Merge them all at once, without waiting for anything.
-  const displaced = [], rescued = [], me = state.sync.identity;
+  const displaced = [], trashed = [], me = state.sync.identity, now = timestamp();
   for (const [key, got] of remote) {
     const localText = textAt(key);
     const local = parseNotesFile(localText);
@@ -209,10 +209,10 @@ export async function filesRound() {
     setRec(key, { ...rec(key), version: got.version, base: got.text });
     // A note this user left that another member moved on isn't an edit to follow.
     displaced.push(...merged.displaced.filter(d => !hasLeft(d.note, me)).map(d => ({ ...d, from: key })));
-    // Another member deleted a note this device has protected: it becomes a private note here, marked with its circle.
-    if (key !== PRIVATE) rescued.push(...protectedDeleted(local, merged.file, isProtected, key).filter(n => !hasLeft(n, me)));
+    // A shared note deleted elsewhere goes into this user's trash, marked with its circle.
+    if (key !== PRIVATE) trashed.push(...deletedFromShared(local, merged.file, key, now).filter(n => !hasLeft(n, me)));
   }
-  if (rescued.length) putFile(PRIVATE, adoptNotes(state.file, rescued));
+  if (trashed.length) putFile(PRIVATE, adoptNotes(state.file, trashed));
   for (const d of displaced) {
     // The edit follows the note into the file it moved to, or lands in the private file when this user isn't a member there.
     const to = slotKeys().find(k => k !== d.from && fileAt(k).notes.some(n => n.id === d.note.id)) ?? PRIVATE;
@@ -223,13 +223,12 @@ export async function filesRound() {
   addNewCircles(slots);
   for (const key of slots.keys()) if (key !== PRIVATE && (slots.get(key) === null || remote.has(key) || rec(key).version === slots.get(key).version)) writeMemberName(key);
   if (remote.size) {
-    // A private copy of a note that is shared again (someone was removed and added back) becomes a note of its own.
+    // A trashed note that is back in its shared file (someone undid the delete) leaves the trash; a private copy of
+    // a note that is shared again (someone was removed and added back) becomes a note of its own.
     const ids = new Set(sharedFiles().flatMap(sf => sf.file.notes.map(n => n.id)));
+    if (state.file.notes.some(n => n.deleted && ids.has(n.id))) putFile(PRIVATE, { ...state.file, notes: state.file.notes.filter(n => !(n.deleted && ids.has(n.id))) });
     const { file, renamed } = renameDuplicates(state.file, ids);
-    if (renamed.length) {
-      putFile(PRIVATE, file);
-      setProtected(renamed.filter(r => isProtected(r.from)).map(r => r.to), true);
-    }
+    if (renamed.length) putFile(PRIVATE, file);
   }
 
   // 3. Upload what differs from the last synced state, creating files that don't exist yet.

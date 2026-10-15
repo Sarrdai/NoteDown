@@ -1,6 +1,7 @@
 // The note list: renders the notes of the current view, edits a note in
-// place (editor.js), toggles task checkboxes, the note's own open/closed
-// state and its protection from deletion.
+// place (editor.js), toggles task checkboxes and the note's own open/closed
+// state. A permanent note has a mark instead of the round button; a trashed
+// note is read-only; a tap selects it (ui/selection.js).
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note) and when
@@ -8,8 +9,8 @@
 // cards: no editing, no due date, a label while they are new or updated.
 import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected, markNewsSeen } from "../store.js";
-import { keptMarkerHtml, openKeptMenu } from "./kept.js";
+import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen } from "../store.js";
+import { trashMarkerHtml } from "./trash.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -53,7 +54,7 @@ function divider(onArrange) {
   return el;
 }
 
-// A tap on the shared marker opens the share dialog, on a kept note's marker its actions.
+// A tap on the shared marker opens the share dialog.
 // (While selecting, the selection's own click handler runs first and keeps the tap.)
 document.addEventListener("click", e => {
   const hit = e.target.closest("#list button.shared-mark");
@@ -61,8 +62,7 @@ document.addEventListener("click", e => {
   const id = hit.closest(".note").dataset.id;
   if (state.editingId) endEdit();
   if (!note(id)) return;
-  if (hit.classList.contains("kept-mark")) openKeptMenu(hit, id);
-  else openShareDialog([id]);
+  openShareDialog([id]);
 });
 
 // A tap on the due chip opens the due-date menu; editing another note ends first.
@@ -85,37 +85,38 @@ export function patchNote(id) {
 
 function noteElement(n, view = state.view) {
   const el = document.createElement("article");
-  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "")
-    + (n.news ? " news" : "") + (n.fresh ? " fresh" : "") + (n.kept ? " kept" : "");
+  el.className = "note" + (n.status === "closed" ? " closed" : "") + (n.status === "permanent" ? " permanent" : "")
+    + (n.deleted ? " trashed" : "") + (n.news ? " news" : "") + (n.fresh ? " fresh" : "");
   el.dataset.id = n.id;
 
-  const status = document.createElement("button");
-  status.className = "status";
-  status.setAttribute("aria-label", n.status === "closed" ? (n.news ? "Reopen post" : "Reopen note") : n.news ? "Archive post" : "Close note");
-  status.innerHTML = `<span class="ring">${icon("check")}</span>`;
-  status.addEventListener("click", () => toggleStatus(n.id));
+  // The round button closes or reopens; a permanent note has its mark there instead, a trashed note neither.
+  const status = document.createElement(n.status === "permanent" ? "span" : "button");
+  if (n.status === "permanent") {
+    status.className = "permanent-mark";
+    status.setAttribute("role", "img");
+    status.setAttribute("aria-label", "Permanent note");
+    status.title = "Permanent · can't be closed";
+    status.innerHTML = icon("permanent");
+  } else {
+    status.className = "status";
+    status.setAttribute("aria-label", n.status === "closed" ? (n.news ? "Reopen post" : "Reopen note") : n.news ? "Archive post" : "Close note");
+    status.innerHTML = `<span class="ring">${icon("check")}</span>`;
+    status.addEventListener("click", () => toggleStatus(n.id));
+  }
 
   const body = document.createElement("div");
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
   wrapSections(body, sections(n.body));
   markHits(body);
-  if (n.status === "closed" || n.news) body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
+  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
   const meta = document.createElement("div");
   meta.className = "note-meta";
   meta.innerHTML = metaHtml(n, view);
 
-  // A shield left of the round button of a protected note; a tap removes the protection.
-  const protect = document.createElement("button");
-  protect.className = "protect-mark";
-  protect.setAttribute("aria-label", "Protected from deletion, remove protection");
-  protect.title = "Protected from deletion · tap to remove";
-  protect.innerHTML = icon("protect");
-  protect.addEventListener("click", () => setProtected([n.id], false));
-
-  el.append(body, meta, ...(n.news ? [] : [protect]), status);
+  el.append(body, meta, ...(n.deleted ? [] : [status]));
   markSelected(el);
   return el;
 }
@@ -144,10 +145,10 @@ export function markSelected(el) {
 }
 
 // The shared marker: overlapping avatars of the members; a button while the
-// note is open (opens the share dialog), plain info in the archive. A kept
-// note's marker is a button in both views (its actions don't change the text).
+// note is open (opens the share dialog), plain info in the archive. A note
+// deleted from a shared file shows the circle crossed out.
 function markerHtml(n) {
-  if (n.kept) return keptMarkerHtml(n);
+  if (n.deleted) return n.kept ? trashMarkerHtml(n) : "";
   const members = circleOf(n.id);
   if (!members.length) return "";
   const attrs = `class="shared-mark" aria-label="${esc("Shared with " + membersLabel(members))}"`;
@@ -165,7 +166,7 @@ function newsMetaHtml(n) {
 function metaHtml(n, view = state.view) {
   if (n.news) return newsMetaHtml(n);
   const parts = [markerHtml(n)].filter(Boolean);
-  if (n.status === "closed") {
+  if (n.status === "closed" || n.deleted) {
     // A closed note's due date is history, not a warning, and read-only.
     if (n.due) parts.push(`<span class="chip">${icon("calendar")}Due ${shortDate(n.due)}</span>`);
   } else if (n.due) {
@@ -176,8 +177,8 @@ function metaHtml(n, view = state.view) {
     parts.push(`<button type="button" class="chip due-chip due-add">${icon("calendar")}Due date</button>`);
   }
   const key = state.settings.sort[view].key;
-  const field = { created: "created", closed: "closed" }[key] || "modified";
-  const label = { created: "Created", closed: "Closed", modified: "Edited" }[field];
+  const field = n.deleted && view === "trash" ? "deleted" : { created: "created", closed: "closed" }[key] || "modified";
+  const label = { created: "Created", closed: "Closed", deleted: "Deleted", modified: "Edited" }[field];
   if (n[field]) parts.push(`<span>${label} ${relativeTime(n[field])}</span>`);
   return parts.join("");
 }
@@ -193,12 +194,13 @@ function onBodyClick(e, id) {
   const cb = e.target.closest("input.task");
   if (cb) {
     e.preventDefault();
-    if (n.status === "closed") return;
+    if (n.status === "closed" || n.deleted) return;
     const index = [...e.currentTarget.querySelectorAll("input.task")].indexOf(cb);
     setBody(id, toggleTask(n.body, index));
     return;
   }
   if (e.target.closest("a")) return;
+  if (n.deleted) return;   // read-only; the selection takes the tap
   if (n.status === "closed") return; // closed notes are read-only
   startEdit(id, { x: e.clientX, y: e.clientY });
 }
@@ -250,8 +252,8 @@ export function endEdit({ fromHistory = false, keepEntry = false } = {}) {
   if (wasNew) state.topId = null;
   editListeners.forEach(fn => fn(null));
   if (/^\s*(#+\s*)?$/.test(text)) {
-    // An empty note is not kept: a fresh one silently, an emptied one with undo.
-    const undo = removeNote(id);
+    // An empty note is not kept (nor trashed): a fresh one silently, an emptied one with undo.
+    const undo = purgeNotes([id]);
     if (!wasNew) showSnackbar("Empty note deleted", undo);
     return;
   }

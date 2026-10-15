@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
@@ -21,7 +21,7 @@ import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from 
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
-import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
+import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
@@ -37,7 +37,9 @@ const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
-const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
+const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
+const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
+
 
 const phone = window.matchMedia("(max-width: 599px)");
 
@@ -96,7 +98,7 @@ function render() {
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
 
-  $("title").textContent = state.view === "open" ? "Notes" : "Archive";
+  $("title").textContent = TITLES[state.view];
   const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
@@ -106,6 +108,7 @@ function render() {
   $("archiveCount").classList.toggle("has", count > 0);
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? `Archive, ${count} closed today` : "Notes");
   $("viewBtn").title = state.view === "open" ? `Archive · ${count} closed today` : "Notes";
+  $("viewHint").hidden = state.view !== "trash";
   renderFab();
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
 
@@ -123,20 +126,21 @@ function render() {
   empty.textContent = emptyText(state.view, state.search);
 }
 
-// The tiles of a view: "Protected first" orders only the tiles (the contents
-// keep the sort order); the custom order puts a divider above the first note
-// not sorted yet (protected ones stay on top with "Protected first").
+// The tiles of a view: "Permanent first" (main view) orders only the tiles (the
+// contents keep the sort order); the custom order puts a divider above the first
+// note not sorted yet (permanent ones stay on top with "Permanent first").
 function tilesOf(view, notes) {
-  const onTop = state.settings.protectedFirst[view];
-  const tiles = onTop ? protectedFirst(notes, isProtected) : notes;
+  const onTop = view === "open" && state.settings.permanentFirst;
+  const tiles = onTop ? permanentFirst(notes) : notes;
   const sorted = new Set(orderIds(view));
-  const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(n.id) && !(onTop && isProtected(n.id)) && n.id !== state.topId) : null;
+  const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(n.id) && !(onTop && n.status === "permanent") && n.id !== state.topId) : null;
   return { tiles, dividerBefore: unsorted?.id ?? null };
 }
 
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
+    : view === "trash" ? "The trash is empty."
     : circle === NEWS ? (view === "open" ? "No news right now." : "No archived news.")
     : circle && view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
     : circle === "" && view === "open" ? "No private notes. Tap + to add one."
@@ -258,7 +262,7 @@ function addDictatedNote(text) {
   render();
   window.scrollTo(0, 0);
   flashNote(n.id);
-  showSnackbar("Dictated note added", () => removeNote(n.id));
+  showSnackbar("Dictated note added", () => purgeNotes([n.id]));
 }
 
 // A merged note (or one made from moved sections) appears at the top of the list.
@@ -279,11 +283,11 @@ function arrange() {
   const { sorted, unsorted } = customSplit(shown, orderIds());
   const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
   openArrange(key ? {
-    archive: state.view === "closed",
+    view: state.view,
     title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
     save: ids => showSnackbar("Shared order saved", setCircleOrder(key, next(ids))),
   } : {
-    archive: state.view === "closed",
+    view: state.view,
     sorted, unsorted,
     save: ids => showSnackbar("Order saved", setCustomOrder(next(ids))),
   });
@@ -291,12 +295,12 @@ function arrange() {
 
 function sortMenu(anchor = $("sortBtn")) {
   const sort = sortOf();
-  const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.archiveOnly || state.view === "closed") && (!v.circleOnly || sharedCircle()));
+  const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.views || v.views.includes(state.view)) && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   // A sort change ends a new note's place on top, like a view or search change.
   const reorder = patch => { state.topId = null; updateSettings(patch); };
   const setSort = next => reorder({ sort: { ...state.settings.sort, [state.view]: next } });
-  const onTop = state.settings.protectedFirst[state.view];
+  const onTop = state.settings.permanentFirst;
   openMenu(anchor, [
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
@@ -306,30 +310,32 @@ function sortMenu(anchor = $("sortBtn")) {
       { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
       { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     ]),
-    { separator: true },
-    { label: "Protected first", checked: onTop, onSelect: () => reorder({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
+    ...(state.view === "open" ? [
+      { separator: true },
+      { label: "Permanent first", checked: onTop, onSelect: () => reorder({ permanentFirst: !onTop }) },
+    ] : []),
   ]);
 }
 
-// The archive's bin button (renderFab): deletes every closed note except the protected ones;
-// shared notes only when ticked, as they go for everyone in their circle.
+// The archive's bin button (renderFab): moves every closed note into the trash; shared notes only when
+// ticked, as they go for everyone in their circle.
 function emptyArchive() {
   const closed = allNotes().filter(n => n.status === "closed");
-  const g = deleteGroups(closed, { isProtected, isShared: id => circleOf(id).length > 0 });
+  const shared = closed.filter(n => circleOf(n.id).length);
+  const own = closed.length - shared.length;
   const notes = n => n === 1 ? "1 note" : `${n} notes`;
-  const kept = !g.kept.length ? "" : g.kept.length === 1 ? " 1 protected note stays." : ` ${g.kept.length} protected notes stay.`;
-  const ids = withShared => [...g.private, ...(withShared ? g.shared : [])].map(n => n.id);
+  const ids = withShared => closed.filter(n => withShared || !circleOf(n.id).length).map(n => n.id);
   openConfirm({
     title: "Empty archive?",
-    text: (g.private.length ? `Deletes ${notes(g.private.length)} from all your devices.` : "No private notes to delete.") + kept,
-    check: g.shared.length ? {
-      label: `Also delete ${notes(g.shared.length)} shared with others`,
-      warning: g.shared.length === 1 ? "It is deleted for everyone it is shared with." : "They are deleted for everyone they are shared with.",
+    text: (own ? `Moves ${notes(own)} to the trash.` : "No private notes to move.") + ` The trash keeps them for ${TRASH_DAYS} days.`,
+    check: shared.length ? {
+      label: `Also delete ${notes(shared.length)} shared with others`,
+      warning: shared.length === 1 ? "It is deleted for everyone it is shared with and waits in everyone's trash." : "They are deleted for everyone they are shared with and wait in everyone's trash.",
     } : null,
-    okLabel: withShared => ids(withShared).length ? `Delete ${ids(withShared).length}` : null,
+    okLabel: withShared => ids(withShared).length ? `Move ${ids(withShared).length}` : null,
     onConfirm: withShared => {
       const del = ids(withShared);
-      showSnackbar(del.length === 1 ? "Note deleted" : `${del.length} notes deleted`, removeNotes(del));
+      showSnackbar(del.length === 1 ? "Note moved to trash" : `${del.length} notes moved to trash`, removeNotes(del));
     },
   });
 }
@@ -360,7 +366,7 @@ function fitTopbar() {
   const title = $("title");
   const search = $("search");
   const label = $("sortBtn").querySelector(".btn-label");
-  for (const a of ACTIONS) $(a.id).hidden = false;
+  for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
   label.hidden = false;
   // Too tight: the title is cut, or (desktop) the buttons run into the centered search.
   const tight = () => title.scrollWidth > title.clientWidth + 1
@@ -371,17 +377,23 @@ function fitTopbar() {
   const text = title.textContent;
   title.textContent = "Archive";
   if (tight()) label.hidden = true;
-  for (let i = ACTIONS.length - 1; i >= 0 && tight(); i--) $(ACTIONS[i].id).hidden = true;
+  for (let i = ACTIONS.length - 1; i >= 0 && tight(); i--) {
+    const btn = $(ACTIONS[i].id);
+    if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
+  }
   title.textContent = text;
 }
 
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
-  const hidden = ACTIONS.filter(a => $(a.id).hidden).map(a => a.menu());
+  const hidden = ACTIONS.filter(a => $(a.id).dataset.folded).map(a => a.menu());
+  // The trash is reached under ⋮ (decided 2026-10-15 over a third page and a button in the archive: deleted notes are rarely needed).
+  const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
     ...hidden,
-    hidden.length && { separator: true },
+    trashEntry,
+    (hidden.length || trashEntry) && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
     { section: "Prototype" },
@@ -393,16 +405,20 @@ function moreMenu() {
 
 // The + button: a new note in the main view; in the archive it moves to the
 // left and turns into a bin that empties the archive (set apart from + so the
-// two aren't mixed up).
+// two aren't mixed up). In the trash the same bin deletes the selected notes
+// permanently: greyed out until notes are selected, kept apart from Restore
+// in the selection bar.
 function renderFab() {
   const fab = $("fab");
-  const archive = state.view === "closed";
-  fab.setAttribute("aria-label", archive ? "Empty archive" : "New note (hold to dictate)");
-  fab.title = archive ? "Empty archive" : "";
+  const label = { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Delete selected permanently" }[state.view];
+  fab.setAttribute("aria-label", label);
+  fab.title = state.view === "open" ? "" : label;
   // Also in the main view, so the bin a swipe brings in looks as it will.
-  fab.classList.toggle("inert", !allNotes().some(n => n.status === "closed" && !isProtected(n.id)));
+  fab.classList.toggle("inert", state.view === "trash" ? !state.selected.size : !allNotes().some(n => n.status === "closed"));
 }
-const fabTap = () => state.view === "open" ? newNote() : !$("fab").classList.contains("inert") && emptyArchive();
+const fabTap = () => state.view === "open" ? newNote()
+  : $("fab").classList.contains("inert") ? null
+  : state.view === "trash" ? purgeSelected() : emptyArchive();
 
 // ⋮ → "Export…": this view in the order the list shows it (filter and search
 // applied; the main view can add its archive below), or all files, one
@@ -457,7 +473,7 @@ function wire() {
   $("syncBtn").addEventListener("click", openSyncPanel);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
-  // One button switches between the notes and the archive, in the same place.
+  // One button switches between the notes and the archive, in the same place; from the trash it leads to the notes.
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", () => sortMenu());
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
@@ -490,7 +506,7 @@ function wire() {
   initArrange();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
+  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initSyncPanel();
   initContactRequests();
   initPullRefresh({
@@ -502,7 +518,7 @@ function wire() {
   // starts anywhere on the list and on the contents (also the open sheet),
   // whose list moves along.
   initViewSwipe({
-    canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+    canSwipe: target => state.view !== "trash" && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("recording")
       && !!target.closest(".main, .toc-panel, .scrim") && !target.closest(".topbar, .selectbar, .toc-handle, .toc-head"),
     view: () => state.view,
@@ -524,7 +540,7 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
-  if (p.get("view") === "closed") state.view = "closed";
+  if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).
   if (p.get("api") !== null) writeApi(p.get("api"));
   // ?sample replaces the stored notes with the sample notes (screenshots,
@@ -552,6 +568,7 @@ async function start() {
   const sample = applyUrlOptions();
   if (sample) replaceFiles(await loadSampleState(sample));
   else if (!hadFile) await loadWelcome();
+  purgeExpiredTrash();
   initSyncSim();
   const config = await loadConfig();
   initSync(readApi() || config.api, webAddress(config.web));

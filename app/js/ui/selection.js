@@ -6,14 +6,16 @@
 // selection bar acts on the selection; Copy and Merge first confirm the
 // order in a dialog where it can be changed by drag and drop. Ends with ✕,
 // Esc, the back button, an empty selection or an action that removes the
-// notes from view. Delete asks first (ui/confirm.js) and leaves protected
-// notes alone.
-import { tableOfContents, deleteGroups } from "../core/query.js";
+// notes from view. Delete moves notes into the trash with Undo. In the trash a
+// tap selects; the bar restores, the red bin at the bottom left deletes the
+// selection permanently after asking (ui/trash.js) — kept apart on purpose.
+import { tableOfContents } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge, isProtected, setProtected, circleOf } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle } from "../store.js";
+import { restore, restoreOwn, purge } from "./trash.js";
 import { mergeCircle } from "../core/sharing.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
@@ -123,7 +125,7 @@ function onClick(e) {
   if (!el || el.dataset.id === state.editingId) return;
   const id = el.dataset.id;
   if (e.shiftKey) selectRange(id);
-  else if (e.ctrlKey || e.metaKey || isSelecting() || (frameDown && onFrame(e.target))) toggle(id);
+  else if (e.ctrlKey || e.metaKey || isSelecting() || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
   else return;
   e.preventDefault();
   e.stopPropagation();
@@ -217,26 +219,30 @@ function update() {
   if (!on) return;
   const { parts, byNote, whole } = current();
   $("selCount").innerHTML = `${parts.length}<span class="sel-word"> selected</span>`;
-  const archive = state.view === "closed";
+  const archive = state.view === "closed", trash = state.view === "trash";
   const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
     && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
-  // Close, Share, Protect and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  // Close, Share, Permanent and Delete act on whole notes; `menu` = under ⋮ on the phone.
   const ids = byNote.map(([n]) => n.id);
-  const protect = ids.some(id => !isProtected(id));
+  const permanent = ids.some(id => note(id)?.status !== "permanent");
   // News posts are read-only and only this user's: close or reopen, copy, delete.
   const news = byNote.every(([n]) => n.news);
-  const actions = news ? [
+  const actions = trash ? [
+    { id: "restore", label: "Restore", run: () => withIds(restore) },
+    ids.some(id => keptCircle(id).length) && { id: "lock", label: "Restore as my own", run: () => withIds(restoreOwn) },
+    { id: "copy", label: "Copy", run: copy },
+  ].filter(Boolean) : news ? [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
     { id: "trash", label: "Delete", run: remove, disabled: !whole },
   ] : [
-    archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
+    archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole || !permanent },
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
-    { id: protect ? "protect" : "unprotect", label: protect ? "Protect" : "Unprotect", run: () => protectNotes(protect), disabled: !whole, menu: !archive },
-    { id: "trash", label: "Delete", run: remove, disabled: !whole || ids.every(isProtected) },
+    !archive && { id: permanent ? "permanent" : "closable", label: permanent ? "Make permanent" : "Make closable", run: () => setPermanent(permanent), disabled: !whole, menu: true },
+    { id: "trash", label: "Delete", run: remove, disabled: !whole },
     !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },
     !archive && { id: "indent", label: "Demote headings", run: () => shift(1), disabled: !canShift(1), menu: true },
   ].filter(Boolean);
@@ -259,8 +265,22 @@ function update() {
 const noteIds = () => current().parts.map(p => p.noteId);
 const count = (n, word) => n === 1 ? `Note ${word}` : `${n} notes ${word}`;
 
+// Runs `fn` on the selected notes once the selection has ended (its history entry gone, as `fn` may open a dialog).
+function withIds(fn) {
+  const ids = [...new Set(noteIds())];
+  endSelection();
+  afterLeave(() => fn(ids));
+}
+
+/** The trash's bin: deletes the selected notes permanently after asking; Cancel keeps the selection. */
+export function purgeSelected() {
+  const ids = [...new Set(noteIds())];
+  if (ids.length) purge(ids, { onDone: () => endSelection() });
+}
+
+// Permanent notes stay open: Close leaves them alone.
 function close() {
-  const ids = noteIds();
+  const ids = noteIds().filter(id => note(id)?.status !== "permanent");
   endSelection();
   showSnackbar(count(ids.length, "archived"), setStatuses(ids, "closed"));
 }
@@ -279,36 +299,21 @@ function share() {
   afterLeave(() => openShareDialog(ids));
 }
 
-function protectNotes(on) {
+function setPermanent(on) {
   const ids = noteIds();
   endSelection();
-  showSnackbar(count(ids.length, on ? "protected" : "unprotected"), setProtected(ids, on));
+  showSnackbar(on ? count(ids.length, "made permanent") : count(ids.length, "made closable"), setStatuses(ids, on ? "permanent" : "open"));
 }
 
-// Asks first; protected notes stay, shared ones go for everyone in their circle.
-// Cancel keeps the selection.
+// Moves the notes into the trash at once, with Undo (shared ones go for everyone in their circle and wait in
+// everyone's trash); news posts are only hidden for this user.
 function remove() {
-  const g = deleteGroups(noteIds().map(note), { isProtected, isShared: id => circleOf(id).length > 0 });
-  const ids = [...g.private, ...g.shared].map(n => n.id);
-  const news = ids.length > 0 && ids.every(id => note(id)?.news);
-  const text = news ? (ids.length === 1 ? "The post disappears on all your devices. It comes back only if it is edited." : "The posts disappear on all your devices. Each comes back only if it is edited.") : [
-    ids.length === 1 ? "It is removed from all your devices." : "They are removed from all your devices.",
-    g.shared.length && (g.shared.length === ids.length ? (ids.length === 1 ? "It is shared and is deleted for everyone." : "They are shared and are deleted for everyone.")
-      : `${g.shared.length} of them ${g.shared.length === 1 ? "is" : "are"} shared and deleted for everyone.`),
-    g.kept.length && (g.kept.length === 1 ? "1 protected note stays." : `${g.kept.length} protected notes stay.`),
-  ].filter(Boolean).join(" ");
-  openConfirm({
-    title: news ? (ids.length === 1 ? "Delete post?" : `Delete ${ids.length} posts?`) : ids.length === 1 ? "Delete note?" : `Delete ${ids.length} notes?`,
-    text,
-    okLabel: () => "Delete",
-    onConfirm: () => {
-      endSelection();
-      showSnackbar(count(ids.length, "deleted"), removeNotes(ids));
-    },
-  });
+  const ids = [...new Set(noteIds())];
+  const news = ids.every(id => note(id)?.news);
+  endSelection();
+  showSnackbar(news ? (ids.length === 1 ? "Post deleted" : `${ids.length} posts deleted`) : count(ids.length, "moved to trash"), removeNotes(ids));
 }
 
-// Headings of the selected parts one level up (-1) or down (+1); the selection stays.
 function shift(delta) {
   for (const [n, ps] of current().byNote) setBody(n.id, shiftHeadings(n.body, ps, delta));
 }

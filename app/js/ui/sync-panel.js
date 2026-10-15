@@ -286,7 +286,7 @@ function updateStatus() {
 
 // Takes over the sample identity and its notes, as a linked or restored device would.
 async function adoptIdentity(recoveryKey, message) {
-  const { protect, ...next } = await loadSampleState({ sync: true });   // a new device starts without protected notes
+  const next = await loadSampleState({ sync: true });
   if (recoveryKey) next.sync.recoveryKey = recoveryKey;
   replaceFiles(next);
   syncNow();
