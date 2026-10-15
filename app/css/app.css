@@ -252,6 +252,7 @@ mark.hit.current { background: var(--hit-current); color: var(--on-hit-current);
 .chip .icon { width: 14px; height: 14px; }
 .chip.today { background: var(--accent-soft); color: var(--accent); }
 .chip.overdue { background: var(--danger-soft); color: var(--danger); }
+.chip.from-chip { display: inline-block; max-width: 100%; line-height: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* An open note's due chip is a button (the due-date menu); without a date it
    is an empty slot. Its tap area reaches past the 24px chip. */
 button.chip { position: relative; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
@@ -983,8 +984,10 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
     width: min(748px, calc(100% - 340px));
   }
   .list { padding-top: 12px; }
-  .selectbar { padding-inline: 16px; }
-  .sel-label { display: inline; }
+  .selectbar { padding-inline: 16px; container-type: inline-size; }
+  .sel-count { flex: 1 0 auto; }
+  /* Labels only where all of them fit on one line; otherwise icons with tooltips. */
+  @container (min-width: 1360px) { .sel-label { display: inline; white-space: nowrap; } }
   /* On the desktop the toolbar floats over the list column. */
   .toolbar {
     left: calc(var(--toc-w) + (100% - var(--toc-w)) / 2); right: auto; bottom: 20px; transform: translateX(-50%);

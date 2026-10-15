@@ -48,6 +48,8 @@ const PATHS = {
   protect: '<path d="M12 3.5 5 6.2v5.6c0 4.2 2.9 7.6 7 8.7 4.1-1.1 7-4.5 7-8.7V6.2z"/>',
   permanent: '<path d="M12 12c-1.8-2.4-3.3-3.6-5-3.6a3.6 3.6 0 0 0 0 7.2c1.7 0 3.2-1.2 5-3.6zm0 0c1.8 2.4 3.3 3.6 5 3.6a3.6 3.6 0 0 0 0-7.2c-1.7 0-3.2 1.2-5 3.6z"/>',
   closable: '<circle cx="12" cy="12" r="8.5"/>',
+  cleardone: '<rect x="3" y="7" width="10" height="10" rx="2.5"/><path d="M5.8 12.2l1.8 1.8 3-3.4M15.5 12h6M18.5 9l3 3-3 3"/>',
+  backtonote: '<path d="M21 12h-6M18 9l-3 3 3 3"/><rect x="3" y="7" width="10" height="10" rx="2.5"/><path d="M5.8 12.2l1.8 1.8 3-3.4"/>',
   restore: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
   grip: '<circle cx="9" cy="6" r="0.9"/><circle cx="15" cy="6" r="0.9"/><circle cx="9" cy="12" r="0.9"/><circle cx="15" cy="12" r="0.9"/><circle cx="9" cy="18" r="0.9"/><circle cx="15" cy="18" r="0.9"/>',
 };

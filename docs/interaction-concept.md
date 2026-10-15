@@ -142,7 +142,9 @@ Current state, edited in place when a decision changes.
   with Undo: nothing is lost, the trash keeps it for 30 days
   (`docs/requirements.md` → "Main view, archive and trash").
 - **Final and mass deletes ask first** (Empty archive, Delete
-  permanently in the trash): the dialog says what goes, its action button is
+  permanently in the trash), and so does **Clear done tasks** although its
+  tasks only move to the archive (person-requested; accent-colored
+  button): the dialog says what goes, its action button is
   red, Cancel / `Esc` / back close it; Undo still follows for 5 seconds
   (decided 2026-10-14; Delete itself no longer asks since 2026-10-15).
 - **Giving a trashed note back to others asks first** (Restore for …):

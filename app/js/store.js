@@ -7,6 +7,7 @@ import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./cor
 import { moveNote, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
+import { returnDone } from "./core/tasks.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
 
 const FILE_KEY = "notedown.file";
@@ -535,6 +536,67 @@ export function applyMerge(changes, merged, mode = "copy") {
       saveFiles();
       emit("structure");
     },
+  };
+}
+
+/**
+ * Clear done tasks (core/tasks.js → clearDone): sets each note's remaining
+ * body from `changes` ([{ id, body, done }], body null = the note goes) and
+ * puts its done tasks into a closed note of their own, marked `from` the note,
+ * in the same file (circle). Returns a function that undoes it.
+ */
+export function archiveDone(changes) {
+  const now = timestamp();
+  const edited = changes.filter(c => c.body !== null).map(c => {
+    const n = note(c.id);
+    const before = { body: n.body, modified: n.modified };
+    Object.assign(n, { body: c.body, modified: now });
+    return [n, before];
+  });
+  const added = changes.map(c => {
+    const file = fileFor(circleOf(c.id));
+    const n = { ...createNote(c.done, now), status: "closed", closed: now, from: c.id };
+    file.notes.unshift(n);
+    return [file, n];
+  });
+  const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  saveFiles();
+  emit("structure");
+  return () => {
+    for (const [file, n] of added) file.notes = file.notes.filter(x => x !== n);
+    putBack();
+    for (const [n, before] of edited) Object.assign(n, before);
+    saveFiles();
+    emit("structure");
+  };
+}
+
+/** The open note an archived note of done tasks came from, or null when it is gone, closed, in the trash or in
+ *  another circle (Back to note isn't possible then). */
+export function doneSource(id) {
+  const n = note(id);
+  const src = n?.from && allNotes().find(x => x.id === n.from);
+  return src && src.status !== "closed" && circleKey(circleOf(src.id)) === circleKey(circleOf(id)) ? src : null;
+}
+
+/** Back to note (core/tasks.js → returnDone): puts the tasks of the archived notes `ids` back into the notes they
+ *  came from and removes the archived notes; returns a function that undoes it. */
+export function returnDoneTasks(ids) {
+  const now = timestamp();
+  const before = new Map();
+  for (const id of ids) {
+    const src = doneSource(id);
+    if (!before.has(src)) before.set(src, { body: src.body, modified: src.modified });
+    Object.assign(src, { body: returnDone(src.body, note(id).body), modified: now });
+  }
+  const putBack = takeOut(ids);
+  saveFiles();
+  emit("structure");
+  return () => {
+    putBack();
+    for (const [n, b] of before) Object.assign(n, b);
+    saveFiles();
+    emit("structure");
   };
 }
 

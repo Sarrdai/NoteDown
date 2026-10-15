@@ -14,7 +14,9 @@ import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks } from "../store.js";
+import { countDone, clearDone } from "../core/tasks.js";
+import { noteTitle } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
 import { mergeCircle } from "../core/sharing.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
@@ -237,6 +239,8 @@ function update() {
     { id: "trash", label: "Delete", run: remove, disabled: !whole },
   ] : [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole || !permanent },
+    archive ? { id: "backtonote", label: "Back to note", run: backToNote, disabled: !whole || !ids.every(doneSource) }
+      : { id: "cleardone", label: "Clear done tasks", run: clearDoneTasks, disabled: !byNote.some(([n, ps]) => countDone(n.body, ps)) },
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
@@ -312,6 +316,30 @@ function remove() {
   const news = ids.every(id => note(id)?.news);
   endSelection();
   showSnackbar(news ? (ids.length === 1 ? "Post deleted" : `${ids.length} posts deleted`) : count(ids.length, "moved to trash"), removeNotes(ids));
+}
+
+// Clear done tasks: the ticked tasks of the selection (whole notes, or only the selected sections) leave their
+// notes after asking and go into the archive, one closed note per source note, with Undo.
+function clearDoneTasks() {
+  const changes = current().byNote.map(([n, ps]) => ({ id: n.id, ...clearDone(n.body, ps) })).filter(c => c.count);
+  const total = changes.reduce((sum, c) => sum + c.count, 0);
+  const tasks = total === 1 ? "1 done task" : `${total} done tasks`;
+  const from = changes.length === 1 ? `“${noteTitle(note(changes[0].id).body).text || "Untitled"}”` : `${changes.length} notes`;
+  endSelection();
+  afterLeave(() => openConfirm({
+    title: `Clear ${tasks}?`,
+    text: `They leave ${from} and go to the archive as ${changes.length === 1 ? "a note" : "notes"} of their own; Back to note there puts them back.`,
+    okLabel: () => "Clear", danger: false,
+    onConfirm: () => showSnackbar(`${tasks[0].toUpperCase()}${tasks.slice(1)} archived`, archiveDone(changes)),
+  }));
+}
+
+// Back to note: archived done tasks go back into the notes they came from (at the end of their section).
+function backToNote() {
+  const ids = [...new Set(noteIds())];
+  endSelection();
+  const title = ids.length === 1 && noteTitle(doneSource(ids[0]).body).text;
+  showSnackbar(title ? `Tasks back in “${title}”` : "Tasks back in their notes", returnDoneTasks(ids));
 }
 
 function shift(delta) {

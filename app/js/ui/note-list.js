@@ -7,7 +7,7 @@
 // next structural change (view, sort, search, new / closed note) and when
 // a new due date sorts its note in (reorderList). News posts are read-only
 // cards: no editing, no due date, a label while they are new or updated.
-import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
+import { renderMarkdown, toggleTask, sections, noteTitle } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
@@ -166,6 +166,9 @@ function newsMetaHtml(n) {
 function metaHtml(n, view = state.view) {
   if (n.news) return newsMetaHtml(n);
   const parts = [markerHtml(n)].filter(Boolean);
+  // Archived done tasks name the note they came from (Clear done tasks).
+  const source = n.from && note(n.from);
+  if (source) parts.push(`<span class="chip from-chip">From ${esc(noteTitle(source.body).text || "Untitled")}</span>`);
   if (n.status === "closed" || n.deleted) {
     // A closed note's due date is history, not a warning, and read-only.
     if (n.due) parts.push(`<span class="chip">${icon("calendar")}Due ${shortDate(n.due)}</span>`);
