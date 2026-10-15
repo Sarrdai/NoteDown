@@ -35,6 +35,7 @@ let shownUsage = null, shownFull = false;   // `state.sync.usage` / `storageFull
 let shownContacts = "";  // the requests and contacts the overview was drawn with, as text
 let pendingInvite = null; // an invitation link opened while sync was off: continued once sync is on
 let leave = null;        // turns off what the page on screen started (camera)
+let sampleIdentity = ""; // the sample's identity ID (sample/sharing.json), shown by "Your identity" in the sample
 
 export function initSyncPanel() {
   $("syncBack").addEventListener("click", back);
@@ -57,7 +58,7 @@ export function initSyncPanel() {
   });
   onContactConfirmed(contact => showSnackbar(`${contact.name} confirmed your request`));
   setInterval(updateStatus, 20000);
-  loadSharingSample();   // warm the sample identity for the simulated scans
+  loadSharingSample().then(sample => { sampleIdentity = sample.identity || ""; });   // warm the sample identity for the simulated scans
 }
 
 /** The sync icon and ⋮ → "Sync & sharing…": opening the panel also syncs. */
@@ -562,6 +563,22 @@ const PAGES = {
     },
   },
 
+  identity: {
+    title: "Your identity",
+    render: () => {
+      const id = identityId();
+      return [
+        text("Your anonymous ID on this sync server. The server's owner needs it to switch on extra features for you."),
+        h("div", { class: "id-box", role: "group", "aria-label": "Your identity ID" }, id),
+        h("div", { class: "button-row" },
+          h("button", {
+            class: "btn outline", type: "button",
+            onclick: async () => showSnackbar(await copyText(id) ? "ID copied" : "Copying is blocked here"),
+          }, h("span", { html: icon("copy") }), "Copy ID")),
+      ];
+    },
+  },
+
   signOut: {
     title: "Sign out this device",
     render: data => {
@@ -591,6 +608,18 @@ const PAGES = {
     },
   },
 };
+
+// The "Your identity" section, last on the overview: a row that opens the page with the full ID.
+const identityId = () => (real() ? state.sync.identity : sampleIdentity);
+
+function identitySection() {
+  const id = identityId();
+  if (!id) return null;
+  return [
+    section("Your identity"),
+    h("ul", { class: "sheet-card" }, row({ icon: "user", title: "Identity ID", sub: id.slice(0, 8) + "…", open: () => go("identity") })),
+  ];
+}
 
 // The Storage section: used share of the server quota, hidden while unknown.
 function storageSection() {
@@ -664,6 +693,7 @@ function realOverview(data) {
       () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
     contactsSections(c => go("removeContact", { id: c.id, name: c.name })),
     storageSection(),
+    identitySection(),
   ].flat();
 }
 
@@ -682,6 +712,7 @@ function simulatedOverview() {
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
     contactsSections((c, i) => removeFromList("contacts", i, c.name)),
     storageSection(),
+    identitySection(),
   ].flat();
 }
 

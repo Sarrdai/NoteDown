@@ -86,6 +86,7 @@ export function createApi(baseUrl, who) {
     adminIdentities: () => call("GET", "/v1/admin/identities", undefined, true),
     adminIdentity: id => call("GET", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
     adminSetQuota: (id, quota) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/quota`, { quota }, true),   // quota in bytes, null = default
+    adminSetHistory: (id, on) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/history`, { history: on }, true),   // on: boolean
     adminNews: () => call("GET", "/v1/admin/news", undefined, true),   // → { news: [{ id, created, modified, body, archived }] }, newest first
     adminCreateNews: body => call("POST", "/v1/admin/news", { body }, true),   // → { id, created, modified }; 409 "too many news"
     adminUpdateNews: (id, patch) => call("PUT", `/v1/admin/news/${encodeURIComponent(id)}`, patch, true),   // patch: { body?, archived? }

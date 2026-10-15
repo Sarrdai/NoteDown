@@ -16,6 +16,7 @@ export const MAX_NEWS_PUBLISHED = 20;
 export const MAX_NEWS = 200;
 
 const round1 = n => Math.round(n * 10) / 10;
+const sum = list => list.reduce((a, b) => a + b, 0);
 const trim = n => String(round1(n));
 
 /** "812 B", "73.2 KB", "1.7 MB", "2 GB". */
@@ -100,6 +101,18 @@ export function sortIdentities(list, key = "updated", dir = defaultDirection(key
     if (x !== y) return (x < y ? -1 : 1) * sign;
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
+}
+
+// ---------- search ----------
+
+/**
+ * The identities whose full ID contains `query` (case-insensitive, leading and trailing white space
+ * ignored, so the short ID of a list row and a pasted full ID both match); an empty query keeps all.
+ * A new array in the original order.
+ */
+export function filterIdentities(list, query) {
+  const q = String(query ?? "").trim().toLowerCase();
+  return q ? list.filter(i => String(i.id).toLowerCase().includes(q)) : [...list];
 }
 
 // ---------- the storage limit input ----------
@@ -262,8 +275,8 @@ export function createSampleAdmin(data, news = []) {
     adminIdentity: async id => {
       const i = row(id);
       if (!i) throw fail(404, "not found");
-      const { created, used, quota, quota_override } = i;
-      return structuredClone({ ...server.details[id], created, used, quota, quota_override });
+      const { created, used, quota, quota_override, history } = i;
+      return structuredClone({ ...server.details[id], created, used, quota, quota_override, history });
     },
     adminSetQuota: async (id, quota) => {
       const i = row(id);
@@ -271,6 +284,20 @@ export function createSampleAdmin(data, news = []) {
       if (quota !== null && !(Number.isInteger(quota) && quota >= 1 && quota <= MAX_QUOTA)) throw fail(400, "invalid quota");
       i.quota_override = quota;
       i.quota = quota ?? server.overview.quota;
+      return null;
+    },
+    adminSetHistory: async (id, on) => {
+      const i = row(id);
+      if (!i) throw fail(404, "not found");
+      if (typeof on !== "boolean") throw fail(400, "invalid history");
+      i.history = on;
+      const d = server.details[id];
+      if (d) {
+        d.history = on;
+        const before = d.history_size || 0;
+        d.history_size = on ? before || Math.round(sum(d.files.map(f => f.size)) * 0.6) : 0;
+        server.overview.storage.history = Math.max(0, (server.overview.storage.history || 0) - before + d.history_size);
+      }
       return null;
     },
     adminNews: async () => ({ news: structuredClone([...server.news].sort(newestFirst)) }),
