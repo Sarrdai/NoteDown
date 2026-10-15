@@ -11,6 +11,7 @@
 // the private file also names the user's devices in `<!-- device … -->` markers
 // and holds the user's contacts in `<!-- contact … -->` markers; a shared file names its
 // members in `<!-- member … -->` markers, and a note someone left carries `left=<ids>`.
+// A private note kept after the others deleted it carries `kept=<circleKey>` of the circle it came from.
 // An `<!-- order … -->` marker holds a custom note order: the user's own in
 // the private file, a circle's shared one in a shared file. `<!-- news … -->`
 // markers in the private file remember which news posts the user has seen,
@@ -77,6 +78,7 @@ export function noteMarker(n) {
   if (n.due) attrs.push("due=" + n.due);
   if (n.closed) attrs.push("closed=" + n.closed);
   if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
+  if (n.kept) attrs.push("kept=" + n.kept);
   return `<!-- note ${attrs.join(" ")} -->`;
 }
 
@@ -139,6 +141,7 @@ function finishNote({ meta, body }) {
     closed: meta.closed || null,
     body: body.join("\n").trim(),
     ...(meta.left && { left: meta.left.split(",").filter(Boolean) }),
+    ...(meta.kept && { kept: meta.kept }),
   };
 }
 

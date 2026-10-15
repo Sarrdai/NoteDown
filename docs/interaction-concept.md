@@ -140,6 +140,10 @@ Current state, edited in place when a decision changes.
   notes, everyone in their circle. The dialog says what goes and what
   stays (protected notes), its action button is red, Cancel / `Esc` / back
   close it; Undo still follows for 5 seconds (decided 2026-10-14).
+- **Giving a kept note back to others asks first** (Restore for …,
+  `docs/requirements.md` → "Kept notes"): it hands the user's changes to
+  people who deleted the note. Same dialog with an accent-colored action
+  button; Undo follows (decided 2026-10-15, user request).
 - Other confirmation dialogs only where the user has something to
   adjust: the order for Copy and Merge (drag an entry's grip; Merge shows
   it even for a single part, as the confirmation of what moves), the

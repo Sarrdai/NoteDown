@@ -14,7 +14,9 @@ Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. A
 long-press on a note starts multi-select to close, copy, share, merge,
 protect or delete several notes at once (protected notes can't be
-deleted, and deleting always asks first); a long-press in the table of contents
+deleted, and deleting always asks first; a protected shared note the
+others delete stays in its circle until the user restores it for them
+or keeps it as their own); a long-press in the table of contents
 selects sections, which can be moved together into a new note.
 The Export button in the top bar saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden

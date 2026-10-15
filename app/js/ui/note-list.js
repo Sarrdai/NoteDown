@@ -9,6 +9,7 @@
 import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected, markNewsSeen } from "../store.js";
+import { keptMarkerHtml, keptBanner, openKeptMenu } from "./kept.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -52,14 +53,16 @@ function divider(onArrange) {
   return el;
 }
 
-// A tap on the shared marker opens the share dialog.
+// A tap on the shared marker opens the share dialog, on a kept note's marker its actions.
 // (While selecting, the selection's own click handler runs first and keeps the tap.)
 document.addEventListener("click", e => {
   const hit = e.target.closest("#list button.shared-mark");
   if (!hit) return;
   const id = hit.closest(".note").dataset.id;
   if (state.editingId) endEdit();
-  if (note(id)) openShareDialog([id]);
+  if (!note(id)) return;
+  if (hit.classList.contains("kept-mark")) openKeptMenu(hit, id);
+  else openShareDialog([id]);
 });
 
 // A tap on the due chip opens the due-date menu; editing another note ends first.
@@ -83,7 +86,7 @@ export function patchNote(id) {
 function noteElement(n, view = state.view) {
   const el = document.createElement("article");
   el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "")
-    + (n.news ? " news" : "") + (n.fresh ? " fresh" : "");
+    + (n.news ? " news" : "") + (n.fresh ? " fresh" : "") + (n.kept ? " kept" : "");
   el.dataset.id = n.id;
 
   const status = document.createElement("button");
@@ -112,7 +115,7 @@ function noteElement(n, view = state.view) {
   protect.innerHTML = icon("protect");
   protect.addEventListener("click", () => setProtected([n.id], false));
 
-  el.append(body, meta, ...(n.news ? [] : [protect]), status);
+  el.append(...(n.kept ? [keptBanner(n)] : []), body, meta, ...(n.news ? [] : [protect]), status);
   markSelected(el);
   return el;
 }
@@ -141,8 +144,10 @@ export function markSelected(el) {
 }
 
 // The shared marker: overlapping avatars of the members; a button while the
-// note is open (opens the share dialog), plain info in the archive.
+// note is open (opens the share dialog), plain info in the archive. A kept
+// note's marker is a button in both views (its actions don't change the text).
 function markerHtml(n) {
+  if (n.kept) return keptMarkerHtml(n);
   const members = circleOf(n.id);
   if (!members.length) return "";
   const attrs = `class="shared-mark" aria-label="${esc("Shared with " + membersLabel(members))}"`;

@@ -122,8 +122,8 @@ test("merge: contacts per id — the changed side wins, both new ones stay, a re
 test("protectedDeleted: a note another member deleted is saved when this device protects it", () => {
   const base = file(s01, s03);
   const merged = mergeNotesFiles(base, base, file(s03)).file;   // the other member deleted s01
-  assert.deepEqual(protectedDeleted(base, merged, id => id === "s01"), [s01]);
-  assert.deepEqual(protectedDeleted(base, merged, () => false), [], "unprotected: gone");
+  assert.deepEqual(protectedDeleted(base, merged, id => id === "s01", "lea+tom"), [{ ...s01, kept: "lea+tom" }], "kept, marked with its circle");
+  assert.deepEqual(protectedDeleted(base, merged, () => false, "lea+tom"), [], "unprotected: gone");
   // The private file never uses this: a delete on the user's own device goes everywhere (files.js).
 });
 
@@ -133,6 +133,19 @@ test("protectedDeleted: a note that moved on or was edited isn't touched", () =>
   assert.deepEqual(protectedDeleted(base, mergeNotesFiles(base, base, moved).file, () => true), [], "moved, not deleted");
   const edited = file(edit(s01, 1, "2026-10-13T09:05"), s03);
   assert.deepEqual(protectedDeleted(base, mergeNotesFiles(base, edited, file(s03)).file, () => true), [], "an edit wins over the delete");
+});
+
+test("kept: the circle a kept note came from round-trips and merges like a field of its own", () => {
+  const kept = { ...s01, kept: "lea+tom" };
+  const text = serializeNotesFile(file(kept));
+  assert.match(text, / kept=lea\+tom -->/);
+  assert.deepEqual(parseNotesFile(text).notes[0], kept);
+  // "Keep as my own note" on one device, an edit on another: both survive.
+  const own = { ...s01 };
+  const edited = edit(kept, 1, "2026-10-13T09:00");
+  const out = mergeNotesFiles(file(kept), file(own), file(edited)).file.notes[0];
+  assert.equal(out.kept, undefined, "the mark is gone");
+  assert.equal(out.body, edited.body, "the edit stays");
 });
 
 test("adoptNotes: the saved note joins the private file, protection untouched, a moved marker cleared", () => {

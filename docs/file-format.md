@@ -55,6 +55,7 @@ Done by bank transfer, reference number in the banking app.
 | `due` | no | Date `YYYY-MM-DD` |
 | `closed` | when closed | Time (UTC) the note was closed |
 | `left` | no | Shared files only: identity IDs of members who left the note, comma-separated (see "Leaving a shared note") |
+| `kept` | no | Private file only: the circle (member IDs joined with `+`, sorted) of a protected shared note the others deleted; the note is kept here and still shown in that circle (`docs/sync-and-sharing.md` → "Files: one per circle of people") |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of
 a shared file in different time zones agree on them; each device shows
