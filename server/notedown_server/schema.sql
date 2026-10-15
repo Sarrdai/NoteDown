@@ -98,3 +98,13 @@ CREATE TABLE IF NOT EXISTS contacts (
     b text NOT NULL REFERENCES identities (id),
     PRIMARY KEY (a, b)
 );
+
+-- Per-identity storage quota override in bytes (admin endpoints); NULL = the default quota.
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS quota bigint;
+
+-- Server-wide state; for now only the restore epoch (key "epoch"), which changes whenever a backup is
+-- restored so clients know the server went back in time.
+CREATE TABLE IF NOT EXISTS server_state (
+    key   text PRIMARY KEY,
+    value text NOT NULL
+);

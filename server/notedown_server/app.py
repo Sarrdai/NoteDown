@@ -4,7 +4,7 @@ import ipaddress
 import os
 import re
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.resources import files as package_files
 from typing import Annotated
 
@@ -17,6 +17,7 @@ from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 from . import auth
+from .admin import MAX_QUOTA_OVERRIDE, register_admin
 from .protocol import (LimitError, ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
 
@@ -44,6 +45,7 @@ class Settings:
     secret: bytes
     cors_origins: list[str]
     rate_limits: bool = True   # switched off only for tests and the local end-to-end run
+    admin_identities: list[str] = field(default_factory=list)   # who may use /v1/admin; empty = nobody
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -52,6 +54,8 @@ class Settings:
             secret=os.environ["SERVER_SECRET"].encode(),
             cors_origins=[o for o in re.split(r"[,\s]+", os.environ.get("CORS_ORIGINS", "")) if o],
             rate_limits=os.environ.get("RATE_LIMITS", "on").lower() != "off",
+            # Exact identity IDs only: anything else (a typo, "*") never matches and is dropped here.
+            admin_identities=[i for i in re.split(r"[,\s]+", os.environ.get("ADMIN_IDENTITIES", "")) if is_id(i)],
         )
 
 
@@ -351,10 +355,14 @@ def create_app(settings: Settings) -> FastAPI:
                 "(SELECT array_agg(identity_id) FROM file_members WHERE file_id = f.id) "
                 "FROM files f JOIN file_members me ON me.file_id = f.id AND me.identity_id = %s "
                 'ORDER BY f.id COLLATE "C"', (who.identity,)).fetchall()
+            quota = conn.execute("SELECT coalesce(quota, %s) FROM identities WHERE id = %s",
+                                 (MAX_STORAGE_BYTES, who.identity)).fetchone()[0]
+            epoch = conn.execute("SELECT value FROM server_state WHERE key = 'epoch'").fetchone()
         return {
             "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3],
                        "members": sorted(r[4])} for r in rows],
-            "quota": MAX_STORAGE_BYTES,
+            "quota": quota,
+            "epoch": epoch[0] if epoch else None,
         }
 
     @app.get("/v1/files/{file_id}")
@@ -372,7 +380,7 @@ def create_app(settings: Settings) -> FastAPI:
     @app.put("/v1/files/{file_id}")
     def put_file(file_id: str, body: Upload, who: Authed):
         require_file_id(file_id)
-        if len(body.ciphertext) > MAX_STORAGE_BYTES * 4 // 3 + 4:
+        if len(body.ciphertext) > MAX_QUOTA_OVERRIDE * 4 // 3 + 4:   # no quota is bigger
             raise LimitError("storage quota exceeded", [who.identity])
         ciphertext = from_b64u(body.ciphertext)
         requested = check_members(body.members, who.identity) if body.members is not None else None
@@ -405,15 +413,15 @@ def create_app(settings: Settings) -> FastAPI:
             # A file counts in full for every member (backlog #27), so the limits are checked
             # for each of them. Uploads touching a member queue up here (locked in ID order,
             # after the file row), so the checks below can't be raced.
-            conn.execute("SELECT 1 FROM identities WHERE id = ANY(%s) ORDER BY id FOR UPDATE",
-                         (members,))
+            quotas = {r[0]: r[1] or MAX_STORAGE_BYTES for r in conn.execute(
+                "SELECT id, quota FROM identities WHERE id = ANY(%s) ORDER BY id FOR UPDATE", (members,))}
             usage = conn.execute(
                 "SELECT m.identity_id, coalesce(sum(length(f.ciphertext)) FILTER (WHERE f.id <> %s), 0), "
                 "count(*) FILTER (WHERE f.id <> %s) FROM file_members m JOIN files f ON f.id = m.file_id "
                 "WHERE m.identity_id = ANY(%s) GROUP BY m.identity_id",
                 (file_id, file_id, members)).fetchall()
             used = {m: (0, 0) for m in members} | {r[0]: (r[1], r[2]) for r in usage}
-            over = sorted(m for m, (size, _) in used.items() if size + len(ciphertext) > MAX_STORAGE_BYTES)
+            over = sorted(m for m, (size, _) in used.items() if size + len(ciphertext) > quotas[m])
             if over:
                 raise LimitError("storage quota exceeded", over)
             if row is None:
@@ -599,4 +607,6 @@ def create_app(settings: Settings) -> FastAPI:
             raise HTTPException(404, "unknown or expired slot")
         return Response(status_code=204)
 
+    register_admin(app, pool, settings, caller, default_quota=MAX_STORAGE_BYTES, invitation_live=INVITATION_LIVE,
+                   load_entries=load_entries, file_members=file_members)
     return app

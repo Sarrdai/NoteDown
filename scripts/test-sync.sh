@@ -17,4 +17,6 @@ server=$!
 trap 'kill $server 2>/dev/null; as_pg "$pg_bin/pg_ctl -D $pg_dir/data -m fast stop" >/dev/null; rm -rf "$pg_dir"' EXIT
 for _ in $(seq 50); do curl -sf http://127.0.0.1:8765/health >/dev/null && break; sleep 0.2; done
 
+# The admin scenario starts a second server on this database (the admin identity exists only once a device turned sync on).
+export E2E_UVICORN="$venv/bin/uvicorn" E2E_DATABASE_URL="$PG_URL"
 NODE_PATH="${NODE_PATH:-$(npm root -g)}" node scripts/e2e-sync.js "$@"
