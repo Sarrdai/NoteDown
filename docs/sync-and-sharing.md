@@ -273,8 +273,16 @@ devices don't keep re-uploading the same notes in each other's order.
 - Sees, unavoidably: which anonymous identities share files, file sizes
   (in 4 KiB steps), times of change and IP addresses — no names, emails or contents.
 - **Abuse protection** without accounts: a storage quota per identity
-  and rate limits per IP address; payment, if it comes, can stay
+  (the server's owner can set it per identity on the admin page) and
+  rate limits per IP address; payment, if it comes, can stay
   anonymous (an account number instead of an email).
+- **Maintenance:** the owner's admin page (`docs/requirements.md` →
+  "Server maintenance (admin)") reads only what the server holds anyway
+  and records nothing new about identities or devices. A restored backup
+  gives the server a new **restore epoch**; a device that sees a new
+  epoch, or a file version older than one it has seen, merges all its
+  files into the server's anew, so its notes survive the rollback
+  (`docs/server-api.md` → "Admin").
 - Creating a file for a member set that already has one returns the
   existing file, so two devices sharing at the same time don't split it.
 - Built to scale as a stateless API (Python, FastAPI) with Postgres for

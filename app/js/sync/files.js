@@ -12,7 +12,7 @@ import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, isProtected
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
 import { mergeNotesFiles, applyDisplaced, protectedDeleted, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
-import { matchFiles, fileMembers, allKeyHolders, hasContent } from "../core/sync-state.js";
+import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
 import { ApiError, NetworkError } from "./api.js";
 import { getSecret, setSecret, deleteSecret } from "./keystore.js";
@@ -155,7 +155,7 @@ export async function filesRound() {
   const server = ctx.home();   // the files listed here live on the home server
   const api = ctx.api(server);
   const run = { done: true, again: false, problems: [], chains: new Map() };
-  const { files, quota } = await api.listFiles();
+  const { files, quota, epoch } = await api.listFiles();
   const used = files.reduce((sum, f) => sum + f.size, 0);
   const { usage } = state.sync;
   if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });
@@ -163,6 +163,7 @@ export async function filesRound() {
   // Which file is which; a slot's server file is null when it still has to be created.
   const { privateFile, shared } = matchFiles(files, state.sync.identity);
   const slots = new Map();
+  noteRestore(server, epoch, [[PRIVATE, privateFile], ...shared]);
   for (const [key, f] of shared) if (!fileAt(key)) setSharedFile(circle(key), emptyFile());
   for (const [key, f] of [[PRIVATE, privateFile], ...shared]) {
     const r = rec(key);
@@ -248,6 +249,25 @@ export async function filesRound() {
   if (run.done && state.sync.renew.length) await renewPending(run);
   if (run.problems.length) throw run.problems[0];
   return { done: run.done, again: run.again };
+}
+
+// A restored server (docs/server-api.md → "Admin") may hold older versions than this device has seen, or none of
+// its files. Every record for it starts over, as if the files had been found on another device: the device's notes
+// are merged with the server's (nothing the device holds is lost, deleted notes may come back); a file the server
+// doesn't have any more is created again. `listed`: [[slot, the server's file or undefined]].
+function noteRestore(server, epoch, listed) {
+  const mine = key => rec(key) && rec(key).server === server;
+  const versions = listed.filter(([key, f]) => f && mine(key) && rec(key).id === f.id)
+    .map(([key, f]) => ({ seen: rec(key).version, served: f.version }));
+  const remembered = state.sync.epochs[server];
+  if (!serverRestored(remembered, epoch, versions)) return;
+  const served = new Map(listed.filter(([, f]) => f).map(([key, f]) => [key, f.id]));
+  for (const key of slotKeys().filter(mine)) {
+    if (served.get(key) === rec(key).id) setRec(key, { ...rec(key), version: 0, base: "" });
+    else if (key === PRIVATE) setSync({ file: null });
+    else setSync({ files: Object.fromEntries(Object.entries(state.sync.files).filter(([k]) => k !== key)) });
+  }
+  setSync({ epochs: { ...state.sync.epochs, [server]: epoch } });
 }
 
 // Local shared files with notes and no file on the server yet are created in this pass.

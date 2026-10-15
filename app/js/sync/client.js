@@ -179,7 +179,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   forgetKeys();
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, files: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "",
+    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "",
   });
 }
 

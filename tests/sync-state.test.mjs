@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
+import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
 
 const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -121,3 +121,21 @@ test("limitRefusal: whose file limit refused an upload (backlog #27)", () => {
     "A member has too many synced files, so this shared note can't sync.");
 });
 
+
+test("serverRestored: a new epoch means the server was restored", () => {
+  assert.equal(serverRestored("abc", "xyz", []), true);
+  assert.equal(serverRestored("abc", null, []), true);   // restored to before the first restore
+  assert.equal(serverRestored("", "xyz", [{ seen: 3, served: 3 }]), true);   // the first restore, none remembered yet
+  assert.equal(serverRestored(undefined, "xyz", []), true);
+});
+
+test("serverRestored: the same epoch and no older version is business as usual", () => {
+  assert.equal(serverRestored("abc", "abc", [{ seen: 3, served: 3 }, { seen: 0, served: 7 }]), false);
+  assert.equal(serverRestored("", null, []), false);   // never restored
+  assert.equal(serverRestored(undefined, null, [{ seen: 2, served: 5 }]), false);
+});
+
+test("serverRestored: an older version than seen is a restore even without a new epoch", () => {
+  assert.equal(serverRestored("abc", "abc", [{ seen: 3, served: 3 }, { seen: 4, served: 2 }]), true);
+  assert.equal(serverRestored("", null, [{ seen: 1, served: 0 }]), true);
+});

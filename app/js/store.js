@@ -35,11 +35,13 @@ export const DEFAULT_SETTINGS = {
 // contacts are in the private file (`contacts()`). `requests` are the incoming
 // contact requests, { id, name, via, inPerson } (`inPerson`: made on a code this device showed; real: also `identity`), from the
 // server in each round (sync/contacts.js) or simulated.
+// `epochs` ({ [server]: epoch }): the restore epoch each server reported last (sync/files.js; a changed one means
+// the server was restored from a backup).
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
-  enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, renew: [],
+  enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [],
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 

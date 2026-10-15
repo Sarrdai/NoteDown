@@ -2,6 +2,7 @@
 // per endpoint, JSON in and out. Authenticated calls get a bearer token, which
 // is fetched by signing a challenge and kept until shortly before it expires.
 import { signChallenge } from "../core/crypto.js";
+import { backupFileName } from "../core/admin.js";
 
 // The server's answers that get a sentence of their own in the sync status.
 function describe(status, body) {
@@ -62,7 +63,7 @@ export function createApi(baseUrl, who) {
     getIdentity: (id, invitation) => call(
       "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
-    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota }) => ({ files, quota })),   // each file with its `size`
+    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch }) => ({ files, quota, epoch: epoch ?? null })),   // each file with its `size`; `epoch` changes when the server was restored
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),
@@ -78,6 +79,27 @@ export function createApi(baseUrl, who) {
     fillSlot: (slot, payload) => call("PUT", `/v1/relay/${slot}`, { payload }, true),
     readSlot: slot => call("GET", `/v1/relay/${slot}`).then(r => r && r.payload),   // null while empty
     forgetToken: () => { token = null; },
+    // The server owner's maintenance endpoints (app/admin/); any other caller gets 404.
+    adminOverview: () => call("GET", "/v1/admin/overview", undefined, true),
+    adminIdentities: () => call("GET", "/v1/admin/identities", undefined, true),
+    adminIdentity: id => call("GET", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
+    adminSetQuota: (id, quota) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/quota`, { quota }, true),   // quota in bytes, null = default
+    adminRestore: backup => call("POST", "/v1/admin/restore", backup, true),   // → { identities, files }
+    // → { text (the backup as sent), filename (from Content-Disposition, else notedown-backup-<date>.json) }
+    adminBackup: async () => {
+      for (let retry = true; ; retry = false) {
+        const headers = { Authorization: "Bearer " + await bearer() };
+        let res;
+        try {
+          res = await fetch(baseUrl.replace(/\/$/, "") + "/v1/admin/backup", { headers, cache: "no-store" });
+        } catch (e) {
+          throw new NetworkError("Can't reach the sync server. Check your connection and try again.");
+        }
+        if (res.status === 401 && retry) { token = null; continue; }
+        if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null));
+        return { text: await res.text(), filename: backupFileName(res.headers.get("Content-Disposition")) };
+      }
+    },
   };
 }
 

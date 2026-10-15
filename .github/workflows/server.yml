@@ -70,7 +70,7 @@ jobs:
           --service-account "notedown-api@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
           --allow-unauthenticated --max-instances 2 --memory 512Mi
           --set-secrets "DATABASE_URL=notedown-database-url:latest,SERVER_SECRET=notedown-server-secret:latest"
-          --set-env-vars "^|^CORS_ORIGINS=https://localhost,https://${{ vars.WEB_HOST }}"
+          --set-env-vars "^|^CORS_ORIGINS=https://localhost,https://${{ vars.WEB_HOST }}|ADMIN_IDENTITIES=${{ vars.ADMIN_IDENTITIES }}"
       - name: Health check
         run: |
           url=$(gcloud run services describe notedown-api --region "$REGION" --format 'value(status.url)')

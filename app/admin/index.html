@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-flavor="latte">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>NoteDown Admin</title>
+  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/catppuccin.css">
+  <link rel="stylesheet" href="../css/app.css">
+  <link rel="stylesheet" href="admin.css">
+  <script type="module" src="admin.js"></script>
+</head>
+<body>
+  <div class="admin" id="admin"></div>
+  <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+  <div class="snackbar" id="snackbar" role="status" hidden>
+    <span id="snackText"></span>
+    <button id="snackUndo" hidden>Undo</button>
+  </div>
+  <div class="menu" id="menu" role="menu" hidden></div>
+</body>
+</html>
