@@ -8,7 +8,7 @@
 // A problem with one shared file (no key, a device list that doesn't check out) is
 // reported after the others have been synced. The sample (`state.sync.simulated`)
 // never reaches this module. Slots are named by circleKey: "" is the private file.
-import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, isProtected, setProtected, contacts } from "../store.js";
+import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, isProtected, setProtected, contacts, setNewsFeed } from "../store.js";
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
 import { mergeNotesFiles, applyDisplaced, protectedDeleted, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
@@ -155,7 +155,7 @@ export async function filesRound() {
   const server = ctx.home();   // the files listed here live on the home server
   const api = ctx.api(server);
   const run = { done: true, again: false, problems: [], chains: new Map() };
-  const { files, quota, epoch } = await api.listFiles();
+  const { files, quota, epoch, news } = await api.listFiles();
   const used = files.reduce((sum, f) => sum + f.size, 0);
   const { usage } = state.sync;
   if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });
@@ -179,6 +179,9 @@ export async function filesRound() {
     if (!slots.has(s.key) && rec(s.key)) run.problems.push(new Error("A shared file is missing on the server"));
   }
   addNewCircles(slots);
+
+  // The server owner's news, when the list reports a new version; it may drop markers of the private file.
+  if (news !== (state.sync.news?.version ?? null)) await guarded(run, () => fetchNews(api));
 
   // 1. Download what changed.
   const remote = new Map();
@@ -299,6 +302,13 @@ function writeMemberName(key) {
   const me = state.sync.identity, name = state.sync.name, file = fileAt(key);
   if (!name || (file.members || []).some(m => m.id === me && m.name === name)) return;
   putFile(key, { ...file, members: [...(file.members || []).filter(m => m.id !== me), { id: me, name }] });
+}
+
+// The unencrypted news feed of the home server (docs/server-api.md → "News").
+async function fetchNews(api) {
+  const { version, news } = await api.news();
+  const utc = t => new Date(t).toISOString();   // "…Z", which the app shows in local time
+  setNewsFeed({ version, posts: news.map(({ id, created, modified, body }) => ({ id, created: utc(created), modified: utc(modified), body })) });
 }
 
 async function download(server, id) {

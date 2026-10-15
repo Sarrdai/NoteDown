@@ -4,10 +4,11 @@
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note) and when
-// a new due date sorts its note in (reorderList).
+// a new due date sorts its note in (reorderList). News posts are read-only
+// cards: no editing, no due date, a label while they are new or updated.
 import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected } from "../store.js";
+import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected, markNewsSeen } from "../store.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -81,12 +82,20 @@ export function patchNote(id) {
 
 function noteElement(n, view = state.view) {
   const el = document.createElement("article");
-  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "");
+  el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "")
+    + (n.news ? " news" : "") + (n.fresh ? " fresh" : "");
   el.dataset.id = n.id;
+  if (n.fresh) {
+    // The corner tag (prototype variant B); variant A shows the same in the meta line.
+    const tag = document.createElement("span");
+    tag.className = "news-tag";
+    tag.textContent = n.fresh === "new" ? "New" : "Updated";
+    el.append(tag);
+  }
 
   const status = document.createElement("button");
   status.className = "status";
-  status.setAttribute("aria-label", n.status === "closed" ? "Reopen note" : "Close note");
+  status.setAttribute("aria-label", n.status === "closed" ? (n.news ? "Reopen post" : "Reopen note") : n.news ? "Archive post" : "Close note");
   status.innerHTML = `<span class="ring">${icon("check")}</span>`;
   status.addEventListener("click", () => toggleStatus(n.id));
 
@@ -95,7 +104,7 @@ function noteElement(n, view = state.view) {
   body.innerHTML = renderMarkdown(n.body);
   wrapSections(body, sections(n.body));
   markHits(body);
-  if (n.status === "closed") body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
+  if (n.status === "closed" || n.news) body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
   const meta = document.createElement("div");
@@ -110,7 +119,7 @@ function noteElement(n, view = state.view) {
   protect.innerHTML = icon("protect");
   protect.addEventListener("click", () => setProtected([n.id], false));
 
-  el.append(body, meta, protect, status);
+  el.append(body, meta, ...(n.news ? [] : [protect]), status);
   markSelected(el);
   return el;
 }
@@ -148,7 +157,15 @@ function markerHtml(n) {
   return n.status === "open" ? `<button type="button" ${attrs}>${inner}</button>` : `<span role="img" ${attrs}>${inner}</span>`;
 }
 
+// A news post: its label while new or updated, and when it was published or last edited.
+function newsMetaHtml(n) {
+  const fresh = n.fresh ? `<span class="chip news-chip">${n.fresh === "new" ? "New" : "Updated"}</span>` : "";
+  const edited = n.modified !== n.created;
+  return `${fresh}<span>${edited ? "Edited" : "Published"} ${relativeTime(edited ? n.modified : n.created)}</span>`;
+}
+
 function metaHtml(n, view = state.view) {
+  if (n.news) return newsMetaHtml(n);
   const parts = [markerHtml(n)].filter(Boolean);
   if (n.status === "closed") {
     // A closed note's due date is history, not a warning, and read-only.
@@ -170,6 +187,11 @@ function metaHtml(n, view = state.view) {
 function onBodyClick(e, id) {
   const n = note(id);
   if (!n || state.editingId === id) return;
+  if (n.news) {   // read-only; a tap counts as seen
+    if (e.target.closest("input.task")) e.preventDefault();
+    if (n.fresh) markNewsSeen([id]);
+    return;
+  }
   const cb = e.target.closest("input.task");
   if (cb) {
     e.preventDefault();

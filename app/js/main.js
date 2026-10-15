@@ -1,6 +1,8 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { NEWS, freshCount } from "./core/news.js";
+import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -15,7 +17,7 @@ import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { initSearchHits } from "./ui/search-hits.js";
-import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
+import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
@@ -41,7 +43,7 @@ const phone = window.matchMedia("(max-width: 599px)");
 
 // "Shared order" (#25) exists only in the view of a circle with people;
 // elsewhere a view set to it shows the user's own custom order.
-const sharedCircle = () => activeCircle() || null;
+const sharedCircle = () => (activeCircle() && activeCircle() !== NEWS ? activeCircle() : null);
 function sortOf(view = state.view) {
   const sort = state.settings.sort[view];
   return SORT_KEYS[sort.key].circleOnly && !sharedCircle() ? { key: "custom", dir: "asc" } : sort;
@@ -51,7 +53,11 @@ const inView = (notes, view = state.view, search = state.search) => viewNotes(no
 const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
 
 // The members a new note goes to: those of the circle the list is filtered to.
-const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
+// From the news, which take no notes, the list goes back to all notes first.
+function newNoteMembers() {
+  if (activeCircle() === NEWS) setUi({ circle: null }, "silent");
+  return activeCircle() ? activeCircle().split("+") : [];
+}
 
 function currentNotes() {
   const notes = inView(circleNotes(activeCircle()));
@@ -109,6 +115,7 @@ function render() {
   const notes = currentNotes();
   const { tiles, dividerBefore } = tilesOf(state.view, notes);
   renderList(tiles, { dividerBefore, onArrange: arrange });
+  trackNews();
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
@@ -130,6 +137,7 @@ function tilesOf(view, notes) {
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
+    : circle === NEWS ? (view === "open" ? "No news right now." : "No archived news.")
     : circle && view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
     : circle === "" && view === "open" ? "No private notes. Tap + to add one."
     : view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
@@ -186,11 +194,17 @@ function renderCircleFilter() {
   app.dataset.tab = people ? state.panelTab : "toc";
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   if (people) renderPeople(key => inView(circleNotes(key)).length);
+  // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
+  const fresh = people ? freshCount(newsNotes()) : 0;
+  document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
+  $("tocHandle").innerHTML = newsBadgeHtml(fresh);
+  for (const v of ["count", "dot"]) app.classList.toggle("news-badge-" + v, state.settings.newsBadge === v);
+  for (const v of ["chip", "tag"]) app.classList.toggle("news-label-" + v, state.settings.newsLabel === v);
   const circle = activeCircle();
   $("filterBar").hidden = circle === null;
   if (circle === null) return;
-  const members = circle ? circle.split("+") : [];
-  const lead = !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
+  const members = circle && circle !== NEWS ? circle.split("+") : [];
+  const lead = circle === NEWS ? icon("news") : !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
   $("filterChipLabel").innerHTML = lead + `<span></span>`;
   $("filterChipLabel").lastChild.textContent = circleName(circle);
 }
@@ -372,6 +386,12 @@ function moreMenu() {
     hidden.length && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: news badge" },
+    { label: "Count (A)", checked: s.newsBadge === "count", onSelect: () => updateSettings({ newsBadge: "count" }) },
+    { label: "Dot (B)", checked: s.newsBadge === "dot", onSelect: () => updateSettings({ newsBadge: "dot" }) },
+    { section: "Prototype: new / updated label" },
+    { label: "Chip in the meta line (A)", checked: s.newsLabel === "chip", onSelect: () => updateSettings({ newsLabel: "chip" }) },
+    { label: "Tag at the corner (B)", checked: s.newsLabel === "tag", onSelect: () => updateSettings({ newsLabel: "tag" }) },
     { section: "Prototype" },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -511,6 +531,8 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (["count", "dot"].includes(p.get("newsBadge"))) patch.newsBadge = p.get("newsBadge");
+  if (["chip", "tag"].includes(p.get("newsLabel"))) patch.newsLabel = p.get("newsLabel");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).

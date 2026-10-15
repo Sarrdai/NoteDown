@@ -36,8 +36,10 @@ code (or with the recovery key), add contacts by their code or an
 invitation link (verify the latter later by a safety code), and share notes with them from multi-select → Share.
 The server's owner has an admin page at `/admin/` (signed in with their
 own linked device): what the server stores, the identities with their
-devices and files, a storage limit per identity, and backup / restore —
-`app/admin/?sample` shows it with sample data.
+devices and files, a storage limit per identity, news posts for everyone
+using the server (they show as **News** at the top of the people
+overview), and backup / restore — `app/admin/?sample` shows it with
+sample data.
 
 ## Try the prototype
 
