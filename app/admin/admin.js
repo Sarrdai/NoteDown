@@ -536,7 +536,7 @@ function statesView() {
     return stateCard(
       h("h2", {}, `This identity is not an admin of ${S.host}.`),
       h("div", { class: "d-idrow" }, mono(S.identity, "full boxed"), copyButton(S.identity)),
-      h("p", { class: "adm-text" }, "Add the ID to the repository variable ", h("code", {}, "ADMIN_IDENTITIES"), " and deploy the server (docs/operations.md)."));
+      h("p", { class: "adm-text" }, "Add the ID to the repository secret ", h("code", {}, "ADMIN_IDENTITIES"), " and deploy the server (docs/operations.md)."));
   }
   return stateCard(
     h("h2", {}, S.error),

@@ -231,13 +231,14 @@ phone).
 1. Open the admin page. It answers "This identity is not an admin …" and
    shows your identity ID; *Copy ID*.
 2. GitHub → *Settings* → *Secrets and variables* → *Actions* →
-   *Variables* → New repository variable `ADMIN_IDENTITIES` = the ID
-   (several IDs separated by commas). The ID is not secret; without the
-   device keys it opens nothing.
+   *Secrets* → New repository secret `ADMIN_IDENTITIES` = the ID
+   (several IDs separated by commas). The ID alone opens nothing (signing
+   in needs the device keys); it is a secret so the public deploy logs
+   don't show which identity runs the server.
 3. *Actions* → *Server* → *Run workflow* on `main`, then reload the admin
    page.
 
-To take the access away, remove the ID from the variable and deploy
+To take the access away, remove the ID from the secret and deploy
 again, or remove the device from your identity.
 
 ## Installing the test app
