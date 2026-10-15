@@ -1,0 +1,175 @@
+/* The admin dashboard (admin.js). Colors only via the semantic tokens of ../css/app.css.
+ * Tiers as everywhere: phone < 600px, tablet 600-1023px, desktop >= 1024px — the page sets
+ * .tier-desktop / .tier-tablet / .tier-phone and .layout-page / .layout-sections on .admin. */
+
+.admin { min-height: 100dvh; background: var(--bg); color: var(--text); }
+.adm-wrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+.layout-sections.tier-desktop .adm-wrap { max-width: 1280px; }
+.mono { font-family: var(--mono); font-size: 0.92em; }
+.adm-muted { margin: 0; color: var(--text-faint); font-size: 0.92rem; }
+.adm-muted.center { text-align: center; padding: 48px 0; }
+.adm-text { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+.admin :is(.btn, .icon-btn, .adm-chip.contact):focus-visible, .adm-row:focus-visible, .adm-sort:focus-visible, .adm-nav-item:focus-visible, .adm-back:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---------- header ---------- */
+.adm-top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--border); padding-top: var(--safe-top); }
+.adm-top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--topbar-h); }
+.adm-brand { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; min-width: 0; }
+.adm-brand h1 { margin: 0; font-size: 1.2rem; }
+.adm-host { color: var(--text-faint); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.adm-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.adm-refresh { height: 40px; padding: 0 14px; }
+.tier-phone .adm-refresh { width: var(--tap); padding: 0; border-color: transparent; }
+.tier-phone .adm-refresh-label { display: none; }
+.adm-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border: 0; border-radius: 999px;
+  background: var(--surface-hover); color: var(--text-muted); font: inherit; font-size: 0.76rem; font-weight: 650; white-space: nowrap;
+}
+.adm-chip.you, .adm-chip.custom, .adm-chip.sample { background: var(--accent-soft); color: var(--accent); }
+.adm-chip.active { background: color-mix(in srgb, var(--done) 18%, transparent); color: var(--done); }
+.adm-chip.gone { background: var(--surface-hover); color: var(--text-faint); }
+.adm-chip.contact { height: 32px; padding: 0 12px; background: var(--surface-hover); color: var(--text); cursor: pointer; }
+.adm-chip.contact:hover { background: var(--accent-soft); }
+.tier-tablet .adm-chip.contact, .tier-phone .adm-chip.contact { height: var(--tap); padding: 0 16px; }
+
+/* ---------- navigation (sections layout) ---------- */
+.adm-nav { display: flex; }
+.adm-nav-item {
+  display: inline-flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--text-muted);
+  font-size: 0.95rem; font-weight: 600; cursor: pointer;
+}
+.tier-tablet .adm-nav, .tier-phone .adm-nav { gap: 4px; margin: 0 -8px; }
+.tier-tablet .adm-nav-item, .tier-phone .adm-nav-item {
+  flex: 0 0 auto; justify-content: center; min-height: var(--tap); padding: 0 16px; border-bottom: 3px solid transparent;
+}
+.tier-phone .adm-nav-item { flex: 1 1 0; padding: 0 4px; }
+.tier-tablet .adm-nav-item .icon, .tier-phone .adm-nav-item .icon { display: none; }
+.adm-nav-item[aria-selected="true"] { color: var(--accent); }
+.tier-tablet .adm-nav-item[aria-selected="true"], .tier-phone .adm-nav-item[aria-selected="true"] { border-bottom-color: var(--accent); }
+.tier-desktop .adm-shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+.tier-desktop .adm-nav { position: sticky; top: calc(var(--topbar-h) + 24px); flex-direction: column; gap: 4px; padding-top: 24px; }
+.tier-desktop .adm-nav-item { height: 44px; padding: 0 14px; border-radius: 12px; }
+.tier-desktop .adm-nav-item:hover { background: var(--surface-hover); }
+.tier-desktop .adm-nav-item[aria-selected="true"] { background: var(--accent-soft); }
+
+/* ---------- sections ---------- */
+.adm-main { padding-top: 8px; padding-bottom: calc(96px + var(--safe-bottom)); min-width: 0; }
+.adm-section { margin-top: 24px; }
+.adm-h { display: flex; align-items: center; gap: 10px; margin: 0 4px 12px; font-size: 1.1rem; }
+.adm-card, .adm-tile, .d-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.adm-card { display: flex; flex-direction: column; gap: 16px; padding: 18px 20px; }
+
+/* ---------- overview ---------- */
+.adm-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.tier-tablet .adm-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tier-phone .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.adm-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; min-width: 0; }
+.tile-label { font-size: 0.8rem; font-weight: 650; color: var(--text-muted); }
+.tile-value { font-size: 1.8rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile-value.small { font-size: 1.15rem; line-height: 1.5; margin-bottom: 4px; }
+.tile-sub { font-size: 0.8rem; color: var(--text-faint); }
+.adm-meter { grid-column: 1 / -1; gap: 4px; }
+.tier-tablet .adm-meter { grid-column: auto; }
+.tier-phone .adm-tile:nth-child(5) { grid-column: 1 / -1; }
+.meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+.meter[data-level="warning"] .meter-fill { background: var(--warning); }
+.meter[data-level="full"] .meter-fill { background: var(--danger); }
+
+/* ---------- identities ---------- */
+.adm-listwrap { min-width: 0; }
+.adm-list { margin: 0; padding: 0; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.adm-item + .adm-item { border-top: 1px solid var(--border); }
+.adm-item.open { background: var(--surface); }
+.adm-head, .adm-row.full, .adm-row.reduced { display: grid; align-items: center; column-gap: 14px; }
+.adm-head, .adm-row.full { grid-template-columns: minmax(150px, 1.1fr) 112px 76px 60px minmax(190px, 1.6fr) 120px 80px; }
+.tier-tablet .adm-head, .adm-row.reduced { grid-template-columns: minmax(120px, 1fr) 68px 52px minmax(150px, 1.5fr) 112px; }
+.adm-head { padding: 0 16px 6px; font-size: 0.78rem; font-weight: 700; color: var(--text-faint); }
+.adm-sort { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+button.adm-sort { cursor: pointer; border-radius: 6px; }
+button.adm-sort:hover { color: var(--text); }
+button.adm-sort[data-active="true"] { color: var(--accent); }
+.adm-sort .icon { width: 14px; height: 14px; }
+.adm-row { padding: 10px 16px; min-height: 60px; cursor: pointer; font-size: 0.92rem; }
+.tier-tablet .adm-row, .tier-phone .adm-row { min-height: 64px; }
+.adm-row:hover { background: var(--surface-hover); }
+.adm-row:focus-visible { outline-offset: -2px; }
+.adm-item.open > .adm-row { background: var(--accent-soft); }
+.c-id { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.c-id .chevron { width: 18px; height: 18px; color: var(--text-faint); transform: rotate(-90deg); transition: transform 0.15s; }
+.adm-item.open .c-id .chevron { transform: none; }
+.c-created, .c-updated { color: var(--text-muted); white-space: nowrap; }
+.c-num { font-variant-numeric: tabular-nums; }
+.c-storage { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.c-storage .meter { height: 6px; }
+.su-text { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 0.82rem; color: var(--text-muted); }
+.c-meta { font-size: 0.85rem; color: var(--text-muted); }
+.adm-row.cards { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px; }
+.adm-list.cards { display: flex; flex-direction: column; gap: 10px; background: transparent; border: 0; border-radius: 0; overflow: visible; }
+.adm-list.cards .adm-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.adm-list.cards .adm-item + .adm-item { border-top: 1px solid var(--border); }
+.adm-list.cards .adm-item.open { border-color: var(--accent); }
+.adm-item { scroll-margin-top: calc(var(--topbar-h) + 12px); }
+
+/* sections layout, desktop: the list beside the detail */
+.adm-split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 20px; align-items: start; }
+.adm-pane { min-width: 0; }
+.adm-back {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); margin: 0 0 8px -8px; padding: 0 14px 0 8px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--accent); font-size: 0.95rem; font-weight: 650; cursor: pointer;
+}
+.adm-back:hover { background: var(--surface-hover); }
+
+/* ---------- identity detail ---------- */
+.adm-detail { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adm-item .adm-detail { padding: 14px 16px 16px; background: var(--bg); border-top: 1px solid var(--border); }
+.d-card { padding: 14px 16px; min-width: 0; }
+.d-title { margin: 0 0 8px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.d-idrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.d-id { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.mono.full { word-break: break-all; font-size: 0.95rem; }
+.mono.boxed { padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.d-facts { display: flex; gap: 8px; margin-top: 10px; font-size: 0.9rem; color: var(--text-muted); }
+.d-facts strong { color: var(--text); font-weight: 600; }
+.d-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.d-list { margin: 0; padding: 0; list-style: none; }
+.d-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-height: 40px; padding: 6px 0; font-size: 0.92rem; }
+.d-list li + li { border-top: 1px solid var(--border); }
+.d-list li.removed { color: var(--text-faint); }
+.d-kind { flex: 1; min-width: 0; font-weight: 600; }
+.d-list li.removed .d-kind { font-weight: 500; }
+.d-meta { flex-basis: 100%; font-size: 0.82rem; color: var(--text-muted); }
+.d-contacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.d-invites { margin: 12px 0 0; font-size: 0.9rem; color: var(--text-muted); }
+.d-quota { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.d-qrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.adm-unit { display: flex; align-items: center; gap: 8px; flex: 1 1 140px; max-width: 220px; color: var(--text-muted); }
+.adm-unit .input { text-align: right; font-variant-numeric: tabular-nums; }
+.d-quota .field-hint, .d-quota .field-error { margin: 0; }
+.d-quota .field-error[hidden] { display: none; }
+
+/* ---------- touch tiers: targets of 44px (the dialog sits outside .admin) ---------- */
+.admin:is(.tier-tablet, .tier-phone) .btn { height: var(--tap); }
+@media (max-width: 1023px) { .adm-dialog .btn { height: var(--tap); } }
+
+/* ---------- states, backup, dialog ---------- */
+.adm-state { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; max-width: 560px; margin: 48px auto 0; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.tier-phone .adm-state { margin-top: 24px; padding: 20px 16px; }
+.adm-state h2 { margin: 0; font-size: 1.2rem; line-height: 1.35; }
+.adm-state code { font-family: var(--mono); font-size: 0.9em; padding: 1px 6px; border-radius: 6px; background: var(--code-bg); }
+.adm-state .d-idrow { width: 100%; }
+.adm-state a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.admin .button-row .btn { flex: 0 1 auto; }
+.tier-phone .button-row .btn { flex: 1 1 100%; }
+.adm-dialog .dialog-hint.strong { color: var(--text); font-weight: 650; font-size: 0.95rem; }
+.adm-dialog > :is(.adm-warning, .adm-confirm, .field-error, .dialog-hint) { margin-left: 8px; margin-right: 8px; }
+.adm-warning { margin-top: 0; margin-bottom: 14px; font-size: 0.9rem; color: var(--danger); font-weight: 600; }
+.adm-confirm { margin-bottom: 8px; }
+.adm-dialog .field-error { margin-top: 0; margin-bottom: 8px; }
+.adm-dialog .field-error[hidden] { display: none; }
+.adm-dialog { width: min(480px, 100%); }
+.adm-dialog .btn { min-width: 96px; }
+
+.admin .btn, .adm-dialog .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }

@@ -1,0 +1,333 @@
+{
+ "overview": {
+  "identity": "SHJp3Uwrq1jG4IEXjnNNkg",
+  "counts": {
+   "identities": 6,
+   "devices": 7,
+   "files": 8,
+   "shared_files": 3,
+   "contacts": 4,
+   "invitations": 2
+  },
+  "storage": {
+   "files": 6778591,
+   "database": 9856614,
+   "database_limit": 536870912
+  },
+  "quota": 2097152
+ },
+ "identities": [
+  {
+   "id": "h6-mlUtIjaWLGGX3o6ywKk",
+   "created": "2026-10-13T06:48:00Z",
+   "devices": 1,
+   "files": 0,
+   "used": 0,
+   "quota": 2097152,
+   "quota_override": null,
+   "updated": null,
+   "contacts": 0
+  },
+  {
+   "id": "VoAp6GGNxmJMm4Tl8mWD-f",
+   "created": "2026-09-17T19:05:00Z",
+   "devices": 1,
+   "files": 1,
+   "used": 4404019,
+   "quota": 10485760,
+   "quota_override": 10485760,
+   "updated": "2026-10-01T19:45:00Z",
+   "contacts": 0
+  },
+  {
+   "id": "Nw5kXu_P3OvApgpykp0s_0",
+   "created": "2026-09-03T08:22:00Z",
+   "devices": 1,
+   "files": 1,
+   "used": 1800000,
+   "quota": 2097152,
+   "quota_override": null,
+   "updated": "2026-10-14T09:30:00Z",
+   "contacts": 1
+  },
+  {
+   "id": "9uOPy_KV2CsyCMzrvmiqDL",
+   "created": "2026-08-21T12:03:00Z",
+   "devices": 1,
+   "files": 3,
+   "used": 214572,
+   "quota": 2097152,
+   "quota_override": null,
+   "updated": "2026-10-12T18:20:00Z",
+   "contacts": 2
+  },
+  {
+   "id": "gTJenhuklXInO6uthC2Adp",
+   "created": "2026-08-09T17:40:00Z",
+   "devices": 1,
+   "files": 4,
+   "used": 344572,
+   "quota": 2097152,
+   "quota_override": null,
+   "updated": "2026-10-14T21:05:00Z",
+   "contacts": 2
+  },
+  {
+   "id": "SHJp3Uwrq1jG4IEXjnNNkg",
+   "created": "2026-08-02T09:14:00Z",
+   "devices": 2,
+   "files": 3,
+   "used": 314572,
+   "quota": 2097152,
+   "quota_override": null,
+   "updated": "2026-10-15T07:42:00Z",
+   "contacts": 3
+  }
+ ],
+ "details": {
+  "SHJp3Uwrq1jG4IEXjnNNkg": {
+   "id": "SHJp3Uwrq1jG4IEXjnNNkg",
+   "created": "2026-08-02T09:14:00Z",
+   "devices": [
+    {
+     "id": "rat893-AjPIPPEIdPd58Fn",
+     "kind": "device",
+     "active": true
+    },
+    {
+     "id": "MFFe0bf_97-r7uydlE2Vri",
+     "kind": "device",
+     "active": true
+    },
+    {
+     "id": "0tuUunlwgezFBSPitFMf_K",
+     "kind": "recovery",
+     "active": true
+    },
+    {
+     "id": "OxaxhFk_Bl19UUXj9wI5jQ",
+     "kind": "device",
+     "active": false
+    }
+   ],
+   "files": [
+    {
+     "id": "tgea79vl5cudL2OzYtVGu_",
+     "version": 31,
+     "updated": "2026-10-15T07:42:00Z",
+     "size": 150000,
+     "members": [
+      "SHJp3Uwrq1jG4IEXjnNNkg"
+     ]
+    },
+    {
+     "id": "mh0nYykHFLudwq117ZJAel",
+     "version": 12,
+     "updated": "2026-10-14T21:05:00Z",
+     "size": 90000,
+     "members": [
+      "SHJp3Uwrq1jG4IEXjnNNkg",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    },
+    {
+     "id": "uopGPHykgRFVUlTwXOtAuc",
+     "version": 8,
+     "updated": "2026-10-12T18:20:00Z",
+     "size": 74572,
+     "members": [
+      "9uOPy_KV2CsyCMzrvmiqDL",
+      "SHJp3Uwrq1jG4IEXjnNNkg",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    }
+   ],
+   "contacts": [
+    "9uOPy_KV2CsyCMzrvmiqDL",
+    "Nw5kXu_P3OvApgpykp0s_0",
+    "gTJenhuklXInO6uthC2Adp"
+   ],
+   "invitations": 1
+  },
+  "gTJenhuklXInO6uthC2Adp": {
+   "id": "gTJenhuklXInO6uthC2Adp",
+   "created": "2026-08-09T17:40:00Z",
+   "devices": [
+    {
+     "id": "Fnh18-YnSefMtWHqoxsN1a",
+     "kind": "device",
+     "active": true
+    },
+    {
+     "id": "DdDoflxtWZ8I3OViWouW-z",
+     "kind": "recovery",
+     "active": true
+    }
+   ],
+   "files": [
+    {
+     "id": "mh0nYykHFLudwq117ZJAel",
+     "version": 12,
+     "updated": "2026-10-14T21:05:00Z",
+     "size": 90000,
+     "members": [
+      "SHJp3Uwrq1jG4IEXjnNNkg",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    },
+    {
+     "id": "H4E87nEL5kqy76LLSZjP9O",
+     "version": 19,
+     "updated": "2026-10-13T16:11:00Z",
+     "size": 120000,
+     "members": [
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    },
+    {
+     "id": "uopGPHykgRFVUlTwXOtAuc",
+     "version": 8,
+     "updated": "2026-10-12T18:20:00Z",
+     "size": 74572,
+     "members": [
+      "9uOPy_KV2CsyCMzrvmiqDL",
+      "SHJp3Uwrq1jG4IEXjnNNkg",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    },
+    {
+     "id": "0iMOG3Z7PFOYkd_zq6nEXH",
+     "version": 4,
+     "updated": "2026-10-10T12:00:00Z",
+     "size": 60000,
+     "members": [
+      "9uOPy_KV2CsyCMzrvmiqDL",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    }
+   ],
+   "contacts": [
+    "9uOPy_KV2CsyCMzrvmiqDL",
+    "SHJp3Uwrq1jG4IEXjnNNkg"
+   ],
+   "invitations": 0
+  },
+  "9uOPy_KV2CsyCMzrvmiqDL": {
+   "id": "9uOPy_KV2CsyCMzrvmiqDL",
+   "created": "2026-08-21T12:03:00Z",
+   "devices": [
+    {
+     "id": "MeO-3yBotMf9KKLHzXkGNJ",
+     "kind": "device",
+     "active": true
+    }
+   ],
+   "files": [
+    {
+     "id": "uopGPHykgRFVUlTwXOtAuc",
+     "version": 8,
+     "updated": "2026-10-12T18:20:00Z",
+     "size": 74572,
+     "members": [
+      "9uOPy_KV2CsyCMzrvmiqDL",
+      "SHJp3Uwrq1jG4IEXjnNNkg",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    },
+    {
+     "id": "jKMEf3-a2Y7Dm_j2xL7HQt",
+     "version": 6,
+     "updated": "2026-10-11T08:02:00Z",
+     "size": 80000,
+     "members": [
+      "9uOPy_KV2CsyCMzrvmiqDL"
+     ]
+    },
+    {
+     "id": "0iMOG3Z7PFOYkd_zq6nEXH",
+     "version": 4,
+     "updated": "2026-10-10T12:00:00Z",
+     "size": 60000,
+     "members": [
+      "9uOPy_KV2CsyCMzrvmiqDL",
+      "gTJenhuklXInO6uthC2Adp"
+     ]
+    }
+   ],
+   "contacts": [
+    "SHJp3Uwrq1jG4IEXjnNNkg",
+    "gTJenhuklXInO6uthC2Adp"
+   ],
+   "invitations": 0
+  },
+  "Nw5kXu_P3OvApgpykp0s_0": {
+   "id": "Nw5kXu_P3OvApgpykp0s_0",
+   "created": "2026-09-03T08:22:00Z",
+   "devices": [
+    {
+     "id": "DLElkuKp9G4WvG6nQvAYhe",
+     "kind": "device",
+     "active": true
+    }
+   ],
+   "files": [
+    {
+     "id": "ppqEOa9wLknXd84RbalDtd",
+     "version": 44,
+     "updated": "2026-10-14T09:30:00Z",
+     "size": 1800000,
+     "members": [
+      "Nw5kXu_P3OvApgpykp0s_0"
+     ]
+    }
+   ],
+   "contacts": [
+    "SHJp3Uwrq1jG4IEXjnNNkg"
+   ],
+   "invitations": 1
+  },
+  "VoAp6GGNxmJMm4Tl8mWD-f": {
+   "id": "VoAp6GGNxmJMm4Tl8mWD-f",
+   "created": "2026-09-17T19:05:00Z",
+   "devices": [
+    {
+     "id": "j-eLhQFU2DDuUhdKC46Gnc",
+     "kind": "device",
+     "active": true
+    },
+    {
+     "id": "E9Vt8CTIadeAxDo2mCXMP2",
+     "kind": "device",
+     "active": false
+    }
+   ],
+   "files": [
+    {
+     "id": "4StJkzu4Ds-KLzkEkMkdoB",
+     "version": 23,
+     "updated": "2026-10-01T19:45:00Z",
+     "size": 4404019,
+     "members": [
+      "VoAp6GGNxmJMm4Tl8mWD-f"
+     ]
+    }
+   ],
+   "contacts": [],
+   "invitations": 0
+  },
+  "h6-mlUtIjaWLGGX3o6ywKk": {
+   "id": "h6-mlUtIjaWLGGX3o6ywKk",
+   "created": "2026-10-13T06:48:00Z",
+   "devices": [
+    {
+     "id": "HcnRvb1e3_DuAya2ra_Urw",
+     "kind": "device",
+     "active": true
+    }
+   ],
+   "files": [],
+   "contacts": [],
+   "invitations": 0
+  }
+ }
+}
