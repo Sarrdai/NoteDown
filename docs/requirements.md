@@ -7,7 +7,7 @@
   - [Notes and storage](#notes-and-storage)
   - [Sync and sharing](#sync-and-sharing)
   - [Server maintenance (admin)](#server-maintenance-admin)
-  - [Main view and archive](#main-view-and-archive)
+  - [Main view, archive and trash](#main-view-archive-and-trash)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
   - [People circles as a filter](#people-circles-as-a-filter)
@@ -280,7 +280,7 @@ paid features per user.
   ("News from the server's owner").
 - Not built: deleting or blocking an identity (backlog #34).
 
-### Main view and archive
+### Main view, archive and trash
 
 - **First start:** the app holds only a **welcome note** (`app/welcome.md`)
   that explains the basics as tasks to tick and close — onboarding with
@@ -293,10 +293,9 @@ paid features per user.
   corner of its card — distinct from the square task checkboxes inside
   the text. It moves to the archive, with "Note archived · Undo". The
   card's bottom bar is its only tool bar: the meta line (shared marker,
-  due date, date) on the left, the shield of a protected note and the
-  round button on the right; the text above takes the card's full width
-  (decided 2026-10-14 over a left column with the round button and the
-  shield, which narrowed every note). *Prototype: round 1; bottom bar
+  due date, date) on the left, the round button on the right; the text above takes the card's full width
+  (decided 2026-10-14 over a left column with the round button, which
+  narrowed every note). *Prototype: round 1; bottom bar
   2026-10-14.*
 - The **archive button** in the main view shows how many notes were closed
   today; the count resets at midnight. In the archive the same button
@@ -320,45 +319,50 @@ paid features per user.
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*
-- **Empty archive** deletes every closed
-  note at once — the whole archive, whatever the search shows — after a
-  confirmation that says how many go and how many protected ones stay.
-  Shared closed notes go only when the dialog's "Also delete … shared
-  with others" is ticked, which warns that they go for everyone; Undo
-  afterwards. Disabled when nothing but protected notes is archived. It is
-  the archive's floating button: entering the archive, the + moves to the
-  bottom left and turns into a red bin (animated), set apart from + so the
-  two aren't mixed up (decided 2026-10-15 over a ⋮ entry).
-  *Prototype: 2026-10-14; bin button 2026-10-15.*
-- **Protected** notes can't be deleted: Delete and Empty archive leave
-  them alone until the protection is removed. Notes are protected with
-  **Protect / Unprotect** in the selection bar ("Multi-select"); a
-  protected note shows a **shield** left of its round button, which
-  removes the protection with one tap (decided 2026-10-14 over a button
-  on every note: protecting is rare, the notes stay calm and keep their
-  full width). Named "protected" with a shield, not "pinned" (which
-  reads as "kept on top") nor "locked" with a lock (reads as read-only
-  or encrypted, and the lock already fixes the dictation). A note stays
-  protected when it is closed, reopened or moved to another circle, and
-  a note merged from a protected one is protected. Protection is a
-  **setting of this device**, not part of the file and not synced. An emptied note is
-  still deleted when editing ends (with Undo) — the user just removed
-  its text. *Prototype: 2026-10-14.*
-- **Kept notes** (decided 2026-10-15, user request): when the others
-  delete a shared note this device protects, it is kept here as the
-  user's private note but **still shows in its circle** (the people
-  filter of the circle, not under Private). Its card is **dashed** and
-  its meta line shows the circle's avatars **crossed out** with a red
-  "Deleted" — deleted for the others, only kept here (decided 2026-10-15
-  over the marker alone, which got lost in a long list, and a bar with
-  both actions at the top of the card, which cost height on the phone). Editing, closing or
-  reopening it changes only the user's copy. A tap on the marker offers two
-  actions: **Restore for …** shares it with the circle again (after a
-  confirmation, because it reaches others; Undo afterwards), and **Keep
-  as my own note** makes it a plain private note, still protected (Undo).
-  Sharing it with people on purpose ends the mark as well. Why: the user
-  keeps the note in the context it belongs to and decides whether the
-  others get it back. *Prototype: 2026-10-15.*
+- **Empty archive** moves every closed note into the trash at once — the
+  whole archive, whatever the search shows — after a confirmation that
+  says how many go. Shared closed notes go only when the dialog's "Also
+  delete … shared with others" is ticked, which warns that they go for
+  everyone; Undo afterwards. It is the archive's floating button:
+  entering the archive, the + moves to the bottom left and turns into a
+  red bin (animated), set apart from + so the two aren't mixed up
+  (decided 2026-10-15 over a ⋮ entry). *Prototype: 2026-10-14; bin
+  button 2026-10-15.*
+- **Permanent notes** (decided 2026-10-15, user request) are notes of
+  lasting value, not tasks — a recipe, a list of book ideas. A permanent
+  note has a mark (∞) in the round button's place, can't be closed and
+  never goes to the archive; it is otherwise an open note (editing, due
+  date, reminders). **Make permanent / Make closable** in the selection
+  bar ("Multi-select") switches it. It is a **status of the note**
+  (`docs/file-format.md`), so it holds for every member of a shared note
+  and on all devices; a note merged from a permanent one is permanent.
+  Why: it replaces the device-local protection from deletion, which had
+  to be set in advance, didn't reach the user's other devices and was hard
+  to explain; with the trash nothing is lost by a delete, and what is
+  meant to last is now visibly marked as such. *Prototype: 2026-10-15;
+  its look is still a variant (B1 mark, B2 mark and accent edge).*
+- **Trash** (decided 2026-10-15, user request): **Delete** moves notes
+  into the trash at once, with Undo (no confirmation, as nothing is
+  lost). The trash keeps them for **30 days**, then they are gone for
+  good. It is a view of its own like the archive — same layout, its own
+  tint, a hint line on top, sorted by deletion date — and
+  holds whatever disappeared from a file the user can see: the user's own
+  deletes and the deletes of other members of a shared note
+  (`docs/sync-and-sharing.md` → "Trash"). It lives in the user's
+  **private file**, so every member has their own and nobody can empty
+  another's. A note deleted from a shared file shows the circle's avatars
+  **crossed out** and stays under that circle in the people filter.
+  Trashed notes are read-only; a tap offers **Restore** — for a note from
+  a shared file **Restore for …** (shares it with the circle again, after
+  a confirmation as it reaches others) or **Restore as my own note** —
+  and **Delete permanently** (asks first). The trash's floating button
+  is the red bin **Empty trash** (asks first). Not in the trash: notes of
+  a circle the user was removed from (the others' decision, not a
+  delete), an emptied note (nothing to restore) and news posts (their own
+  state). *Prototype: 2026-10-15; where the trash is reached is still a
+  variant (A1 a third page right of the archive, the view button a menu of
+  the three views; A2 a trash button in the archive's top bar; A3 an
+  entry under ⋮).*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,
@@ -424,10 +428,10 @@ paid features per user.
   winning. Outside a circle's view a view set to it shows the user's own
   Custom order. *Prototype: 2026-10-14; real on shared files since
   milestone 2, simulated in the sample (Lea's circle carries one).*
-- **Protected first** (a switch in the sort menu, remembered per view,
-  off by default) shows protected notes first, then the others, each group in
+- **Permanent first** (a switch in the main view's sort menu, off by
+  default) shows permanent notes first, then the others, each group in
   the chosen order. It only orders the notes in the list; the table of
-  contents keeps the plain sort order. *Prototype: 2026-10-14.*
+  contents keeps the plain sort order. *Prototype: 2026-10-15.*
 - A finished edit doesn't reorder the list right away, so a note never
   jumps away under the user's finger; the order updates on the next view
   change, sort or search. *Prototype: round 1.*
@@ -535,7 +539,7 @@ this needs none of it.
   as **read-only notes** (no editing, no due date), newest first; they
   appear nowhere else (not under All notes). A post can be **closed**
   into the archive (round button, Undo) and reopened there, copied, and
-  **deleted** for this user (multi-select → Delete, which asks first);
+  **deleted** for this user (multi-select → Delete, with Undo; no trash);
   closed or deleted, it stays so on all the user's devices and comes
   back only when the owner edits it — then marked as updated. + from the
   news starts a note under All notes.
@@ -645,18 +649,20 @@ this needs none of it.
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Copy**, **Export** ("Export"), **Share** ("Sync
-  and sharing"), **Merge**, **Protect / Unprotect**, **Delete**,
-  **Promote / Demote headings**. Close, Share, Protect and Delete act on whole notes
+  and sharing"), **Merge**, **Make permanent / Make closable**, **Delete**,
+  **Promote / Demote headings**. Close, Share, Make permanent and Delete act on whole notes
   (disabled while only parts of a note are selected) and end the
-  selection with Undo. In the archive the actions are **Reopen**, Copy,
-  Export, Protect / Unprotect and Delete — closed notes are read-only. Protect
-  protects the selected notes unless all are protected already, then it
-  removes the protection; on the phone it and Export sit under ⋮.
-- **Delete** asks first: a confirmation names how many notes go, that
-  they leave all the user's devices, which of them are shared and go
-  for everyone, and how many protected ones stay (Delete is disabled
-  when only protected notes are selected). Cancel keeps the selection; Undo
-  after deleting. *Prototype: 2026-10-14.*
+  selection with Undo; Close leaves permanent notes alone (disabled when
+  only those are selected). Make permanent applies unless all selected
+  notes are permanent already, then it reads Make closable; it sits
+  under ⋮. In the archive the actions are **Reopen**, Copy, Export and
+  Delete — closed notes are read-only. In the trash they are **Restore**
+  (asks first for notes going back to a circle), **Restore as my own**
+  (under ⋮, when a note from a shared file is selected), Copy and
+  **Delete permanently** (asks first).
+- **Delete** moves the notes into the trash at once ("Note moved to
+  trash · Undo"); shared ones go for everyone in their circle and wait in
+  everyone's trash. *Prototype: 2026-10-15 (before: a confirmation).*
 - **Copy** puts the selection on the clipboard as plain Markdown, the
   parts joined by a blank line, without metadata; it keeps the selection.
 - **Merge** — also "move to a new note": the selected parts (two or more
@@ -675,7 +681,7 @@ this needs none of it.
   ones give up their parts — or **Share with …** (names and avatars) —
   the new note goes to the circle of everyone involved and all sources
   give up their parts. Removing a shared note for the others stays a
-  separate, confirmed Delete. *Prototype: 2026-10-14.*
+  separate Delete. *Prototype: 2026-10-14.*
 - **Promote / Demote headings** move every heading in the selection one
   level up or down (`##` ↔ `###`), to correct levels quickly after a
   merge; disabled when a heading would leave levels 1–6. The selection
@@ -687,7 +693,7 @@ this needs none of it.
   none. *Prototype: round 3.*
 - Multi-select ends with ✕, `Esc`, the Android back button, when the last
   part is deselected, after Close / Delete / Merge, and on switching
-  between main view and archive.
+  between the views.
 - Open: whether merging should also offer keeping the original heading
   levels instead of aligning them — decided after trying the alignment.
 

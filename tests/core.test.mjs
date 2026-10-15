@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask } from "../app/js/core/markdown.js";
-import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, tableOfContents, closedOn, protectedFirst, deleteGroups } from "../app/js/core/query.js";
+import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, tableOfContents, closedOn, permanentFirst, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -74,17 +74,24 @@ test("time: timestamps are written in UTC and shown in the device's time zone", 
   }
 });
 
-test("query: protected first keeps the order inside both groups", () => {
-  const notes = ["a", "b", "c", "d"].map(id => n(id));
-  const marked = new Set(["c", "a"]);
-  assert.deepEqual(protectedFirst(notes, id => marked.has(id)).map(x => x.id), ["a", "c", "b", "d"]);
-  assert.deepEqual(protectedFirst(notes, () => false).map(x => x.id), ["a", "b", "c", "d"]);
+test("query: permanent first keeps the order inside both groups", () => {
+  const notes = ["a", "b", "c", "d"].map(id => n(id, { status: id === "c" || id === "a" ? "permanent" : "open" }));
+  assert.deepEqual(permanentFirst(notes).map(x => x.id), ["a", "c", "b", "d"]);
+  assert.deepEqual(permanentFirst(notes.map(x => ({ ...x, status: "open" }))).map(x => x.id), ["a", "b", "c", "d"]);
 });
 
-test("query: delete groups keep protected notes and split shared ones", () => {
-  const notes = ["a", "b", "c", "d"].map(id => n(id));
-  const g = deleteGroups(notes, { isProtected: id => id === "b" || id === "d", isShared: id => id === "c" || id === "d" });
-  assert.deepEqual([g.kept, g.private, g.shared].map(xs => xs.map(x => x.id)), [["b", "d"], ["a"], ["c"]]);
+test("query: the main view shows open and permanent notes, the trash every deleted note", () => {
+  const notes = [n("o"), n("p", { status: "permanent" }), n("c", { status: "closed" }), n("d", { deleted: "2026-10-13T08:00Z" }), n("dc", { status: "closed", deleted: "2026-10-13T08:00Z" })];
+  const ids = view => notes.filter(x => inViewOf(x, view)).map(x => x.id);
+  assert.deepEqual([ids("open"), ids("closed"), ids("trash")], [["o", "p"], ["c"], ["d", "dc"]]);
+  assert.equal(closedOn([notes[4]], "2026-10-13"), 0, "a trashed note doesn't count as closed today");
+});
+
+test("query: trashed notes expire after TRASH_DAYS", () => {
+  const now = Date.parse("2026-10-31T12:00Z");
+  const notes = [n("old", { deleted: "2026-10-01T11:00Z" }), n("young", { deleted: "2026-10-01T13:00Z" }), n("live")];
+  assert.equal(TRASH_DAYS, 30);
+  assert.deepEqual(expiredTrash(notes, now).map(x => x.id), ["old"]);
 });
 
 test("custom order: listed notes in list order, the rest by last edited, newest first", () => {

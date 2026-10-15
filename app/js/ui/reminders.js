@@ -84,7 +84,7 @@ function deliverWeb(r) {
 
 /** Prototype: today's reminder as a banner that looks like the system notification. */
 export function simulateReminder() {
-  const notes = allNotes().filter(n => n.status === "open" && n.due === today());
+  const notes = allNotes().filter(n => n.status !== "closed" && n.due === today());
   if (!notes.length) return showSnackbar("No open notes due today");
   showNotice({ ids: notes.map(n => n.id), ...reminderText(notes) });
 }

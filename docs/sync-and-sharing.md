@@ -69,16 +69,18 @@ and the sample simulates everything without a server.
   others silently: the user picks a private copy (the shared notes stay)
   or sharing the result with everyone involved
   (`docs/requirements.md` → "Multi-select").
-- **Protection stays local** (`docs/requirements.md` → "Main view and
-  archive"): when someone else deletes a shared note that this device
-  has protected, the note isn't lost here — it moves into the private
-  file, still protected, marked `kept` with its circle
-  (`docs/file-format.md`), so it stays in that circle's view. Changes to
-  it stay with the user; only **Restore for …** shares it with the circle
-  again, and **Keep as my own note** drops the mark. A note deleted on
-  another of the user's own devices goes everywhere, as protection isn't
-  synced, and a newly linked device starts without protected notes (it
-  still shows kept notes, as the mark is in the private file).
+- **Trash** (`docs/requirements.md` → "Main view, archive and trash"):
+  a note that disappears from a shared file during a merge — present on
+  this device before, gone after, and not moved on — goes into this
+  user's trash: the last version this device had, in the private file,
+  marked `deleted` and `kept` with its circle (`docs/file-format.md`).
+  So every member keeps a deleted shared note for 30 days, whoever
+  deleted it; a member who deletes one puts it into their own trash at
+  once. Another device of the same user that already has the entry (the
+  private file synced first) doesn't add it twice. **Restore for …**
+  shares it with the circle again; once it is back in the shared file,
+  the members' trash entries for it go. A note in a circle the user was
+  removed from doesn't count as deleted.
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who
@@ -264,8 +266,8 @@ against the base:
 |---|---|---|
 | unchanged | anything | remote |
 | changed | unchanged | local |
-| changed | changed | merged per field: status (with closed date), due date and text are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, where the other version is kept as a **conflict copy** (a separate note), so nothing is lost |
-| changed | deleted | the edit wins, the note stays |
+| changed | changed | merged per field: status (with closed date), due date, text and the trash mark (`deleted`, `kept`) are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, where the other version is kept as a **conflict copy** (a separate note), so nothing is lost |
+| changed | deleted | the edit wins, the note stays (a shared note; in the private file a delete is the `deleted` field and merges like the others — the note waits in the trash with the edit) |
 | changed | moved to another file | the edit follows the note into that file, or into the user's private file if the user is no longer a member there (`applyDisplaced`) |
 
 The merged file keeps the remote order and appends notes only the local

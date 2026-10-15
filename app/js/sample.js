@@ -12,7 +12,7 @@ import { splitIntoCircles, generateRecoveryKey, nextColor, circleKey } from "./c
 export async function loadSample(name = "notes.md") {
   const text = await (await fetch(new URL("../sample/" + name, import.meta.url))).text();
   const markers = text.match(/^<!-- note .*-->$/gm) || [];
-  const days = markers.flatMap(m => [...m.matchAll(/(?:created|modified|closed)=(\d{4}-\d{2}-\d{2})/g)].map(x => x[1])).sort();
+  const days = markers.flatMap(m => [...m.matchAll(/(?:created|modified|closed|deleted)=(\d{4}-\d{2}-\d{2})/g)].map(x => x[1])).sort();
   const newest = days[days.length - 1];
   if (!newest) return text;
   const shift = Math.round((Date.parse(today()) - Date.parse(newest)) / 86400000);
@@ -43,8 +43,8 @@ const contactOf = ({ via, ...c }, color) => ({ ...c, color, ...(via === "scan" &
 
 /**
  * The full sample state for the store (`replaceFiles`): the sample notes and,
- * with `sync`, the sample identity with its contacts and shared files. `protect` lists the notes
- * this device protects: the kept ones, which the others deleted (docs/sync-and-sharing.md → "Files").
+ * with `sync`, the sample identity with its contacts and shared files. A trashed note marked `kept` in
+ * notes.md came from a shared file the others deleted it from (docs/sync-and-sharing.md → "Trash").
  */
 export async function loadSampleState({ sync = true } = {}) {
   const file = parseNotesFile(await loadSample());
@@ -57,12 +57,9 @@ export async function loadSampleState({ sync = true } = {}) {
   }
   const news = await sampleNews(s.news || {});
   split.file.news = news.marks;
-  const kept = (s.kept || []).flatMap(g => g.notes.map(id => [id, circleKey(g.members)]));
-  for (const [id, key] of kept) split.file.notes.find(n => n.id === id).kept = key;
   return {
     file: split.file,
     shared: split.shared,
-    protect: kept.map(([id]) => id),
     sync: {
       enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
       devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, contactOf(c, nextColor(list))], []),

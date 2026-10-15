@@ -7,8 +7,8 @@
 // A's invitation link, A confirms the request on the card above the notes; F (Tom)
 // scans A's "My code" with the fake camera and A declines; stale, own and
 // repeated invitations are refused. Then shared files: A shares notes with Lea, both edit (also at once),
-// a protected note another member deletes stays private on that device, a restored device gets the shared
-// files and starts without protected notes, removing a device renews the keys of the shared files too,
+// a shared note another member deletes waits in every member's trash, a restored device gets the shared
+// files, removing a device renews the keys of the shared files too,
 // a merge across circles creates the file of everyone involved, removing a person moves the note into a
 // new file and the removed person's concurrent edit lands in the private file. Last, the server owner (Sam's
 // identity, made admin on a second server process on the same database) publishes a news post that reaches both of
@@ -581,41 +581,41 @@ async function main() {
       assert.equal(await noteBody(a, noteN), await noteBody(e, noteN));
     });
 
-    await step("a shared note another member deletes stays, protected, with the one who protects it; protection reaches no file", async () => {
+    await step("a shared note another member deletes waits in every member's trash; restoring it for the circle empties both", async () => {
       const id = (await addNote(a, sample.s10)).id;
       await a.evaluate(([i, m]) => window.__store.shareNotes([i], [m]), [id, await ident(e)]);
       await convergeShared([a, e], a, e);
-      await e.evaluate(i => window.__store.setProtected([i], true), id);
-      await a.evaluate(i => window.__store.removeNote(i), id);
+      await a.evaluate(i => window.__store.removeNotes([i]), id);
       await convergeShared([a, e], a, e);
-      assert.equal(await noteBody(a, id), undefined, "gone for Sam");
-      assert.equal(await noteBody(e, id), sample.s10, "kept by Lea");
-      assert.deepEqual(await circleOfNote(e, id), [], "as a private note");
-      assert.equal(await e.evaluate(i => window.__store.isProtected(i), id), true, "still protected");
-      assert.match(await fileText(e), new RegExp(`<!-- note id=${id} status=open`), "it is in Lea's private file");
-      for (const text of [await fileText(e), await circleText(e, [a, e])]) assert.doesNotMatch(text, /protect/i);
+      const trashed = page => page.evaluate(i => window.__store.trashNotes().find(n => n.id === i) || null, id);
+      assert.equal((await trashed(a))?.kept, await ident(e), "in Sam's trash, marked with the circle");
+      assert.equal((await trashed(e))?.kept, await ident(a), "in Lea's trash too");
+      assert.equal((await trashed(e)).body, sample.s10);
+      assert.equal(await circleText(e, [a, e]).then(t => t.includes(`id=${id} `)), false, "gone from the shared file");
+      await e.evaluate(i => window.__store.restoreNotes([i]), id);
+      await convergeShared([a, e], a, e);
+      assert.deepEqual(await circleOfNote(a, id), [await ident(e)], "back in the circle");
+      assert.equal(await trashed(a), null, "Sam's trash entry is gone, the note is back");
+      assert.equal(await trashed(e), null);
       await converge(e);
     });
 
-    await step("a note deleted on another own device goes here too, protected or not", async () => {
+    await step("a note deleted on another own device waits in the trash there too, once", async () => {
       const id = (await addNote(a, sample.s11)).id;
       await converge(a, d);
-      await d.evaluate(i => window.__store.setProtected([i], true), id);
-      await a.evaluate(i => window.__store.removeNote(i), id);
+      await a.evaluate(i => window.__store.removeNotes([i]), id);
       await converge(a, d);
-      assert.equal(await noteBody(d, id), undefined, "gone on D although D protects it");
+      assert.ok(await d.evaluate(i => window.__store.trashNotes().some(n => n.id === i), id), "in D's trash");
+      assert.equal((await fileText(d)).split(`id=${id} `).length - 1, 1, "one entry");
     });
 
-    await step("a restored device gets the shared files and starts without protected notes", async () => {
-      await a.evaluate(i => window.__store.setProtected([i], true), noteN);
+    await step("a restored device gets the shared files", async () => {
       g = await device(browser, "G", { width: 820, height: 1180 });
       await g.evaluate(k => window.__sync.restore(k), key);
-      assert.equal(await g.evaluate(() => window.__store.state.protectedIds.size), 0, "no protected notes");
       await converge(a, d, g);
       assert.equal(await noteBody(g, noteN), await noteBody(a, noteN), "G reads the shared note");
       assert.deepEqual(await circleOfNote(g, noteN), [await ident(e)]);
       await convergeShared([a, e], a, d, g, e);
-      await a.evaluate(i => window.__store.setProtected([i], false), noteN);
     });
 
     await step("A removes G: the keys of every file are renewed, Lea still reads and edits the shared file", async () => {

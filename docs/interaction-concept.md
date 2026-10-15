@@ -135,15 +135,17 @@ Current state, edited in place when a decision changes.
 - Changes that remove a note from view (close, reopen, merge, an emptied
   note) happen immediately and offer **Undo** in a snackbar for 5
   seconds instead of asking for confirmation first.
-- **Deleting asks first** (Delete in the selection, Empty archive): it is
-  meant to be final, reaches all the user's devices and, for shared
-  notes, everyone in their circle. The dialog says what goes and what
-  stays (protected notes), its action button is red, Cancel / `Esc` / back
-  close it; Undo still follows for 5 seconds (decided 2026-10-14).
-- **Giving a kept note back to others asks first** (Restore for …,
-  `docs/requirements.md` → "Kept notes"): it hands the user's changes to
-  people who deleted the note. Same dialog with an accent-colored action
-  button; Undo follows (decided 2026-10-15, user request).
+- **Delete moves into the trash** (Delete in the selection) at once,
+  with Undo: nothing is lost, the trash keeps it for 30 days
+  (`docs/requirements.md` → "Main view, archive and trash").
+- **Final and mass deletes ask first** (Empty archive, Empty trash,
+  Delete permanently): the dialog says what goes, its action button is
+  red, Cancel / `Esc` / back close it; Undo still follows for 5 seconds
+  (decided 2026-10-14; Delete itself no longer asks since 2026-10-15).
+- **Giving a trashed note back to others asks first** (Restore for …):
+  it reaches people who deleted the note. Same dialog with an
+  accent-colored action button; Undo follows (decided 2026-10-15, user
+  request).
 - Other confirmation dialogs only where the user has something to
   adjust: the order for Copy and Merge (drag an entry's grip; Merge shows
   it even for a single part, as the confirmation of what moves), the

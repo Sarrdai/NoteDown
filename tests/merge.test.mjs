@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { toggleTask } from "../app/js/core/markdown.js";
-import { mergeNotesFiles, applyDisplaced, moveNote, protectedDeleted, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../app/js/core/merge.js";
+import { mergeNotesFiles, applyDisplaced, moveNote, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../app/js/core/merge.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [s01, s03] = ["s01", "s03"].map(id => sample.notes.find(n => n.id === id));
@@ -119,41 +119,50 @@ test("merge: contacts per id — the changed side wins, both new ones stay, a re
   assert.deepEqual(mergeNotesFiles(file(), file(), file()).file.contacts, []);
 });
 
-test("protectedDeleted: a note another member deleted is saved when this device protects it", () => {
+test("deletedFromShared: a note deleted elsewhere comes back as a trash entry marked with its circle", () => {
   const base = file(s01, s03);
-  const merged = mergeNotesFiles(base, base, file(s03)).file;   // the other member deleted s01
-  assert.deepEqual(protectedDeleted(base, merged, id => id === "s01", "lea+tom"), [{ ...s01, kept: "lea+tom" }], "kept, marked with its circle");
-  assert.deepEqual(protectedDeleted(base, merged, () => false, "lea+tom"), [], "unprotected: gone");
-  // The private file never uses this: a delete on the user's own device goes everywhere (files.js).
+  const merged = mergeNotesFiles(base, base, file(s03)).file;   // another member deleted s01
+  assert.deepEqual(deletedFromShared(base, merged, "lea+tom", "2026-10-13T09:00Z"), [{ ...s01, deleted: "2026-10-13T09:00Z", kept: "lea+tom" }]);
 });
 
-test("protectedDeleted: a note that moved on or was edited isn't touched", () => {
+test("deletedFromShared: a note that moved on or was edited isn't trashed", () => {
   const base = file(s01, s03);
   const moved = moveNote(base, file(), "s01", "2026-10-13T09:00").from;
-  assert.deepEqual(protectedDeleted(base, mergeNotesFiles(base, base, moved).file, () => true), [], "moved, not deleted");
+  assert.deepEqual(deletedFromShared(base, mergeNotesFiles(base, base, moved).file, "lea", "x"), [], "moved, not deleted");
   const edited = file(edit(s01, 1, "2026-10-13T09:05"), s03);
-  assert.deepEqual(protectedDeleted(base, mergeNotesFiles(base, edited, file(s03)).file, () => true), [], "an edit wins over the delete");
+  assert.deepEqual(deletedFromShared(base, mergeNotesFiles(base, edited, file(s03)).file, "lea", "x"), [], "an edit wins over the delete");
 });
 
-test("kept: the circle a kept note came from round-trips and merges like a field of its own", () => {
-  const kept = { ...s01, kept: "lea+tom" };
-  const text = serializeNotesFile(file(kept));
-  assert.match(text, / kept=lea\+tom -->/);
-  assert.deepEqual(parseNotesFile(text).notes[0], kept);
-  // "Keep as my own note" on one device, an edit on another: both survive.
+test("trash: deleted and kept round-trip and merge as one field group", () => {
+  const trashed = { ...s01, deleted: "2026-10-13T09:00Z", kept: "lea+tom" };
+  const text = serializeNotesFile(file(trashed));
+  assert.match(text, / deleted=2026-10-13T09:00Z kept=lea\+tom -->/);
+  assert.deepEqual(parseNotesFile(text).notes[0], trashed);
+  // Restored as the user's own note on one device, edited in the trash on another: both survive.
   const own = { ...s01 };
-  const edited = edit(kept, 1, "2026-10-13T09:00");
-  const out = mergeNotesFiles(file(kept), file(own), file(edited)).file.notes[0];
-  assert.equal(out.kept, undefined, "the mark is gone");
+  const edited = edit(trashed, 1, "2026-10-13T09:10");
+  const out = mergeNotesFiles(file(trashed), file(own), file(edited)).file.notes[0];
+  assert.equal(out.deleted, undefined, "restored");
+  assert.equal(out.kept, undefined);
   assert.equal(out.body, edited.body, "the edit stays");
+  // Deleted on one device, edited on the other: the note waits in the trash with the edit.
+  const del = mergeNotesFiles(file(s01), file({ ...s01, deleted: "2026-10-13T09:00Z" }), file(edit(s01, 2, "2026-10-13T09:05"))).file.notes[0];
+  assert.equal(del.deleted, "2026-10-13T09:00Z");
+  assert.equal(del.body, edit(s01, 2, "x").body);
 });
 
-test("adoptNotes: the saved note joins the private file, protection untouched, a moved marker cleared", () => {
+test("permanent: the status round-trips; an unknown one reads as open", () => {
+  const p = { ...s01, status: "permanent" };
+  assert.equal(parseNotesFile(serializeNotesFile(file(p))).notes[0].status, "permanent");
+  assert.equal(parseNotesFile(serializeNotesFile(file(p)).replace("permanent", "weird")).notes[0].status, "open");
+});
+
+test("adoptNotes: the trash entry joins the private file once, a moved marker cleared", () => {
   const priv = { ...file(s03), moved: [{ id: "s01", moved: "2026-10-13T09:00" }] };
   const out = adoptNotes(priv, [s01]);
   assert.deepEqual(out.notes.map(n => n.id), ["s03", "s01"]);
   assert.deepEqual(out.moved, []);
-  assert.doesNotMatch(serializeNotesFile(out), /protect/, "protection is no part of the file format");
+  assert.deepEqual(adoptNotes(out, [{ ...s01, deleted: "x" }]).notes.map(n => n.id), ["s03", "s01"], "already there: left out");
 });
 
 test("movedAway: only a moved marker the base doesn't have counts", () => {

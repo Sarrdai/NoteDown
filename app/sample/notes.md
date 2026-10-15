@@ -32,7 +32,7 @@ The deadline was extended, but the accountant wants the papers this week.
 - [x] Download the annual bank statement
 - [ ] Find the donation receipts
 
-<!-- note id=s05 status=open created=2026-10-11T09:15Z modified=2026-10-11T09:15Z -->
+<!-- note id=s05 status=permanent created=2026-10-11T09:15Z modified=2026-10-11T09:15Z -->
 ## Book ideas
 - *The Overstory* — Richard Powers
 - *Piranesi* — Susanna Clarke
@@ -51,7 +51,7 @@ The deadline was extended, but the accountant wants the papers this week.
 ## Call the dentist
 Six-month check-up is due. Ask whether Tuesday mornings are possible.
 
-<!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z -->
+<!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z deleted=2026-10-13T07:45Z -->
 Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.
 
 <!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 -->
@@ -66,14 +66,14 @@ Idea for the team meeting: start with the open questions from last week instead 
 - Treasure hunt in the garden
 - [Ideas from last year](https://example.com/party-games)
 
-<!-- note id=s10 status=open created=2026-10-04T11:00Z modified=2026-10-06T19:30Z -->
+<!-- note id=s10 status=permanent created=2026-10-04T11:00Z modified=2026-10-06T19:30Z -->
 ## Recipe: lentil soup
 1. Sweat onion, carrot and celery in olive oil
 2. Add red lentils, tomato paste and stock
 3. Simmer for 20 minutes, blend half of it
 4. Lemon juice and cumin at the end
 
-<!-- note id=s11 status=open created=2026-10-03T21:45Z modified=2026-10-03T21:45Z -->
+<!-- note id=s11 status=open created=2026-10-03T21:45Z modified=2026-10-03T21:45Z deleted=2026-10-12T18:20Z kept=lea+tom -->
 ## Wi-Fi at the cabin
 Network `Cabin-5G`, the password is on the router. Reset button only works when held for 10 seconds.
 
@@ -110,5 +110,5 @@ New date confirmed by mail.
 ## Holiday photos
 Sorted and backed up to the external drive.
 
-<!-- note id=s19 status=closed created=2026-09-15T12:00Z modified=2026-09-29T13:00Z closed=2026-09-29T13:00Z -->
+<!-- note id=s19 status=closed created=2026-09-15T12:00Z modified=2026-09-29T13:00Z closed=2026-09-29T13:00Z deleted=2026-10-01T09:00Z -->
 Cancel the old phone contract. Confirmation arrived, ends on 31 December.

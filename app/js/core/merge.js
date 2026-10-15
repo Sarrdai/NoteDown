@@ -71,15 +71,15 @@ export function applyDisplaced(file, { base, note }) {
 }
 
 /**
- * The notes of a merged shared file that a protected note has to be saved from: present before the
- * merge (`before`), gone after it (`merged`) and not moved on (no moved marker) — another member
- * deleted them. `isProtected(id)` is this device's setting, which never leaves the device
- * (docs/sync-and-sharing.md → "Files"). Each comes back marked `kept` with `circle`, the circleKey
- * of the shared file, so it still shows in that circle (docs/file-format.md → "Marker attributes").
+ * The notes of a merged shared file that go into this user's trash: present before the merge
+ * (`before`), gone after it (`merged`) and not moved on (no moved marker) — another member, or another
+ * of the user's devices, deleted them. Each comes back as a trash entry of the private file, `deleted`
+ * at `now` and marked `kept` with `circle`, the circleKey of the shared file
+ * (docs/sync-and-sharing.md → "Trash").
  */
-export function protectedDeleted(before, merged, isProtected, circle) {
+export function deletedFromShared(before, merged, circle, now) {
   const there = new Set([...merged.notes, ...(merged.moved || [])].map(n => n.id));
-  return before.notes.filter(n => isProtected(n.id) && !there.has(n.id)).map(n => ({ ...n, kept: circle }));
+  return before.notes.filter(n => !there.has(n.id)).map(n => ({ ...n, deleted: now, kept: circle }));
 }
 
 /** True when `file` has moved notes away since `base` (a moved marker `base` doesn't have): its upload has to wait
@@ -105,10 +105,13 @@ export function renameDuplicates(file, ids) {
   return { file: { ...file, notes }, renamed };
 }
 
-/** The parsed file with `notes` added (a note that came back clears its moved marker). */
+/** The parsed file with `notes` added (a note that came back clears its moved marker); notes whose id the
+ *  file already holds are left out (another device of the user put them into the trash first). */
 export function adoptNotes(file, notes) {
-  const ids = new Set(notes.map(n => n.id));
-  return { ...file, notes: [...file.notes, ...notes], moved: (file.moved || []).filter(m => !ids.has(m.id)) };
+  const have = new Set(file.notes.map(n => n.id));
+  const fresh = notes.filter(n => !have.has(n.id));
+  const ids = new Set(fresh.map(n => n.id));
+  return { ...file, notes: [...file.notes, ...fresh], moved: (file.moved || []).filter(m => !ids.has(m.id)) };
 }
 
 /** Moves a note from one parsed file to another, leaving a moved marker. */
@@ -144,7 +147,7 @@ function withoutLeft({ left, ...note }) {
 }
 
 // Field groups merged independently; created and id never change.
-const GROUPS = [["status", "closed"], ["due"], ["body"], ["kept"]];
+const GROUPS = [["status", "closed"], ["due"], ["body"], ["deleted", "kept"]];
 
 function mergeNote(base, l, r, notes) {
   const newer = l.modified >= r.modified ? l : r;
@@ -156,6 +159,7 @@ function mergeNote(base, l, r, notes) {
       : newer;
     for (const k of keys) out[k] = pick[k];
   }
+  if (!out.deleted) delete out.deleted;
   if (!out.kept) delete out.kept;
   // Both sides changed the text differently: keep the older text as a copy.
   if (l.body !== r.body && (!base || (l.body !== base.body && r.body !== base.body))) {
@@ -186,5 +190,5 @@ function same(a, b) {
   if (!a || !b) return !a && !b;
   if (isNote(a) !== isNote(b)) return false;
   if (!isNote(a)) return true;
-  return ["status", "created", "modified", "due", "closed", "body", "kept"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
+  return ["status", "created", "modified", "due", "closed", "body", "deleted", "kept"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
 }

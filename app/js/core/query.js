@@ -3,14 +3,16 @@
 import { sections, noteTitle } from "./markdown.js";
 import { localTime } from "./notes-file.js";
 
+// `views`: the views a key is offered in (absent = all).
 export const SORT_KEYS = {
   modified: { label: "Last edited", field: "modified" },
   created: { label: "Created", field: "created" },
   due: { label: "Due date", field: "due" },
   title: { label: "Alphabetical", field: null },
-  closed: { label: "Closed", field: "closed", archiveOnly: true },
-  custom: { label: "Custom", field: null, custom: true },
-  shared: { label: "Shared order", field: null, custom: true, circleOnly: true },
+  closed: { label: "Closed", field: "closed", views: ["closed"] },
+  deleted: { label: "Deleted", field: "deleted", views: ["trash"] },
+  custom: { label: "Custom", field: null, custom: true, views: ["open", "closed"] },
+  shared: { label: "Shared order", field: null, custom: true, circleOnly: true, views: ["open", "closed"] },
 };
 
 /** The two directions of a sort key, ascending first. */
@@ -23,13 +25,29 @@ export const DIR_LABELS = {
 export const DEFAULT_SORT = {
   open: { key: "modified", dir: "desc" },
   closed: { key: "closed", dir: "desc" },
+  trash: { key: "deleted", dir: "desc" },
 };
 
-/** Notes of one view ("open" | "closed"), filtered by a search text and
+/** How long a deleted note waits in the trash. */
+export const TRASH_DAYS = 30;
+
+/** Whether a note belongs to a view: the main view ("open") shows open and permanent notes, the archive
+ *  ("closed") closed ones, the trash the deleted ones (whatever their status). */
+export function inViewOf(n, view) {
+  if (view === "trash") return !!n.deleted;
+  return !n.deleted && (view === "open" ? n.status !== "closed" : n.status === "closed");
+}
+
+/** The trashed notes whose time is up at `now` (ms): deleted more than TRASH_DAYS ago. */
+export function expiredTrash(notes, now = Date.now()) {
+  return notes.filter(n => n.deleted && now - Date.parse(n.deleted) > TRASH_DAYS * 86400000);
+}
+
+/** Notes of one view ("open" | "closed" | "trash", see inViewOf), filtered by a search text and
  *  sorted; a custom sort key orders by the note ids in `order`. */
 export function viewNotes(notes, { status, search = "", sort, order = [] }) {
   const q = search.trim().toLowerCase();
-  const list = notes.filter(n => n.status === status && (!q || n.body.toLowerCase().includes(q)));
+  const list = notes.filter(n => inViewOf(n, status) && (!q || n.body.toLowerCase().includes(q)));
   if (SORT_KEYS[sort.key]?.custom) {
     const { sorted, unsorted } = customSplit(list, order);
     return [...sorted, ...unsorted];
@@ -115,19 +133,11 @@ export function tableOfContents(notes) {
 
 /** How many notes were closed on the given local day ("YYYY-MM-DD"). */
 export function closedOn(notes, day) {
-  return notes.filter(n => n.status === "closed" && n.closed && localTime(n.closed).startsWith(day)).length;
+  return notes.filter(n => n.status === "closed" && !n.deleted && n.closed && localTime(n.closed).startsWith(day)).length;
 }
 
-/** The tile order with "Protected first": protected notes first, each group in
+/** The tile order with "Permanent first": permanent notes first, each group in
  *  its given order. The contents keep the plain sort order. */
-export function protectedFirst(notes, isProtected) {
-  return [...notes.filter(n => isProtected(n.id)), ...notes.filter(n => !isProtected(n.id))];
-}
-
-/** What deleting `notes` does: protected notes stay (`kept`); the rest splits
- *  into private and shared ones, which go for everyone in their circle. */
-export function deleteGroups(notes, { isProtected, isShared }) {
-  const out = { kept: [], private: [], shared: [] };
-  for (const n of notes) out[isProtected(n.id) ? "kept" : isShared(n.id) ? "shared" : "private"].push(n);
-  return out;
+export function permanentFirst(notes) {
+  return [...notes.filter(n => n.status === "permanent"), ...notes.filter(n => n.status !== "permanent")];
 }

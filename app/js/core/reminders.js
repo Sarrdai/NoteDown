@@ -28,7 +28,7 @@ export function reminderText(notes) {
 export function reminderSchedule(notes, time, now = new Date()) {
   const byDay = new Map();
   for (const n of notes) {
-    if (n.status !== "open" || !n.due) continue;
+    if (n.status === "closed" || n.deleted || !n.due) continue;
     if (!byDay.has(n.due)) byDay.set(n.due, []);
     byDay.get(n.due).push(n);
   }

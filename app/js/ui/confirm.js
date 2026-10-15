@@ -1,7 +1,7 @@
-// A confirmation dialog for permanent deletion (docs/interaction-concept.md →
+// A confirmation dialog for mass and permanent deletion (docs/interaction-concept.md →
 // "Feedback and undo"): a title, a line of text, an optional checkbox with a
 // warning, Cancel and a red action button (`danger: false`: an accent one, for
-// restoring a kept note to others). It sits on its own history entry,
+// restoring a trashed note to others). It sits on its own history entry,
 // so the back button / gesture cancels it.
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 
