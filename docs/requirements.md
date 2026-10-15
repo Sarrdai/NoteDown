@@ -368,6 +368,16 @@ before the first live test).
   2026-10-15: the user wants to see where it lands). *Prototype: 2026-10-15.*
 - A **full-text search** in the top bar filters the current view; the
   table of contents follows the filter. *Prototype: round 1.*
+- Where the search text occurs it is **highlighted** in the notes and in
+  the contents entries (also across formatting), so the place of a hit
+  shows, not only its note (decided 2026-10-15). The note being edited
+  shows no highlight (its editor shows the plain text); it returns when
+  editing ends. The search field shows a **counter** "current/total" of
+  the hits in the notes and **▲ / ▼** that step to the previous / next
+  hit (Enter / Shift+Enter in the field), wrapping around at the ends:
+  the current hit is marked more strongly and scrolled into the middle of
+  the screen. A new search text starts at its first hit, scrolled to when
+  it is out of view. *Prototype: 2026-10-15.*
 
 ### Table of contents
 
@@ -460,7 +470,8 @@ before the first live test).
 - On the desktop the editor has shortcuts: Ctrl/Cmd+B bold, +I italic,
   +K link, +Enter tick / untick the task, Tab / Shift+Tab indent, Ctrl+Z
   / Ctrl+Shift+Z undo / redo. Outside the editor, `n` creates a note, `/`
-  opens the search and `Esc` ends editing or closes a panel.
+  opens the search (Enter / Shift+Enter there step through the hits) and
+  `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
 
 ### Dictation

@@ -39,7 +39,10 @@
         <h1 class="title" id="title">Notes</h1>
         <label class="search" id="search">
           <span class="search-icon" id="searchIcon"></span>
-          <input type="search" id="searchInput" placeholder="Search" autocomplete="off">
+          <input type="search" id="searchInput" placeholder="Search" autocomplete="off" enterkeyhint="next">
+          <span class="hit-count" id="hitCount" aria-live="polite"></span>
+          <button class="icon-btn small hit-nav" id="hitPrev" aria-label="Previous hit" title="Previous hit · Shift+Enter"></button>
+          <button class="icon-btn small hit-nav" id="hitNext" aria-label="Next hit" title="Next hit · Enter"></button>
           <button class="icon-btn small" id="searchClose" aria-label="Close search"></button>
         </label>
         <button class="icon-btn" id="searchBtn" aria-label="Search"></button>

@@ -40,6 +40,9 @@
   --done: var(--ctp-green);
   --link: var(--ctp-blue);
   --code-bg: var(--ctp-surface0);
+  --hit: color-mix(in srgb, var(--ctp-yellow) 40%, transparent);
+  --hit-current: var(--ctp-peach);
+  --on-hit-current: var(--ctp-crust);
   /* One color per contact (avatars); text on them. */
   --person-1: var(--ctp-peach);
   --person-2: var(--ctp-teal);
@@ -53,6 +56,8 @@
 }
 [data-flavor="latte"] {
   --on-accent: #ffffff;
+  --hit-current: color-mix(in srgb, var(--ctp-peach) 70%, transparent);
+  --on-hit-current: inherit;
   /* Latte's saturated colors need a darker shade to carry white initials. */
   --person-1: color-mix(in srgb, var(--ctp-peach) 74%, #000);
   --person-2: color-mix(in srgb, var(--ctp-teal) 82%, #000);
@@ -180,6 +185,14 @@ button { font: inherit; color: inherit; }
 .search-icon .icon { width: 18px; height: 18px; }
 #searchClose { visibility: hidden; }
 .app.has-search #searchClose { visibility: visible; }
+/* Search hits (ui/search-hits.js): the counter and ▲ / ▼ show with a search. */
+.hit-count, .hit-nav { display: none; }
+.app.has-search .hit-count { display: inline; font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app.has-search .hit-nav { display: inline-flex; }
+.hit-nav { min-width: 28px; padding: 0 3px; }
+.hit-nav:disabled { opacity: 0.4; }
+mark.hit { background: var(--hit); color: inherit; border-radius: 2px; }
+mark.hit.current { background: var(--hit-current); color: var(--on-hit-current); }
 #searchBtn { display: none; }
 /* Top bar actions that don't fit move under ⋮ (main.js → fitTopbar). */
 .topbar .icon-btn[hidden], .topbar .btn-label[hidden] { display: none; }
@@ -935,6 +948,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 @media (min-width: 600px) and (max-width: 1023px) {
   :root { --toc-w: 248px; }
   .search { width: 190px; flex: none; }
+  .app.has-search .search { width: 300px; }   /* room for the hit counter and ▲ / ▼ */
   .title { flex: 0 1 auto; }
   #sortBtn { margin-left: auto; }
 }
@@ -963,7 +977,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .topbar { padding-inline: 4px; gap: 0; }
   .search { display: none; }
   #searchBtn { display: inline-flex; }
-  .app.searching .search { display: flex; flex: 1; width: auto; }
+  .app.searching .search { display: flex; flex: 1; width: auto; min-width: 0; }
   .app.searching :is(.title, #searchBtn, #sortBtn, #viewBtn, #syncBtn, #remindersBtn, #exportBtn),
   .app.searching #moreBtn { display: none; }
   .app.searching #searchClose { visibility: visible; }

@@ -10,6 +10,7 @@ import { state, updateSettings } from "../store.js";
 import { flashNote } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
+import { markHits } from "./search-hits.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -54,6 +55,7 @@ export function tocItems(notes, search = state.search) {
     let hidden = 0;
     for (let j = i + 1; j < entries.length && entries[j].level > depth; j++) if (state.selected.has(entries[j].key)) hidden++;
     if (hidden) b.insertAdjacentHTML("beforeend", ` <span class="toc-more">+${hidden}</span>`);
+    markHits(b, search);
     shown.push(b);
   });
   return shown;
