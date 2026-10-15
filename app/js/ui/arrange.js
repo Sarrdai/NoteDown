@@ -55,12 +55,15 @@ function line() {
 }
 
 // Rows below the line are unsorted: their button adds, the others' removes.
+// Only rows that changed sides get a new icon: replacing the icon under a
+// press would swallow the click on the button (refresh runs on pointerup).
 function refresh() {
   let below = false;
   for (const li of $("arrangeList").children) {
     if (li.classList.contains("arrange-line")) { below = true; continue; }
-    li.classList.toggle("unsorted", below);
     const b = li.querySelector(".arrange-toggle");
+    if (b.hasChildNodes() && li.classList.contains("unsorted") === below) continue;
+    li.classList.toggle("unsorted", below);
     b.innerHTML = icon(below ? "plus" : "minus");
     b.setAttribute("aria-label", below ? "Add to the order" : "Take out of the order");
   }
