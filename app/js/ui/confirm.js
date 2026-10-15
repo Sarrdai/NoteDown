@@ -1,6 +1,7 @@
 // A confirmation dialog for permanent deletion (docs/interaction-concept.md →
 // "Feedback and undo"): a title, a line of text, an optional checkbox with a
-// warning, Cancel and a red action button. It sits on its own history entry,
+// warning, Cancel and a red action button (`danger: false`: an accent one, for
+// restoring a kept note to others). It sits on its own history entry,
 // so the back button / gesture cancels it.
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 
@@ -12,8 +13,9 @@ let current = null; // { onConfirm, check } while open
  * `okLabel(checked)` → the button's label, or null to disable it.
  * `onConfirm(checked)` runs once the dialog is closed and its history entry gone.
  */
-export function openConfirm({ title, text, check = null, okLabel, onConfirm }) {
+export function openConfirm({ title, text, check = null, okLabel, onConfirm, danger = true }) {
   current = { onConfirm, okLabel };
+  $("confirmOk").classList.toggle("danger", danger);
   $("confirmTitle").textContent = title;
   $("confirmText").textContent = text;
   $("confirmCheckRow").hidden = !check;

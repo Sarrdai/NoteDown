@@ -209,8 +209,8 @@ export async function filesRound() {
     setRec(key, { ...rec(key), version: got.version, base: got.text });
     // A note this user left that another member moved on isn't an edit to follow.
     displaced.push(...merged.displaced.filter(d => !hasLeft(d.note, me)).map(d => ({ ...d, from: key })));
-    // Another member deleted a note this device has protected: it becomes a private note here.
-    if (key !== PRIVATE) rescued.push(...protectedDeleted(local, merged.file, isProtected).filter(n => !hasLeft(n, me)));
+    // Another member deleted a note this device has protected: it becomes a private note here, marked with its circle.
+    if (key !== PRIVATE) rescued.push(...protectedDeleted(local, merged.file, isProtected, key).filter(n => !hasLeft(n, me)));
   }
   if (rescued.length) putFile(PRIVATE, adoptNotes(state.file, rescued));
   for (const d of displaced) {

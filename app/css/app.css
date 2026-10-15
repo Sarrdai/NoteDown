@@ -682,6 +682,19 @@ button.shared-mark { cursor: pointer; }
 button.shared-mark::after { content: ""; position: absolute; inset: -11px -6px; }
 button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 999px; }
 
+/* A kept note (ui/kept.js): the others deleted it, it stays here because it is protected.
+   A dashed card, so it stands out in a long list, and the marker with its actions. */
+.note.kept:not(.selected):not(.editing) { border-style: dashed; border-color: var(--text-faint); box-shadow: none; }
+.kept-mark .avatar-stack { position: relative; opacity: 0.55; }
+.kept-mark .avatar-stack::after {   /* struck through: gone for these people */
+  content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px;
+  background: var(--danger); transform: rotate(-20deg); border-radius: 1px;
+}
+.kept-label {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px;
+  background: var(--danger-soft); color: var(--danger); font-size: 0.75rem;
+}
+
 /* Sync status: an icon in the top bar. "syncing" (spinning arrows) lasts at
    least 0.8 s (sync/client.js); then the check draws itself in the accent
    color, which fades (.just-synced). */

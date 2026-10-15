@@ -9,8 +9,9 @@
   ],
   "shared": [
     { "members": ["lea"], "notes": ["s01", "s09"], "order": ["s09", "s01"] },
-    { "members": ["lea", "tom"], "notes": ["s11", "s18"] }
+    { "members": ["lea", "tom"], "notes": ["s18"] }
   ],
+  "kept": [{ "members": ["lea", "tom"], "notes": ["s11"] }],
   "news": { "p02": "updated", "p01": "archived" },
   "scanSuggestion": "Grandma",
   "request": { "name": "Mia", "via": "link" }

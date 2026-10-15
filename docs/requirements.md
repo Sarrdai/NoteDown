@@ -344,6 +344,21 @@ paid features per user.
   **setting of this device**, not part of the file and not synced. An emptied note is
   still deleted when editing ends (with Undo) — the user just removed
   its text. *Prototype: 2026-10-14.*
+- **Kept notes** (decided 2026-10-15, user request): when the others
+  delete a shared note this device protects, it is kept here as the
+  user's private note but **still shows in its circle** (the people
+  filter of the circle, not under Private). Its card is **dashed** and
+  its meta line shows the circle's avatars **crossed out** with a red
+  "Deleted" — deleted for the others, only kept here (decided 2026-10-15
+  over the marker alone, which got lost in a long list, and a bar with
+  both actions at the top of the card, which cost height on the phone). Editing, closing or
+  reopening it changes only the user's copy. A tap on the marker offers two
+  actions: **Restore for …** shares it with the circle again (after a
+  confirmation, because it reaches others; Undo afterwards), and **Keep
+  as my own note** makes it a plain private note, still protected (Undo).
+  Sharing it with people on purpose ends the mark as well. Why: the user
+  keeps the note in the context it belongs to and decides whether the
+  others get it back. *Prototype: 2026-10-15.*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,

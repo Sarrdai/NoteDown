@@ -74,11 +74,12 @@ export function applyDisplaced(file, { base, note }) {
  * The notes of a merged shared file that a protected note has to be saved from: present before the
  * merge (`before`), gone after it (`merged`) and not moved on (no moved marker) — another member
  * deleted them. `isProtected(id)` is this device's setting, which never leaves the device
- * (docs/sync-and-sharing.md → "Files").
+ * (docs/sync-and-sharing.md → "Files"). Each comes back marked `kept` with `circle`, the circleKey
+ * of the shared file, so it still shows in that circle (docs/file-format.md → "Marker attributes").
  */
-export function protectedDeleted(before, merged, isProtected) {
+export function protectedDeleted(before, merged, isProtected, circle) {
   const there = new Set([...merged.notes, ...(merged.moved || [])].map(n => n.id));
-  return before.notes.filter(n => isProtected(n.id) && !there.has(n.id));
+  return before.notes.filter(n => isProtected(n.id) && !there.has(n.id)).map(n => ({ ...n, kept: circle }));
 }
 
 /** True when `file` has moved notes away since `base` (a moved marker `base` doesn't have): its upload has to wait
@@ -143,7 +144,7 @@ function withoutLeft({ left, ...note }) {
 }
 
 // Field groups merged independently; created and id never change.
-const GROUPS = [["status", "closed"], ["due"], ["body"]];
+const GROUPS = [["status", "closed"], ["due"], ["body"], ["kept"]];
 
 function mergeNote(base, l, r, notes) {
   const newer = l.modified >= r.modified ? l : r;
@@ -155,6 +156,7 @@ function mergeNote(base, l, r, notes) {
       : newer;
     for (const k of keys) out[k] = pick[k];
   }
+  if (!out.kept) delete out.kept;
   // Both sides changed the text differently: keep the older text as a copy.
   if (l.body !== r.body && (!base || (l.body !== base.body && r.body !== base.body))) {
     notes.push({ ...older, id: newId() });
@@ -184,5 +186,5 @@ function same(a, b) {
   if (!a || !b) return !a && !b;
   if (isNote(a) !== isNote(b)) return false;
   if (!isNote(a)) return true;
-  return ["status", "created", "modified", "due", "closed", "body"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
+  return ["status", "created", "modified", "due", "closed", "body", "kept"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
 }

@@ -71,10 +71,14 @@ and the sample simulates everything without a server.
   (`docs/requirements.md` → "Multi-select").
 - **Protection stays local** (`docs/requirements.md` → "Main view and
   archive"): when someone else deletes a shared note that this device
-  has protected, the note isn't lost here — it becomes a private note
-  on this device, still protected. A note deleted on another of the
-  user's own devices goes everywhere, as protection isn't synced, and a
-  newly linked device starts without protected notes.
+  has protected, the note isn't lost here — it moves into the private
+  file, still protected, marked `kept` with its circle
+  (`docs/file-format.md`), so it stays in that circle's view. Changes to
+  it stay with the user; only **Restore for …** shares it with the circle
+  again, and **Keep as my own note** drops the mark. A note deleted on
+  another of the user's own devices goes everywhere, as protection isn't
+  synced, and a newly linked device starts without protected notes (it
+  still shows kept notes, as the mark is in the private file).
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who

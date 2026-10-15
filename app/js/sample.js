@@ -43,7 +43,8 @@ const contactOf = ({ via, ...c }, color) => ({ ...c, color, ...(via === "scan" &
 
 /**
  * The full sample state for the store (`replaceFiles`): the sample notes and,
- * with `sync`, the sample identity with its contacts and shared files.
+ * with `sync`, the sample identity with its contacts and shared files. `protect` lists the notes
+ * this device protects: the kept ones, which the others deleted (docs/sync-and-sharing.md → "Files").
  */
 export async function loadSampleState({ sync = true } = {}) {
   const file = parseNotesFile(await loadSample());
@@ -56,9 +57,12 @@ export async function loadSampleState({ sync = true } = {}) {
   }
   const news = await sampleNews(s.news || {});
   split.file.news = news.marks;
+  const kept = (s.kept || []).flatMap(g => g.notes.map(id => [id, circleKey(g.members)]));
+  for (const [id, key] of kept) split.file.notes.find(n => n.id === id).kept = key;
   return {
     file: split.file,
     shared: split.shared,
+    protect: kept.map(([id]) => id),
     sync: {
       enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
       devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, contactOf(c, nextColor(list))], []),
