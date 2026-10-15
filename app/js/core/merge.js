@@ -36,7 +36,7 @@ export function mergeNotesFiles(base, local, remote) {
     else if (out?.moved) moved.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved, devices: mergeMarkers(base, local, remote, "devices"), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), order: mergeOrder(base, local, remote) }, displaced };
+  return { file: { preamble, notes, moved, devices: mergeMarkers(base, local, remote, "devices"), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), news: mergeMarkers(base, local, remote, "news"), order: mergeOrder(base, local, remote) }, displaced };
 }
 
 // A custom order (backlog #24, #25) is one list: the side that changed it
@@ -50,7 +50,7 @@ function mergeOrder(base, local, remote) {
   return l.modified > r.modified ? l : r;
 }
 
-// Device names, contacts (private file) and member names (shared files): per id, the side that changed a
+// Device names, contacts, news state (private file) and member names (shared files): per id, the side that changed a
 // marker wins, the remote one when both did; a marker removed on one side
 // stays removed.
 function mergeMarkers(base, local, remote, list) {

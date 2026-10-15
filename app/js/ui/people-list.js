@@ -2,9 +2,11 @@
 // circles the user shares with — everything, the private notes, each
 // contact on their own and each group. Picking one filters the note list to
 // that circle; a long-press (or right-click) on a contact lists the groups
-// they are in, to jump there.
+// they are in, to jump there. The server owner's news are pinned on top,
+// with a badge while posts are new or updated.
 import { circleEntries, groupsWith, circleKey } from "../core/sharing.js";
-import { state, setUi, sharedCircles, activeCircle, contacts } from "../store.js";
+import { NEWS, freshCount } from "../core/news.js";
+import { state, setUi, sharedCircles, activeCircle, contacts, newsNotes } from "../store.js";
 import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people.js";
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
@@ -18,25 +20,32 @@ let onPicked = () => {};
 
 /** Label of a circle key: "All notes", "Private", "Lea", "Lea & Tom". */
 export function circleName(key, members = key ? key.split("+") : []) {
-  return key === null ? "All notes" : key === "" ? "Private" : membersLabel(members);
+  return key === null ? "All notes" : key === "" ? "Private" : key === NEWS ? "News" : membersLabel(members);
 }
 
 function leading(e) {
-  const inner = e.kind === "all" ? icon("notes") : e.kind === "private" ? icon("lock")
+  const inner = e.kind === "news" ? icon("news") : e.kind === "all" ? icon("notes") : e.kind === "private" ? icon("lock")
     : e.kind === "contact" ? avatarHtml(e.members[0]) : avatarStackHtml(e.members);
   return `<span class="people-lead">${inner}</span>`;
 }
 
+/** The badge with the number of new or updated news posts (none for 0). */
+export function newsBadgeHtml(n) {
+  return n ? `<span class="news-badge" aria-label="${n} new">${n}</span>` : "";
+}
+
 /** Renders the overview; `count(key)` gives a circle's notes in the current view. */
 export function renderPeople(count) {
-  const entries = circleEntries(contacts(), sharedCircles(), nameOf);
+  const news = newsNotes();
+  const entries = [...(news.length ? [{ key: NEWS, kind: "news", members: [] }] : []), ...circleEntries(contacts(), sharedCircles(), nameOf)];
   const active = activeCircle();
   $("peopleList").replaceChildren(...entries.map(e => {
     const b = document.createElement("button");
     const n = count(e.key);
     b.className = `people-entry ${e.kind}` + (e.key === active ? " active" : "") + (n ? "" : " none");
     b.dataset.key = e.key ?? "*";
-    b.innerHTML = `${leading(e)}<span class="people-name">${esc(circleName(e.key, e.members))}</span><span class="people-count">${n}</span>`;
+    const badge = e.kind === "news" ? newsBadgeHtml(freshCount(news)) : "";
+    b.innerHTML = `${leading(e)}<span class="people-name">${esc(circleName(e.key, e.members))}</span>${badge}<span class="people-count">${n}</span>`;
     if (e.key === active) b.setAttribute("aria-current", "true");
     return b;
   }));

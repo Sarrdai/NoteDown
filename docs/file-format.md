@@ -8,6 +8,7 @@
 - [Leaving a shared note](#leaving-a-shared-note)
 - [Members](#members)
 - [Contacts](#contacts)
+- [News](#news)
 - [Custom order](#custom-order)
 - [Open points](#open-points)
 <!-- /toc -->
@@ -155,9 +156,31 @@ verified, which is also how contacts written before it read.
 Merging works per ID like device names: the side that changed a contact
 wins, a removal stays. Any text after a contact marker is dropped.
 
+## News
+
+The private file remembers what the user did with the server owner's
+news posts (`docs/requirements.md` → "News from the server's owner"), one
+marker each after the contact markers, so the user's devices agree on
+which posts are seen, closed or deleted while the server learns nothing
+about it:
+
+```markdown
+<!-- news id=Nm9vUG9zdElkMTIzNDU2 seen=2026-10-15T08:30:00.000Z -->
+<!-- news id=QmFyUG9zdElkMTIzNDU2 seen=2026-10-14T10:00:00.000Z status=archived -->
+```
+
+`id` is the post's ID, `seen` the post's `modified` time when the user
+last saw it, as the server sent it (UTC with milliseconds, compared
+as text). `status` is `archived` (closed into the archive) or
+`deleted`; absent = open. A post whose `modified` differs from `seen`
+was edited since: it shows as open and updated, whatever the status was.
+A post without a marker is new. Markers of posts that are no longer in
+the feed are dropped after each fetch. Merging works per ID like device
+names. Any text after a news marker is dropped.
+
 ## Custom order
 
-A file can hold one order marker, after the device and contact markers: the note ids
+A file can hold one order marker, after the device, contact and news markers: the note ids
 of a custom order, first to last (backlog #24):
 
 ```markdown

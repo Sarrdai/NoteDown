@@ -34,7 +34,8 @@ def test_file_list_reports_sizes_and_the_quota(people):
     alice.befriend(bob)
     h = alice.h
     keys = {alice.phone.id: b64u(b"k")}
-    assert alice.client.get("/v1/files", headers=h).json() == {"files": [], "quota": MAX_STORAGE_BYTES, "epoch": None}
+    assert alice.client.get("/v1/files", headers=h).json() == {"files": [], "quota": MAX_STORAGE_BYTES, "epoch": None,
+                                                                                  "news": None}
     upload(alice.client, h, 0, b"a" * 1000, keys=keys)
     upload(alice.client, h, 0, b"b" * 234, keys={**keys, bob.phone.id: b64u(b"k")}, file_id=b64u(os.urandom(16)), members=sorted([alice.id, bob.id]))
     listed = alice.client.get("/v1/files", headers=h).json()

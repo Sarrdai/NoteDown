@@ -7,6 +7,7 @@ import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./cor
 import { moveNote, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT } from "./core/query.js";
+import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
 
 const FILE_KEY = "notedown.file";
 const SHARED_KEY = "notedown.shared";
@@ -37,11 +38,13 @@ export const DEFAULT_SETTINGS = {
 // server in each round (sync/contacts.js) or simulated.
 // `epochs` ({ [server]: epoch }): the restore epoch each server reported last (sync/files.js; a changed one means
 // the server was restored from a backup).
+// `news` ({ version, posts: [{ id, created, modified, body }] } or null): the server owner's news feed, fetched
+// when the file list reports a new version (sync/files.js) or, in the sample, from app/sample/news.md.
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
-  enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [],
+  enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
 };
 
@@ -199,9 +202,47 @@ export function updateContact(id, patch) {
   else setContacts(list);
 }
 
-/** Whether the people overview (#23) shows: sync on and at least one contact. */
+/** Whether the people overview (#23) shows: sync on and at least one contact or news post. */
 export function hasPeople() {
-  return state.sync.enabled && contacts().length > 0;
+  return state.sync.enabled && (contacts().length > 0 || newsNotes().length > 0);
+}
+
+// ---------- news (core/news.js) ----------
+
+const newsPosts = () => (state.sync.enabled && state.sync.news?.posts) || [];
+
+/** The news posts as read-only notes (deleted ones left out); none while sync is off. */
+export function newsNotes() {
+  return feedNotes(newsPosts(), state.file.news || []);
+}
+
+export const isNews = id => newsPosts().some(p => p.id === id);
+
+/** Takes over a fetched feed ({ version, posts }) and drops the markers of posts no longer in it. */
+export function setNewsFeed(news) {
+  setSync({ news });
+  const kept = pruneNews(state.file.news || [], news.posts);
+  if (kept.length !== (state.file.news || []).length) setNewsMarks(kept);
+  else emit("structure");
+}
+
+function setNewsMarks(marks) {
+  state.file.news = marks;
+  saveFiles();
+  emit("structure");
+}
+
+/** The user saw these posts (they lose their "new" / "updated" label on all the user's devices). */
+export function markNewsSeen(ids) {
+  const fresh = newsNotes().filter(n => n.fresh && ids.includes(n.id)).map(n => n.id);
+  if (fresh.length) setNewsMarks(markNews(state.file.news || [], newsPosts(), fresh));
+}
+
+// Archives, reopens ("open") or deletes posts; returns a function that undoes it.
+function setNewsStatus(ids, status) {
+  const before = state.file.news || [];
+  setNewsMarks(markNews(before, newsPosts(), ids, status));
+  return () => setNewsMarks(before);
 }
 
 /** The people filter in effect: null (all) when the overview isn't shown. */
@@ -212,6 +253,7 @@ export function activeCircle() {
 /** The notes of one circle (circleKey, "" = private); every note for null. */
 export function circleNotes(key) {
   if (key === null) return allNotes();
+  if (key === NEWS) return newsNotes();
   if (key === "") return state.file.notes;
   return (state.shared.find(s => circleKey(s.members) === key)?.file.notes || []).filter(visible);
 }
@@ -265,7 +307,7 @@ export function setUi(patch, kind = "structure") {
 }
 
 export function note(id) {
-  return allNotes().find(n => n.id === id);
+  return allNotes().find(n => n.id === id) || newsNotes().find(n => n.id === id);
 }
 
 /** The user's custom order (backlog #24): note ids, kept in the private
@@ -321,7 +363,7 @@ export function setProtected(ids, on) {
 /** Changes a note's body; "note" events re-render that note in place. */
 export function setBody(id, body) {
   const n = note(id);
-  if (!n || n.body === body) return;
+  if (!n || n.news || n.body === body) return;
   n.body = body;
   n.modified = timestamp();
   saveFiles();
@@ -353,6 +395,12 @@ export function removeNote(id) {
 
 /** Removes several notes; returns a function that puts them back in place. */
 export function removeNotes(ids) {
+  const news = ids.filter(isNews);
+  if (news.length) {   // news are only hidden for this user
+    const undoNews = setNewsStatus(news, "deleted");
+    const undoNotes = news.length < ids.length ? removeNotes(ids.filter(id => !isNews(id))) : () => {};
+    return () => { undoNotes(); undoNews(); };
+  }
   const putBack = takeOut(ids);
   saveFiles();
   emit("structure");
@@ -377,6 +425,12 @@ export function setStatus(id, status) {
 
 /** Closes or reopens several notes at once; returns a function that undoes it. */
 export function setStatuses(ids, status) {
+  const news = ids.filter(isNews);
+  if (news.length) {
+    const undoNews = setNewsStatus(news, status === "closed" ? "archived" : "open");
+    const undoNotes = news.length < ids.length ? setStatuses(ids.filter(id => !isNews(id)), status) : () => {};
+    return () => { undoNotes(); undoNews(); };
+  }
   const changed = ids.map(note).filter(n => n && n.status !== status);
   if (!changed.length) return () => {};
   const before = changed.map(n => [n, { status: n.status, closed: n.closed }]);

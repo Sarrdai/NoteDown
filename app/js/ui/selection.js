@@ -223,7 +223,13 @@ function update() {
   // Close, Share, Protect and Delete act on whole notes; `menu` = under ⋮ on the phone.
   const ids = byNote.map(([n]) => n.id);
   const protect = ids.some(id => !isProtected(id));
-  const actions = [
+  // News posts are read-only and only this user's: close or reopen, copy, delete.
+  const news = byNote.every(([n]) => n.news);
+  const actions = news ? [
+    archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
+    { id: "copy", label: "Copy", run: copy },
+    { id: "trash", label: "Delete", run: remove, disabled: !whole },
+  ] : [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
@@ -284,14 +290,15 @@ function protectNotes(on) {
 function remove() {
   const g = deleteGroups(noteIds().map(note), { isProtected, isShared: id => circleOf(id).length > 0 });
   const ids = [...g.private, ...g.shared].map(n => n.id);
-  const text = [
+  const news = ids.length > 0 && ids.every(id => note(id)?.news);
+  const text = news ? (ids.length === 1 ? "The post disappears on all your devices. It comes back only if it is edited." : "The posts disappear on all your devices. Each comes back only if it is edited.") : [
     ids.length === 1 ? "It is removed from all your devices." : "They are removed from all your devices.",
     g.shared.length && (g.shared.length === ids.length ? (ids.length === 1 ? "It is shared and is deleted for everyone." : "They are shared and are deleted for everyone.")
       : `${g.shared.length} of them ${g.shared.length === 1 ? "is" : "are"} shared and deleted for everyone.`),
     g.kept.length && (g.kept.length === 1 ? "1 protected note stays." : `${g.kept.length} protected notes stay.`),
   ].filter(Boolean).join(" ");
   openConfirm({
-    title: ids.length === 1 ? "Delete note?" : `Delete ${ids.length} notes?`,
+    title: news ? (ids.length === 1 ? "Delete post?" : `Delete ${ids.length} posts?`) : ids.length === 1 ? "Delete note?" : `Delete ${ids.length} notes?`,
     text,
     okLabel: () => "Delete",
     onConfirm: () => {

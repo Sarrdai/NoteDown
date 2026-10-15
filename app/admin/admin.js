@@ -3,18 +3,23 @@
 // Signs in with this browser's linked device, like the app does; `?sample` runs on
 // app/sample/admin.json without a network. Logic without DOM access: app/js/core/admin.js.
 //
-// Three sections, Overview / Identities / Backup: a nav rail with list and detail side by side on the
+// Four sections, Overview / Identities / News / Backup: a nav rail with list and detail side by side on the
 // desktop, tabs with the detail as a page of its own on tablet and phone.
 import { h } from "../js/ui/dom.js";
 import { icon } from "../js/ui/icons.js";
 import { openMenu, initMenu } from "../js/ui/menu.js";
 import { showSnackbar } from "../js/ui/snackbar.js";
+import { createEditor } from "../js/ui/editor.js";
+import { relativeTime } from "../js/ui/format.js";
 import { createApi } from "../js/sync/api.js";
 import { getSecret } from "../js/sync/keystore.js";
 import { serverUrl } from "../js/core/linking.js";
+import { renderMarkdown } from "../js/core/markdown.js";
+import { parseNotesFile } from "../js/core/notes-file.js";
 import {
   formatBytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope, sortIdentities,
   defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText, createSampleAdmin,
+  NEW_POST_TEXT, checkNewsBody, newsErrorText, newsDateText, splitNews, newsFromNotes,
 } from "../js/core/admin.js";
 
 const FLAVORS = ["latte", "frappe", "macchiato", "mocha"];
@@ -30,8 +35,10 @@ const S = {
   host: "", identity: "",  // the server's host, the caller's identity ID
   overview: null, identities: [],
   details: new Map(),      // identity ID → detail, or { error }
+  news: [],                // every post, archived ones included, as the server lists them
+  newsEdit: null,          // the post being written: { id (null = a new one), el, editor, text, initial }
   sort: { key: "updated", dir: "desc" },
-  section: "overview",     // overview | identities | backup
+  section: "overview",     // overview | identities | news | backup
   open: null,              // the identity ID shown beside the list (desktop) or as a page
   tier: "desktop",
   busy: false,
@@ -59,7 +66,8 @@ const tierNow = () => (desktopMQ.matches ? "desktop" : tabletMQ.matches ? "table
 async function connect() {
   if (S.sample) {
     const data = await (await fetch(new URL("../sample/admin.json", import.meta.url))).json();
-    api = createSampleAdmin(data);
+    const posts = await (await fetch(new URL("../sample/news.md", import.meta.url))).text();
+    api = createSampleAdmin(data, newsFromNotes(parseNotesFile(posts).notes));
     S.host = "sample server";
     S.identity = data.overview.identity;
     return true;
@@ -89,9 +97,11 @@ async function loadAll() {
   if (!S.overview) S.status = "loading";
   render();
   try {
-    const [overview, list] = await Promise.all([api.adminOverview(), api.adminIdentities()]);
+    const [overview, list, news] = await Promise.all([api.adminOverview(), api.adminIdentities(), api.adminNews()]);
     S.overview = overview;
     S.identities = list.identities;
+    S.news = news.news;
+    dropVanishedEdit();
     S.details.clear();
     S.status = "ready";
     if (S.open && !S.identities.some(i => i.id === S.open)) S.open = null;
@@ -192,7 +202,8 @@ function download(text, filename) {
 // ---------- header ----------
 
 function header() {
-  return h("header", { class: "adm-top" },
+  // id "topbar": the editor keeps the caret clear of it (ui/editor.js).
+  return h("header", { class: "adm-top", id: "topbar" },
     h("div", { class: "adm-wrap adm-top-row" },
       h("div", { class: "adm-brand" },
         h("h1", {}, "NoteDown Admin"),
@@ -214,7 +225,7 @@ function moreMenu(e) {
 
 // ---------- navigation ----------
 
-const SECTIONS = [["overview", "Overview", "notes"], ["identities", "Identities", "user"], ["backup", "Backup", "cloud"]];
+const SECTIONS = [["overview", "Overview", "notes"], ["identities", "Identities", "user"], ["news", "News", "news"], ["backup", "Backup", "cloud"]];
 
 function nav() {
   return h("nav", { class: "adm-nav", role: "tablist", "aria-label": "Sections" },
@@ -420,6 +431,154 @@ function quotaForm(d, defaultQuota) {
   error);
 }
 
+// ---------- news ----------
+
+// The posts look like the app's note cards. Unlike a note, a post is not saved while it is typed (that would
+// publish half-written text to everybody): the card being written has Cancel and Publish / Save.
+
+async function reloadNews() {
+  try {
+    S.news = (await api.adminNews()).news;
+    dropVanishedEdit();
+  } catch (e) {
+    showSnackbar(e.message || "Could not load the posts.");
+  }
+  render();
+}
+
+/** A post being edited that was deleted or archived meanwhile (another browser) can't be saved any more. */
+function dropVanishedEdit() {
+  const edit = S.newsEdit;
+  if (!edit || edit.id === null || S.news.some(p => p.id === edit.id && !p.archived)) return;
+  endNewsEdit();
+  showSnackbar("The post was changed elsewhere. Your edit was discarded.");
+}
+
+/** Runs a change of the posts, says how it went and reloads the list. */
+async function newsChange(run, done) {
+  try {
+    await run();
+    showSnackbar(done);
+  } catch (e) {
+    showSnackbar(newsErrorText(e.status, e.body) || e.message || "Something went wrong.");
+  }
+  await reloadNews();
+}
+
+function startNewsEdit(post) {
+  endNewsEdit();
+  const initial = post ? post.body : NEW_POST_TEXT;
+  const host = h("div", { class: "note-body md editor-host" });
+  const error = h("p", { class: "field-error", role: "alert", hidden: true });
+  const cancel = h("button", { class: "btn", type: "button", "data-key": "news-cancel", onclick: endNewsEditAndRender }, "Cancel");
+  const submit = h("button", { class: "btn primary", type: "button", "data-key": "news-submit", onclick: submitNews }, post ? "Save" : "Publish");
+  const el = h("article", { class: "note editing news-card", "data-key": "news-editing", "aria-label": post ? "Edit post" : "New post" },
+    host, h("div", { class: "news-actions" }, error, cancel, submit));
+  const edit = S.newsEdit = { id: post ? post.id : null, el, editor: null, text: initial, initial, error, submit };
+  const syncSubmit = () => { submit.disabled = /^\s*(#+\s*)?$/.test(edit.text); };
+  edit.editor = createEditor({
+    parent: host, doc: initial,
+    onChange: text => { edit.text = text; error.hidden = true; syncSubmit(); },
+    // Escape leaves an untouched card; text that was typed stays (Cancel discards it on purpose).
+    onEscape: () => { if (edit.text === edit.initial) endNewsEditAndRender(); },
+  });
+  syncSubmit();
+  render();
+  edit.editor.focusAt();   // the caret goes to the end: after "## " in a new post
+  el.scrollIntoView({ block: "nearest" });
+}
+
+function endNewsEdit() {
+  if (!S.newsEdit) return;
+  S.newsEdit.editor.destroy();
+  S.newsEdit = null;
+}
+
+function endNewsEditAndRender() {
+  endNewsEdit();
+  render();
+}
+
+async function submitNews() {
+  const edit = S.newsEdit;
+  if (!edit) return;
+  const checked = checkNewsBody(edit.text);
+  if (checked.error) {
+    edit.error.textContent = checked.error;
+    edit.error.hidden = false;
+    return;
+  }
+  const buttons = edit.el.querySelectorAll(".news-actions .btn");
+  buttons.forEach(b => { b.disabled = true; });
+  const isNew = edit.id === null;
+  try {
+    if (isNew) await api.adminCreateNews(checked.body);
+    else await api.adminUpdateNews(edit.id, { body: checked.body });
+  } catch (e) {
+    showSnackbar(newsErrorText(e.status, e.body) || e.message || "Something went wrong.");
+    if (e.status === 404) { endNewsEdit(); await reloadNews(); return; }   // the post is gone: nothing to save into
+    buttons.forEach(b => { b.disabled = false; });
+    return;
+  }
+  endNewsEdit();
+  showSnackbar(isNew ? "Post published" : "Post saved");
+  await reloadNews();
+}
+
+function confirmDeletePost(post) {
+  closeDialog();
+  const cancel = h("button", { class: "btn", type: "button", onclick: closeDialog }, "Cancel");
+  const remove = h("button", { class: "btn primary danger", type: "button" }, "Delete");
+  remove.addEventListener("click", () => {
+    closeDialog();
+    newsChange(() => api.adminDeleteNews(post.id), "Post deleted");
+  });
+  showDialog(h("div", { class: "dialog adm-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "news-delete-title" },
+    h("h2", { class: "dialog-title", id: "news-delete-title" }, "Delete this post?"),
+    h("p", { class: "dialog-hint" }, "It disappears for everyone."),
+    h("div", { class: "dialog-actions" }, cancel, remove)), { focus: cancel });
+}
+
+function postMenu(e, post) {
+  const items = post.archived
+    ? [{ label: "Publish again", onSelect: () => newsChange(() => api.adminUpdateNews(post.id, { archived: false }), "Post published") }]
+    : [{ label: "Edit", onSelect: () => startNewsEdit(post) },
+      { label: "Archive", onSelect: () => newsChange(() => api.adminUpdateNews(post.id, { archived: true }), "Post archived") }];
+  openMenu(e.currentTarget, [...items, { label: "Delete", onSelect: () => confirmDeletePost(post) }]);
+}
+
+function postCard(post) {
+  if (S.newsEdit && S.newsEdit.id === post.id) return S.newsEdit.el;
+  const body = h("div", { class: "note-body md", html: renderMarkdown(post.body) });
+  body.querySelectorAll("input.task").forEach(box => { box.disabled = true; });
+  return h("article", { class: "note news-card" + (post.archived ? " archived" : ""), "data-key": "post-" + post.id },
+    body,
+    h("div", { class: "note-meta" }, newsDateText(post, relativeTime)),
+    h("button", {
+      class: "icon-btn news-menu", type: "button", "data-key": "post-menu-" + post.id, "aria-haspopup": "menu",
+      "aria-label": "Post actions", title: "Post actions", html: icon("more"), disabled: !!S.newsEdit, onclick: e => postMenu(e, post),
+    }));
+}
+
+function newsSection() {
+  const { published, archived } = splitNews(S.news);
+  const writing = S.newsEdit && S.newsEdit.id === null;
+  return h("section", { class: "adm-section", "aria-labelledby": "h-news" },
+    h("div", { class: "adm-headrow" },
+      h("h2", { class: "adm-h", id: "h-news" }, "News", h("span", { class: "count" }, String(published.length))),
+      h("button", {
+        class: "btn primary", type: "button", "data-key": "news-new", disabled: !!S.newsEdit, onclick: () => startNewsEdit(null),
+      }, ico("plus"), "New post")),
+    !S.news.length && !writing
+      ? h("p", { class: "adm-empty" }, "No news yet. Posts you publish here appear for everyone using this server.")
+      : h("div", { class: "news-list" },
+        writing && S.newsEdit.el,
+        published.map(postCard),
+        !published.length && !writing && h("p", { class: "adm-muted" }, "No published posts.")),
+    archived.length > 0 && h("h3", { class: "adm-subh", id: "h-archived" }, "Archived", h("span", { class: "count" }, String(archived.length))),
+    archived.length > 0 && h("div", { class: "news-list" }, archived.map(postCard)));
+}
+
 // ---------- backup ----------
 
 async function downloadBackup(btn) {
@@ -456,7 +615,6 @@ async function openRestoreDialog(file) {
   closeDialog();
   let result;
   try { result = readBackup(await file.text()); } catch { result = { error: "The file could not be read." }; }
-  const trigger = document.activeElement;
   const cancel = h("button", { class: "btn", type: "button", onclick: closeDialog }, "Cancel");
   const restore = h("button", { class: "btn primary danger", type: "button", disabled: true }, "Restore");
   const error = h("p", { class: "field-error", hidden: true });
@@ -492,13 +650,22 @@ async function openRestoreDialog(file) {
       loadAll();
     });
   }
-  const dialog = h("div", { class: "dialog adm-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "restore-title" },
+  showDialog(h("div", { class: "dialog adm-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "restore-title" },
     h("h2", { class: "dialog-title", id: "restore-title" }, "Restore backup"),
     ...body,
-    h("div", { class: "dialog-actions" }, cancel, result.error ? null : restore));
-  const scrim = h("div", { class: "dialog-scrim", onclick: e => { if (e.target === scrim && !cancel.disabled) closeDialog(); } }, dialog);
+    h("div", { class: "dialog-actions" }, cancel, result.error ? null : restore)),
+  { focus: input || cancel, canClose: () => !cancel.disabled });
+}
+
+/**
+ * Shows `dialog` on a scrim: Escape and a click beside it close it (while `canClose()`), Tab stays inside,
+ * the focus starts on `focus` and goes back to the opener afterwards.
+ */
+function showDialog(dialog, { focus, canClose = () => true }) {
+  const trigger = document.activeElement;
+  const scrim = h("div", { class: "dialog-scrim", onclick: e => { if (e.target === scrim && canClose()) closeDialog(); } }, dialog);
   const onKey = e => {
-    if (e.key === "Escape" && !cancel.disabled) { e.preventDefault(); closeDialog(); }
+    if (e.key === "Escape" && canClose()) { e.preventDefault(); closeDialog(); }
     if (e.key === "Tab") {   // keep the focus inside
       const items = [...dialog.querySelectorAll("input, button")].filter(el => !el.disabled);
       if (!items.length) return;
@@ -515,7 +682,7 @@ async function openRestoreDialog(file) {
     dialogCleanup = null;
     if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
   };
-  (input || cancel).focus({ preventScroll: true });
+  focus.focus({ preventScroll: true });
 }
 
 // ---------- states without data ----------
@@ -546,7 +713,7 @@ function statesView() {
 // ---------- page ----------
 
 function content() {
-  const section = S.section === "overview" ? overviewSection() : S.section === "identities" ? identitiesSection() : backupSection();
+  const section = { overview: overviewSection, identities: identitiesSection, news: newsSection, backup: backupSection }[S.section]();
   if (S.tier === "desktop") return h("div", { class: "adm-wrap adm-shell" }, nav(), h("main", { class: "adm-main" }, section));
   return h("div", { class: "adm-wrap" }, h("main", { class: "adm-main" }, section));
 }
@@ -554,10 +721,14 @@ function content() {
 function render() {
   const root = $("admin");
   S.tier = tierNow();
-  const focused = document.activeElement && root.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const active = document.activeElement && root.contains(document.activeElement) ? document.activeElement : null;
+  const focused = active ? active.dataset.key : null;
+  // The post being written keeps its editor (and the text in it) across a redraw.
+  const writing = S.newsEdit && active && S.newsEdit.el.contains(active);
   root.className = `admin tier-${S.tier}`;
   root.replaceChildren(header(), S.status === "ready" ? content() : statesView());
-  if (focused) root.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  if (writing) S.newsEdit.editor.view.focus();
+  else if (focused) root.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   document.body.dataset.ready = "1";
 }
 

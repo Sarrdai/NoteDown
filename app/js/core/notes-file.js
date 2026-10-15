@@ -12,12 +12,15 @@
 // and holds the user's contacts in `<!-- contact … -->` markers; a shared file names its
 // members in `<!-- member … -->` markers, and a note someone left carries `left=<ids>`.
 // An `<!-- order … -->` marker holds a custom note order: the user's own in
-// the private file, a circle's shared one in a shared file.
+// the private file, a circle's shared one in a shared file. `<!-- news … -->`
+// markers in the private file remember which news posts the user has seen,
+// archived or deleted (core/news.js).
 
-const MARKER = /^<!-- (note|device|contact|member|order) ((?:[a-z]+=\S+ ?)*)-->$/;
+const MARKER = /^<!-- (note|device|contact|member|news|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes, moved, devices, contacts, members, order }
- *  (`members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }], `order`: { ids, modified } or null). */
+/** Parses a NoteDown file into { preamble, notes, moved, devices, contacts, members, news, order }
+ *  (`members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
+ *  `news`: [{ id, seen, status? }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
@@ -25,11 +28,13 @@ export function parseNotesFile(text) {
   const devices = [];
   const contacts = [];
   const members = [];
+  const news = [];
   let order = null;
   const finish = c => {
     if (c.kind === "order") { if (c.meta.modified) order = { ids: c.meta.ids ? c.meta.ids.split(",") : [], modified: c.meta.modified }; }
     else if (c.kind === "contact") { if (c.meta.id && c.meta.name) contacts.push(finishContact(c.meta)); }
     else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
+    else if (c.kind === "news") { if (c.meta.id && c.meta.seen) news.push(finishNews(c.meta)); }
     else if (c.kind === "device") { if (c.meta.id && c.meta.name) devices.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved });
     else notes.push(finishNote(c));
@@ -48,11 +53,11 @@ export function parseNotesFile(text) {
     }
   }
   if (current) finish(current);
-  return { preamble: preamble.join("\n").trim(), notes, moved, devices, contacts, members, order };
+  return { preamble: preamble.join("\n").trim(), notes, moved, devices, contacts, members, news, order };
 }
 
-/** Writes { preamble, notes, moved, devices, contacts, members, order } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], contacts = [], members = [], order = null }) {
+/** Writes { preamble, notes, moved, devices, contacts, members, news, order } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], contacts = [], members = [], news = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) parts.push(`${noteMarker(n)}\n${n.body.trim()}`);
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
@@ -61,6 +66,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], devices =
   for (const c of contacts) {
     parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""} -->`);
   }
+  for (const m of news) parts.push(`<!-- news id=${m.id} seen=${m.seen}${m.status ? " status=" + m.status : ""} -->`);
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
 }
@@ -116,6 +122,11 @@ function finishContact(meta) {
     ...(meta.pending && { pending: meta.pending }),
     ...(meta.verified && { verified: meta.verified }),
   };
+}
+
+// A news marker: `seen` the post's `modified` the user saw last, `status` archived or deleted (absent = open).
+function finishNews(meta) {
+  return { id: meta.id, seen: meta.seen, ...((meta.status === "archived" || meta.status === "deleted") && { status: meta.status }) };
 }
 
 function finishNote({ meta, body }) {

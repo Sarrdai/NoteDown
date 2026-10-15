@@ -11,6 +11,7 @@
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
   - [People circles as a filter](#people-circles-as-a-filter)
+  - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
@@ -239,9 +240,9 @@ paid features per user.
   against the hosting limit), the identities with their storage use,
   devices, files and contacts, and backup / restore. *Prototype:
   `app/admin/` (`?sample`).*
-- **Three sections, Overview / Identities / Backup** (decided 2026-10-15
+- **Four sections, Overview / Identities / News / Backup** (decided 2026-10-15
   over one long page: scales to many identities and keeps the backup
-  apart): on the desktop a rail on the left and the identities as list
+  apart; News added the same day, "News from the server's owner"): on the desktop a rail on the left and the identities as list
   and detail side by side; on tablet and phone tabs under the header,
   the identities as a table (tablet) or cards (phone), and the detail as
   a page of its own with a back button. The list is sorted by last
@@ -275,6 +276,8 @@ paid features per user.
   a backup up to 32 MB can be restored through the page; the database
   host's own point-in-time restore covers the same case
   (`docs/operations.md`).
+- **News:** the owner writes posts for everyone using the server
+  ("News from the server's owner").
 - Not built: deleting or blocking an identity (backlog #34).
 
 ### Main view and archive
@@ -488,6 +491,56 @@ paid features per user.
   over a second section below the contents (both lists get cramped) and a
   separate phone sheet (one more top-bar icon on a full bar). The tabs
   only show while sync is on and there are contacts.
+
+### News from the server's owner
+
+Decided 2026-10-15 (user request): the server's owner needs a curated
+channel to everyone — changelogs, information, a call to take part in a
+poll — that only the owner writes. Chosen over read-only roles in shared
+circles and over channels of their own: those change the sharing model,
+this needs none of it.
+
+- **Written on the admin page** (section News): posts look and are
+  written like notes (the same editor), several at a time, newest first.
+  Unlike a note, a post is only published or saved with **Publish** /
+  **Save** (Cancel discards), so nobody reads half-written text.
+  **Archive** takes a post out of the feed and keeps it on the admin page
+  (**Publish again** brings it back); **Delete** removes it. Either way
+  it is gone for everyone, also for those who had read it. At most 20
+  posts are published at a time (`docs/server-api.md` → "Limits").
+- **Unencrypted:** the server serves the published posts to every
+  identity as they are — official communication, the same for everyone,
+  so there is nothing to keep from the server and no key to hand out.
+  The app fetches them in a sync round only when the server reports a
+  new version.
+- **In the app** they appear only while sync is on (without sync the app
+  talks to no server), as **News** pinned at the top of the people
+  overview, above All notes; the overview (tabs Contents | People) also
+  shows when there are news but no contacts. Picking it lists the posts
+  as **read-only notes** (no editing, no due date), newest first; they
+  appear nowhere else (not under All notes). A post can be **closed**
+  into the archive (round button, Undo) and reopened there, copied, and
+  **deleted** for this user (multi-select → Delete, which asks first);
+  closed or deleted, it stays so on all the user's devices and comes
+  back only when the owner edits it — then marked as updated. + from the
+  news starts a note under All notes.
+- **New and updated posts are marked:** a label **New** or **Updated**
+  as a chip in the card's meta line, and a badge with their number on
+  the News entry, the People tab and (phone) the closed contents sheet
+  (decided 2026-10-15 over a dot, which doesn't say how much is new, and
+  a tag at the card's corner, which sits on the card's edge). A post counts as
+  seen once its card was in view and the user leaves the news (another
+  filter, the archive, or the app goes to the background), or at once
+  when the card is tapped, closed or deleted — so the label stays while
+  it is read. Seen is **per user**, synced across the user's devices.
+- **What the user did is private:** which posts were seen, closed or
+  deleted is kept in the encrypted private file
+  (`docs/file-format.md` → "News"), one marker per post that is still in
+  the feed; markers of posts that left the feed are dropped, so the
+  file doesn't grow with old news.
+- *Prototype: 2026-10-15 — the sample shows three posts (one new, one
+  updated, one closed) from `app/sample/news.md`; real sync fetches the
+  server's feed.*
 
 ### Creating and editing
 

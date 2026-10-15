@@ -1,6 +1,8 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { NEWS, freshCount } from "./core/news.js";
+import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -15,7 +17,7 @@ import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { initSearchHits } from "./ui/search-hits.js";
-import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
+import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
@@ -41,7 +43,7 @@ const phone = window.matchMedia("(max-width: 599px)");
 
 // "Shared order" (#25) exists only in the view of a circle with people;
 // elsewhere a view set to it shows the user's own custom order.
-const sharedCircle = () => activeCircle() || null;
+const sharedCircle = () => (activeCircle() && activeCircle() !== NEWS ? activeCircle() : null);
 function sortOf(view = state.view) {
   const sort = state.settings.sort[view];
   return SORT_KEYS[sort.key].circleOnly && !sharedCircle() ? { key: "custom", dir: "asc" } : sort;
@@ -51,7 +53,11 @@ const inView = (notes, view = state.view, search = state.search) => viewNotes(no
 const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
 
 // The members a new note goes to: those of the circle the list is filtered to.
-const newNoteMembers = () => activeCircle() ? activeCircle().split("+") : [];
+// From the news, which take no notes, the list goes back to all notes first.
+function newNoteMembers() {
+  if (activeCircle() === NEWS) setUi({ circle: null }, "silent");
+  return activeCircle() ? activeCircle().split("+") : [];
+}
 
 function currentNotes() {
   const notes = inView(circleNotes(activeCircle()));
@@ -109,6 +115,7 @@ function render() {
   const notes = currentNotes();
   const { tiles, dividerBefore } = tilesOf(state.view, notes);
   renderList(tiles, { dividerBefore, onArrange: arrange });
+  trackNews();
   syncSelection(notes);
   renderToc(notes);
   const empty = $("empty");
@@ -130,6 +137,7 @@ function tilesOf(view, notes) {
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
+    : circle === NEWS ? (view === "open" ? "No news right now." : "No archived news.")
     : circle && view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
     : circle === "" && view === "open" ? "No private notes. Tap + to add one."
     : view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
@@ -186,11 +194,15 @@ function renderCircleFilter() {
   app.dataset.tab = people ? state.panelTab : "toc";
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   if (people) renderPeople(key => inView(circleNotes(key)).length);
+  // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
+  const fresh = people ? freshCount(newsNotes()) : 0;
+  document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
+  $("tocHandle").innerHTML = newsBadgeHtml(fresh);
   const circle = activeCircle();
   $("filterBar").hidden = circle === null;
   if (circle === null) return;
-  const members = circle ? circle.split("+") : [];
-  const lead = !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
+  const members = circle && circle !== NEWS ? circle.split("+") : [];
+  const lead = circle === NEWS ? icon("news") : !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
   $("filterChipLabel").innerHTML = lead + `<span></span>`;
   $("filterChipLabel").lastChild.textContent = circleName(circle);
 }

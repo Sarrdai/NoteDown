@@ -868,6 +868,19 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .app.has-people .toc-head .toc-title { display: none; }
 .app.has-people .stepper .icon-btn.small { min-width: 28px; padding: 0 4px; }
 .app.has-people[data-tab="people"] :is(.toc-list, .stepper) { display: none; }
+
+/* ---------- news ---------- */
+/* New or updated posts: a badge with their number on the News entry, the
+   People tab and (phone) the closed contents sheet; a label in the meta line
+   of each such card (decided 2026-10-15 over a dot and a corner tag). */
+.news-badge {
+  flex: none; display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px; text-align: center;
+}
+.panel-tab .news-badge { margin-left: 5px; vertical-align: 1px; }
+.toc-handle .news-badge { position: absolute; top: 4px; left: calc(50% + 30px); }
+.chip.news-chip { background: var(--accent); color: var(--on-accent); }
+
 .app.has-people[data-tab="people"] .people-pane { display: flex; flex: 1; }
 
 /* The active filter as a chip above the list. */

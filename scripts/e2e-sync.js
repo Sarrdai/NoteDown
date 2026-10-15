@@ -11,7 +11,8 @@
 // files and starts without protected notes, removing a device renews the keys of the shared files too,
 // a merge across circles creates the file of everyone involved, removing a person moves the note into a
 // new file and the removed person's concurrent edit lands in the private file. Last, the server owner (Sam's
-// identity, made admin on a second server process on the same database) takes a backup, both of Sam's devices edit on,
+// identity, made admin on a second server process on the same database) publishes a news post that reaches both of
+// Sam's devices (seen on one, seen on both; archived, gone with its marker), takes a backup, both of Sam's devices edit on,
 // the backup is restored, and no note is lost. Every step checks that the devices end up
 // with the same file. Note texts come from app/sample/notes.md.
 //
@@ -41,6 +42,10 @@ const AGENTS = {
   D: "Mozilla/5.0 (Linux; Android 14; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
 };
 const shots = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : null;
+
+// Bodies of the sample news posts (app/sample/news.md), by id.
+const sampleNews = Object.fromEntries(fs.readFileSync(path.join(ROOT, "app/sample/news.md"), "utf8")
+  .split(/^(?=<!-- note )/m).map(part => [/id=(\S+)/.exec(part)?.[1], part.replace(/^<!--.*-->\n/, "").trim()]));
 
 // Bodies of the sample notes, by id.
 const sample = Object.fromEntries(fs.readFileSync(path.join(ROOT, "app/sample/notes.md"), "utf8")
@@ -743,6 +748,33 @@ async function main() {
       await setBody(a, noteK, (await noteBody(a, noteK)) + "\n\nafter the contact was removed");
       await convergeShared([a, e], a, d, e);
       assert.match(await noteBody(e, noteK), /after the contact was removed$/);
+    });
+
+    await step("the owner's news reach every device: seen on one is seen on all, an archived post goes with its marker", async () => {
+      await converge(a, d);
+      const admin = await startAdminServer(await ident(a));
+      try {
+        const made = await adminCall(a, "POST", "/v1/admin/news", JSON.stringify({ body: sampleNews.p03 }));
+        assert.equal(made.status, 201, made.body);
+        const { id } = JSON.parse(made.body);
+        const news = p => p.evaluate(() => window.__store.newsNotes().map(n => ({ id: n.id, body: n.body, fresh: n.fresh, status: n.status })));
+        await converge(a, d);
+        for (const p of [a, d]) assert.deepEqual(await news(p), [{ id, body: sampleNews.p03, fresh: "new", status: "open" }], p.label + " has the new post");
+        await a.evaluate(i => window.__store.markNewsSeen([i]), id);
+        await converge(a, d);
+        assert.equal((await news(d))[0].fresh, null, "seen on A, seen on D");
+        assert.match(await fileText(d), new RegExp(`<!-- news id=${id} seen=\\S+ -->`));
+        const edited = await adminCall(a, "PUT", `/v1/admin/news/${id}`, JSON.stringify({ body: sampleNews.p03 + "\n\n" + sampleNews.p02 }));
+        assert.equal(edited.status, 204, edited.body);
+        await converge(a, d);
+        assert.equal((await news(d))[0].fresh, "updated", "an edited post is updated again");
+        assert.equal((await adminCall(a, "PUT", `/v1/admin/news/${id}`, JSON.stringify({ archived: true }))).status, 204);
+        await converge(a, d);
+        for (const p of [a, d]) assert.deepEqual(await news(p), [], p.label + " no longer shows the archived post");
+        assert.doesNotMatch(await fileText(a), /<!-- news /, "its marker left the private file");
+      } finally {
+        admin.kill();
+      }
     });
 
     await step("a restored server loses no note: backup, both of Sam's devices edit on, restore, sync", async () => {

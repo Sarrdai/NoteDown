@@ -18,7 +18,8 @@ from fastapi.responses import JSONResponse
 from psycopg import IsolationLevel
 from psycopg.types.json import Jsonb
 
-from .protocol import ProtocolError, b64u, from_b64u, is_id, key_id, member_key, verify_chain
+from .protocol import (MAX_NEWS, MAX_NEWS_PUBLISHED, ProtocolError, b64u, check_news_body, from_b64u, is_id, key_id,
+                       member_key, verify_chain)
 
 MAX_QUOTA_OVERRIDE = 1024 ** 3
 # The Neon free plan's database size; the overview shows the usage against it.
@@ -33,10 +34,16 @@ def utc_iso(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat() if value else None
 
 
+def renew_news_version(conn: psycopg.Connection) -> None:
+    """A new opaque news version, in the transaction of the change it announces."""
+    conn.execute("INSERT INTO server_state (key, value) VALUES ('news', %s) "
+                 "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (b64u(os.urandom(16)),))
+
+
 # --- backup and restore: the table layout, with a fixed whitelist of columns per table ---
 
 # Deleting goes child tables first; relay and rate_limits are cleared but never backed up.
-CLEAR_ORDER = ["rate_limits", "relay", "invitations", "contacts", "file_keys", "file_members", "files",
+CLEAR_ORDER = ["rate_limits", "relay", "news", "invitations", "contacts", "file_keys", "file_members", "files",
                "devices", "device_entries", "identities"]
 
 
@@ -74,6 +81,9 @@ def read_backup(conn: psycopg.Connection) -> dict:
              "expires": utc_iso(r[5]), "requester": r[6], "requested_at": utc_iso(r[7]), "cards": r[8]}
             for r in rows('SELECT id, identity_id, kind, device_id, sig, expires, requester, requested_at, cards '
                           'FROM invitations ORDER BY id COLLATE "C"')],
+        "news": [
+            {"id": r[0], "body": r[1], "created": utc_iso(r[2]), "modified": utc_iso(r[3]), "archived": r[4]}
+            for r in rows('SELECT id, body, created, modified, archived FROM news ORDER BY id COLLATE "C"')],
     }
     return {"format": BACKUP_FORMAT, "version": BACKUP_VERSION,
             "created": datetime.now(timezone.utc).isoformat(), "tables": tables}
@@ -154,7 +164,7 @@ def parse_backup(doc: Any) -> dict:
 
     identities: dict[str, bytes] = {}
     out: dict[str, list] = {"identities": [], "device_entries": [], "devices": [], "files": [],
-                            "file_members": [], "file_keys": [], "contacts": [], "invitations": []}
+                            "file_members": [], "file_keys": [], "contacts": [], "invitations": [], "news": []}
     for r in _rows(tables, "identities", {"id", "identity_key", "created", "quota"}):
         key = _b64u(r, "identity_key", "identities", 32)
         identity = _id(r, "id", "identities")
@@ -232,6 +242,22 @@ def parse_backup(doc: Any) -> dict:
             iid, identity, r["kind"], _text(r, "device_id", "invitations"), _text(r, "sig", "invitations"),
             _time(r, "expires", "invitations"), requester, _time(r, "requested_at", "invitations", nullable=True),
             None if cards is None else Jsonb(cards)))
+    # News is optional: a backup from before it existed restores with no news.
+    if "news" in tables:
+        seen_news: set[str] = set()
+        for r in _rows(tables, "news", {"id", "body", "created", "modified", "archived"}):
+            nid = _id(r, "id", "news")
+            try:
+                check_news_body(r["body"])
+            except ProtocolError:
+                raise _bad("news.body is not a valid post")
+            if nid in seen_news or type(r["archived"]) is not bool:
+                raise _bad("news row does not fit")
+            seen_news.add(nid)
+            out["news"].append((nid, r["body"], _time(r, "created", "news"), _time(r, "modified", "news"),
+                                r["archived"]))
+        if len(out["news"]) > MAX_NEWS or sum(not n[4] for n in out["news"]) > MAX_NEWS_PUBLISHED:
+            raise _bad("too many news")
     out["_devices"] = devices   # for the lock-out check
     return out
 
@@ -246,10 +272,11 @@ INSERTS = {
     "contacts": "INSERT INTO contacts (a, b) VALUES (%s, %s)",
     "invitations": ("INSERT INTO invitations (id, identity_id, kind, device_id, sig, expires, requester, "
                     "requested_at, cards) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"),
+    "news": "INSERT INTO news (id, body, created, modified, archived) VALUES (%s, %s, %s, %s, %s)",
 }
 # Parents before children (foreign keys).
 INSERT_ORDER = ["identities", "device_entries", "devices", "files", "file_members", "file_keys", "contacts",
-                "invitations"]
+                "invitations", "news"]
 
 
 def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_quota: int, invitation_live: str,
@@ -282,6 +309,7 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                                             "HAVING count(*) > 1) s"),
                 "contacts": count(conn, "SELECT count(*) FROM contacts WHERE a < b"),   # each pair once
                 "invitations": count(conn, f"SELECT count(*) FROM invitations WHERE {invitation_live}"),
+                "news": count(conn, "SELECT count(*) FROM news WHERE NOT archived"),
             }
             storage = {
                 "files": count(conn, "SELECT coalesce(sum(length(ciphertext)), 0) FROM files"),
@@ -354,6 +382,78 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
 
         await run_in_threadpool(update)
 
+    # --- news posts ---
+
+    def too_many_news() -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": "too many news"})
+
+    @app.get("/v1/admin/news")
+    def list_news(who: Admin):
+        with pool.connection() as conn:
+            rows = conn.execute('SELECT id, body, created, modified, archived FROM news '
+                                'ORDER BY created DESC, id COLLATE "C"').fetchall()
+        return {"news": [{"id": r[0], "created": utc_iso(r[2]), "modified": utc_iso(r[3]), "body": r[1],
+                          "archived": r[4]} for r in rows]}
+
+    @app.post("/v1/admin/news", status_code=201)
+    async def create_news(request: Request, who: Admin):
+        body = await json_body(request)
+        text = check_news_body(body.get("body") if isinstance(body, dict) else None)
+
+        def create():
+            with pool.connection() as conn:
+                conn.execute("LOCK TABLE news IN SHARE ROW EXCLUSIVE MODE")   # the limits can't be raced
+                total, published = conn.execute(
+                    "SELECT count(*), count(*) FILTER (WHERE NOT archived) FROM news").fetchone()
+                if total >= MAX_NEWS or published >= MAX_NEWS_PUBLISHED:
+                    return too_many_news()
+                nid = b64u(os.urandom(16))
+                created = conn.execute("INSERT INTO news (id, body) VALUES (%s, %s) RETURNING created, modified",
+                                       (nid, text)).fetchone()
+                renew_news_version(conn)
+            return JSONResponse(status_code=201, content={"id": nid, "created": utc_iso(created[0]),
+                                                          "modified": utc_iso(created[1])})
+
+        return await run_in_threadpool(create)
+
+    @app.put("/v1/admin/news/{news_id}", status_code=204)
+    async def update_news(news_id: str, request: Request, who: Admin):
+        patch = await json_body(request)
+        if not isinstance(patch, dict) or not ({"body", "archived"} & set(patch)):
+            raise ProtocolError("body or archived is needed")
+        text = check_news_body(patch["body"]) if "body" in patch else None
+        archived = patch.get("archived")
+        if "archived" in patch and type(archived) is not bool:
+            raise ProtocolError("archived must be true or false")
+
+        def update():
+            with pool.connection() as conn:
+                conn.execute("LOCK TABLE news IN SHARE ROW EXCLUSIVE MODE")
+                row = conn.execute("SELECT body, archived FROM news WHERE id = %s", (news_id,)).fetchone()
+                if row is None:
+                    raise HTTPException(404, "unknown news")
+                new_body = text is not None and text != row[0]
+                new_archived = archived is not None and archived != row[1]
+                if new_archived and not archived and conn.execute(
+                        "SELECT count(*) FROM news WHERE NOT archived").fetchone()[0] >= MAX_NEWS_PUBLISHED:
+                    return too_many_news()
+                if not new_body and not new_archived:
+                    return Response(status_code=204)   # nothing changes, so neither does the version
+                conn.execute(
+                    "UPDATE news SET body = %s, archived = %s, "
+                    "modified = CASE WHEN %s THEN now() ELSE modified END WHERE id = %s",
+                    (text if new_body else row[0], archived if new_archived else row[1], new_body, news_id))
+                renew_news_version(conn)
+            return Response(status_code=204)
+
+        return await run_in_threadpool(update)
+
+    @app.delete("/v1/admin/news/{news_id}", status_code=204)
+    def delete_news(news_id: str, who: Admin):
+        with pool.connection() as conn:
+            if conn.execute("DELETE FROM news WHERE id = %s", (news_id,)).rowcount:
+                renew_news_version(conn)
+
     @app.get("/v1/admin/backup")
     def backup(who: Admin):
         with pool.connection() as conn:
@@ -386,6 +486,7 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                     conn.execute(
                         "INSERT INTO server_state (key, value) VALUES ('epoch', %s) "
                         "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (b64u(os.urandom(16)),))
+                    renew_news_version(conn)
             except psycopg.errors.IntegrityError:
                 raise _bad("rows break a constraint (duplicates or a dangling reference)")
 

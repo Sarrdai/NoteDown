@@ -31,6 +31,10 @@ and the sample simulates everything without a server.
   of encrypted files, never the primary copy.
 - **End-to-end encrypted.** The server stores only ciphertext. It never
   sees a note's text, title or status, nor a key that could decrypt one.
+  The one exception is the server owner's **news** feed: public posts,
+  the same for everyone, served unencrypted; what a user did with them
+  stays in the encrypted private file (`docs/requirements.md` → "News
+  from the server's owner").
 - **Plain Markdown stays the format.** Each file is a normal NoteDown file
   (`docs/file-format.md`); encryption wraps the whole file for transport
   and storage on the server.
@@ -268,8 +272,9 @@ devices don't keep re-uploading the same notes in each other's order.
 
 - Holds: anonymous identities (ID, public keys, signed device
   list), files (ciphertext + version, file keys wrapped per device) and
-  which identities may access which file, and short-lived relay slots
-  for linking devices and contacts.
+  which identities may access which file, short-lived relay slots
+  for linking devices and contacts, and the owner's news posts (plain
+  text, fetched only when the file list reports a new version).
 - Sees, unavoidably: which anonymous identities share files, file sizes
   (in 4 KiB steps), times of change and IP addresses — no names, emails or contents.
 - **Abuse protection** without accounts: a storage quota per identity
