@@ -76,8 +76,10 @@ Current state, edited in place when a decision changes.
   selecting or recording; content that scrolls sideways itself (a wide
   table) keeps the gesture. Desktop has no touch, the view button
   switches there.
-- **Bottom sheets** (phone) have a handle: a tap opens fully or closes,
-  dragging leaves the sheet at any height, a flick or a drag near the
+- **Bottom sheets** (phone) have a handle: a tap opens fully or closes.
+  The whole sheet is one surface: dragging it anywhere leaves it at any
+  height, past the top it slides out at the top instead of scrolling
+  inside; an upward flick glides on, a downward flick or a drag near the
   bottom closes.
 - **Back** (Android button or gesture) closes the innermost layer first:
   a dialog or panel page, the selection, the editor (editing ends), the

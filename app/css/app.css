@@ -942,18 +942,21 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .app:is(.toc-open, .toc-dragging) .scrim { opacity: 1; pointer-events: auto; }
   /* The contents are a bottom sheet, within thumb reach: closed, only its
      handle peeks out at the bottom; open, it reaches up to the top bar or
-     stays at the height it was dragged to (ui/toc.js). */
+     stays where it was dragged to. It is one surface as tall as its
+     contents (at least up to the top bar) that moves as a whole, so instead
+     of scrolling inside it slides out at the top (ui/toc.js). */
   :root {
     --peek: calc(26px + var(--safe-bottom));
     --sheet-max: calc(100dvh - var(--topbar-h) - var(--safe-top) - 8px);
   }
   .toc-panel {
-    transition: height 0.25s ease; box-shadow: var(--shadow-high); background: var(--surface);
-    top: auto; right: 0; width: auto;
-    height: var(--peek); min-height: var(--peek); max-height: var(--sheet-max);
+    transition: transform 0.25s ease; box-shadow: var(--shadow-high); background: var(--surface);
+    top: 0; bottom: auto; right: 0; width: auto; min-height: var(--sheet-max);
+    transform: translateY(calc(100dvh - var(--peek))); touch-action: none;
     border-right: 0; border-radius: 18px 18px 0 0; padding-top: 0; padding-bottom: var(--safe-bottom);
   }
-  .app.toc-open .toc-panel { height: var(--sheet-max); }
+  .app.toc-open .toc-panel { transform: translateY(calc(100dvh - var(--sheet-max))); }
+  .toc-panel :is(.toc-list, .people-list) { overflow: visible; touch-action: none; }
   .toc-peek .swipe-page { background: var(--surface); }
   .toc-panel.swiping { --pane: var(--surface); --pane-other: var(--surface-other); }
   .app.toc-dragging .toc-panel { transition: none; }

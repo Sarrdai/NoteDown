@@ -377,9 +377,14 @@ before the first live test).
   the bottom** — within thumb reach, and the handle shows where it is
   (decided 2026-10-13 over a side drawer; 2026-10-14 the handle replaced
   the top bar's contents button). A tap on the handle opens it fully (up
-  to the top bar) or closes it; dragging the handle or the sheet's head
-  leaves it at any height, a drag below ~15 % or a flick down closes it.
-  The height is not remembered. While editing and recording the handle
+  to the top bar) or closes it. The sheet is one surface that moves as a
+  whole: a vertical drag anywhere on it (closed: on the handle) moves
+  it and leaves it at any height; dragged past the top bar it slides
+  out at the top, which is how longer contents scroll (decided
+  2026-10-15: opening and scrolling are one gesture, so it can also be
+  pushed back down from anywhere). An upward flick glides on, a flick
+  down closes it from anywhere, so does a drag below ~15 %. The height
+  is not remembered. While editing and recording the handle
   gives way. Tablet and desktop show it as a fixed sidebar.
 
 ### People circles as a filter
