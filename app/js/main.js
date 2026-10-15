@@ -130,7 +130,8 @@ function emptyText(view, search) {
 }
 
 // What moves in a view swipe (ui/view-swipe.js): the list column below the
-// top bar, and the contents list where it shows (the sidebar, the open sheet).
+// top bar, and the contents panel where it shows (the sidebar, the sheet):
+// its list where that shows, else (the closed sheet) only its tint.
 function swipeLanes() {
   const lanes = [{
     move: document.querySelector(".main"),
@@ -140,11 +141,12 @@ function swipeLanes() {
     },
     preview: previewView,
   }];
-  const toc = $("tocList");
-  if (toc.getClientRects().length && getComputedStyle(toc).visibility === "visible") lanes.push({
-    move: $("tocPanel"),   // the panel carries --swipe-x: the list moves by it, the background splits at it
-    rect: () => { const r = toc.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
-    preview: view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; },
+  const panel = $("tocPanel"), toc = $("tocList");
+  const listShows = toc.getClientRects().length && getComputedStyle(toc).visibility === "visible";
+  if (panel.getClientRects().length) lanes.push({
+    move: panel,   // the panel carries --swipe-x: the list moves by it, the background splits at it
+    rect: () => { const r = (listShows ? toc : panel).getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
+    preview: listShows ? view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; } : null,
     peekClass: "toc-peek",
   });
   return lanes;
