@@ -160,6 +160,11 @@ button { font: inherit; color: inherit; }
 .swipe-page { position: absolute; inset: 0; background: var(--bg); }
 .swipe-peek.toc-peek { z-index: 20; bottom: auto; }
 .toc-peek .swipe-page { display: flex; flex-direction: column; }
+/* Swiping between the contents panel's tabs: the pane follows the finger, the
+   neighbouring tab's pane moves in on the panel's own background. */
+:is(.toc-pane, .people-pane, .labels-pane).swiping { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
+.swipe-peek.tab-peek .swipe-page { background: transparent; }
+.tab-peek :is(.people-pane, .labels-pane) { display: flex; flex: 1; }
 .topbar {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; gap: 4px;
@@ -829,15 +834,16 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   position: fixed; z-index: 20; top: 0; bottom: 0; left: 0; width: var(--toc-w);
   display: flex; flex-direction: column; padding-top: var(--safe-top);
   background: var(--bg); border-right: 1px solid var(--border);
-  overflow-x: clip;   /* the contents list leaves sideways in a view swipe */
+  overflow-x: clip;   /* the contents list leaves sideways in a view or tab swipe */
+  touch-action: pan-y pinch-zoom;   /* sideways is the tab swipe's */
 }
 .toc-handle { display: none; }
 /* The three tabs (Contents, People, Labels) take the head's full width; the
-   level stepper sits in a row below them. */
-.toc-head {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: var(--topbar-h); padding: 10px 8px 10px 10px; flex: none;
-}
+   level stepper sits in a row below them, as part of the Contents tab's pane
+   (it moves with it in a tab swipe). */
+.toc-head { display: flex; padding: 10px 8px 8px 10px; flex: none; }
+.toc-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.toc-pane > .stepper { align-self: flex-start; margin: 0 0 10px 10px; }
 .stepper { display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
 .stepper-value { min-width: 18px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); }
 .stepper .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
@@ -895,9 +901,9 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 /* Thin gaps between everything / private, the contacts and the groups. */
 .people-entry.contact:not(.contact + .contact), .people-entry.group:not(.group + .group) { margin-top: 8px; }
 
-/* Tabs switch the sidebar / sheet between Contents and People. */
+/* Tabs switch the sidebar / sheet between Contents, People and Labels. */
 .stepper .icon-btn.small { min-width: 28px; padding: 0 4px; }
-.app[data-tab="people"] :is(.toc-list, .stepper) { display: none; }
+.app:is([data-tab="people"], [data-tab="labels"]) .toc-pane { display: none; }
 
 /* ---------- news ---------- */
 /* New or updated posts: a badge with their number on the News entry, the
@@ -924,7 +930,6 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 /* The Labels tab next to Contents and People. */
 .labels-pane { display: none; flex-direction: column; min-height: 0; }
 .app[data-tab="labels"] .labels-pane { display: flex; flex: 1; }
-.app[data-tab="labels"] :is(.toc-list, .stepper) { display: none; }
 .label-entry .people-lead { font-weight: 700; font-size: 1.05rem; }
 .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; }
 

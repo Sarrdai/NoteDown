@@ -1,14 +1,16 @@
-// Swipe between the notes and the archive (phone and tablet, touch only):
-// the archive lies to the right of the notes, the trash to the right of the
-// archive — reached only by its button (`canEnter`), but swiped back from. Like a pager, the list follows
-// the finger anywhere on it (and on the contents) and the other view moves in
-// beside it; let go past half the width (or with a flick) and it snaps onto
-// the other view, otherwise back. Beyond either end it only gives a little.
-// The contents list, where it shows, moves along the same way, and what
-// changes with the view (the + button) is told how far the swipe has come.
-// The top bar and the contents' head stay in place; they are redrawn once the
-// view has switched (docs/interaction-concept.md → "Input").
-// Desktop has no touch, so no gesture; the view button switches there.
+// Swipe between pages like a pager (phone and tablet, touch only), used
+// twice: on the list between the notes and the archive, and on the contents
+// panel between its tabs (Contents, People, Labels). The archive lies to the
+// right of the notes, the trash to the right of the archive — reached only by
+// its button (`canEnter`), but swiped back from. The page follows the finger
+// and the neighbouring one moves in beside it; let go past half the width (or
+// with a flick) and it snaps onto the other page, otherwise back. Beyond
+// either end it only gives a little. In a view swipe the contents list, where
+// it shows, moves along the same way, and what changes with the view (the +
+// button) is told how far the swipe has come. The top bar and the contents'
+// head stay in place; they are redrawn once the page has switched
+// (docs/interaction-concept.md → "Input").
+// Desktop has no touch, so no gesture; the view button and the tabs switch there.
 
 const SLOP = 8;           // px before the direction is decided
 const COMMIT = 1 / 2;     // share of the width that switches on release
@@ -17,9 +19,8 @@ const EDGE_GIVE = 0.25;   // how much an impossible swipe follows the finger
 const HOLD_MS = 100;      // a pause this long before letting go cancels a flick
 const SLIDE_MS = 220;
 
-const ORDER = ["open", "closed", "trash"];
-
-/** `canSwipe(target)`: whether a touch on `target` may start a swipe now;
+/** `order`: the pages from left to right;
+ *  `canSwipe(target)`: whether a touch on `target` may start a swipe now;
  *  `canEnter(view)`: whether a swipe may bring that view in;
  *  `view()`: the current view; `setView(view)`: switches to another view;
  *  `lanes()`: what moves, the list first — [{ move, rect(), preview(view),
@@ -27,14 +28,14 @@ const ORDER = ["open", "closed", "trash"];
  *  (`{ top, left, width, height? }`) the other view's page covers, and that
  *  page's elements (no `preview`: no page, only the tint moves). Other lanes
  *  move in proportion to their width. `follow(pos, ms)`: where the swipe
- *  stands between the views as an index into ORDER (0…1), to get there over
+ *  stands between the views as an index into `order` (0…1), to get there over
  *  `ms`; null once it is over. */
-export function initViewSwipe({ canSwipe, canEnter = () => true, view, setView, lanes, follow }) {
+export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, setView, lanes, follow }) {
   let g = null;     // { x, y, dx, horizontal, lastX, lastT, v, next, lanes } while a finger is down
   let busy = false;
 
   const neighbour = dir => {   // dir +1: to the right
-    const next = ORDER[ORDER.indexOf(view()) + dir];
+    const next = order[order.indexOf(view()) + dir];
     return next && canEnter(next) ? next : null;
   };
 
@@ -59,7 +60,7 @@ export function initViewSwipe({ canSwipe, canEnter = () => true, view, setView, 
 
   // Moves each lane by its share of `x` and the other page beside it, over `ms`.
   const place = (x, ms = 0) => {
-    const side = g.next && ORDER.indexOf(g.next) > ORDER.indexOf(view()) ? 1 : -1;
+    const side = g.next && order.indexOf(g.next) > order.indexOf(view()) ? 1 : -1;
     for (const lane of g.lanes) {
       const lx = x * lane.width / g.lanes[0].width;
       lane.move.style.setProperty("--swipe-x", lx + "px");
@@ -68,8 +69,8 @@ export function initViewSwipe({ canSwipe, canEnter = () => true, view, setView, 
       lane.page.style.transition = `transform ${ms}ms ease-out`;
       lane.page.style.transform = `translateX(${lx + side * lane.width}px)`;
     }
-    const pos = ORDER.indexOf(view()) - x / g.lanes[0].width;
-    follow?.(Math.min(Math.max(pos, 0), ORDER.length - 1), ms);
+    const pos = order.indexOf(view()) - x / g.lanes[0].width;
+    follow?.(Math.min(Math.max(pos, 0), order.length - 1), ms);
   };
   const reset = () => {
     for (const lane of g.lanes) {
@@ -114,7 +115,7 @@ export function initViewSwipe({ canSwipe, canEnter = () => true, view, setView, 
   }, { passive: false });
 
   // Whether a swipe by `dx` brings the other view in (not past an end).
-  const towardsNext = dx => g.next && Math.sign(dx) === (ORDER.indexOf(g.next) > ORDER.indexOf(view()) ? -1 : 1);
+  const towardsNext = dx => g.next && Math.sign(dx) === (order.indexOf(g.next) > order.indexOf(view()) ? -1 : 1);
 
   document.addEventListener("touchend", async e => {
     if (!g?.horizontal || busy) { if (!busy) g = null; return; }

@@ -178,6 +178,26 @@ function swipeLanes() {
   return lanes;
 }
 
+// The contents panel's tabs from left to right, each with its pane.
+const PANEL_TABS = ["toc", "people", "labels"];
+const tabPane = tab => $({ toc: "tocPane", people: "peoplePane", labels: "labelsPane" }[tab]);
+
+// A swipe on the contents panel moves its pane; the neighbouring tab's pane
+// moves in as a copy (all three are always rendered).
+function tabLanes() {
+  const pane = tabPane(state.panelTab);
+  return [{
+    move: pane,
+    rect: () => { const r = pane.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
+    preview: tab => {
+      const copy = tabPane(tab).cloneNode(true);
+      for (const el of [copy, ...copy.querySelectorAll("[id]")]) el.removeAttribute("id");
+      return [copy];
+    },
+    peekClass: "toc-peek tab-peek",
+  }];
+}
+
 // What the other view will show once the swipe lands there (ui/view-swipe.js):
 // the circle filter chip and the list as setView will render them, not live.
 function previewView(view) {
@@ -534,13 +554,14 @@ function wire() {
       && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
     onRefresh: syncOnRequest,
   });
-  // Swiping sideways switches views: the archive lies right of the notes, the trash right of the archive. It
-  // starts anywhere on the list and on the contents (also the open sheet),
-  // whose list moves along.
+  // Swiping sideways switches views on the list (the archive lies right of the
+  // notes, the trash right of the archive; the contents list moves along) and
+  // tabs on the contents panel (also the open sheet).
+  const canSwipe = target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+    && !app.classList.contains("recording") && !target.closest(".topbar, .selectbar, .toc-handle");
   initViewSwipe({
-    canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
-      && !app.classList.contains("recording")
-      && !!target.closest(".main, .toc-panel, .scrim") && !target.closest(".topbar, .selectbar, .toc-handle, .toc-head"),
+    order: ["open", "closed", "trash"],
+    canSwipe: target => canSwipe(target) && !!target.closest(".main, .scrim"),
     canEnter: view => view !== "trash",   // only by its ⋮ entry, swiped back from
     view: () => state.view,
     setView,
@@ -552,6 +573,13 @@ function wire() {
       fab.style.setProperty("--archive", Math.min(pos, 1));   // the trash keeps the archive's bin
       fab.style.setProperty("--archive-ms", ms + "ms");
     },
+  });
+  initViewSwipe({
+    order: PANEL_TABS,
+    canSwipe: target => canSwipe(target) && !!target.closest(".toc-panel"),
+    view: () => state.panelTab,
+    setView: tab => setUi({ panelTab: tab }),
+    lanes: tabLanes,
   });
 }
 
