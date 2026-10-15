@@ -122,10 +122,11 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table. No variant is open right now.
+is deleted from code, menu and this table.
 
 | Parameter | Values | What it switches |
 |---|---|---|
+| `storagehint` | `card` · `strip` · `footer` | Open: where the "only stored in this browser" hint sits (web, sync off) — a card above the notes (A, default), a strip below the top bar in every view (B), a line below the last note (C); ⋮ → "Show storage hint again" brings back a hidden one |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |

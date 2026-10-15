@@ -135,7 +135,7 @@ button { font: inherit; color: inherit; }
 /* Swiping between notes and archive (ui/view-swipe.js): the list and the
    contents list follow the finger, the other view's pages (.swipe-peek) move
    in beside them. */
-.main.swiping :is(.filter-bar, .view-hint, .list, .empty), .toc-panel.swiping .toc-list { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
+.main.swiping :is(.filter-bar, .view-hint, .storage-hint, .list, .empty), .toc-panel.swiping .toc-list { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
 /* The top bar and the contents panel (also the closed sheet) stay in place,
    but their color moves with the pages: two layers behind their content, this
    view's tint and the other's from its side (the archive lies to the right),
@@ -1117,4 +1117,33 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .status:hover .icon { opacity: 0; }
   .note.closed .status:hover { color: var(--done); }
   .note.closed .status:hover .icon { opacity: 1; }
+}
+
+/* Web app with sync off: the notes live only in this browser (ui/storage-hint.js).
+   Prototype variants: a card above the notes (A), a strip below the top bar (B), a line below the last note (C). */
+.storage-hint[hidden] { display: none; }
+.storage-hint .link-btn { border: 0; padding: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.storage-hint-close { flex: none; margin: -6px -6px -6px 0; }
+.storage-hint.card {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; width: calc(100% - 32px); max-width: 748px; margin: 8px auto 0; padding: 12px 12px 12px 14px;
+  background: color-mix(in srgb, var(--warning) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); border-radius: var(--radius);
+}
+.storage-hint.card .storage-hint-icon { color: var(--warning); padding-top: 2px; }
+.storage-hint.card .row-title { white-space: normal; }
+.storage-hint.card .row-sub { color: var(--text-muted); font-size: 0.86rem; }
+.storage-hint.card .request-actions { width: 100%; justify-content: flex-end; }
+.storage-hint.strip {
+  display: flex; align-items: center; gap: 8px; padding: 2px 4px 2px 16px; font-size: 0.86rem; color: var(--text);
+  background: color-mix(in srgb, var(--warning) 14%, var(--bg)); border-bottom: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+}
+.storage-hint.strip .storage-hint-text { flex: 1; min-width: 0; max-width: 748px; margin: 0 auto; }
+.storage-hint.footer {
+  display: flex; align-items: center; gap: 4px; width: calc(100% - 32px); max-width: 748px; margin: 4px auto calc(var(--fab-size) + 40px + var(--safe-bottom));
+  font-size: 0.86rem; color: var(--text-muted);
+}
+.main:has(.storage-hint.footer:not([hidden])) .list { padding-bottom: 8px; }
+.storage-hint.footer .storage-hint-text { flex: 1; min-width: 0; }
+@media (max-width: 599px) {
+  .storage-hint:is(.card, .footer) { width: calc(100% - 24px); }
+  .storage-hint.footer { margin-bottom: calc(var(--fab-size) + 40px + var(--peek)); }
 }

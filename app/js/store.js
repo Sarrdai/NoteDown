@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = {
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
+  storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
+  storageHint: "card",       // prototype variant: card | strip | footer
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

@@ -103,7 +103,7 @@ async function openPanel(page) {
 // Turns sync on through the panel, as a new user does; closes the panel.
 async function turnOnSync(page, name) {
   await openPanel(page);
-  await page.getByRole("button", { name: "Turn on sync" }).click();
+  await page.locator("#syncBody").getByRole("button", { name: "Turn on sync" }).click();
   await page.fill("#syncBody input", name);
   await page.getByRole("button", { name: "Continue" }).click();
   await page.check("#keySaved");
@@ -254,7 +254,7 @@ async function main() {
     await step("A turns sync on", async () => {
       await openPanel(a);
       await shot(a, "off-phone");
-      await a.getByRole("button", { name: "Turn on sync" }).click();
+      await a.locator("#syncBody").getByRole("button", { name: "Turn on sync" }).click();
       await a.fill("#syncBody input", "Sam");
       await a.getByRole("button", { name: "Continue" }).click();
       key = (await a.locator(".key-group").allTextContents()).join("-");
