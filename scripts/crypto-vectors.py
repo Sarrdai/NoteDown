@@ -13,6 +13,7 @@ import base64
 import hashlib
 import json
 import sys
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -146,6 +147,17 @@ def build() -> dict:
     legacy_nonce = seed("file-nonce")[:12]
     legacy_ciphertext = b64u(legacy_nonce + AESGCM(file_key).encrypt(legacy_nonce, plain, None))
 
+    # The current format: 0x01, then the raw DEFLATE stream of the text, padded like above. The file key
+    # renewed: the old key sealed with the new one (associated data notedown-previous-key).
+    long_text = file_text * 40
+    deflate = zlib.compressobj(9, zlib.DEFLATED, -15)
+    packed = b"\x01" + deflate.compress(long_text.encode()) + deflate.flush()
+    compressed_nonce = seed("file-nonce-compressed")[:12]
+    compressed_ciphertext = b64u(compressed_nonce + AESGCM(file_key).encrypt(
+        compressed_nonce, packed + b"\x80" + b"\x00" * (-(len(packed) + 1) % 4096), None))
+    new_key, previous_nonce = seed("file-key-renewed"), seed("previous-key-nonce")[:12]
+    previous_key = b64u(previous_nonce + AESGCM(new_key).encrypt(previous_nonce, file_key, b"notedown-previous-key"))
+
     # An invitation: secret -> ID -> signature of the inviting device (the phone).
     invite_secret = seed("invite-secret")[:16]
     invite_id = b64u(hashlib.sha256(invite_secret).digest()[:16])
@@ -182,6 +194,8 @@ def build() -> dict:
         "contact_card": {"recipient_enc": b64u(phone.enc), "card": card, "sealed": card_sealed},
         "file": {"key": file_key.hex(), "text": file_text, "ciphertext": ciphertext},
         "legacy_file": {"key": file_key.hex(), "text": file_text, "ciphertext": legacy_ciphertext},
+        "compressed_file": {"key": file_key.hex(), "text": long_text, "ciphertext": compressed_ciphertext},
+        "previous_key": {"new_key": new_key.hex(), "old_key": file_key.hex(), "sealed": previous_key},
     }
 
 

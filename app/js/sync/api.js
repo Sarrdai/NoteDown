@@ -69,6 +69,9 @@ export function createApi(baseUrl, who) {
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),
+    // Version history (docs/server-api.md → "Version history"): → { key_gen, versions: [{ version, updated, replaced, size, key_gen, pinned }], chain: [{ gen, sealed }] }
+    fileVersions: id => call("GET", `/v1/files/${id}/versions`, undefined, true),
+    fileVersion: (id, version) => call("GET", `/v1/files/${id}/versions/${version}`, undefined, true),   // → { id, version, ciphertext, key_gen }
     // Contacts and invitations (docs/server-api.md → "Contacts and invitations").
     createInvitation: (id, kind, sig) => call("POST", "/v1/invitations", { id, kind, sig }, true),   // → { expires }
     listInvitations: () => call("GET", "/v1/invitations", undefined, true).then(r => r.invitations),
@@ -86,6 +89,7 @@ export function createApi(baseUrl, who) {
     adminIdentities: () => call("GET", "/v1/admin/identities", undefined, true),
     adminIdentity: id => call("GET", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
     adminSetQuota: (id, quota) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/quota`, { quota }, true),   // quota in bytes, null = default
+    adminSetHistory: (id, on) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/history`, { history: on }, true),   // on: boolean
     adminNews: () => call("GET", "/v1/admin/news", undefined, true),   // → { news: [{ id, created, modified, body, archived }] }, newest first
     adminCreateNews: body => call("POST", "/v1/admin/news", { body }, true),   // → { id, created, modified }; 409 "too many news"
     adminUpdateNews: (id, patch) => call("PUT", `/v1/admin/news/${encodeURIComponent(id)}`, patch, true),   // patch: { body?, archived? }

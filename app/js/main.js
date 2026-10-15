@@ -9,6 +9,7 @@ import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite } from "./ui/sync-panel.js";
+import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";

@@ -27,7 +27,7 @@
   display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border: 0; border-radius: 999px;
   background: var(--surface-hover); color: var(--text-muted); font: inherit; font-size: 0.76rem; font-weight: 650; white-space: nowrap;
 }
-.adm-chip.you, .adm-chip.custom, .adm-chip.sample { background: var(--accent-soft); color: var(--accent); }
+.adm-chip.you, .adm-chip.custom, .adm-chip.sample, .adm-chip.history { background: var(--accent-soft); color: var(--accent); }
 .adm-chip.active { background: color-mix(in srgb, var(--done) 18%, transparent); color: var(--done); }
 .adm-chip.gone { background: var(--surface-hover); color: var(--text-faint); }
 .adm-chip.contact { height: 32px; padding: 0 12px; background: var(--surface-hover); color: var(--text); cursor: pointer; }
@@ -84,7 +84,7 @@
 .adm-item + .adm-item { border-top: 1px solid var(--border); }
 .adm-item.open { background: var(--surface); }
 .adm-head, .adm-row.table { display: grid; align-items: center; column-gap: 14px;
-  grid-template-columns: minmax(120px, 1fr) 68px 52px minmax(150px, 1.5fr) 112px; }
+  grid-template-columns: minmax(200px, 1.2fr) 68px 52px minmax(150px, 1.5fr) 112px; }
 .adm-head { padding: 0 16px 6px; font-size: 0.78rem; font-weight: 700; color: var(--text-faint); }
 .adm-sort { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 button.adm-sort { cursor: pointer; border-radius: 6px; }
@@ -109,6 +109,14 @@ button.adm-sort[data-active="true"] { color: var(--accent); }
 .adm-list.cards .adm-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .adm-list.cards .adm-item + .adm-item { border-top: 1px solid var(--border); }
 .adm-list.cards .adm-item.open { border-color: var(--accent); }
+
+/* search above the list */
+.adm-search { position: relative; display: flex; align-items: center; margin-bottom: 12px; }
+.adm-search-icon { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--text-faint); pointer-events: none; }
+.adm-search-input { padding-left: 42px; padding-right: 46px; }
+.adm-search-clear { position: absolute; right: 2px; top: 0; color: var(--text-faint); }
+.adm-search-clear[hidden] { display: none; }
+.adm-nomatch { padding: 8px 4px; }
 
 /* desktop: the list beside the detail; tablet and phone: the detail as a page with a back button */
 .adm-split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 20px; align-items: start; }
@@ -145,6 +153,15 @@ button.adm-sort[data-active="true"] { color: var(--accent); }
 .adm-unit .input { text-align: right; font-variant-numeric: tabular-nums; }
 .d-quota .field-hint, .d-quota .field-error { margin: 0; }
 .d-quota .field-error[hidden] { display: none; }
+
+.d-switchrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.d-switchtext { display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; }
+.d-switchtitle { font-weight: 650; }
+.d-switchsub { font-size: 0.85rem; color: var(--text-muted); }
+.d-historysize { margin: 10px 0 0; font-size: 0.9rem; color: var(--text-muted); }
+.d-history .field-error { margin: 8px 0 0; }
+.d-history .field-error[hidden] { display: none; }
+.d-history .switch:disabled { opacity: 0.6; cursor: default; }
 
 /* ---------- touch tiers: targets of 44px (the dialog sits outside .admin) ---------- */
 .admin:is(.tier-tablet, .tier-phone) .btn { height: var(--tap); }

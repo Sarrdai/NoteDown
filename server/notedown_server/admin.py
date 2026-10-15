@@ -2,8 +2,8 @@
 
 Every one of them answers 404 unless the caller's identity is listed in `Settings.admin_identities`
 (env ADMIN_IDENTITIES): to everybody else the endpoints don't exist. Nothing here records anything new
-about identities or devices; it only reads what the tables hold, stores the quota override and replaces
-the data on a restore.
+about identities or devices; it only reads what the tables hold, stores the quota override and the history
+switch and replaces the data on a restore.
 """
 
 import json
@@ -43,7 +43,8 @@ def renew_news_version(conn: psycopg.Connection) -> None:
 # --- backup and restore: the table layout, with a fixed whitelist of columns per table ---
 
 # Deleting goes child tables first; relay and rate_limits are cleared but never backed up.
-CLEAR_ORDER = ["rate_limits", "relay", "news", "invitations", "contacts", "file_keys", "file_members", "files",
+CLEAR_ORDER = ["rate_limits", "relay", "news", "invitations", "contacts", "file_key_chain", "file_versions", "file_keys",
+               "file_members", "files",
                "devices", "device_entries", "identities"]
 
 
@@ -54,17 +55,25 @@ def read_backup(conn: psycopg.Connection) -> dict:
 
     tables = {
         "identities": [
-            {"id": r[0], "identity_key": b64u(r[1]), "created": utc_iso(r[2]), "quota": r[3]}
-            for r in rows('SELECT id, identity_key, created, quota FROM identities ORDER BY id COLLATE "C"')],
+            {"id": r[0], "identity_key": b64u(r[1]), "created": utc_iso(r[2]), "quota": r[3], "history": r[4]}
+            for r in rows('SELECT id, identity_key, created, quota, history FROM identities ORDER BY id COLLATE "C"')],
         "device_entries": [
             {"identity_id": r[0], "seq": r[1], "entry": r[2]}
             for r in rows('SELECT identity_id, seq, entry FROM device_entries '
                           'ORDER BY identity_id COLLATE "C", seq')],
         "files": [
             {"id": r[0], "owner": r[1], "version": r[2], "ciphertext": b64u(r[3]),
-             "updated": utc_iso(r[4]), "member_key": r[5]}
-            for r in rows('SELECT id, owner, version, ciphertext, updated, member_key FROM files '
+             "updated": utc_iso(r[4]), "member_key": r[5], "key_gen": r[6]}
+            for r in rows('SELECT id, owner, version, ciphertext, updated, member_key, key_gen FROM files '
                           'ORDER BY id COLLATE "C"')],
+        "file_versions": [
+            {"file_id": r[0], "version": r[1], "ciphertext": b64u(r[2]), "updated": utc_iso(r[3]),
+             "replaced": utc_iso(r[4]), "key_gen": r[5], "pinned": r[6]}
+            for r in rows('SELECT file_id, version, ciphertext, updated, replaced, key_gen, pinned FROM file_versions '
+                          'ORDER BY file_id COLLATE "C", version')],
+        "file_key_chain": [
+            {"file_id": r[0], "gen": r[1], "sealed": r[2]}
+            for r in rows('SELECT file_id, gen, sealed FROM file_key_chain ORDER BY file_id COLLATE "C", gen')],
         "file_members": [
             {"file_id": r[0], "identity_id": r[1]}
             for r in rows('SELECT file_id, identity_id FROM file_members '
@@ -93,15 +102,23 @@ def _bad(what: str) -> ProtocolError:
     return ProtocolError(f"invalid backup: {what}")
 
 
-def _rows(tables: dict, name: str, columns: set[str]) -> list[dict]:
-    """The rows of one table: a list of objects with exactly the whitelisted keys."""
+def _rows(tables: dict, name: str, columns: set[str], optional: frozenset[str] = frozenset()) -> list[dict]:
+    """The rows of one table: a list of objects with exactly the whitelisted keys; `optional` ones may be
+    missing (backups from before they existed)."""
     rows = tables.get(name)
     if not isinstance(rows, list):
         raise _bad(f"table {name} is missing")
     for row in rows:
-        if not isinstance(row, dict) or set(row) != columns:
+        if not isinstance(row, dict) or not columns - optional <= set(row) <= columns:
             raise _bad(f"malformed row in {name}")
     return rows
+
+
+def _bool(row: dict, key: str, table: str, default: bool = False) -> bool:
+    value = row.get(key, default)
+    if type(value) is not bool:
+        raise _bad(f"{table}.{key} must be true or false")
+    return value
 
 
 def _text(row: dict, key: str, table: str, nullable: bool = False) -> Any:
@@ -163,16 +180,19 @@ def parse_backup(doc: Any) -> dict:
         raise _bad("tables are missing")
 
     identities: dict[str, bytes] = {}
-    out: dict[str, list] = {"identities": [], "device_entries": [], "devices": [], "files": [],
-                            "file_members": [], "file_keys": [], "contacts": [], "invitations": [], "news": []}
-    for r in _rows(tables, "identities", {"id", "identity_key", "created", "quota"}):
+    out: dict[str, list] = {"identities": [], "device_entries": [], "devices": [], "files": [], "file_members": [],
+                            "file_keys": [], "file_versions": [], "file_key_chain": [], "contacts": [],
+                            "invitations": [], "news": []}
+    # history and key_gen, file_versions and file_key_chain are optional: older backups restore without history.
+    for r in _rows(tables, "identities", {"id", "identity_key", "created", "quota", "history"}, frozenset({"history"})):
         key = _b64u(r, "identity_key", "identities", 32)
         identity = _id(r, "id", "identities")
         if key_id(key) != identity or identity in identities:
             raise _bad("identities.id does not match its key, or repeats")
         identities[identity] = key
         out["identities"].append((identity, key, _time(r, "created", "identities"),
-                                  _int(r, "quota", "identities", 1, MAX_QUOTA_OVERRIDE, nullable=True)))
+                                  _int(r, "quota", "identities", 1, MAX_QUOTA_OVERRIDE, nullable=True),
+                                  _bool(r, "history", "identities")))
 
     chains: dict[str, dict[int, dict]] = {i: {} for i in identities}
     for r in _rows(tables, "device_entries", {"identity_id", "seq", "entry"}):
@@ -192,14 +212,18 @@ def parse_backup(doc: Any) -> dict:
 
     files: set[str] = set()
     owners: dict[str, str] = {}
-    for r in _rows(tables, "files", {"id", "owner", "version", "ciphertext", "updated", "member_key"}):
+    current: dict[str, tuple[int, int]] = {}   # file → (version, key_gen)
+    for r in _rows(tables, "files", {"id", "owner", "version", "ciphertext", "updated", "member_key", "key_gen"},
+                   frozenset({"key_gen"})):
         fid, owner = _id(r, "id", "files"), _id(r, "owner", "files")
         if fid in files or owner not in identities:
             raise _bad("files row does not fit")
         files.add(fid)
         owners[fid] = _text(r, "member_key", "files", nullable=True)
-        out["files"].append((fid, owner, _int(r, "version", "files", 1, 2 ** 31 - 1),
-                             _b64u(r, "ciphertext", "files"), _time(r, "updated", "files"), owners[fid]))
+        current[fid] = (_int(r, "version", "files", 1, 2 ** 31 - 1),
+                        _int(r, "key_gen", "files", 1, 2 ** 31 - 1) if "key_gen" in r else 1)
+        out["files"].append((fid, owner, current[fid][0], _b64u(r, "ciphertext", "files"),
+                             _time(r, "updated", "files"), owners[fid], current[fid][1]))
     members: dict[str, list[str]] = {f: [] for f in files}
     for r in _rows(tables, "file_members", {"file_id", "identity_id"}):
         fid, identity = _id(r, "file_id", "file_members"), _id(r, "identity_id", "file_members")
@@ -219,6 +243,32 @@ def parse_backup(doc: Any) -> dict:
             raise _bad("file_keys row does not fit")
         seen_keys.add((fid, device))
         out["file_keys"].append((fid, device, wrapped))
+    seen_versions: set[tuple] = set()
+    for r in _rows(tables, "file_versions", {"file_id", "version", "ciphertext", "updated", "replaced", "key_gen",
+                                             "pinned"}) if "file_versions" in tables else []:
+        fid = _id(r, "file_id", "file_versions")
+        if fid not in files:
+            raise _bad("file_versions row does not fit")
+        version = _int(r, "version", "file_versions", 1, current[fid][0] - 1)
+        if (fid, version) in seen_versions:
+            raise _bad("file_versions row does not fit")
+        seen_versions.add((fid, version))
+        out["file_versions"].append((fid, version, _b64u(r, "ciphertext", "file_versions"),
+                                     _time(r, "updated", "file_versions"), _time(r, "replaced", "file_versions"),
+                                     _int(r, "key_gen", "file_versions", 1, current[fid][1]),
+                                     _bool(r, "pinned", "file_versions")))
+    seen_chain: set[tuple] = set()
+    for r in _rows(tables, "file_key_chain", {"file_id", "gen", "sealed"}) if "file_key_chain" in tables else []:
+        fid = _id(r, "file_id", "file_key_chain")
+        if fid not in files:
+            raise _bad("file_key_chain row does not fit")
+        gen = _int(r, "gen", "file_key_chain", 1, current[fid][1] - 1)
+        sealed = _text(r, "sealed", "file_key_chain")
+        _b64u(r, "sealed", "file_key_chain")
+        if (fid, gen) in seen_chain or len(sealed) > MAX_WRAPPED_KEY:
+            raise _bad("file_key_chain row does not fit")
+        seen_chain.add((fid, gen))
+        out["file_key_chain"].append((fid, gen, sealed))
     pairs: set[tuple] = set()
     for r in _rows(tables, "contacts", {"a", "b"}):
         a, b = _id(r, "a", "contacts"), _id(r, "b", "contacts")
@@ -263,10 +313,14 @@ def parse_backup(doc: Any) -> dict:
 
 
 INSERTS = {
-    "identities": "INSERT INTO identities (id, identity_key, created, quota) VALUES (%s, %s, %s, %s)",
+    "identities": "INSERT INTO identities (id, identity_key, created, quota, history) VALUES (%s, %s, %s, %s, %s)",
     "device_entries": "INSERT INTO device_entries (identity_id, seq, entry) VALUES (%s, %s, %s)",
     "devices": "INSERT INTO devices (identity_id, id, kind, active) VALUES (%s, %s, %s, %s)",
-    "files": "INSERT INTO files (id, owner, version, ciphertext, updated, member_key) VALUES (%s, %s, %s, %s, %s, %s)",
+    "files": ("INSERT INTO files (id, owner, version, ciphertext, updated, member_key, key_gen) "
+              "VALUES (%s, %s, %s, %s, %s, %s, %s)"),
+    "file_versions": ("INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned) "
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s)"),
+    "file_key_chain": "INSERT INTO file_key_chain (file_id, gen, sealed) VALUES (%s, %s, %s)",
     "file_members": "INSERT INTO file_members (file_id, identity_id) VALUES (%s, %s)",
     "file_keys": "INSERT INTO file_keys (file_id, device_id, wrapped) VALUES (%s, %s, %s)",
     "contacts": "INSERT INTO contacts (a, b) VALUES (%s, %s)",
@@ -275,8 +329,8 @@ INSERTS = {
     "news": "INSERT INTO news (id, body, created, modified, archived) VALUES (%s, %s, %s, %s, %s)",
 }
 # Parents before children (foreign keys).
-INSERT_ORDER = ["identities", "device_entries", "devices", "files", "file_members", "file_keys", "contacts",
-                "invitations", "news"]
+INSERT_ORDER = ["identities", "device_entries", "devices", "files", "file_members", "file_keys", "file_versions",
+                "file_key_chain", "contacts", "invitations", "news"]
 
 
 def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_quota: int, invitation_live: str,
@@ -313,6 +367,7 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
             }
             storage = {
                 "files": count(conn, "SELECT coalesce(sum(length(ciphertext)), 0) FROM files"),
+                "history": count(conn, "SELECT coalesce(sum(length(ciphertext)), 0) FROM file_versions"),
                 "database": count(conn, "SELECT pg_database_size(current_database())"),
                 "database_limit": DATABASE_LIMIT_BYTES,
             }
@@ -329,17 +384,17 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 " ON f.id = m.file_id WHERE m.identity_id = i.id), "
                 "(SELECT max(f.updated) FROM file_members m JOIN files f ON f.id = m.file_id "
                 " WHERE m.identity_id = i.id), "
-                "(SELECT count(*) FROM contacts c WHERE c.a = i.id) "
+                "(SELECT count(*) FROM contacts c WHERE c.a = i.id), i.history "
                 'FROM identities i ORDER BY i.created DESC, i.id COLLATE "C"').fetchall()
         return {"identities": [{
             "id": r[0], "created": r[1].isoformat(), "devices": r[3], "files": r[4], "used": int(r[5]),
             "quota": r[2] or default_quota, "quota_override": r[2], "updated": r[6].isoformat() if r[6] else None,
-            "contacts": r[7]} for r in rows]}
+            "contacts": r[7], "history": r[8]} for r in rows]}
 
     @app.get("/v1/admin/identities/{identity}")
     def get_identity(identity: str, who: Admin):
         with pool.connection() as conn:
-            row = conn.execute("SELECT created, quota FROM identities WHERE id = %s", (identity,)).fetchone()
+            row = conn.execute("SELECT created, quota, history FROM identities WHERE id = %s", (identity,)).fetchone()
             if row is None:
                 raise HTTPException(404, "unknown identity")
             devices = conn.execute(
@@ -352,12 +407,16 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 'ORDER BY f.updated DESC, f.id COLLATE "C"', (identity,)).fetchall()
             listed = [{"id": f[0], "version": f[1], "updated": f[2].isoformat(), "size": f[3],
                        "members": file_members(conn, f[0])} for f in files]
+            history_size = conn.execute(
+                "SELECT coalesce(sum(length(v.ciphertext)), 0) FROM file_versions v JOIN file_members m "
+                "ON m.file_id = v.file_id AND m.identity_id = %s", (identity,)).fetchone()[0]
             contacts = sorted(r[0] for r in conn.execute("SELECT b FROM contacts WHERE a = %s", (identity,)))
             invitations = conn.execute(
                 f"SELECT count(*) FROM invitations WHERE identity_id = %s AND {invitation_live}",
                 (identity,)).fetchone()[0]
         return {"id": identity, "created": row[0].isoformat(), "used": sum(f["size"] for f in listed),
                 "quota": row[1] or default_quota, "quota_override": row[1],
+                "history": row[2], "history_size": int(history_size),
                 "devices": [{"id": d[0], "kind": d[1], "active": d[2]} for d in devices],
                 "files": listed, "contacts": contacts, "invitations": invitations}
 
@@ -379,6 +438,27 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
             with pool.connection() as conn:
                 if not conn.execute("UPDATE identities SET quota = %s WHERE id = %s", (quota, identity)).rowcount:
                     raise HTTPException(404, "unknown identity")
+
+        await run_in_threadpool(update)
+
+    @app.put("/v1/admin/identities/{identity}/history", status_code=204)
+    async def set_history(identity: str, request: Request, who: Admin):
+        body = await json_body(request)
+        on = body.get("history") if isinstance(body, dict) else None
+        if type(on) is not bool:
+            raise ProtocolError("history must be true or false")
+
+        def update() -> None:
+            with pool.connection() as conn:
+                if not conn.execute("UPDATE identities SET history = %s WHERE id = %s", (on, identity)).rowcount:
+                    raise HTTPException(404, "unknown identity")
+                if not on:
+                    # The stored states of the files no member keeps history for any more go.
+                    conn.execute(
+                        "DELETE FROM file_versions v WHERE v.file_id IN "
+                        "(SELECT file_id FROM file_members WHERE identity_id = %s) AND NOT EXISTS "
+                        "(SELECT 1 FROM file_members m JOIN identities i ON i.id = m.identity_id "
+                        " WHERE m.file_id = v.file_id AND i.history)", (identity,))
 
         await run_in_threadpool(update)
 

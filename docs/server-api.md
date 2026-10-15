@@ -7,6 +7,7 @@
 - [Contacts and invitations](#contacts-and-invitations)
 - [Authentication](#authentication)
 - [Endpoints](#endpoints)
+- [Version history](#version-history)
 - [Admin](#admin)
 - [Limits](#limits)
 <!-- /toc -->
@@ -43,7 +44,7 @@ milestone 1 (decided 2026-10-14). The server is `server/` (`PROJECT.md` →
 | Identity signing key | Ed25519 | HKDF-SHA256(recovery key, salt `NoteDown`, info `identity-sign`) → 32-byte seed |
 | Recovery device keys | Ed25519 + X25519 | same, info `recovery-sign` / `recovery-enc` |
 | Device keys | Ed25519 + X25519 | generated on the device, never leave it |
-| File key | AES-256-GCM | random per file; renewed when a device is removed |
+| File key | AES-256-GCM | random per file; renewed when a device is removed, the previous one chained to it ("Version history") |
 
 A 32-byte seed imports into WebCrypto as PKCS#8 (fixed 16-byte prefix
 plus the seed); exporting the key as JWK yields the public key.
@@ -53,12 +54,19 @@ in HPKE, RFC 9180): `b64u(ephemeral X25519 public key ‖ nonce ‖
 AES-GCM(wrap key, file key))`, where the wrap key is HKDF-SHA256 over
 the X25519 shared secret with an empty salt and info `notedown-wrap` ‖
 ephemeral public key ‖ recipient public key, and the nonce has 12 bytes. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
-the padded UTF-8 Markdown file, a fresh nonce per upload. Padding
-(ISO/IEC 7816-4 style, so the server sees sizes only in 4 KiB steps):
-one `0x80` byte, then `0x00` bytes up to the next multiple of 4096 bytes
-(a plaintext that already is a multiple gets a full extra block);
-decrypting strips trailing `0x00`s and then one `0x80`. Files uploaded
-before padding existed have no `0x80` marker and are read as they are.
+the padded, compressed Markdown file, a fresh nonce per upload.
+Compressed: one `0x01` byte, then the raw DEFLATE stream (RFC 1951, no
+zlib header) of the UTF-8 text (`CompressionStream("deflate-raw")` in
+the browser); Markdown shrinks to about a third,
+which saves storage and quota. Padding (ISO/IEC 7816-4 style, so the
+server sees sizes only in 4 KiB steps): one `0x80` byte, then `0x00`
+bytes up to the next multiple of 4096 bytes (a plaintext that already is
+a multiple gets a full extra block); decrypting strips trailing `0x00`s
+and then one `0x80`. Older files are read as they are: a plaintext that
+doesn't start with `0x01` is uncompressed UTF-8 (Markdown never starts
+with that byte), one without the `0x80` marker is unpadded. App versions
+from before compression can't read compressed files, so every device has
+to run a current version.
 
 ## Device list
 
@@ -159,10 +167,12 @@ No accounts and no passwords: a device signs a challenge.
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
 | `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`; 404 unless the caller may read it ("Contacts and invitations") |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota", "epoch", "news"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News") |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members", "history"}], "quota", "epoch", "news"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `history` whether the file keeps older states ("Version history"), `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News") |
 | `GET /v1/news` | yes | → `{"version", "news": [{"id", "created", "modified", "body"}]}`: the owner's published posts, unencrypted and the same for everybody ("Admin" → "News"); any identity may read it |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
-| `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
+| `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?, "previous_key"?, "restore"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
+| `GET /v1/files/{fid}/versions` | yes | → `{"key_gen", "versions": [{"version", "updated", "replaced", "size", "key_gen", "pinned"}], "chain": [{"gen", "sealed"}]}`: the stored older states, newest first, and the key chain ("Version history"); 404 unless the caller is a member |
+| `GET /v1/files/{fid}/versions/{v}` | yes | → `{"id", "version", "ciphertext", "key_gen"}`; 404 for a state that isn't stored (the current version included) or a non-member |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
 | `POST /v1/invitations` | yes | `{"id", "kind", "sig"}` (`kind` `code` or `link`) → 201 `{"expires"}`; 400 for an invalid ID, kind or a `sig` that isn't the calling device's signature, 409 if the ID exists, 413 with 20 open |
 | `GET /v1/invitations` | yes | → `{"invitations": [{"id", "kind", "device", "sig", "expires", "request"}]}` of the identity; `device` is the signing device, `request` `null` or `{"identity", "card"}` with the card sealed for the calling device (`null` if none is) |
@@ -189,7 +199,11 @@ No accounts and no passwords: a device signs a challenge.
   `version`, so two devices sharing at the same time don't split it.
   With `keys` the whole set of wrapped keys is replaced (renewing the
   file key after a device was removed); without, the keys stay. Every key
-  must belong to an active device of a member.
+  must belong to an active device of a member. Renewing an existing file
+  needs `previous_key`, the replaced key sealed with the new one (400
+  without; at most 512 characters, `b64u`), which the server adds to the
+  key chain. `"restore": true` marks an upload that brings back an older
+  state: the state it replaces is pinned ("Version history").
 - Removing a device also deletes its wrapped keys in every file.
 - **Linking a device:** the new device creates a relay slot and shows a
   QR code with its device keys and the slot. The linked device appends
@@ -221,6 +235,41 @@ No accounts and no passwords: a device signs a challenge.
   large, or the storage quota is used up), 429 (rate limit; the
   `Retry-After` header gives the seconds until the window ends).
 
+## Version history
+
+Backlog #7. A file keeps its older states while **one of its members**
+has version history switched on; the admin switches it per identity
+("Admin"), the basis of a paid option later (backlog #33). Every member
+of such a file may list and read its states, also one without the
+switch. The server only stores and thins the encrypted states; reading,
+comparing and restoring happen on the device.
+
+- **Stored:** each upload of an existing file stores the state it
+  replaces (table `file_versions`: `version`, `ciphertext`, `updated` =
+  when that state was uploaded, `replaced` = now, `key_gen`, `pinned`).
+  Not counted against the storage quota; the admin page shows its size.
+- **Thinning** on every such upload: for states replaced in the last
+  24 hours one per hour, before that one per UTC day — in each hour or
+  day the first state replaced in it, i.e. the one from before that
+  hour's or day's changes. Pinned states stay. Nothing stays longer than
+  30 days after it was replaced (listing and reading leave out what is
+  older even before the next upload deletes it).
+- **Key chain:** a file's key has a generation, `key_gen`, 1 at creation
+  and + 1 with every renewal. Renewing stores the previous key sealed
+  with the new one (`previous_key`, table `file_key_chain`: `gen` = the
+  generation of the sealed key), so a device that has the current key
+  opens the key of any older state: b64u of 12-byte nonce ‖ AES-GCM(new
+  file key, previous file key) with the associated data
+  `notedown-previous-key` (`sealPreviousKey` in `app/js/core/crypto.js`).
+  A removed device gets no newer key and so nothing new either.
+- **Restoring** is an ordinary upload of the older state's notes on top
+  of the current version, with `"restore": true`: the server pins the
+  state it replaces, so the restore can be undone; the other devices
+  merge it as any change (`docs/sync-and-sharing.md` → "Version
+  history").
+- **Switching it off** for an identity deletes the stored states of the
+  files of which no member has it any more; later uploads store none.
+
 ## Admin
 
 For the server's owner. Every endpoint below needs the usual bearer token
@@ -236,10 +285,11 @@ no request logs).
 
 | Method and path | Request → response |
 |---|---|
-| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news"}, "storage": {"files", "database", "database_limit"}, "quota"}`; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
-| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts"}]}`, newest first; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
-| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations"}`; devices in the order they were added to the list, files newest first; 404 for an unknown identity |
+| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news"}, "storage": {"files", "history", "database", "database_limit"}, "quota"}`; `storage.history` is the decoded ciphertext of all stored older states; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
+| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts", "history"}]}`, newest first; `history` whether version history is switched on; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
+| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "history", "history_size", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations"}`; devices in the order they were added to the list, files newest first; `history_size` is the decoded ciphertext of the stored states of its files; 404 for an unknown identity |
 | `PUT /v1/admin/identities/{id}/quota` | `{"quota": <bytes> \| null}` → 204; `null` resets to the default; 400 unless `1 <= quota <= 1 GiB`; 404 for an unknown identity |
+| `PUT /v1/admin/identities/{id}/history` | `{"history": true \| false}` → 204: switches version history on or off ("Version history"); 400 for anything but a boolean; 404 for an unknown identity |
 | `GET /v1/admin/news` | → `{"news": [{"id", "created", "modified", "body", "archived"}]}`, newest `created` first, archived posts included |
 | `POST /v1/admin/news` | `{"body"}` → 201 `{"id", "created", "modified"}`: a new, published post; 400 for a bad body, 409 `{"detail": "too many news"}` ("Limits") |
 | `PUT /v1/admin/news/{id}` | `{"body"?, "archived"?}` → 204; `modified` is set to now only when `body` differs from the stored one, `archived` hides a post from the feed or publishes it again; 400 for neither field, a bad body or a non-boolean `archived`; 404 for an unknown ID; 409 `too many news` when publishing it again would exceed 20 published posts |
@@ -255,9 +305,11 @@ read-only transaction), a JSON document
 
 | Table | Columns |
 |---|---|
-| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`) |
+| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`), `history` (optional: missing = off) |
 | `device_entries` | `identity_id`, `seq`, `entry` (the signed entry as in "Device list") |
-| `files` | `id`, `owner`, `version`, `ciphertext`, `updated`, `member_key` |
+| `files` | `id`, `owner`, `version`, `ciphertext`, `updated`, `member_key`, `key_gen` (optional: missing = 1) |
+| `file_versions` | `file_id`, `version` (below the file's), `ciphertext`, `updated`, `replaced`, `key_gen` (at most the file's), `pinned`; optional table |
+| `file_key_chain` | `file_id`, `gen` (below the file's `key_gen`), `sealed`; optional table |
 | `file_members` | `file_id`, `identity_id` |
 | `file_keys` | `file_id`, `device_id`, `wrapped` |
 | `contacts` | `a`, `b` (both directions, as stored) |

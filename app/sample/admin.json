@@ -12,7 +12,8 @@
   "storage": {
    "files": 6778591,
    "database": 9856614,
-   "database_limit": 536870912
+   "database_limit": 536870912,
+   "history": 508000
   },
   "quota": 2097152
  },
@@ -26,7 +27,8 @@
    "quota": 2097152,
    "quota_override": null,
    "updated": null,
-   "contacts": 0
+   "contacts": 0,
+   "history": false
   },
   {
    "id": "VoAp6GGNxmJMm4Tl8mWD-f",
@@ -37,7 +39,8 @@
    "quota": 10485760,
    "quota_override": 10485760,
    "updated": "2026-10-01T19:45:00Z",
-   "contacts": 0
+   "contacts": 0,
+   "history": false
   },
   {
    "id": "Nw5kXu_P3OvApgpykp0s_0",
@@ -48,7 +51,8 @@
    "quota": 2097152,
    "quota_override": null,
    "updated": "2026-10-14T09:30:00Z",
-   "contacts": 1
+   "contacts": 1,
+   "history": false
   },
   {
    "id": "9uOPy_KV2CsyCMzrvmiqDL",
@@ -59,7 +63,8 @@
    "quota": 2097152,
    "quota_override": null,
    "updated": "2026-10-12T18:20:00Z",
-   "contacts": 2
+   "contacts": 2,
+   "history": false
   },
   {
    "id": "gTJenhuklXInO6uthC2Adp",
@@ -70,7 +75,8 @@
    "quota": 2097152,
    "quota_override": null,
    "updated": "2026-10-14T21:05:00Z",
-   "contacts": 2
+   "contacts": 2,
+   "history": true
   },
   {
    "id": "SHJp3Uwrq1jG4IEXjnNNkg",
@@ -81,7 +87,8 @@
    "quota": 2097152,
    "quota_override": null,
    "updated": "2026-10-15T07:42:00Z",
-   "contacts": 3
+   "contacts": 3,
+   "history": true
   }
  ],
  "details": {
@@ -147,7 +154,9 @@
     "Nw5kXu_P3OvApgpykp0s_0",
     "gTJenhuklXInO6uthC2Adp"
    ],
-   "invitations": 1
+   "invitations": 1,
+   "history": true,
+   "history_size": 412000
   },
   "gTJenhuklXInO6uthC2Adp": {
    "id": "gTJenhuklXInO6uthC2Adp",
@@ -210,7 +219,9 @@
     "9uOPy_KV2CsyCMzrvmiqDL",
     "SHJp3Uwrq1jG4IEXjnNNkg"
    ],
-   "invitations": 0
+   "invitations": 0,
+   "history": true,
+   "history_size": 96000
   },
   "9uOPy_KV2CsyCMzrvmiqDL": {
    "id": "9uOPy_KV2CsyCMzrvmiqDL",
@@ -258,7 +269,9 @@
     "SHJp3Uwrq1jG4IEXjnNNkg",
     "gTJenhuklXInO6uthC2Adp"
    ],
-   "invitations": 0
+   "invitations": 0,
+   "history": false,
+   "history_size": 0
   },
   "Nw5kXu_P3OvApgpykp0s_0": {
    "id": "Nw5kXu_P3OvApgpykp0s_0",
@@ -284,7 +297,9 @@
    "contacts": [
     "SHJp3Uwrq1jG4IEXjnNNkg"
    ],
-   "invitations": 1
+   "invitations": 1,
+   "history": false,
+   "history_size": 0
   },
   "VoAp6GGNxmJMm4Tl8mWD-f": {
    "id": "VoAp6GGNxmJMm4Tl8mWD-f",
@@ -313,7 +328,9 @@
     }
    ],
    "contacts": [],
-   "invitations": 0
+   "invitations": 0,
+   "history": false,
+   "history_size": 0
   },
   "h6-mlUtIjaWLGGX3o6ywKk": {
    "id": "h6-mlUtIjaWLGGX3o6ywKk",
@@ -327,7 +344,9 @@
    ],
    "files": [],
    "contacts": [],
-   "invitations": 0
+   "invitations": 0,
+   "history": false,
+   "history_size": 0
   }
  }
 }

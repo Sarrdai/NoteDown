@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   formatBytes, megabytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope,
-  sortIdentities, defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText,
+  sortIdentities, filterIdentities, defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText,
   backupFileName, sampleBackup, createSampleAdmin, MB, BACKUP_TABLES, OPTIONAL_BACKUP_TABLES, MAX_NEWS_BODY,
   MAX_NEWS_PUBLISHED, NEW_POST_TEXT, checkNewsBody, newsErrorText, newsTime, newsDateText, splitNews, newsFromNotes,
 } from "../app/js/core/admin.js";
@@ -329,4 +329,53 @@ test("readBackup: the news table is optional but must be a list", () => {
   withNews.tables.news = {};
   assert.match(readBackup(JSON.stringify(withNews)).error, /"news" of the backup is not a list/);
   assert.ok(BACKUP_TABLES.every(t => t !== "news") && OPTIONAL_BACKUP_TABLES.includes("news"));
+});
+
+test("filterIdentities matches a part of the full ID, case-insensitive, white space ignored", () => {
+  const list = [{ id: "SHJp3Uwrq1jG4IEXjnNNkg" }, { id: "gTJenhuklXInO6uthC2Adp" }, { id: "h6-mlUtIjaWLGGX3o6ywKk" }];
+  const ids = q => filterIdentities(list, q).map(i => i.id);
+  assert.deepEqual(ids("shjp3"), ["SHJp3Uwrq1jG4IEXjnNNkg"]);
+  assert.deepEqual(ids("  HJP3uw "), ["SHJp3Uwrq1jG4IEXjnNNkg"]);
+  assert.deepEqual(ids("jg4iexjnnnkg".slice(0, 4)), ["SHJp3Uwrq1jG4IEXjnNNkg"], "any part, not only the start");
+  assert.deepEqual(ids("SHJp3Uwrq1jG4IEXjnNNkg"), ["SHJp3Uwrq1jG4IEXjnNNkg"], "a full ID");
+  assert.deepEqual(ids("tj"), ["gTJenhuklXInO6uthC2Adp"]);
+  assert.deepEqual(ids("zzz"), []);
+  assert.deepEqual(ids("h"), list.map(i => i.id), "the original order is kept");
+});
+
+test("filterIdentities: an empty query keeps all, as a new array", () => {
+  const list = [{ id: "a1" }, { id: "b2" }];
+  for (const q of ["", "   ", null, undefined]) {
+    const out = filterIdentities(list, q);
+    assert.deepEqual(out, list);
+    assert.notEqual(out, list);
+  }
+});
+
+test("the sample server switches the version history of an identity", async () => {
+  const api = createSampleAdmin(sample);
+  const id = sample.identities.find(i => !i.history && sample.details[i.id].files.length).id;
+  assert.equal((await api.adminIdentity(id)).history, false);
+  const before = (await api.adminOverview()).storage.history;
+  await api.adminSetHistory(id, true);
+  const d = await api.adminIdentity(id);
+  assert.equal(d.history, true);
+  assert.ok(d.history_size > 0);
+  assert.equal((await api.adminIdentities()).identities.find(i => i.id === id).history, true);
+  assert.equal((await api.adminOverview()).storage.history, before + d.history_size);
+  await api.adminSetHistory(id, false);
+  assert.equal((await api.adminIdentity(id)).history, false);
+  assert.equal((await api.adminOverview()).storage.history, before);
+  await assert.rejects(() => api.adminSetHistory("nope", true), { status: 404 });
+  await assert.rejects(() => api.adminSetHistory(id, "yes"), { status: 400 });
+});
+
+test("the sample data carries the history fields", () => {
+  const on = sample.identities.filter(i => i.history);
+  assert.ok(on.length >= 1);
+  for (const i of sample.identities) {
+    assert.equal(typeof i.history, "boolean");
+    assert.equal(sample.details[i.id].history, i.history);
+  }
+  assert.equal(sample.overview.storage.history, on.reduce((n, i) => n + sample.details[i.id].history_size, 0));
 });

@@ -1,5 +1,6 @@
 {
   "name": "Alex",
+  "identity": "SHJp3Uwrq1jG4IEXjnNNkg",
   "storage": { "used": 314572, "quota": 2097152 },
   "devices": [
     { "name": "Pixel 8", "syncedDaysAgo": 0 },
@@ -16,6 +17,20 @@
     { "members": ["lea", "tom"], "notes": ["s18"] }
   ],
   "news": { "p02": "updated", "p01": "archived" },
+  "history": {
+    "": [
+      { "hoursAgo": 2, "shorter": ["s03"] },
+      { "hoursAgo": 9, "shorter": ["s03"], "without": ["s02"] },
+      { "hoursAgo": 27, "shorter": ["s03", "s04"], "without": ["s02"], "restore": ["s08"] },
+      { "hoursAgo": 75, "shorter": ["s03", "s04"], "without": ["s02", "s13", "s14"], "restore": ["s08"] },
+      { "hoursAgo": 170, "shorter": ["s03", "s06"], "without": ["s02", "s13", "s14", "s05", "s07"], "restore": ["s08"] },
+      { "hoursAgo": 410, "shorter": ["s03", "s06"], "without": ["s02", "s13", "s14", "s05", "s07", "s04"], "restore": ["s08", "s19"] }
+    ],
+    "lea": [
+      { "hoursAgo": 20, "shorter": ["s01"] },
+      { "hoursAgo": 120, "without": ["s01"] }
+    ]
+  },
   "scanSuggestion": "Grandma",
   "request": { "name": "Mia", "via": "link" }
 }

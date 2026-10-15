@@ -98,7 +98,9 @@ before the first live test).
   never holds a key that decrypts them — notes are private by default,
   even from whoever runs the server. Files are padded to 4 KiB steps
   before encryption, so the server doesn't learn their exact size
-  either (backlog #17).
+  either (backlog #17), and compressed before that (decided 2026-10-15:
+  Markdown shrinks to about a third, which saves server storage and the
+  user's quota; app versions from before can't read such files).
 - **Abuse protection without accounts** (backlog #8): the default server
   keeps at most **2 MB** of encrypted files per identity — thousands of
   notes; the user wants to raise it later as a paid option — and limits
@@ -143,6 +145,40 @@ before the first live test).
   until another one removes it. No new file key: a device that erases
   itself needs none, and one that may have been copied is removed from
   another device, which renews it. *Prototype: 2026-10-14.*
+- **Version history** (backlog #7, decided 2026-10-15, user request):
+  the server keeps older states of a file — one per hour for the last
+  day, then one per day, for 30 days — and the user brings one back.
+  - **An option per identity, not public yet:** while there is no way to
+    pay, the server's owner switches it on on the admin page; a file
+    keeps a history while one of its members has it, and every member
+    of the file sees and restores it. Why: it costs server storage
+    (whole encrypted copies; not counted against the quota) and is meant
+    to become a paid option (backlog #33). Without it, nothing of it is
+    shown.
+  - **Restoring works on a whole file** — the private notes, or the
+    notes of one circle — and brings back that state's notes (contacts
+    and device names stay as they are now); for a shared file for
+    everyone in it, after a confirmation that says so. The state it
+    replaces stays in the history ("before a restore"), so a restore
+    can be undone. Restoring a single note is backlog #38; a deleted
+    note alone comes back from the trash.
+  - **Where:** Sync & sharing → "Version history" → the file → its
+    states, newest first, each with its time and a summary of what
+    restoring it changes ("1 note back · 2 newer notes go · 1 changed").
+    A state opens with what a restore changes — the notes that come
+    back, the notes added since that go, the notes whose text goes back
+    — and a "Restore this state" button (decided 2026-10-15 over showing
+    the state's notes as they were: it answers which state is the right
+    one and what a restore would lose). *Prototype: 2026-10-15.*
+  - Older states stay readable after a device was removed (the renewed
+    file key carries the previous one, `docs/sync-and-sharing.md` →
+    "Version history").
+- **Your identity** (decided 2026-10-15, user request): Sync & sharing
+  ends with "Your identity", a page with the identity's ID in full and
+  "Copy ID", so a user can tell the server's owner which identity to
+  switch an option on for (version history, a larger storage limit).
+  The ID is anonymous; contacts and the server know it anyway.
+  *Prototype: 2026-10-15.*
 - The server is built to scale to many users (stateless API, database,
   later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
@@ -270,11 +306,21 @@ paid features per user.
   times of change and who shares with whom; nothing like "last seen" is
   recorded for it. Devices appear by ID and kind, not by name (names live
   in the encrypted private file).
+- **Finding an identity:** a search field above the identity list
+  (every tier) filters it as the admin types any part of the ID — the
+  short ID of a row or a full ID a user sent (decided 2026-10-15, user
+  request).
 - **Storage limit per identity:** the admin can raise or lower one
   identity's limit (default 2 MB) or reset it to the default; the app's
   storage bar shows the identity's own limit. Why: the first lever for a
   paid option, useful for testers right away; real payments are backlog
   #33.
+- **Version history per identity** (decided 2026-10-15): a switch in the
+  identity's detail turns it on or off ("Sync and sharing" → "Version
+  history"); the list marks identities that have it with a "History"
+  chip, the detail and the overview show how much the stored states take.
+  Switching it off deletes the states of the files no member keeps a
+  history for any more. *Prototype: 2026-10-15.*
 - **Backup:** "Download backup" saves one file with everything the server
   stores (encrypted files, public keys, device lists, sharing); "Restore
   backup…" replaces the whole server state with such a file after the

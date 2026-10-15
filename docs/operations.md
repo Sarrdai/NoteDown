@@ -272,8 +272,9 @@ checks; wait an hour).
 - The database schema is created and extended by the server at start
   (`server/notedown_server/schema.sql`, only additive statements).
 - **Backups:** the admin page → *Download backup* saves the whole server
-  state as one file (encrypted notes, public keys, who shares with whom
-  — keep it private anyway). Take one before risky changes and from time
+  state as one file (encrypted notes and their stored older states,
+  public keys, who shares with whom — keep it private anyway; version
+  history makes it larger). Take one before risky changes and from time
   to time. *Restore backup…* replaces everything with such a file (up to
   32 MB, Cloud Run's request limit); devices merge their notes back in at
   their next sync, devices linked after the backup must be linked again.

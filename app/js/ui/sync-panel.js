@@ -35,6 +35,7 @@ let shownUsage = null, shownFull = false;   // `state.sync.usage` / `storageFull
 let shownContacts = "";  // the requests and contacts the overview was drawn with, as text
 let pendingInvite = null; // an invitation link opened while sync was off: continued once sync is on
 let leave = null;        // turns off what the page on screen started (camera)
+let sampleIdentity = ""; // the sample's identity ID (sample/sharing.json), shown by "Your identity" in the sample
 
 export function initSyncPanel() {
   $("syncBack").addEventListener("click", back);
@@ -57,7 +58,7 @@ export function initSyncPanel() {
   });
   onContactConfirmed(contact => showSnackbar(`${contact.name} confirmed your request`));
   setInterval(updateStatus, 20000);
-  loadSharingSample();   // warm the sample identity for the simulated scans
+  loadSharingSample().then(sample => { sampleIdentity = sample.identity || ""; });   // warm the sample identity for the simulated scans
 }
 
 /** The sync icon and ⋮ → "Sync & sharing…": opening the panel also syncs. */
@@ -87,6 +88,13 @@ export function openPanel(page, data = {}) {
 /** Pages other modules add to the container: { title, render(data), footer?(data) }. */
 export function registerPage(name, def) {
   PAGES[name] = def;
+}
+
+const extraSections = [];   // what other modules add to the overview, after Storage: () → nodes or null
+
+/** Adds a section to the overview (both modes), drawn by `fn()` each time; null leaves it out. */
+export function addOverviewSection(fn) {
+  extraSections.push(fn);
 }
 
 /** Replaces the page stack with [[page, data], …] (the last is shown). */
@@ -125,7 +133,7 @@ export function popPage() {
 }
 
 /** Redraws the page on screen (e.g. after switching its tab). */
-export function refreshPage() { render(); }
+export function refreshPage(options) { render(options); }
 
 /** Back to only `page`, e.g. the overview after a flow. */
 export function resetPanel(page) { reset(page); }
@@ -176,7 +184,7 @@ function render({ keepScroll = false } = {}) {
 
 // ---------- small DOM helpers ----------
 
-const section = title => h("h3", { class: "sheet-section" }, title);
+export const section = title => h("h3", { class: "sheet-section" }, title);
 
 function field(label, input, hint) {
   return h("label", { class: "field" }, h("span", { class: "field-label" }, label), input, hint && h("span", { class: "field-hint" }, hint));
@@ -196,7 +204,7 @@ function segmented(options, current, onPick) {
     h("button", { class: "segment", role: "tab", type: "button", "aria-selected": String(id === current), onclick: () => onPick(id) }, label)));
 }
 
-function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
+export function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
   const lead = [
     avatar ? h("span", { class: "avatar", "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
     h("span", { class: "row-text" }, h("span", { class: "row-title" }, title), sub && h("span", { class: "row-sub" + (unverified ? " unverified-sub" : "") }, sub)),
@@ -562,6 +570,22 @@ const PAGES = {
     },
   },
 
+  identity: {
+    title: "Your identity",
+    render: () => {
+      const id = identityId();
+      return [
+        text("Your anonymous ID on this sync server. The server's owner needs it to switch on extra features for you."),
+        h("div", { class: "id-box", role: "group", "aria-label": "Your identity ID" }, id),
+        h("div", { class: "button-row" },
+          h("button", {
+            class: "btn outline", type: "button",
+            onclick: async () => showSnackbar(await copyText(id) ? "ID copied" : "Copying is blocked here"),
+          }, h("span", { html: icon("copy") }), "Copy ID")),
+      ];
+    },
+  },
+
   signOut: {
     title: "Sign out this device",
     render: data => {
@@ -591,6 +615,18 @@ const PAGES = {
     },
   },
 };
+
+// The "Your identity" section, last on the overview: a row that opens the page with the full ID.
+const identityId = () => (real() ? state.sync.identity : sampleIdentity);
+
+function identitySection() {
+  const id = identityId();
+  if (!id) return null;
+  return [
+    section("Your identity"),
+    h("ul", { class: "sheet-card" }, row({ icon: "user", title: "Identity ID", sub: id.slice(0, 8) + "…", open: () => go("identity") })),
+  ];
+}
 
 // The Storage section: used share of the server quota, hidden while unknown.
 function storageSection() {
@@ -664,6 +700,8 @@ function realOverview(data) {
       () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
     contactsSections(c => go("removeContact", { id: c.id, name: c.name })),
     storageSection(),
+    ...extraSections.map(fn => fn()),
+    identitySection(),
   ].flat();
 }
 
@@ -682,6 +720,8 @@ function simulatedOverview() {
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
     contactsSections((c, i) => removeFromList("contacts", i, c.name)),
     storageSection(),
+    ...extraSections.map(fn => fn()),
+    identitySection(),
   ].flat();
 }
 

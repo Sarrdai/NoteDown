@@ -48,6 +48,7 @@ ENDPOINTS = [
     ("GET", "/v1/admin/identities", None),
     ("GET", "/v1/admin/identities/{id}", None),
     ("PUT", "/v1/admin/identities/{id}/quota", {"quota": 1000}),
+    ("PUT", "/v1/admin/identities/{id}/history", {"history": True}),
     ("GET", "/v1/admin/backup", None),
     ("POST", "/v1/admin/restore", {}),
     ("GET", "/v1/admin/news", None),
@@ -121,7 +122,7 @@ def test_identities_list(client, people, admin):
     assert set(rows) == {admin.id, alice.id, bob.id}
     assert rows[alice.id] | {"created": None, "updated": None} == {
         "id": alice.id, "created": None, "devices": 1, "files": 2, "used": 150, "quota": MAX_STORAGE_BYTES,
-        "quota_override": None, "updated": None, "contacts": 1}
+        "quota_override": None, "updated": None, "contacts": 1, "history": False}
     assert rows[alice.id]["updated"] and rows[alice.id]["created"]
     assert rows[bob.id]["used"] == 50 and rows[bob.id]["files"] == 1
     assert rows[bob.id]["quota"] == 5000 == rows[bob.id]["quota_override"]
@@ -227,9 +228,9 @@ def test_backup_format(client, people, admin):
     doc = r.json()
     assert doc["format"] == "notedown-backup" and doc["version"] == 1 and doc["created"]
     assert set(doc["tables"]) == {"identities", "device_entries", "files", "file_members", "file_keys", "contacts",
-                                  "invitations", "news"}
+                                  "invitations", "news", "file_versions", "file_key_chain"}
     assert {r["id"] for r in doc["tables"]["identities"]} == {admin.id, alice.id, bob.id}
-    assert set(doc["tables"]["identities"][0]) == {"id", "identity_key", "created", "quota"}
+    assert set(doc["tables"]["identities"][0]) == {"id", "identity_key", "created", "quota", "history"}
     assert [f["id"] for f in doc["tables"]["files"]] == [private]
     assert doc["tables"]["files"][0]["ciphertext"] == b64u(b"secret")
     assert len(doc["tables"]["device_entries"]) == 6 and len(doc["tables"]["contacts"]) == 2

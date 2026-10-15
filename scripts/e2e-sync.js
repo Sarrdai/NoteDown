@@ -13,7 +13,8 @@
 // new file and the removed person's concurrent edit lands in the private file. Last, the server owner (Sam's
 // identity, made admin on a second server process on the same database) publishes a news post that reaches both of
 // Sam's devices (seen on one, seen on both; archived, gone with its marker), takes a backup, both of Sam's devices edit on,
-// the backup is restored, and no note is lost. Every step checks that the devices end up
+// the backup is restored, and no note is lost; with version history switched on, Sam's private file keeps its
+// older states through a key renewal and a restore (and its undo) reaches both devices. Every step checks that the devices end up
 // with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
@@ -215,6 +216,12 @@ async function startAdminServer(identity) {
   }
   proc.kill();
   throw new Error("the admin server did not start");
+}
+
+// Stops the admin server and waits until it is gone, so the next one doesn't answer the health check of this one.
+function stopAdminServer(proc) {
+  if (proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve();
+  return new Promise(resolve => { proc.once("exit", resolve); proc.kill(); });
 }
 
 // An admin call made from `page` with its device's keys (the way the admin page signs in). → { status, body } with the body as text.
@@ -773,7 +780,7 @@ async function main() {
         for (const p of [a, d]) assert.deepEqual(await news(p), [], p.label + " no longer shows the archived post");
         assert.doesNotMatch(await fileText(a), /<!-- news /, "its marker left the private file");
       } finally {
-        admin.kill();
+        await stopAdminServer(admin);
       }
     });
 
@@ -823,7 +830,52 @@ async function main() {
         await converge(a, d);
         assert.ok((await bodies(a)).includes(sample.s16));
       } finally {
-        admin.kill();
+        await stopAdminServer(admin);
+      }
+    });
+
+    await step("version history: kept once the owner switches it on, readable after a key renewal, a restore brings a state back on every device", async () => {
+      await converge(a, d);
+      const admin = await startAdminServer(await ident(a));
+      try {
+        const on = await adminCall(a, "PUT", `/v1/admin/identities/${await ident(a)}/history`, JSON.stringify({ history: true }));
+        assert.equal(on.status, 204, on.body);
+        await sync(a);
+        assert.ok((await syncState(a)).history.includes(""), "the private file keeps a history (the shared ones too)");
+        const before = (await bodies(a)).sort();
+        await addNote(a, sample.s17);
+        await converge(a, d);
+        const versions = p => p.evaluate(() => window.__sync.fileVersions(""));
+        const textOf = (p, v) => p.evaluate(v => window.__sync.fileVersionText("", v), v);
+        const notesOf = text => [...text.matchAll(/^<!-- note [^\n]*-->\n([\s\S]*?)(?=\n<!-- |$)/gm)].length;
+        const listed = await versions(a);
+        const oldest = listed.at(-1);
+        assert.ok(oldest && !oldest.pinned, "the state before the new note is kept");
+        assert.ok(!(await textOf(a, oldest.version)).includes(sample.s17), "it is the state before the note");
+        assert.ok(notesOf(await textOf(a, oldest.version)) > 0);
+        // A renewed file key (as after removing a device) keeps the older states readable, on both devices.
+        await a.evaluate(async () => { (await import("/app/js/sync/files.js")).markRenew(); await window.__sync.syncNow(); });
+        assert.deepEqual((await stateOf(a)).renew, [], "renewed");
+        await converge(a, d);
+        assert.equal(await textOf(d, oldest.version), await textOf(a, oldest.version), "D reads it through the key chain");
+        // Restoring brings the old notes back on both devices; the state it replaced stays, pinned.
+        await a.evaluate(v => window.__sync.restoreFileVersion("", v), oldest.version);
+        await converge(a, d);
+        for (const p of [a, d]) assert.deepEqual((await bodies(p)).sort(), before, p.label + " has the restored notes");
+        const pinned = (await versions(d)).find(v => v.pinned);
+        assert.ok(pinned, "the replaced state is pinned");
+        assert.ok((await textOf(d, pinned.version)).includes(sample.s17));
+        // And undoing the restore from the other device brings the note back.
+        await d.evaluate(v => window.__sync.restoreFileVersion("", v), pinned.version);
+        await converge(a, d);
+        assert.ok((await bodies(a)).includes(sample.s17), "undone");
+        const off = await adminCall(a, "PUT", `/v1/admin/identities/${await ident(a)}/history`, JSON.stringify({ history: false }));
+        assert.equal(off.status, 204, off.body);
+        await sync(a);
+        assert.deepEqual((await syncState(a)).history, [], "switched off: no history");
+        assert.deepEqual(await versions(a), [], "the stored states are gone");
+      } finally {
+        await stopAdminServer(admin);
       }
     });
 

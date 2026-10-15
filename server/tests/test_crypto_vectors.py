@@ -4,6 +4,7 @@ tests/crypto.test.mjs reproduces too (scripts/crypto-vectors.py writes it)."""
 import hashlib
 import importlib.util
 import json
+import zlib
 from pathlib import Path
 
 import pytest
@@ -87,6 +88,22 @@ def test_file_ciphertext_is_padded_to_4096_bytes_and_legacy_files_are_not():
     text = padded["text"].encode()
     assert plaintext(padded["ciphertext"]) == text + b"\x80" + b"\x00" * (4096 - len(text) - 1)
     assert plaintext(legacy["ciphertext"]) == legacy["text"].encode() == text
+
+
+def test_compressed_file_is_0x01_then_raw_deflate_padded_and_the_previous_key_is_sealed_with_the_new():
+    vector = VECTORS["compressed_file"]
+    key = bytes.fromhex(vector["key"])
+    raw = from_b64u(vector["ciphertext"])
+    plain = AESGCM(key).decrypt(raw[:12], raw[12:], None)
+    assert len(plain) % 4096 == 0 and plain[0] == 1
+    body = plain.rstrip(b"\x00")
+    assert body[-1] == 0x80
+    assert zlib.decompress(body[1:-1], -15).decode() == vector["text"]
+    sealed = from_b64u(VECTORS["previous_key"]["sealed"])
+    old = AESGCM(bytes.fromhex(VECTORS["previous_key"]["new_key"])).decrypt(sealed[:12], sealed[12:],
+                                                                          b"notedown-previous-key")
+    assert old.hex() == VECTORS["previous_key"]["old_key"]
+    assert len(VECTORS["previous_key"]["sealed"]) <= 512
 
 
 def test_tampered_fixture_chain_is_rejected():
