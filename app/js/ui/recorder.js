@@ -13,7 +13,7 @@ const BARS = 36;
 
 const $ = id => document.getElementById(id);
 
-export function initRecorder({ onTap, onTranscript }) {
+export function initRecorder({ onTap, canHold = () => true, onTranscript }) {
   const fab = $("fab");
   const app = $("app");
   let press = null;      // { x, y, timer } while the finger is down
@@ -28,7 +28,7 @@ export function initRecorder({ onTap, onTranscript }) {
   $("recTrash").innerHTML = icon("trash");
   $("recLockIcon").innerHTML = icon("lock") + icon("chevronUp", "icon chevron");
 
-  const setFab = name => { fab.innerHTML = icon(name); };
+  const setFab = name => { fab.querySelector(".fab-new").innerHTML = icon(name); };
   const vibrate = ms => { try { navigator.vibrate?.(ms); } catch { /* not allowed */ } };
 
   function begin() {
@@ -127,7 +127,8 @@ export function initRecorder({ onTap, onTranscript }) {
     e.preventDefault();
     if (rec && rec.locked) { press = { x: e.clientX, y: e.clientY, timer: null, finishing: true }; return; }
     fab.setPointerCapture(e.pointerId);
-    press = { x: e.clientX, y: e.clientY, timer: setTimeout(begin, HOLD_MS) };
+    // Where the button doesn't dictate (the archive's bin), a press is just a tap.
+    press = { x: e.clientX, y: e.clientY, timer: canHold() ? setTimeout(begin, HOLD_MS) : null, tap: !canHold() };
   });
   fab.addEventListener("pointermove", e => {
     if (!press || !rec || rec.locked) return;
@@ -143,7 +144,7 @@ export function initRecorder({ onTap, onTranscript }) {
     const p = press;
     press = null;
     if (p.finishing) return finish();
-    if (p.timer) { clearTimeout(p.timer); onTap(); return; }
+    if (p.timer || p.tap) { clearTimeout(p.timer); onTap(); return; }
     if (rec && !rec.locked) finish();
   });
   fab.addEventListener("pointercancel", () => {

@@ -18,24 +18,31 @@ Current state, edited in place when a decision changes.
 
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
-| Top bar | Title; icons for search, sort, sync status, archive (with count), ⋮ | Title, search field, icons in the same order | Title, search field, sort with label, sync status icon, archive with label, ⋮ |
+| Top bar | Title; icons for search, sort, archive (count on its corner), Sync & sharing (sync status), Reminders, Export, ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards; the same icons right of it |
 | Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People" once there are contacts | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
 | Multi-select | Contextual top bar: ✕, count, main action icons, rest under ⋮; the contents handle stays | Contextual top bar: ✕, count, action icons | Same, actions with labels |
 | Panels (Sync & sharing, share dialog) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
-- One primary action per view, as a floating button at the bottom
-  right: + in the main view; none in the archive (nothing is created
-  there).
+- **Top bar actions** are icons with a tooltip; sort shows its label
+  when there is room. Whatever doesn't fit goes under ⋮, with its icon,
+  from the right end: Export first, then Reminders, Sync & sharing,
+  archive, sort (the label goes before any button). Both views keep the
+  same buttons, so the view button keeps its place. ⋮ holds what didn't
+  fit, the theme and the prototype's tools.
+- One primary action per view, as a floating button: + at the bottom
+  right in the main view; in the archive it moves to the bottom left and
+  turns into the red bin that empties the archive (animated; left, so it
+  is never taken for +). The snackbar then sits right of it.
 - The app draws edge-to-edge: top bars, the sidebar and full-screen
   panels extend their background behind the system status bar and keep
   their controls below it, bottom elements stay above the gesture bar
   (safe-area insets; Android forces edge-to-edge from version 15).
 - The archive keeps the main view's layout; only the background tint, the
   title and the view button tell them apart: "Archive" in the main view
-  turns into "Notes" in the archive, in the same place and size at the
-  right end of the top bar (only ⋮ after it), so one tap switches back and
+  turns into "Notes" in the archive, in the same place and size right
+  after sort, so one tap switches back and
   forth (decided 2026-10-13 over a back button at the left). On touch
   devices the archive also lies to the right of the notes (see "Input").
 - The phone keeps bottom elements clear of the contents handle: the +

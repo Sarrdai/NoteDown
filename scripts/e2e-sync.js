@@ -83,7 +83,9 @@ const syncState = page => page.evaluate(() => window.__store.state.sync);
 const bodies = page => page.evaluate(() => window.__store.allNotes().map(n => n.body));
 const addNote = (page, body) => page.evaluate(b => window.__store.addNote(b), body);
 
+// The top bar's cloud button, or ⋮ → "Sync & sharing…" when it didn't fit.
 async function openPanel(page) {
+  if (await page.locator("#syncBtn").isVisible()) return page.click("#syncBtn");
   await page.click("#moreBtn");
   await page.locator(".menu-item", { hasText: "Sync & sharing" }).click();
 }

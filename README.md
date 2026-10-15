@@ -14,7 +14,7 @@ long-press on a note starts multi-select to close, copy, share, merge,
 protect or delete several notes at once (protected notes can't be
 deleted, and deleting always asks first); a long-press in the table of contents
 selects sections, which can be moved together into a new note.
-⋮ → Export saves the current view, or all files as a ZIP for a local
+The Export button in the top bar saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden
 metadata; the selection exports single notes or sections the same way.
 
@@ -29,7 +29,7 @@ prototype that works out what NoteDown does and how it is operated on
 desktop, tablet and phone. The prototype is turning into the real app:
 Android (a Capacitor shell in `mobile/`) and the web come first, with a
 Python sync server in `server/`. End-to-end encrypted sync works: turn
-it on under ⋮ → Sync & sharing, link further devices by scanning a QR
+it on with the cloud button (Sync & sharing), link further devices by scanning a QR
 code (or with the recovery key), add contacts by their code or an
 invitation link (verify the latter later by a safety code), and share notes with them from multi-select → Share.
 

@@ -1,4 +1,4 @@
-// A popup menu anchored to a button. Items: { label, checked?, disabled?, onSelect }
+// A popup menu anchored to a button. Items: { label, icon?, checked?, disabled?, onSelect }
 // or { section: "Title" } or { separator: true }. Picking an item closes it.
 import { icon } from "./icons.js";
 
@@ -14,7 +14,7 @@ export function openMenu(anchor, items) {
     b.className = "menu-item";
     b.setAttribute("role", item.checked === undefined ? "menuitem" : "menuitemradio");
     if (item.checked !== undefined) b.setAttribute("aria-checked", String(item.checked));
-    b.innerHTML = (item.checked !== undefined ? icon("check", "icon check") : "") + `<span></span>`;
+    b.innerHTML = (item.checked !== undefined ? icon("check", "icon check") : item.icon ? icon(item.icon) : "") + `<span></span>`;
     b.lastChild.textContent = item.label;
     b.disabled = !!item.disabled;
     // No focus change: a menu opened from the editor toolbar keeps the keyboard up.

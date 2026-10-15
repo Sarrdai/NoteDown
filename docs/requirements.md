@@ -67,7 +67,7 @@ apart from existing apps beyond the points above.
   for the user's own notes, plus one per set of people notes are shared
   with ("Sync and sharing"); the metadata sits in an invisible comment per
   note so the files stay clean in other editors (`docs/file-format.md`). *Prototype: round 1
-  (stored in browser storage, downloadable as `notes.md`).*
+  (stored in browser storage; Copy and Export take notes out).*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left
@@ -142,7 +142,8 @@ before the first live test).
 - The server is built to scale to many users (stateless API, database,
   later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
-  - ⋮ → **"Sync & sharing…"** holds everything around sync: turning it on
+  - The top bar's **Sync & sharing** button (a cloud showing the sync
+    status; under ⋮ when it doesn't fit) holds everything around sync: turning it on
     (name, then the recovery key, which has to be confirmed as stored),
     linking this device to an existing one (its QR code, or the recovery
     key), the devices (link a device by scanning, remove one) and the
@@ -166,7 +167,7 @@ before the first live test).
     spinning, which doesn't mark the end, and a pulsing cloud, too easy
     to miss).
   - **Syncing on request**, so the user can be sure to have the latest
-    state: opening Sync & sharing (icon or ⋮, every tier) syncs, its
+    state: opening Sync & sharing (button or ⋮, every tier) syncs, its
     footer shows "Syncing…" and then when it last synced; on phone and
     tablet, **pull to refresh** on the list syncs too (decided
     2026-10-13 over a sync button: the icon already opens the panel).
@@ -246,9 +247,10 @@ before the first live test).
 - The **archive button** in the main view shows how many notes were closed
   today; the count resets at midnight. In the archive the same button
   reads **Notes** (no count) and leads back, so one place switches
-  between both views. It sits at the right end of the top bar, only ⋮
-  after it. *Prototype: round 1; Notes button 2026-10-13; place
-  2026-10-14.*
+  between both views. It is an icon (count on its corner, tooltip) right
+  after sort, and keeps its place in both views: the top bar keeps the
+  same buttons in both. *Prototype: round 1; Notes button 2026-10-13;
+  place 2026-10-15.*
 - On phone and tablet, **swiping sideways** anywhere on the list or the
   contents switches between both views like pages: the archive lies to
   the right of the notes (swipe left to open it, right to go back); the
@@ -264,13 +266,16 @@ before the first live test).
 - Closed notes are **read-only**. In the archive, unchecking a note's
   round button reopens it (with Undo), and notes can be deleted
   (multi-select). *Prototype: reopen in round 1, delete in round 3.*
-- **Empty archive** (⋮ menu, only in the archive) deletes every closed
+- **Empty archive** deletes every closed
   note at once — the whole archive, whatever the search shows — after a
   confirmation that says how many go and how many protected ones stay.
   Shared closed notes go only when the dialog's "Also delete … shared
   with others" is ticked, which warns that they go for everyone; Undo
-  afterwards. Disabled when nothing but protected notes is archived.
-  *Prototype: 2026-10-14.*
+  afterwards. Disabled when nothing but protected notes is archived. It is
+  the archive's floating button: entering the archive, the + moves to the
+  bottom left and turns into a red bin (animated), set apart from + so the
+  two aren't mixed up (decided 2026-10-15 over a ⋮ entry).
+  *Prototype: 2026-10-14; bin button 2026-10-15.*
 - **Protected** notes can't be deleted: Delete and Empty archive leave
   them alone until the protection is removed. Notes are protected with
   **Protect / Unprotect** in the selection bar ("Multi-select"); a
@@ -301,14 +306,15 @@ before the first live test).
   open notes due that day ("2 notes due today" and their titles); tapping
   it shows the main list, unfiltered, with those notes highlighted. Closed
   notes and notes without a due date never remind; no per-note times.
-  Off until turned on under ⋮ → "Reminders…" (a dialog with a switch and
+  Off until turned on with the top bar's **Reminders** bell (or ⋮ →
+  "Reminders…" when it doesn't fit; a dialog with a switch and
   the time), which is when the platform asks for notification permission.
   A **setting of this device**, not synced, since the permission is per
   device. The Android app schedules local notifications on the device, so
   they come while the app is closed; the web app reminds only while it is
   open — the browser can't wake a closed web app without server push —
   and the dialog says so. *Prototype: 2026-10-14 (⋮ → Prototype →
-  "Simulate reminder" shows the notification).* Why a dialog in ⋮: it is
+  "Simulate reminder" shows the notification).* Why a dialog: it is
   a device-wide setting that needs its one line of explanation; offered
   only in the due-date menu it would read as per note.
 
@@ -329,7 +335,12 @@ before the first live test).
   yet" and the rest by last edited (decided 2026-10-14: new notes always
   land there, so nothing reshuffles the arranged part). A custom order has
   no direction. The dialog arranges what the list shows (circle filter
-  and search applied); other notes keep their places in the order. Save
+  and search applied); other notes keep their places in the order. Below
+  the list, "Not sorted yet by …" sorts the unsorted rows with any sort
+  but the custom ones, both directions (last edited, newest first, at
+  first), so the next notes to sort in are easy to find; the control sits
+  under the list so nothing but the line stands between the rows
+  (decided 2026-10-15). Save
   offers Undo. There is one custom order only (several named orders go
   too far for now). It is **synced but private**: one marker in the
   private file lists the note ids (`docs/file-format.md`), so shared notes
@@ -553,7 +564,8 @@ Decided 2026-10-14 (user request): to pull content out in a structured
 way and to keep an independent local backup. No import for now — whether
 one is worth it is discussed separately (backlog #31).
 
-- **What:** ⋮ → **"Export…"** offers **This view** — the notes the list
+- **What:** the top bar's **Export** button (⋮ → "Export…" when it
+  doesn't fit) offers **This view** — the notes the list
   shows (main view or archive, circle filter and search applied), in the
   order it shows them — as one Markdown file, or **All files** — one
   Markdown file per NoteDown file, private plus one per circle with notes
