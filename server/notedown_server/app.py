@@ -147,6 +147,7 @@ def create_app(settings: Settings) -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["Content-Disposition"],   # the admin page names a downloaded backup after it
     )
 
     @app.exception_handler(LimitError)

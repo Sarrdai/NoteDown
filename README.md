@@ -34,6 +34,10 @@ Python sync server in `server/`. End-to-end encrypted sync works: turn
 it on with the cloud button (Sync & sharing), link further devices by scanning a QR
 code (or with the recovery key), add contacts by their code or an
 invitation link (verify the latter later by a safety code), and share notes with them from multi-select → Share.
+The server's owner has an admin page at `/admin/` (signed in with their
+own linked device): what the server stores, the identities with their
+devices and files, a storage limit per identity, and backup / restore —
+`app/admin/?sample` shows it with sample data.
 
 ## Try the prototype
 

@@ -269,7 +269,8 @@ paid features per user.
   admin types RESTORE. A restore refuses a backup that would lock the
   admin's own device out. Devices notice the restore at their next sync
   and merge their notes into the restored files, so **nothing a device
-  holds is lost** (notes deleted since the backup may come back); a
+  holds is lost** (notes deleted since the backup may come back, notes
+  changed since then may show up twice as a conflict copy); a
   device linked after the backup has to be linked again. Hosting limits:
   a backup up to 32 MB can be restored through the page; the database
   host's own point-in-time restore covers the same case

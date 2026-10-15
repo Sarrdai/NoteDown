@@ -217,6 +217,9 @@ def test_backup_format(client, people, admin):
     assert r.status_code == 200
     assert r.headers["content-disposition"].startswith('attachment; filename="notedown-backup-')
     assert r.headers["content-disposition"].endswith('.json"')
+    # The admin page lives on the web app's origin and reads the file name across origins.
+    cross = client.get("/v1/admin/backup", headers={**admin.h, "Origin": "https://localhost"})
+    assert "content-disposition" in cross.headers["access-control-expose-headers"].lower()
     doc = r.json()
     assert doc["format"] == "notedown-backup" and doc["version"] == 1 and doc["created"]
     assert set(doc["tables"]) == {"identities", "device_entries", "files", "file_members", "file_keys", "contacts",
