@@ -207,3 +207,61 @@ export function mergeParts(notes, parts) {
     changes: involved.map(n => ({ id: n.id, body: withoutParts(n.body, parts.filter(p => p.noteId === n.id)) })),
   };
 }
+
+// ---------- merge into an existing note ----------
+// The target is one of the notes involved. Its sections that stay are fixed
+// rows the parts are placed between; a target selected whole stays as it is,
+// its selected sections move like any other part.
+
+/** The parts that move into `targetId`: all but the target's own whole-note part. */
+export function movingParts(parts, targetId) {
+  return parts.filter(p => !(p.noteId === targetId && p.whole));
+}
+
+/** The target's body without its own moving parts. */
+function targetRest(notes, parts, targetId) {
+  const own = movingParts(parts, targetId).filter(p => p.noteId === targetId);
+  return withoutParts(notes[targetId].body, own) || "";
+}
+
+/** The target's remaining sections, as rows for the order dialog: [{ text, fromHeading, depth }]. */
+export function targetSections(notes, parts, targetId) {
+  return sections(targetRest(notes, parts, targetId)).map(s => ({ text: s.text, fromHeading: s.depth !== null, depth: s.depth }));
+}
+
+// Moves a part so its highest heading is on `level`; deeper headings stop at 6.
+function alignTo(text, level) {
+  const at = headingLines(text);
+  if (!at.length) return text;
+  const delta = level - Math.min(...at.map(i => depthAt(text, i)));
+  const lines = text.split("\n");
+  for (const i of at) lines[i] = lines[i].replace(ATX, (_, sp, h) => sp + "#".repeat(Math.min(6, Math.max(1, h.length + delta))));
+  return lines.join("\n");
+}
+
+/**
+ * Merge into an existing note: `order` holds the target's remaining
+ * sections ({ section: i }, as targetSections lists them, in their order)
+ * and the moving parts, as placed in the dialog. A part becomes a sibling of
+ * the section before it — or of the next one when that is deeper, so it
+ * never takes over a section's subsections; level 2 without a heading
+ * around. Returns the target's new body and each other source's remaining
+ * body (null = the note goes): { body, changes }.
+ */
+export function mergeInto(notes, parts, targetId, order) {
+  const rest = targetRest(notes, parts, targetId);
+  const ss = sections(rest);
+  const lines = rest.split("\n");
+  const depthOf = item => item && "section" in item ? ss[item.section].depth || 0 : 0;
+  const fixedNear = (i, step) => { for (let j = i + step; j >= 0 && j < order.length; j += step) if ("section" in order[j]) return order[j]; return null; };
+  const blocks = order.map((item, i) => {
+    if ("section" in item) return lines.slice(ss[item.section].start, ss[item.section].end).join("\n").trim();
+    const level = Math.max(depthOf(fixedNear(i, -1)), depthOf(fixedNear(i, 1))) || 2;
+    return alignTo(partText(notes[item.noteId].body, item), level);
+  });
+  const sources = Object.keys(notes).filter(id => id !== targetId && parts.some(p => p.noteId === id));
+  return {
+    body: copyText(blocks.filter(Boolean)),
+    changes: sources.map(id => ({ id, body: withoutParts(notes[id].body, parts.filter(p => p.noteId === id)) })),
+  };
+}

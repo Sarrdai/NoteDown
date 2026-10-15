@@ -5,7 +5,7 @@
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote, hasLeft } from "./core/merge.js";
-import { circleKey, mergeCircle } from "./core/sharing.js";
+import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
@@ -557,6 +557,33 @@ export function applyMerge(changes, merged, mode = "copy") {
       saveFiles();
       emit("structure");
     },
+  };
+}
+
+/**
+ * Merge into an existing note (core/selection.js → mergeInto): the target
+ * gets `body`, the other sources their remaining body from `changes` (null =
+ * the note goes) — except sources shared in another circle, which keep
+ * their part (core/sharing.js → keepsPart). Returns a function that undoes it.
+ */
+export function applyMergeInto(targetId, body, changes) {
+  const target = circleOf(targetId);
+  changes = [{ id: targetId, body }, ...changes.filter(c => !keepsPart(circleOf(c.id), target))];
+  const now = timestamp();
+  const edited = changes.filter(c => c.body !== null).map(c => {
+    const n = note(c.id);
+    const before = { body: n.body, modified: n.modified };
+    Object.assign(n, { body: c.body, modified: now });
+    return [n, before];
+  });
+  const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  saveFiles();
+  emit("structure");
+  return () => {
+    putBack();
+    for (const [x, before] of edited) Object.assign(x, before);
+    saveFiles();
+    emit("structure");
   };
 }
 

@@ -21,6 +21,15 @@ export function mergeCircle(circles, mode) {
 }
 
 /**
+ * Merge into an existing note: the target's circle wins. A source shared in
+ * another circle keeps its part for its members (like a private copy); a
+ * private source or one in the target's circle gives it up.
+ */
+export function keepsPart(sourceCircle, targetCircle) {
+  return sourceCircle.length > 0 && circleKey(sourceCircle) !== circleKey(targetCircle);
+}
+
+/**
  * The entries of the people overview (backlog #23), in order: everything,
  * the private file, each contact A–Z (the circle of only that person, even
  * before anything is shared with them) and each circle of several people,

@@ -472,6 +472,16 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .arrange-sort { flex: none; display: flex; align-items: center; gap: 4px; margin: 8px 8px 0; font-size: 0.88rem; color: var(--text-muted); }
 #arrangeSort { color: var(--text); }
 #arrangeSort .btn-label { display: inline; }
+/* Merge into an existing note: the target, and its sections as fixed rows the parts go between. */
+.merge-target { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; color: var(--text-muted); }
+.merge-target select {
+  flex: 1; min-width: 0; min-height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: var(--text); font: inherit; font-weight: 600;
+}
+.order-item.fixed { counter-increment: none; min-height: 36px; border-style: dashed; background: transparent; padding-left: calc(12px + var(--indent, 0) * 16px); }
+.order-item.fixed::before { display: none; }
+.order-item.fixed .order-text { font-weight: 500; color: var(--text-muted); }
+.dialog-hint.after { margin: 8px 8px 0; }
 /* Merge across circles: private copy or shared with everyone involved. */
 .merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .choice {

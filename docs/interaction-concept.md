@@ -162,7 +162,8 @@ Current state, edited in place when a decision changes.
   request).
 - Other confirmation dialogs only where the user has something to
   adjust: the order for Copy and Merge (drag an entry's grip; Merge shows
-  it even for a single part, as the confirmation of what moves), the
+  it even for a single part, as the confirmation of what moves, and
+  there picks a new note or an existing one as the target), the
   people for Share.
 - Panels with several pages (Sync & sharing) go one page back with the
   back button, `Esc` or the system back gesture, and close from the

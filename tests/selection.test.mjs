@@ -9,6 +9,7 @@ import { tableOfContents } from "../app/js/core/query.js";
 import {
   rangeIds, subtree, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectSections, selectedParts,
   partText, partPreview, withoutParts, copyText, hasHeadings, canShiftHeadings, shiftHeadings, alignParts, mergeParts,
+  movingParts, targetSections, mergeInto,
 } from "../app/js/core/selection.js";
 
 const n = (id, body, extra) => Object.assign(createNote(body, "2026-10-05T09:00", id), extra);
@@ -138,4 +139,41 @@ test("merge: parts in the given order, earliest created and due, what stays behi
   assert.equal(m.created, "2026-10-02T08:00");
   assert.equal(m.due, "2026-10-15");
   assert.deepEqual(m.changes, [{ id: "c", body: "## C" }, { id: "a", body: "## B\ny" }, { id: "b", body: null }]);
+});
+
+test("merge into: the target's remaining sections are the fixed rows; a target selected whole stays", () => {
+  const t = n("t", "## T\nintro\n### T1\na\n## U\nb");
+  const s = n("s", "## S\nx");
+  const parts = [{ noteId: "t", from: 2, to: 3 }, { noteId: "s", from: 0, to: 1, whole: true }];
+  assert.deepEqual(movingParts(parts, "t"), parts, "a selected section of the target moves too");
+  assert.deepEqual(targetSections(byId([t, s]), parts, "t").map(r => [r.text, r.depth]), [["T", 2], ["T1", 3]]);
+  const whole = [{ noteId: "t", from: 0, to: 3, whole: true }, parts[1]];
+  assert.deepEqual(movingParts(whole, "t"), [parts[1]]);
+  assert.equal(targetSections(byId([t, s]), whole, "t").length, 3);
+});
+
+test("merge into: parts land between sections as siblings, never taking over subsections", () => {
+  const t = n("t", "## T\nintro\n### T1\na\n## U\nb");
+  const s = n("s", "# S\n## S1\nx\n\nKeep.", {});
+  const parts = [{ noteId: "t", from: 0, to: 3, whole: true }, { noteId: "s", from: 0, to: 2 }];
+  const notes = byId([t, s]);
+  const part = parts[1];
+  // After T's intro, before its subsection T1: sibling of T1.
+  let m = mergeInto(notes, parts, "t", [{ section: 0 }, part, { section: 1 }, { section: 2 }]);
+  assert.equal(m.body, "## T\nintro\n\n### S\n#### S1\nx\n\nKeep.\n\n### T1\na\n\n## U\nb");
+  assert.deepEqual(m.changes, [{ id: "s", body: null }]);
+  // At the end: sibling of U; at the start: sibling of T.
+  m = mergeInto(notes, parts, "t", [{ section: 0 }, { section: 1 }, { section: 2 }, part]);
+  assert.match(m.body, /## U\nb\n\n## S\n### S1/);
+  m = mergeInto(notes, parts, "t", [part, { section: 0 }, { section: 1 }, { section: 2 }]);
+  assert.match(m.body, /^## S\n### S1/);
+});
+
+test("merge into: a section of the target can move inside it; other sources keep what is left", () => {
+  const t = n("t", "## T\n## A\na\n## B\nb");
+  const s = n("s", "## S\nx\n## R\ny");
+  const parts = [{ noteId: "t", from: 1, to: 2 }, { noteId: "s", from: 0, to: 1 }];
+  const m = mergeInto(byId([t, s]), parts, "t", [{ section: 0 }, parts[1], { section: 1 }, parts[0]]);
+  assert.equal(m.body, "## T\n\n## S\nx\n\n## B\nb\n\n## A\na");
+  assert.deepEqual(m.changes, [{ id: "s", body: "## R\ny" }]);
 });
