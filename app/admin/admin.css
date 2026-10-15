@@ -169,3 +169,25 @@ button.adm-sort[data-active="true"] { color: var(--accent); }
 .adm-dialog .btn { min-width: 96px; }
 
 .admin .btn, .adm-dialog .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+
+/* ---------- news posts: the app's note cards (app.css .note), written and published from here ---------- */
+.adm-headrow { max-width: 780px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.adm-headrow .adm-h { margin-bottom: 0; }
+.adm-subh { display: flex; align-items: center; gap: 10px; margin: 28px 4px 12px; font-size: 1rem; color: var(--text-muted); }
+.news-list { display: flex; flex-direction: column; gap: 12px; max-width: 780px; }
+.tier-phone .news-list { gap: 10px; }
+.adm-empty { max-width: 780px; margin: 0; padding: 24px 20px; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); color: var(--text-muted); text-align: center; }
+.news-list > .adm-muted { padding: 0 4px; }
+/* A post is not opened by a click; its ⋮ menu holds the actions (the date line sits where a note's meta line is). */
+.admin .news-card:not(.editing), .admin .news-card .note-body:not(.editor-host) { cursor: default; }
+.news-card .news-menu {
+  grid-area: status; position: relative; min-width: 36px; width: 36px; height: 36px; margin-top: 4px; padding: 0;
+  color: var(--text-faint);
+}
+.news-card .news-menu::after { content: ""; position: absolute; inset: -4px; } /* 44 px touch target */
+.news-card .news-menu:disabled { opacity: 0.4; cursor: default; }
+.news-card.archived .note-body { opacity: 0.6; }
+.news-card.editing .cm-content { min-height: 6em; }
+.news-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 10px 0 6px; }
+.news-actions .field-error { flex: 1; margin: 0; }
+.news-actions .field-error[hidden] { display: none; }
