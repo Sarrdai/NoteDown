@@ -9,7 +9,7 @@
 // notes from view. Delete moves notes into the trash with Undo. In the trash a
 // tap selects; the bar restores, the red bin at the bottom left deletes the
 // selection permanently after asking (ui/trash.js) — kept apart on purpose.
-import { tableOfContents } from "../core/query.js";
+import { tableOfContents, sectionKey } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
@@ -88,6 +88,12 @@ export function initSelection(options) {
   });
 }
 
+// The section a heading in a card starts (main view only: the archive selects whole notes), else null.
+function headingKey(target, id) {
+  const h = state.view === "open" && target.closest(".note-body h1, .note-body h2, .note-body h3, .note-body h4, .note-body h5, .note-body h6");
+  return h ? sectionKey(id, h.closest(".md-section").dataset.section) : null;
+}
+
 // A card's frame: its margin and the free part of the meta line, outside the
 // text and the controls.
 const onFrame = target => !target.closest(".note-body, button, a, input");
@@ -99,7 +105,7 @@ function onPointerDown(e) {
   if (e.button !== 0 || isSelecting() || e.ctrlKey || e.metaKey || e.shiftKey) return;
   const el = e.target.closest(".note");
   if (!el || el.dataset.id === state.editingId) return; // long-press in the editor selects text
-  press = { id: el.dataset.id, x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
+  press = { id: el.dataset.id, key: headingKey(e.target, el.dataset.id), x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
 }
 
 function cancelPress() {
@@ -109,12 +115,13 @@ function cancelPress() {
 }
 
 function onHold() {
-  const { id } = press;
+  const { id, key } = press;
   press = null;
   swallowClick = true; // the click that follows the release
   try { navigator.vibrate?.(15); } catch { /* not allowed */ }
   window.getSelection()?.removeAllRanges();
-  toggle(id);
+  if (key) toggleSection(key, { ownNote: true });
+  else toggle(id);
 }
 
 function onClick(e) {
@@ -126,7 +133,9 @@ function onClick(e) {
   }
   if (!el || el.dataset.id === state.editingId) return;
   const id = el.dataset.id;
-  if (e.shiftKey) selectRange(id);
+  const key = headingKey(e.target, id);
+  if (e.shiftKey) key ? selectSectionRange(key) : selectRange(id);
+  else if (key && (e.ctrlKey || e.metaKey || isSelecting())) toggleSection(key, { ownNote: true });
   else if (e.ctrlKey || e.metaKey || isSelecting() || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
   else return;
   e.preventDefault();
@@ -149,13 +158,13 @@ function selectRange(id) {
   changed();
 }
 
-/** Contents entry: toggles the section with what is below it (ui/toc.js). */
-export function toggleSection(key) {
+/** Contents entry (ui/toc.js), or a heading in a card (`ownNote`): toggles the section with what is below it. */
+export function toggleSection(key, { ownNote = false } = {}) {
   const all = entries();
   const i = all.findIndex(e => e.key === key);
   if (i < 0) return;
   if (!isSelecting()) begin();
-  state.selected = toggleEntry(all, state.selected, i);
+  state.selected = toggleEntry(all, state.selected, i, { ownNote });
   anchorKey = key;
   changed();
 }

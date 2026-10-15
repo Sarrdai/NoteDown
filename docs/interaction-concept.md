@@ -57,8 +57,8 @@ Current state, edited in place when a decision changes.
 - **Tap or click** is the main action on content: into a note's text =
   edit, on a task checkbox = toggle, on the round button (bottom right
   of the card) = close / reopen, on a link = open.
-- **Long-press** is reserved for secondary modes: on a note or a
-  contents entry it starts multi-select, on + it starts dictation. Nothing essential is
+- **Long-press** is reserved for secondary modes: on a note, a
+  heading in a note or a contents entry it starts multi-select, on + it starts dictation. Nothing essential is
   long-press-only on the desktop (Ctrl/Shift+click, a click on a card's
   frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the

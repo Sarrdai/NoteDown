@@ -21,11 +21,13 @@ export function subtree(entries, i) {
   return out;
 }
 
-/** Selects entries[i] with everything below it, or deselects the same when it is selected. */
-export function toggleEntry(entries, selected, i) {
+/** Selects entries[i] with everything below it, or deselects the same when it is selected; `ownNote`: only what
+ *  is below it in its own note (a heading in a card), not the untitled notes hanging under it in the contents. */
+export function toggleEntry(entries, selected, i, { ownNote = false } = {}) {
   const on = !selected.has(entries[i].key);
   const next = new Set(selected);
-  for (const e of [entries[i], ...subtree(entries, i)]) on ? next.add(e.key) : next.delete(e.key);
+  const below = subtree(entries, i).filter(e => !ownNote || e.noteId === entries[i].noteId);
+  for (const e of [entries[i], ...below]) on ? next.add(e.key) : next.delete(e.key);
   return next;
 }
 

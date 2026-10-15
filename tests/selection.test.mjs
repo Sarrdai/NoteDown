@@ -47,6 +47,13 @@ test("selection: an entry takes everything below it, across notes, and can be ta
   assert.deepEqual(subtree(entries, keyOf(entries, "Packing")), []);
 });
 
+test("selection: a heading in a card takes what is below it in its own note only", () => {
+  const { entries } = tableOfContents(sample);
+  const sel = toggleEntry(entries, new Set(), keyOf(entries, "Weekly groceries"), { ownNote: true });
+  assert.equal(sel.size, 1);
+  assert.equal(toggleEntry(entries, new Set(), keyOf(entries, "Things to see"), { ownNote: true }).size, 3);
+});
+
 test("selection: Shift range in the contents includes what is below its end", () => {
   const { entries } = tableOfContents(sample);
   const sel = selectEntryRange(entries, new Set(), keyOf(entries, "Things to see"), keyOf(entries, "Before we go"));

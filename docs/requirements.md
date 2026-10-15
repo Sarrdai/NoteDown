@@ -638,17 +638,20 @@ this needs none of it.
 
 ### Multi-select
 
-- **One selection, two ways in** (decided 2026-10-14): a **long-press on
+- **One selection, three ways in** (decided 2026-10-14): a **long-press on
   a note** (450 ms) selects the whole note, a **long-press on a contents
   entry** selects that section together with everything below it — deeper
   headings and the untitled notes hanging under it, also on hidden
-  levels. Then taps in either place add or remove: a tap on a card
-  toggles its whole note, a tap on an entry toggles it with what is below
+  levels — and a **long-press on a heading in a note** selects its
+  section with the deeper ones below it in that note (2026-10-15, user
+  request: pick a section without opening the contents; the untitled
+  notes stay out, as they aren't visible there). Then taps in each place add or remove: a tap on a heading in a card
+  toggles its section, a tap elsewhere on a card toggles its whole note, a tap on an entry toggles it with what is below
   it, so single parts can be taken out again. A selected section reaches
   up to the next entry that is not selected. A finger that moves first
   scrolls instead; task checkboxes, links and the round button don't act
   meanwhile. On the desktop, Ctrl+click starts / extends the selection
-  and Shift+click selects a range (in the list and in the contents); a
+  and Shift+click selects a range (in the list, on a heading by section, and in the contents); a
   plain click on a card's frame — its margin or the free part of the meta
   line, outside the text and the controls — selects the note too
   (2026-10-14; mouse only: on touch the frame is a small target, stray

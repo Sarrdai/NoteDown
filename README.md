@@ -17,8 +17,8 @@ make permanent (notes of lasting value that can't be closed) or delete
 several notes at once, or to clear ticked tasks out of a list into the
 archive (with a way back into the note). Deleted notes wait in a trash for 30 days —
 also shared notes someone else deleted, which can be restored for
-everyone or kept as one's own; a long-press in the table of contents
-selects sections, which can be moved together into a new note.
+everyone or kept as one's own; a long-press on a heading (in a note or in the table of
+contents) selects its section, which can be moved together into a new note.
 The Export button in the top bar saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden
 metadata; the selection exports single notes or sections the same way.
