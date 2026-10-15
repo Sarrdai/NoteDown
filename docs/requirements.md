@@ -83,12 +83,13 @@ apart from existing apps beyond the points above.
 - **Web app: notes only in this browser.** At start the web app asks the
   browser to keep its storage (`navigator.storage.persist()`), so it isn't
   evicted under storage pressure or, in Safari, after 7 days without a
-  visit. While sync is off, a hint says the notes are stored only in this
-  browser — clearing the site's data deletes them — with "Turn on sync" and
-  "Export"; hidden by the user (×, with Undo), it comes back after 14 days
-  (a lasting risk that shouldn't nag). Not in the Android/iOS app, which
-  keeps its data as app data (backup there: backlog #39). Where the hint
-  sits is open (prototype variants, `PROJECT.md` → "Prototype options").
+  visit. While sync is off, a card above the open notes says they are
+  stored only in this browser — clearing the site's data deletes them —
+  with "Turn on sync" and "Export" (a card, not a strip or a line at the
+  list's end: it risks data loss, so it should be seen). Hidden by the user
+  (×, with Undo), it comes back after 14 days (a lasting risk that
+  shouldn't nag). Not in the Android/iOS app, which keeps its data as app
+  data (backup there: backlog #39).
   *Prototype: round 1.*
 
 ### Sync and sharing

@@ -32,7 +32,7 @@ import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
 import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
 import { initExport, openExport } from "./ui/export.js";
-import { initStorageHint, HINT_VARIANTS } from "./ui/storage-hint.js";
+import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
@@ -432,10 +432,8 @@ function moreMenu() {
     (hidden.length || trashEntry) && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: Storage hint" },
-    ...Object.entries(HINT_VARIANTS).map(([id, label]) => ({ label, checked: s.storageHint === id, onSelect: () => updateSettings({ storageHint: id }) })),
-    s.storageHintHidden && { label: "Show storage hint again", onSelect: () => updateSettings({ storageHintHidden: null }) },
     { section: "Prototype" },
+    s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
@@ -592,7 +590,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (HINT_VARIANTS[p.get("storagehint")]) patch.storageHint = p.get("storagehint");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).
