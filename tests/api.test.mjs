@@ -25,3 +25,46 @@ test("createApis: one client per server, the same one for the same address", asy
   assert.notEqual(apis("https://a.test/api"), apis("https://b.test/api"));
   apis.forgetTokens();
 });
+
+test("news methods map to the news endpoints and listFiles passes the news version through", async () => {
+  const { createApi } = await import("../app/js/sync/api.js");
+  const { generateDeviceKeys } = await import("../app/js/core/crypto.js");
+  const keys = await generateDeviceKeys();
+  const calls = [];
+  const answers = {
+    "GET /v1/auth/challenge": { challenge: "abc" },
+    "POST /v1/auth/token": { token: "t", expires: Math.floor(Date.now() / 1000) + 3600 },
+    "GET /v1/files": { files: [], quota: 5, news: "v1" },
+    "GET /v1/news": { version: "v1", news: [] },
+    "GET /v1/admin/news": { news: [] },
+    "POST /v1/admin/news": { id: "i", created: "c", modified: "m" },
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, { method, body }) => {
+    const path = new URL(url).pathname;
+    calls.push([method, path, body && JSON.parse(body)]);
+    const answer = answers[`${method} ${path}`];
+    return answer === undefined
+      ? new Response(null, { status: 204 })
+      : new Response(JSON.stringify(answer), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const api = createApi("https://s.test", () => ({ identity: "id", device: "dev", sign: keys.sign.privateKey }));
+    assert.deepEqual(await api.listFiles(), { files: [], quota: 5, epoch: null, news: "v1" });
+    assert.deepEqual(await api.news(), { version: "v1", news: [] });
+    await api.adminNews();
+    assert.equal((await api.adminCreateNews("## A")).id, "i");
+    await api.adminUpdateNews("i", { archived: true });
+    await api.adminDeleteNews("i");
+    const sent = calls.filter(([, path]) => path.startsWith("/v1/news") || path.startsWith("/v1/admin/news"));
+    assert.deepEqual(sent, [
+      ["GET", "/v1/news", undefined],
+      ["GET", "/v1/admin/news", undefined],
+      ["POST", "/v1/admin/news", { body: "## A" }],
+      ["PUT", "/v1/admin/news/i", { archived: true }],
+      ["DELETE", "/v1/admin/news/i", undefined],
+    ]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

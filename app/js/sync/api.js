@@ -63,7 +63,9 @@ export function createApi(baseUrl, who) {
     getIdentity: (id, invitation) => call(
       "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
-    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch }) => ({ files, quota, epoch: epoch ?? null })),   // each file with its `size`; `epoch` changes when the server was restored
+    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch, news }) => ({ files, quota, epoch: epoch ?? null, news: news ?? null })),   // each file with its `size`; `epoch` changes when the server was restored, `news` with every change to the news posts
+    // The owner's news posts, unencrypted, the same for everybody: → { version, news: [{ id, created, modified, body }] }
+    news: () => call("GET", "/v1/news", undefined, true),
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),
@@ -84,6 +86,10 @@ export function createApi(baseUrl, who) {
     adminIdentities: () => call("GET", "/v1/admin/identities", undefined, true),
     adminIdentity: id => call("GET", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
     adminSetQuota: (id, quota) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/quota`, { quota }, true),   // quota in bytes, null = default
+    adminNews: () => call("GET", "/v1/admin/news", undefined, true),   // → { news: [{ id, created, modified, body, archived }] }, newest first
+    adminCreateNews: body => call("POST", "/v1/admin/news", { body }, true),   // → { id, created, modified }; 409 "too many news"
+    adminUpdateNews: (id, patch) => call("PUT", `/v1/admin/news/${encodeURIComponent(id)}`, patch, true),   // patch: { body?, archived? }
+    adminDeleteNews: id => call("DELETE", `/v1/admin/news/${encodeURIComponent(id)}`, undefined, true),
     adminRestore: backup => call("POST", "/v1/admin/restore", backup, true),   // → { identities, files }
     // → { text (the backup as sent), filename (from Content-Disposition, else notedown-backup-<date>.json) }
     adminBackup: async () => {

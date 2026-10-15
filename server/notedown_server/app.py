@@ -17,7 +17,7 @@ from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 from . import auth
-from .admin import MAX_QUOTA_OVERRIDE, register_admin
+from .admin import MAX_QUOTA_OVERRIDE, register_admin, utc_iso
 from .protocol import (LimitError, ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
 
@@ -359,12 +359,25 @@ def create_app(settings: Settings) -> FastAPI:
             quota = conn.execute("SELECT coalesce(quota, %s) FROM identities WHERE id = %s",
                                  (MAX_STORAGE_BYTES, who.identity)).fetchone()[0]
             epoch = conn.execute("SELECT value FROM server_state WHERE key = 'epoch'").fetchone()
+            news = conn.execute("SELECT value FROM server_state WHERE key = 'news'").fetchone()
         return {
             "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3],
                        "members": sorted(r[4])} for r in rows],
             "quota": quota,
             "epoch": epoch[0] if epoch else None,
+            "news": news[0] if news else None,
         }
+
+    @app.get("/v1/news")
+    def get_news(who: Authed):
+        with pool.connection() as conn:
+            # The version first: a change in between only makes the client fetch once more.
+            version = conn.execute("SELECT value FROM server_state WHERE key = 'news'").fetchone()
+            rows = conn.execute('SELECT id, created, modified, body FROM news WHERE NOT archived '
+                                'ORDER BY created DESC, id COLLATE "C"').fetchall()
+        return {"version": version[0] if version else None,
+                "news": [{"id": r[0], "created": utc_iso(r[1]), "modified": utc_iso(r[2]), "body": r[3]}
+                         for r in rows]}
 
     @app.get("/v1/files/{file_id}")
     def get_file(file_id: str, who: Authed):

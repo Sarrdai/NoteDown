@@ -159,7 +159,8 @@ No accounts and no passwords: a device signs a challenge.
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
 | `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`; 404 unless the caller may read it ("Contacts and invitations") |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota", "epoch"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin") |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota", "epoch", "news"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News") |
+| `GET /v1/news` | yes | → `{"version", "news": [{"id", "created", "modified", "body"}]}`: the owner's published posts, unencrypted and the same for everybody ("Admin" → "News"); any identity may read it |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
@@ -235,10 +236,14 @@ no request logs).
 
 | Method and path | Request → response |
 |---|---|
-| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations"}, "storage": {"files", "database", "database_limit"}, "quota"}`; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
+| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news"}, "storage": {"files", "database", "database_limit"}, "quota"}`; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
 | `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts"}]}`, newest first; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
 | `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations"}`; devices in the order they were added to the list, files newest first; 404 for an unknown identity |
 | `PUT /v1/admin/identities/{id}/quota` | `{"quota": <bytes> \| null}` → 204; `null` resets to the default; 400 unless `1 <= quota <= 1 GiB`; 404 for an unknown identity |
+| `GET /v1/admin/news` | → `{"news": [{"id", "created", "modified", "body", "archived"}]}`, newest `created` first, archived posts included |
+| `POST /v1/admin/news` | `{"body"}` → 201 `{"id", "created", "modified"}`: a new, published post; 400 for a bad body, 409 `{"detail": "too many news"}` ("Limits") |
+| `PUT /v1/admin/news/{id}` | `{"body"?, "archived"?}` → 204; `modified` is set to now only when `body` differs from the stored one, `archived` hides a post from the feed or publishes it again; 400 for neither field, a bad body or a non-boolean `archived`; 404 for an unknown ID; 409 `too many news` when publishing it again would exceed 20 published posts |
+| `DELETE /v1/admin/news/{id}` | → 204 (also when it is gone) |
 | `GET /v1/admin/backup` | → the backup file (below), `Content-Disposition: attachment; filename="notedown-backup-<YYYY-MM-DD-HHMM>.json"` (UTC) |
 | `POST /v1/admin/restore` | a backup → 200 `{"identities", "files"}` (the numbers restored); 400, 409 (below) |
 
@@ -257,9 +262,10 @@ read-only transaction), a JSON document
 | `file_keys` | `file_id`, `device_id`, `wrapped` |
 | `contacts` | `a`, `b` (both directions, as stored) |
 | `invitations` | `id`, `identity_id`, `kind`, `device_id`, `sig`, `expires`, `requester`, `requested_at`, `cards` |
+| `news` | `id`, `body`, `created`, `modified`, `archived`; optional: a backup without it (older ones) restores with no news |
 
 Not in it: `devices` (derived from the device lists), relay slots, rate
-limit counters and the server state (the epoch). The file is as sensitive
+limit counters and the server state (the epoch and the news version). The file is as sensitive
 as the database: it holds the encrypted files and the public device lists.
 
 **Restore** replaces everything in one transaction, so a failed restore
@@ -276,7 +282,7 @@ changes nothing:
 - Then every table (relay slots and rate limit counters too) is emptied,
   the backup's rows are inserted from a fixed list of columns per table
   (never from the JSON keys), `devices` is rebuilt from the verified lists
-  and a new random **restore epoch** is stored. Tokens stay valid for
+  a new random **restore epoch** is stored and the news version is renewed. Tokens stay valid for
   devices that are active in the backup.
 - Devices linked after the backup are not on the restored list and have to
   be linked again; so are identities created after it (they are gone).
@@ -295,6 +301,22 @@ deleted since the backup may come back, and a note edited on both sides
 becomes a conflict copy. A file the restored server no longer has is
 created again. The client's side is `app/js/sync/files.js`.
 
+**News.** The owner publishes posts (changelog, announcements, a call to
+take part in a poll) to everybody using the server, from the admin page.
+They are plain Markdown, **not encrypted** (official communication, the
+same for every identity) and live in the table `news` (`id` as other IDs,
+`body`, `created`, `modified`, `archived`). The **news version** is an
+opaque string (16 random bytes, `b64u`) in the server state, renewed with
+every change that is made (a post created, its body changed, archived,
+published again, deleted, and a restore; not by a request that changes
+nothing) and `null` until the first one. `GET /v1/files` carries it, so a
+client fetches `GET /v1/news` only when it differs from the one it
+remembers. The feed lists the posts that are not archived, newest
+`created` first, times ISO 8601 UTC. `modified` changes only with the
+body (not on archive or publish again), so a client can compare it for
+equality to see an edit. An archived or deleted post is gone from the
+feed for everyone.
+
 ## Limits
 
 | What | Limit |
@@ -306,6 +328,9 @@ created again. The client's side is `app/js/sync/files.js`.
 | Sealed card | 512 characters each |
 | Devices on a list (active) | 20 |
 | Relay payload | 8 KB |
+| News post body | 1 byte to 16 KiB (UTF-8), not only white space |
+| Published (not archived) news posts | 20 |
+| News posts in total (archived ones included) | 200 |
 | `POST /v1/identities` | 10 per day per IP address |
 | `POST /v1/relay` | 30 per hour per IP address |
 
@@ -319,6 +344,10 @@ storage is full. The default quota is one constant; the admin can set a
 different quota per identity ("Admin"), the basis for a paid option later.
 Each member is checked against its own quota, and `GET /v1/files` returns
 the caller's.
+
+A news post over its size or an empty one is a 400; publishing one that
+would make 21 published or 201 in total (`POST`, or `PUT` with
+`"archived": false`) answers 409 `{"detail": "too many news"}`.
 
 The rate limits count per client IP in fixed windows (counters in
 Postgres, shared by all server instances); IPv6 addresses count per /64
