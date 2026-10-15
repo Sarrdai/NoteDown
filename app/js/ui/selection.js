@@ -9,12 +9,14 @@
 // notes from view. Delete moves notes into the trash with Undo. In the trash a
 // tap selects; the bar restores, the red bin at the bottom left deletes the
 // selection permanently after asking (ui/trash.js) — kept apart on purpose.
-import { tableOfContents } from "../core/query.js";
+import { tableOfContents, sectionKey } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks } from "../store.js";
+import { countDone, clearDone } from "../core/tasks.js";
+import { noteTitle } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
 import { mergeCircle } from "../core/sharing.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
@@ -86,6 +88,12 @@ export function initSelection(options) {
   });
 }
 
+// The section a heading in a card starts (main view only: the archive selects whole notes), else null.
+function headingKey(target, id) {
+  const h = state.view === "open" && target.closest(".note-body h1, .note-body h2, .note-body h3, .note-body h4, .note-body h5, .note-body h6");
+  return h ? sectionKey(id, h.closest(".md-section").dataset.section) : null;
+}
+
 // A card's frame: its margin and the free part of the meta line, outside the
 // text and the controls.
 const onFrame = target => !target.closest(".note-body, button, a, input");
@@ -97,7 +105,7 @@ function onPointerDown(e) {
   if (e.button !== 0 || isSelecting() || e.ctrlKey || e.metaKey || e.shiftKey) return;
   const el = e.target.closest(".note");
   if (!el || el.dataset.id === state.editingId) return; // long-press in the editor selects text
-  press = { id: el.dataset.id, x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
+  press = { id: el.dataset.id, key: headingKey(e.target, el.dataset.id), x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
 }
 
 function cancelPress() {
@@ -107,12 +115,13 @@ function cancelPress() {
 }
 
 function onHold() {
-  const { id } = press;
+  const { id, key } = press;
   press = null;
   swallowClick = true; // the click that follows the release
   try { navigator.vibrate?.(15); } catch { /* not allowed */ }
   window.getSelection()?.removeAllRanges();
-  toggle(id);
+  if (key) toggleSection(key, { ownNote: true });
+  else toggle(id);
 }
 
 function onClick(e) {
@@ -124,7 +133,9 @@ function onClick(e) {
   }
   if (!el || el.dataset.id === state.editingId) return;
   const id = el.dataset.id;
-  if (e.shiftKey) selectRange(id);
+  const key = headingKey(e.target, id);
+  if (e.shiftKey) key ? selectSectionRange(key) : selectRange(id);
+  else if (key && (e.ctrlKey || e.metaKey || isSelecting())) toggleSection(key, { ownNote: true });
   else if (e.ctrlKey || e.metaKey || isSelecting() || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
   else return;
   e.preventDefault();
@@ -147,13 +158,13 @@ function selectRange(id) {
   changed();
 }
 
-/** Contents entry: toggles the section with what is below it (ui/toc.js). */
-export function toggleSection(key) {
+/** Contents entry (ui/toc.js), or a heading in a card (`ownNote`): toggles the section with what is below it. */
+export function toggleSection(key, { ownNote = false } = {}) {
   const all = entries();
   const i = all.findIndex(e => e.key === key);
   if (i < 0) return;
   if (!isSelecting()) begin();
-  state.selected = toggleEntry(all, state.selected, i);
+  state.selected = toggleEntry(all, state.selected, i, { ownNote });
   anchorKey = key;
   changed();
 }
@@ -237,6 +248,8 @@ function update() {
     { id: "trash", label: "Delete", run: remove, disabled: !whole },
   ] : [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole || !permanent },
+    archive ? { id: "backtonote", label: "Back to note", run: backToNote, disabled: !whole || !ids.every(doneSource) }
+      : { id: "cleardone", label: "Clear done tasks", run: clearDoneTasks, disabled: !byNote.some(([n, ps]) => countDone(n.body, ps)) },
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
@@ -312,6 +325,30 @@ function remove() {
   const news = ids.every(id => note(id)?.news);
   endSelection();
   showSnackbar(news ? (ids.length === 1 ? "Post deleted" : `${ids.length} posts deleted`) : count(ids.length, "moved to trash"), removeNotes(ids));
+}
+
+// Clear done tasks: the ticked tasks of the selection (whole notes, or only the selected sections) leave their
+// notes after asking and go into the archive, one closed note per source note, with Undo.
+function clearDoneTasks() {
+  const changes = current().byNote.map(([n, ps]) => ({ id: n.id, ...clearDone(n.body, ps) })).filter(c => c.count);
+  const total = changes.reduce((sum, c) => sum + c.count, 0);
+  const tasks = total === 1 ? "1 done task" : `${total} done tasks`;
+  const from = changes.length === 1 ? `“${noteTitle(note(changes[0].id).body).text || "Untitled"}”` : `${changes.length} notes`;
+  endSelection();
+  afterLeave(() => openConfirm({
+    title: `Clear ${tasks}?`,
+    text: `They leave ${from} and go to the archive as ${changes.length === 1 ? "a note" : "notes"} of their own; Back to note there puts them back.`,
+    okLabel: () => "Clear", danger: false,
+    onConfirm: () => showSnackbar(`${tasks[0].toUpperCase()}${tasks.slice(1)} archived`, archiveDone(changes)),
+  }));
+}
+
+// Back to note: archived done tasks go back into the notes they came from (at the end of their section).
+function backToNote() {
+  const ids = [...new Set(noteIds())];
+  endSelection();
+  const title = ids.length === 1 && noteTitle(doneSource(ids[0]).body).text;
+  showSnackbar(title ? `Tasks back in “${title}”` : "Tasks back in their notes", returnDoneTasks(ids));
 }
 
 function shift(delta) {

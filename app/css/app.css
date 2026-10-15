@@ -252,6 +252,7 @@ mark.hit.current { background: var(--hit-current); color: var(--on-hit-current);
 .chip .icon { width: 14px; height: 14px; }
 .chip.today { background: var(--accent-soft); color: var(--accent); }
 .chip.overdue { background: var(--danger-soft); color: var(--danger); }
+.chip.from-chip { display: inline-block; max-width: 100%; line-height: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* An open note's due chip is a button (the due-date menu); without a date it
    is an empty slot. Its tap area reaches past the 24px chip. */
 button.chip { position: relative; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
@@ -404,8 +405,9 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   background: color-mix(in srgb, var(--accent) 14%, var(--bg)); border-bottom: 1px solid var(--border);
 }
 .sel-label { display: none; }
-/* Phone: rarer actions move under ⋮. */
-#selMore { display: none; }
+/* Rarer actions sit under ⋮ in every tier (backlog #36 revisits which). */
+.sel-action.in-menu { display: none; }
+#selMore:not([hidden]) { display: inline-flex; }
 
 /* A selected note only gets the accent border; the whole card toggles it,
  * so the round button keeps its look but shows no close hint. */
@@ -984,7 +986,8 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   }
   .list { padding-top: 12px; }
   .selectbar { padding-inline: 16px; }
-  .sel-label { display: inline; }
+  .sel-count { flex: 1 0 auto; }
+  .sel-label { display: inline; white-space: nowrap; }
   /* On the desktop the toolbar floats over the list column. */
   .toolbar {
     left: calc(var(--toc-w) + (100% - var(--toc-w)) / 2); right: auto; bottom: 20px; transform: translateX(-50%);
@@ -1047,8 +1050,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .filter-bar { padding: 8px 12px 0; }
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }
-  .sel-word, .sel-action.in-menu { display: none; }
-  #selMore:not([hidden]) { display: inline-flex; }
+  .sel-word { display: none; }
 }
 @media (hover: none) {
   .icon-btn:hover, .toc-entry:hover, .people-entry:not(.active):hover, .menu-item:hover { background: transparent; }

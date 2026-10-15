@@ -638,17 +638,20 @@ this needs none of it.
 
 ### Multi-select
 
-- **One selection, two ways in** (decided 2026-10-14): a **long-press on
+- **One selection, three ways in** (decided 2026-10-14): a **long-press on
   a note** (450 ms) selects the whole note, a **long-press on a contents
   entry** selects that section together with everything below it — deeper
   headings and the untitled notes hanging under it, also on hidden
-  levels. Then taps in either place add or remove: a tap on a card
-  toggles its whole note, a tap on an entry toggles it with what is below
+  levels — and a **long-press on a heading in a note** selects its
+  section with the deeper ones below it in that note (2026-10-15, user
+  request: pick a section without opening the contents; the untitled
+  notes stay out, as they aren't visible there). Then taps in each place add or remove: a tap on a heading in a card
+  toggles its section, a tap elsewhere on a card toggles its whole note, a tap on an entry toggles it with what is below
   it, so single parts can be taken out again. A selected section reaches
   up to the next entry that is not selected. A finger that moves first
   scrolls instead; task checkboxes, links and the round button don't act
   meanwhile. On the desktop, Ctrl+click starts / extends the selection
-  and Shift+click selects a range (in the list and in the contents); a
+  and Shift+click selects a range (in the list, on a heading by section, and in the contents); a
   plain click on a card's frame — its margin or the free part of the meta
   line, outside the text and the controls — selects the note too
   (2026-10-14; mouse only: on touch the frame is a small target, stray
@@ -661,21 +664,23 @@ this needs none of it.
   on the entry above them.
 - While selecting, a **contextual top bar** replaces the normal one: ✕,
   "n selected" (n = parts: whole notes and runs of adjacent sections) and
-  the actions as icons (with labels on the desktop); the + button is
+  the actions as icons (with labels on the desktop); the rarer ones —
+  Export, Share, Make permanent, Promote / Demote headings — sit under ⋮
+  in every tier (2026-10-15: the labels overran the desktop bar; backlog
+  #36 revisits which actions are the frequent ones); the + button is
   hidden. On the phone the contents sheet's handle stays at the bottom,
   so the selection can be refined in the contents and back; the bar shows
-  only the number there, and Share and the heading actions move under ⋮ there. Decided
+  only the number there. Decided
   2026-10-13 over a bottom action bar (the thumb area and the list's
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
-- Actions: **Close**, **Copy**, **Export** ("Export"), **Share** ("Sync
+- Actions: **Close**, **Clear done tasks**, **Copy**, **Export** ("Export"), **Share** ("Sync
   and sharing"), **Merge**, **Make permanent / Make closable**, **Delete**,
   **Promote / Demote headings**. Close, Share, Make permanent and Delete act on whole notes
   (disabled while only parts of a note are selected) and end the
   selection with Undo; Close leaves permanent notes alone (disabled when
   only those are selected). Make permanent applies unless all selected
-  notes are permanent already, then it reads Make closable; it sits
-  under ⋮. In the archive the actions are **Reopen**, Copy, Export and
+  notes are permanent already, then it reads Make closable. In the archive the actions are **Reopen**, **Back to note**, Copy, Export and
   Delete — closed notes are read-only. In the trash a tap selects; the
   bar holds **Restore**, **Restore as my own** and Copy, Delete
   permanently is the bin at the bottom left ("Main view, archive and
@@ -702,6 +707,25 @@ this needs none of it.
   the new note goes to the circle of everyone involved and all sources
   give up their parts. Removing a shared note for the others stays a
   separate Delete. *Prototype: 2026-10-14.*
+- **Clear done tasks** (decided 2026-10-15, user request) tidies a list
+  without losing what was done: the ticked task items (`- [x]`, with the
+  indented lines below them) of the selection leave their note — of the
+  whole note when it is selected whole, only of the selected sections
+  when they were picked in the contents. After a confirmation that says
+  how many go and from where (asked although nothing is lost:
+  person-requested), they go into the archive as a **closed note of their
+  own** per source note, with Undo. That note starts with the source's
+  title heading and keeps each task under the heading of its section; its
+  meta line reads "From <source title>" and it stays in the source's
+  circle. Disabled when the selection holds no ticked task; a note left
+  empty disappears. *Prototype: 2026-10-15.*
+- **Back to note** (archive, whole notes) puts such archived tasks back
+  into their source note — each at the end of the section with the same
+  heading, else at the end of the note, still ticked; the order inside
+  the note isn't restored (accepted: nothing is lost). The archived note
+  disappears, with Undo. Disabled when the source is gone, closed, in the
+  trash or in another circle; Reopen still works then. *Prototype:
+  2026-10-15.*
 - **Promote / Demote headings** move every heading in the selection one
   level up or down (`##` ↔ `###`), to correct levels quickly after a
   merge; disabled when a heading would leave levels 1–6. The selection

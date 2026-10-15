@@ -12,6 +12,7 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 ## Trip to Lisbon
 ### Before we go
 - [x] Book flights
+  - Seats 14A and 14B, return on Sunday evening
 - [ ] Reserve the apartment in Alfama
 - [ ] Ask Tom for the restaurant list
 ### Things to see

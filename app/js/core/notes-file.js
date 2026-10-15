@@ -85,6 +85,7 @@ export function noteMarker(n) {
   if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
   if (n.deleted) attrs.push("deleted=" + n.deleted);
   if (n.kept) attrs.push("kept=" + n.kept);
+  if (n.from) attrs.push("from=" + n.from);
   return `<!-- note ${attrs.join(" ")} -->`;
 }
 
@@ -157,6 +158,7 @@ function finishNote({ meta, body }) {
     ...(meta.left && { left: meta.left.split(",").filter(Boolean) }),
     ...(meta.deleted && { deleted: meta.deleted }),
     ...(meta.kept && { kept: meta.kept }),
+    ...(meta.from && { from: meta.from }),
   };
 }
 

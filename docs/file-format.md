@@ -57,6 +57,7 @@ Done by bank transfer, reference number in the banking app.
 | `closed` | when closed | Time (UTC) the note was closed |
 | `left` | no | Shared files only: identity IDs of members who left the note, comma-separated (see "Leaving a shared note") |
 | `deleted` | no | Private file only: time (UTC) the note went into the trash; it is removed for good 30 days later (`docs/sync-and-sharing.md` → "Trash") |
+| `from` | no | A closed note of done tasks (Clear done tasks): the id of the note they came from, for Back to note (`docs/requirements.md` → "Multi-select") |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of

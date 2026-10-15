@@ -1,6 +1,6 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 35
+LAST_ID: 36
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
 elaborated with the user, built into the prototype, and then leaves this file for
@@ -39,6 +39,7 @@ The column stays the last one, so a row added without it still reads right.
 | Nr | Vorschlag | Begründung | Aufwand | Prio | Abhängig von |
 |---|---|---|---|---|---|
 | 30 | Setting for links and images in notes | Security question (2026-10-14): any member of a shared note can add an image from another host, which every reader's device loads (that host sees IP address and reading time), and links lead anywhere. Links and images stay a wanted feature; a setting decides per source: **allowed**, **only after confirming** or **never** — global, overridable per circle (group), so the client blocks them. Open: synced or per device; does it apply to private notes; how "after confirming" looks (placeholder with the host to tap, a dialog with the full address before a link opens). | mittel | 1 |  |
+| 36 | Which selection actions stay in the bar | Clear done tasks (2026-10-15) overran the desktop's selection bar, so Export, Share, Make permanent and Promote / Demote headings moved under ⋮ in every tier as a stopgap. To settle: which actions are really used often (bar) and which are rarer (⋮), per view and tier; maybe the order too. | klein | 1 |  |
 | 31 | Import of exported files | Export concept (2026-10-14): an export with metadata keeps the note markers, so it could be read back to restore notes. Not planned yet; whether it is worth it (and how ids that already exist are handled) is to be discussed. | mittel | 2 |  |
 | 32 | Integrity of the local file in the app phase | Security question (2026-10-14): whoever can write the local private file acts as the user — e.g. set `verified=` on a contact, or swap two contacts' `id`s so notes "shared with Lea" go to Tom (the server only refuses non-contacts); the change syncs to all own devices. Today the notes sit in browser storage, reachable only with developer tools; it matters once the app keeps them in the visible documents folder (`docs/requirements.md` → "Notes and storage"). Options: keep the files app-private and rely on Export for a readable copy, or keep security-relevant state (verification, contact ids) outside the editable file. Also to check: a member of a shared file could write a note with the id of one of the user's private notes (e.g. one that was shared before); the store looks notes up by id only. | mittel | 2 |  |
 | 33 | Paid plans for the default server | Admin dashboard (2026-10-15): the dashboard can already set a storage limit per identity by hand (`docs/requirements.md` → "Server maintenance (admin)"). A purchase (e.g. Play Billing, its token checked by the server) would set the same per-identity limit, and later other paid features (version history #7), without the server learning a name. Open: which features, price, how the web app buys, what happens when a plan ends while over the limit. | mittel | 2 | #11 for Play Billing |
