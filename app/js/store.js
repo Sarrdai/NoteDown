@@ -112,7 +112,7 @@ export function load() {
   return true;
 }
 
-const withMoved = file => ({ ...file, moved: file.moved || [] });
+const withMoved = file => ({ ...file, moved: file.moved || [], purged: file.purged || [] });
 
 /** Replaces everything (sample reset, linking a device): parsed private
  *  `file`, `shared` ([{ members, file }]) and the `sync` state. */
@@ -165,11 +165,21 @@ export function trashNotes() {
 
 /** Empties the trash of notes whose time is up; any of the user's devices does it. */
 export function purgeExpiredTrash(now = Date.now()) {
-  const gone = new Set(expiredTrash(state.file.notes, now).map(n => n.id));
-  if (!gone.size) return;
-  state.file.notes = state.file.notes.filter(n => !gone.has(n.id));
+  const gone = expiredTrash(state.file.notes, now);
+  if (!gone.length) return;
+  takeOut(gone.map(n => n.id));
+  markPurged(gone, timestamp(new Date(now)));
   saveFiles();
   emit("structure");
+}
+
+// A note from a shared file removed from the trash for good leaves a purged marker, so a device of this user that
+// still has it in its copy of the shared file doesn't put it into the trash again (docs/sync-and-sharing.md →
+// "Trash"); returns a function that takes the markers back out.
+function markPurged(notes, now) {
+  const marks = notes.filter(n => n.kept).map(n => ({ id: n.id, purged: now }));
+  state.file.purged = [...state.file.purged.filter(m => !marks.some(k => k.id === m.id)), ...marks];
+  return () => { state.file.purged = state.file.purged.filter(m => !marks.includes(m)); };
 }
 
 // The file that holds a note, with its member ids ([] = the private file).
@@ -308,9 +318,10 @@ export function restoreNotes(ids, { own = false } = {}) {
 /** Deletes trashed notes for good; returns a function that brings them back. */
 export function purgeNotes(ids) {
   const putBack = takeOut(ids);
+  const unmark = markPurged(putBack.notes, timestamp());
   saveFiles();
   emit("structure");
-  return () => { putBack(); saveFiles(); emit("structure"); };
+  return () => { putBack(); unmark(); saveFiles(); emit("structure"); };
 }
 
 // The file of a set of people; created on first use. The empty set is the private file.

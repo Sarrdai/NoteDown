@@ -62,7 +62,7 @@ export async function loadSampleState({ sync = true } = {}) {
     shared: split.shared,
     sync: {
       enabled: true, simulated: true, name: s.name, recoveryKey: generateRecoveryKey(),
-      devices: [...s.devices], usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, contactOf(c, nextColor(list))], []),
+      devices: s.devices.map(d => ({ name: d.name, synced: timestamp(new Date(Date.now() - d.syncedDaysAgo * 86400000)) })), usage: { ...s.storage }, contacts: s.contacts.reduce((list, c) => [...list, contactOf(c, nextColor(list))], []),
       news: news.feed, offline: false, status: "synced", lastSync: Date.now(),
     },
   };

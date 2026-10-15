@@ -110,10 +110,13 @@ test("Delete permanently and expiry remove trashed notes for good", () => {
   removeNotes([n1.id, n3.id]);
   const undo = purgeNotes([n1.id]);
   assert.equal(note(n1.id), undefined);
+  assert.deepEqual(state.file.purged.map(m => m.id), [n1.id], "a note from a shared file leaves a purged marker");
   undo();
   assert.ok(note(n1.id));
+  assert.deepEqual(state.file.purged, []);
   purgeExpiredTrash(Date.now() + 31 * 86400000);
   assert.deepEqual(trashNotes(), []);
+  assert.deepEqual(state.file.purged.map(m => m.id), [n1.id], "only the shared note, not the private one");
 });
 
 test("a note merged from a permanent one is permanent", () => {

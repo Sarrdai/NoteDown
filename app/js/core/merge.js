@@ -6,7 +6,7 @@
 import { newId } from "./notes-file.js";
 
 /**
- * Three-way merge of parsed notes files ({ preamble, notes, moved, devices, contacts, order }).
+ * Three-way merge of parsed notes files ({ preamble, notes, moved, purged, devices, contacts, order }).
  * Returns { file, displaced }: `displaced` lists { base, note } for notes
  * edited on one side while the other moved them to another file; the caller
  * re-applies each with applyDisplaced to the file the note moved to, or to
@@ -18,7 +18,7 @@ import { newId } from "./notes-file.js";
 export function mergeNotesFiles(base, local, remote) {
   const [b, l, r] = [base, local, remote].map(states);
   const ids = [...new Set([...r.keys(), ...l.keys(), ...b.keys()])];
-  const notes = [], moved = [], displaced = [];
+  const notes = [], moved = [], purged = [], displaced = [];
   for (const id of ids) {
     const [sb, sl, sr] = [b.get(id), l.get(id), r.get(id)];
     let out;
@@ -31,12 +31,13 @@ export function mergeNotesFiles(base, local, remote) {
       const edited = isNote(sl) ? sl : sr;
       const other = isNote(sl) ? sr : sl;
       if (other?.moved) { displaced.push({ base: isNote(sb) ? sb : null, note: edited }); out = other; } else out = edited;
-    } else out = sl?.moved ? sl : sr;
+    } else out = sl?.moved || sl?.purged ? sl : sr;
     if (isNote(out)) notes.push(out);
     else if (out?.moved) moved.push(out);
+    else if (out?.purged) purged.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved, devices: mergeMarkers(base, local, remote, "devices"), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), news: mergeMarkers(base, local, remote, "news"), order: mergeOrder(base, local, remote) }, displaced };
+  return { file: { preamble, notes, moved, purged, devices: mergeDevices(base, local, remote), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), news: mergeMarkers(base, local, remote, "news"), order: mergeOrder(base, local, remote) }, displaced };
 }
 
 // A custom order (backlog #24, #25) is one list: the side that changed it
@@ -61,6 +62,16 @@ function mergeMarkers(base, local, remote, list) {
     if (marker !== undefined) out.push(JSON.parse(marker));
   }
   return out;
+}
+
+// Device markers merge like the others, except that the later `synced` of both sides is kept: each device
+// writes only its own, and a name changed on the other side mustn't take it back.
+function mergeDevices(base, local, remote) {
+  const synced = new Map();
+  for (const d of [...(local.devices || []), ...(remote.devices || [])]) {
+    if (d.synced && !(synced.get(d.id) >= d.synced)) synced.set(d.id, d.synced);
+  }
+  return mergeMarkers(base, local, remote, "devices").map(d => (synced.has(d.id) ? { ...d, synced: synced.get(d.id) } : d));
 }
 
 /** Merges a displaced edit into the parsed file the note now lives in. */
@@ -106,9 +117,10 @@ export function renameDuplicates(file, ids) {
 }
 
 /** The parsed file with `notes` added (a note that came back clears its moved marker); notes whose id the
- *  file already holds are left out (another device of the user put them into the trash first). */
+ *  file already holds are left out (another device of the user put them into the trash first), and so are
+ *  notes with a purged marker (another device already removed them from the trash for good). */
 export function adoptNotes(file, notes) {
-  const have = new Set(file.notes.map(n => n.id));
+  const have = new Set([...file.notes, ...(file.purged || [])].map(n => n.id));
   const fresh = notes.filter(n => !have.has(n.id));
   const ids = new Set(fresh.map(n => n.id));
   return { ...file, notes: [...file.notes, ...fresh], moved: (file.moved || []).filter(m => !ids.has(m.id)) };
@@ -179,7 +191,7 @@ function unionLeft(...notes) {
 
 function states(file) {
   const map = new Map();
-  for (const m of file.moved || []) map.set(m.id, m);
+  for (const m of [...(file.moved || []), ...(file.purged || [])]) map.set(m.id, m);
   for (const n of file.notes) map.set(n.id, n);
   return map;
 }

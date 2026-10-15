@@ -133,6 +133,35 @@ test("deletedFromShared: a note that moved on or was edited isn't trashed", () =
   assert.deepEqual(deletedFromShared(base, mergeNotesFiles(base, edited, file(s03)).file, "lea", "x"), [], "an edit wins over the delete");
 });
 
+test("purged markers: round-trip, survive the merge and keep a stale device from trashing the note again", () => {
+  const trashed = { ...s01, deleted: "2026-10-01T09:00Z", kept: "lea" };
+  const purged = { ...file(), purged: [{ id: "s01", purged: "2026-10-13T09:00Z" }] };
+  const text = serializeNotesFile(purged);
+  assert.match(text, /<!-- note id=s01 purged=2026-10-13T09:00Z -->/);
+  assert.deepEqual(parseNotesFile(text).purged, purged.purged);
+  assert.deepEqual(parseNotesFile(text).notes, []);
+  // One device removed the trash entry for good; the other still has it unchanged.
+  const merged = mergeNotesFiles(file(trashed), file(trashed), purged).file;
+  assert.deepEqual([merged.notes, merged.purged], [[], purged.purged]);
+  // A device that comes back after weeks finds s01 gone from the shared file: it stays out of the trash.
+  const found = deletedFromShared(file(s01), file(), "lea", "2026-11-30T09:00Z");
+  assert.deepEqual(adoptNotes(merged, found).notes, []);
+  // Restored from the trash on another device meanwhile: the edit wins over the purge.
+  const restored = { ...s01, modified: "2026-10-13T09:05Z" };
+  assert.deepEqual(mergeNotesFiles(file(trashed), purged, file(restored)).file.notes, [restored]);
+});
+
+test("device markers: name and sync time round-trip; the later sync time wins", () => {
+  const text = serializeNotesFile({ ...file(), devices: [{ id: "d1", name: "Pixel 8", synced: "2026-10-13T09:00Z" }, { id: "d2", synced: "2026-10-01T09:00Z" }] });
+  assert.match(text, /<!-- device id=d1 name=Pixel%208 synced=2026-10-13T09:00Z -->/);
+  assert.deepEqual(parseNotesFile(text).devices, [{ id: "d1", name: "Pixel 8", synced: "2026-10-13T09:00Z" }, { id: "d2", synced: "2026-10-01T09:00Z" }]);
+  const base = { ...file(), devices: [{ id: "d1", name: "Phone", synced: "2026-10-01T09:00Z" }] };
+  const renamed = { ...file(), devices: [{ id: "d1", name: "Pixel", synced: "2026-10-01T09:00Z" }] };
+  const synced = { ...file(), devices: [{ id: "d1", name: "Phone", synced: "2026-10-14T09:00Z" }, { id: "d2", synced: "2026-10-14T08:00Z" }] };
+  assert.deepEqual(mergeNotesFiles(base, renamed, synced).file.devices,
+    [{ id: "d1", name: "Phone", synced: "2026-10-14T09:00Z" }, { id: "d2", synced: "2026-10-14T08:00Z" }]);
+});
+
 test("trash: deleted and kept round-trip and merge as one field group", () => {
   const trashed = { ...s01, deleted: "2026-10-13T09:00Z", kept: "lea+tom" };
   const text = serializeNotesFile(file(trashed));

@@ -55,8 +55,10 @@ and the sample simulates everything without a server.
   (created on first use). So a file's key never has to be rotated.
 - Moving leaves a **moved marker** in the old file (`docs/file-format.md`),
   so an edit someone made in the old file at the same time follows the
-  note instead of creating a duplicate (see "Merging"). Markers are
-  dropped 30 days after the move.
+  note instead of creating a duplicate (see "Merging"). Markers stay:
+  a device offline for longer would otherwise bring the note back into
+  the old file, and the members' devices aren't known to tell when all
+  have seen the move.
 - **All members are equal:** each can edit, close, reopen and delete a
   shared note, share it with further people, remove people, or leave.
   Leaving marks the note; a remaining member's device then moves it into
@@ -76,11 +78,24 @@ and the sample simulates everything without a server.
   marked `deleted` and `kept` with its circle (`docs/file-format.md`).
   So every member keeps a deleted shared note for 30 days, whoever
   deleted it; a member who deletes one puts it into their own trash at
-  once. Another device of the same user that already has the entry (the
+  once. `deleted` is the time this device noticed, so the 30 days start
+  when the user's first device syncs after the delete, however long it
+  was offline. Another device of the same user that already has the entry (the
   private file synced first) doesn't add it twice. **Restore for …**
   shares it with the circle again; once it is back in the shared file,
   the members' trash entries for it go. A note in a circle the user was
   removed from doesn't count as deleted.
+- **Purged markers:** removing such a trash entry for good (Delete
+  permanently, or its 30 days ran out) leaves a bodyless `purged` marker
+  in the private file (`docs/file-format.md`), so a device of the user
+  that was offline meanwhile and still has the note in its copy of the
+  shared file doesn't put it into the trash again. Each device writes the
+  start of its last complete sync round into its device marker (at most
+  once a day); a purged marker goes once every active device on the
+  device list has synced after it, and when the note shows up in a shared
+  file again. A device that never syncs keeps the markers until it is
+  removed — the device list warns about it after 90 days
+  (`docs/requirements.md` → "Stale devices").
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who

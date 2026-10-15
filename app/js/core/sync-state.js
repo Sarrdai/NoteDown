@@ -1,6 +1,7 @@
 // Small decisions of the sync client without I/O: what a first sync keeps of
-// the local notes, how the device list is shown and named, and which server
-// file is which (the private file, the shared files by circle).
+// the local notes, how the device list is shown and named, when a device counts
+// as stale and a purged marker as seen, and which server file is which (the
+// private file, the shared files by circle).
 import { circleKey } from "./sharing.js";
 
 /** Id prefix of the welcome note a first start creates (main.js). */
@@ -15,13 +16,14 @@ export function onlyUntouchedWelcome(file) {
 /**
  * Rows for the device list: the active devices of a verified chain (a Map
  * from crypto.verifyChain), this device first. `names` are the private file's
- * device names ([{ id, name }]); without one, this device is "This device"
- * and the others are numbered in the order they were added.
+ * device markers ([{ id, name?, synced? }]); without a name, this device is "This device"
+ * and the others are numbered in the order they were added. `synced`: when the device last synced.
  */
 export function deviceRows(devices, ownId, names = []) {
-  const named = new Map(names.map(d => [d.id, d.name]));
+  const named = new Map(names.filter(d => d.name).map(d => [d.id, d.name]));
+  const synced = new Map(names.filter(d => d.synced).map(d => [d.id, d.synced]));
   const all = [...devices.values()].filter(d => d.kind === "device");
-  const rows = all.map((d, i) => ({ id: d.id, own: d.id === ownId, named: named.has(d.id),
+  const rows = all.map((d, i) => ({ id: d.id, own: d.id === ownId, named: named.has(d.id), ...(synced.has(d.id) && { synced: synced.get(d.id) }),
     label: named.get(d.id) || (d.id === ownId ? "This device" : `Device ${i + 1}`), active: d.active }));
   return rows.filter(r => r.active).sort((a, b) => b.own - a.own).map(({ active, ...r }) => r);
 }
@@ -29,7 +31,33 @@ export function deviceRows(devices, ownId, names = []) {
 /** The private file with `name` set for device `id` (none: the name removed). */
 export function withDeviceName(file, id, name) {
   const devices = (file.devices || []).filter(d => d.id !== id);
-  return { ...file, devices: name ? [...devices, { id, name }] : devices };
+  const synced = (file.devices || []).find(d => d.id === id)?.synced;
+  return { ...file, devices: name ? [...devices, { id, name, ...(synced && { synced }) }] : devices };
+}
+
+/** Days without a sync after which a device is shown as stale, with the suggestion to remove it. */
+export const STALE_DAYS = 90;
+
+/** Whole days since `synced` (a file timestamp) at `now` (ms); undefined when the device never reported one. */
+export function daysSince(synced, now = Date.now()) {
+  return synced ? Math.floor((now - Date.parse(synced)) / 86400000) : undefined;
+}
+
+/** The private file with device `id`'s `synced` set to `start` (the start of a complete sync round); unchanged
+ *  when it already holds a time of the same day, so the file changes at most once a day per device. */
+export function withSynced(file, id, start) {
+  const devices = file.devices || [];
+  const own = devices.find(d => d.id === id);
+  if (own?.synced?.slice(0, 10) === start.slice(0, 10)) return file;
+  return { ...file, devices: [...devices.filter(d => d.id !== id), { ...own, id, synced: start }] };
+}
+
+/** The private file without the purged markers every device in `deviceIds` (the active devices) has synced past:
+ *  none of them can still find the note in a shared file and put it into the trash again. */
+export function dropSeenPurged(file, deviceIds) {
+  const synced = new Map((file.devices || []).map(d => [d.id, d.synced]));
+  const seen = m => deviceIds.every(id => synced.get(id) > m.purged);
+  return (file.purged || []).some(seen) ? { ...file, purged: file.purged.filter(m => !seen(m)) } : file;
 }
 
 /** The devices a file key is wrapped for: every active device, the recovery device included. */
