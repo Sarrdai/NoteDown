@@ -375,8 +375,9 @@ devices don't keep re-uploading the same notes in each other's order.
   What the implementation would have to change, the work packages and
   the questions to settle first: `docs/decentralisation-plan.md`.
 - Until a lost device is removed, it can change or delete notes,
-  including shared ones; a version history on the server (backlog #7)
-  would let the user bring a file back.
+  including shared ones; where version history is switched on, the user
+  brings the file back ("Version history"), otherwise only the trash
+  helps.
 - **Client details:** the private file is the identity's file with
   itself as the only member; device names and contacts live in it
   (`docs/file-format.md`), since the server knows neither; the notes

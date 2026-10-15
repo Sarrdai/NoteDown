@@ -2,8 +2,8 @@
 // the private file and the shared files, in the Sync & sharing panel. Only shown for files that keep a history
 // (a member has it switched on by the server's owner). A state is opened, compared with now and restored for
 // everyone in the file. The sample (`?sample`) derives its states from the sample notes (sample/sharing.json →
-// `history`). Open variant (⋮ → "Prototype: Version history", ?history=): a state shows what a restore changes
-// (A, "changes") or the notes as they were (B, "preview").
+// `history`). A state shows what restoring it changes (decided 2026-10-15 over showing its notes as they were:
+// it answers which state is the right one and what a restore would lose).
 import { state, sharedFiles, setPrivateFile, setSharedFile } from "../store.js";
 import { parseNotesFile } from "../core/notes-file.js";
 import { renderMarkdown, noteTitle } from "../core/markdown.js";
@@ -16,8 +16,6 @@ import { circleName } from "./people-list.js";
 import { openConfirm } from "./confirm.js";
 import { showSnackbar } from "./snackbar.js";
 import { h, text, button } from "./dom.js";
-
-export const HISTORY_VIEWS = { changes: "Changes (A)", preview: "Preview (B)" };
 
 const real = () => !state.sync.simulated;
 const fileOf = slot => (slot === "" ? state.file : sharedFiles().find(s => s.key === slot)?.file);
@@ -103,7 +101,6 @@ function noteGroup(title, notes, cls) {
   return [section(`${title} (${notes.length})`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n, cls)))];
 }
 
-const liveNotes = file => file.notes.filter(n => !n.deleted);
 const stateTitle = v => stateTime(v.replaced) + (v.pinned ? " · before a restore" : "");
 
 registerPage("history", {
@@ -129,7 +126,6 @@ registerPage("historyFile", {
     }
     if (!data.versions) return [text(data.failed ? `Couldn't load the older states: ${data.failed}` : "Loading…", "sheet-text muted")];
     if (!data.versions.length) return [text("No older states yet. They appear once these notes change.", "sheet-text muted")];
-    const changes = state.settings.historyView !== "preview";
     data.subs ||= new Map();
     // Each row's line needs the state's notes: read one after the other, the list redraws as they come.
     if (!data.reading) {
@@ -137,9 +133,9 @@ registerPage("historyFile", {
         for (const v of data.versions) {
           try {
             const old = await stateOf(data.slot, v.version);
-            data.subs.set(v.version, { changes: changeSummary(compareStates(fileOf(data.slot), old)), preview: `${liveNotes(old).length} notes` });
+            data.subs.set(v.version, changeSummary(compareStates(fileOf(data.slot), old)));
           } catch (e) {
-            data.subs.set(v.version, { changes: "Couldn't be read", preview: "Couldn't be read" });
+            data.subs.set(v.version, "Couldn't be read");
           }
           if (isPanelOpen() && panelData() === data) refreshPage({ keepScroll: true });
         }
@@ -150,7 +146,7 @@ registerPage("historyFile", {
         ? "Each state is how your private notes were at that time. Restoring one brings back its notes; the state it replaces stays here."
         : `Each state is how the notes shared with ${nameOf(data.slot)} were at that time. Restoring one changes them for everyone in it.`),
       h("ul", { class: "sheet-card" }, data.versions.map(v => row({
-        icon: "notes", title: stateTitle(v), sub: data.subs.get(v.version)?.[changes ? "changes" : "preview"] || "…",
+        icon: "notes", title: stateTitle(v), sub: data.subs.get(v.version) || "…",
         open: () => go("historyState", { slot: data.slot, version: v, list: data }),
       }))),
     ];
@@ -168,10 +164,6 @@ registerPage("historyState", {
     }
     if (data.failed) return [text(`Couldn't read this state: ${data.failed}`, "field-error")];
     const head = data.version.pinned ? [text("This is how the notes were right before a restore.", "sheet-text muted")] : [];
-    if (state.settings.historyView === "preview") {
-      const notes = liveNotes(data.old);
-      return [...head, text(`${notes.length} notes, as they were:`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n)))];
-    }
     const diff = compareStates(fileOf(data.slot), data.old);
     if (!diff.back.length && !diff.gone.length && !diff.changed.length) return [...head, text("Same notes as now: restoring changes nothing.")];
     return [

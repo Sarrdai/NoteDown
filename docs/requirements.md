@@ -163,13 +163,13 @@ before the first live test).
     can be undone. Restoring a single note is backlog #38; a deleted
     note alone comes back from the trash.
   - **Where:** Sync & sharing → "Version history" → the file → its
-    states, newest first, each with its time; a state opens with a
-    "Restore this state" button. *Open, as variants in the prototype
-    (⋮ → "Prototype: Version history", `?history=`): a state shows what
-    a restore changes — notes that come back, notes added since that
-    go, notes whose text changes, each list row with a summary such as
-    "1 note back · 2 newer notes go" (A, recommended) — or the notes as
-    they were, each row with the number of notes (B).*
+    states, newest first, each with its time and a summary of what
+    restoring it changes ("1 note back · 2 newer notes go · 1 changed").
+    A state opens with what a restore changes — the notes that come
+    back, the notes added since that go, the notes whose text goes back
+    — and a "Restore this state" button (decided 2026-10-15 over showing
+    the state's notes as they were: it answers which state is the right
+    one and what a restore would lose). *Prototype: 2026-10-15.*
   - Older states stay readable after a device was removed (the renewed
     file key carries the previous one, `docs/sync-and-sharing.md` →
     "Version history").
