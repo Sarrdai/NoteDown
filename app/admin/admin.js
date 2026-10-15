@@ -17,7 +17,7 @@ import { serverUrl } from "../js/core/linking.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { parseNotesFile } from "../js/core/notes-file.js";
 import {
-  formatBytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope, sortIdentities,
+  formatBytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope, sortIdentities, filterIdentities,
   defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText, createSampleAdmin,
   NEW_POST_TEXT, checkNewsBody, newsErrorText, newsDateText, splitNews, newsFromNotes,
 } from "../js/core/admin.js";
@@ -38,6 +38,7 @@ const S = {
   news: [],                // every post, archived ones included, as the server lists them
   newsEdit: null,          // the post being written: { id (null = a new one), el, editor, text, initial }
   sort: { key: "updated", dir: "desc" },
+  query: "",               // the search field of the identity list (kept while switching sections)
   section: "overview",     // overview | identities | news | backup
   open: null,              // the identity ID shown beside the list (desktop) or as a page
   tier: "desktop",
@@ -129,7 +130,7 @@ function loadOpenDetail() {
   if (id && !S.details.has(id)) loadDetail(id);
 }
 
-/** After a changed limit: the list (storage bar, marker) and the open detail. */
+/** After a changed limit or history switch: the list (storage bar, markers) and the open detail. */
 async function reloadIdentity(id) {
   S.details.delete(id);
   try {
@@ -141,7 +142,7 @@ async function reloadIdentity(id) {
   loadOpenDetail();
 }
 
-const sorted = () => sortIdentities(S.identities, S.sort.key, S.sort.dir);
+const sorted = () => sortIdentities(filterIdentities(S.identities, S.query), S.sort.key, S.sort.dir);
 
 // ---------- small views ----------
 
@@ -157,6 +158,8 @@ const mono = (s, cls = "") => h("span", { class: ("mono " + cls).trim() }, s);
 function youChip() {
   return h("span", { class: "adm-chip you" }, "You");
 }
+
+const historyChip = () => h("span", { class: "adm-chip history" }, "History");
 
 function meter(used, quota) {
   const u = usageLevel(used, quota);
@@ -262,7 +265,8 @@ function overviewSection() {
           class: "meter", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(db.percent),
           "aria-label": "Database size", "data-level": db.level,
         }, h("div", { class: "meter-fill", style: `width: ${Math.max(db.percent, storage.database > 0 ? 1 : 0)}%` })),
-        h("div", { class: "tile-sub" }, `Encrypted notes: ${formatBytes(storage.files)}`))));
+        h("div", { class: "tile-sub" }, `Encrypted notes: ${formatBytes(storage.files)}`),
+        storage.history > 0 && h("div", { class: "tile-sub" }, `Version history: ${formatBytes(storage.history)}`))));
 }
 
 // ---------- identities ----------
@@ -305,7 +309,7 @@ function openIdentity(id) {
 
 function row(i, style, selected) {
   const key = "row-" + i.id;
-  const id = h("span", { class: "c-id" }, ico("down", "icon chevron"), mono(shortId(i.id)), i.id === S.identity && youChip());
+  const id = h("span", { class: "c-id" }, ico("down", "icon chevron"), mono(shortId(i.id)), i.id === S.identity && youChip(), i.history && historyChip());
   const cells = style === "cards"
     ? [id, storageBlock(i), h("span", { class: "c-meta" }, cardMeta(i))]
     : [id,
@@ -320,14 +324,44 @@ function row(i, style, selected) {
   }, cells);
 }
 
-function identityList() {
+/** The search field above the list; the list below it follows while typing (the field itself stays, with its focus). */
+function searchBar() {
+  const clear = h("button", {
+    class: "icon-btn adm-search-clear", type: "button", "data-key": "search-clear", "aria-label": "Clear search", title: "Clear search",
+    html: icon("close"), hidden: !S.query,
+    onclick: () => { input.value = ""; input.focus(); searchChanged(input, clear); },
+  });
+  const input = h("input", {
+    class: "input adm-search-input", type: "text", id: "identity-search", "data-key": "search", placeholder: "Search by ID", value: S.query,
+    "aria-label": "Search by ID", autocomplete: "off", autocapitalize: "off", spellcheck: "false", enterkeyhint: "search",
+    oninput: () => searchChanged(input, clear),
+  });
+  return h("div", { class: "adm-search", role: "search" }, ico("search", "icon adm-search-icon"), input, clear);
+}
+
+function searchChanged(input, clear) {
+  S.query = input.value;
+  clear.hidden = !S.query;
+  document.querySelector(".adm-results")?.replaceWith(identityResults());
+  const pane = document.querySelector(".adm-pane");   // desktop: the detail shows the first row until one is picked
+  if (pane && !S.open) { pane.replaceChildren(detailView(shownId())); loadOpenDetail(); }
+}
+
+function identityResults() {
   const style = rowStyle();
   const current = shownId();
-  return h("div", { class: "adm-listwrap" },
-    style === "table" && listHead(),
-    h("ul", { class: "adm-list " + style },
-      sorted().map(i => h("li", { class: "adm-item" + (current === i.id ? " open" : "") },
-        row(i, style, current === i.id)))));
+  const list = sorted();
+  return h("div", { class: "adm-results" },
+    list.length > 0 && style === "table" && listHead(),
+    list.length > 0
+      ? h("ul", { class: "adm-list " + style },
+        list.map(i => h("li", { class: "adm-item" + (current === i.id ? " open" : "") },
+          row(i, style, current === i.id))))
+      : S.query.trim() && h("p", { class: "adm-muted adm-nomatch" }, `No identity matches \u201c${S.query.trim()}\u201d.`));
+}
+
+function identityList() {
+  return h("div", { class: "adm-listwrap" }, searchBar(), identityResults());
 }
 
 function identitiesSection() {
@@ -350,7 +384,7 @@ function identitiesSection() {
 // ---------- identity detail ----------
 
 function detailView(id) {
-  if (!id) return h("div", { class: "adm-detail" }, h("p", { class: "adm-muted" }, "No identities yet."));
+  if (!id) return h("div", { class: "adm-detail" }, h("p", { class: "adm-muted" }, S.identities.length ? "No identity to show." : "No identities yet."));
   const d = S.details.get(id);
   if (!d) return h("div", { class: "adm-detail" }, h("p", { class: "adm-muted" }, "Loading…"));
   if (d.error) {
@@ -368,6 +402,7 @@ function detailView(id) {
       h("h4", { class: "d-title" }, "Storage"),
       storageBlock(d),
       quotaForm(d, defaultQuota)),
+    historyCard(d),
     h("div", { class: "d-grid" },
       h("div", { class: "d-card" },
         h("h4", { class: "d-title" }, "Devices"),
@@ -387,6 +422,38 @@ function detailView(id) {
         class: "adm-chip contact", type: "button", "aria-label": `Open identity ${shortId(c)}`, onclick: () => openIdentity(c),
       }, mono(shortId(c))))) : h("p", { class: "adm-muted" }, "No contacts"),
       h("p", { class: "d-invites" }, `Open invitations: ${d.invitations}`)));
+}
+
+/** The "Version history" switch: an extra feature per identity that the owner unlocks by hand. */
+function historyCard(d) {
+  const input = h("input", {
+    class: "switch", type: "checkbox", role: "switch", id: "history-switch", "data-key": "history",
+    checked: !!d.history, "aria-labelledby": "history-title", "aria-describedby": "history-sub",
+  });
+  const error = h("p", { class: "field-error", hidden: true });
+  input.addEventListener("change", async () => {
+    const on = input.checked;
+    input.disabled = true;
+    error.hidden = true;
+    try {
+      await api.adminSetHistory(d.id, on);
+      showSnackbar(on ? "Version history switched on." : "Version history switched off.");
+      await reloadIdentity(d.id);
+    } catch (e) {
+      input.checked = !on;
+      input.disabled = false;
+      error.textContent = e.message || "Could not change the version history.";
+      error.hidden = false;
+    }
+  });
+  return h("div", { class: "d-card d-history" },
+    h("div", { class: "d-switchrow" },
+      h("label", { class: "d-switchtext", for: "history-switch" },
+        h("span", { class: "d-switchtitle", id: "history-title" }, "Version history"),
+        h("span", { class: "d-switchsub", id: "history-sub" }, "Keeps older states of this identity\u2019s files for 30 days, shared files included.")),
+      input),
+    d.history && h("p", { class: "d-historysize" }, `History uses ${formatBytes(d.history_size)}`),
+    error);
 }
 
 function quotaForm(d, defaultQuota) {
@@ -723,12 +790,17 @@ function render() {
   S.tier = tierNow();
   const active = document.activeElement && root.contains(document.activeElement) ? document.activeElement : null;
   const focused = active ? active.dataset.key : null;
+  const caret = active && active.type === "text" ? [active.selectionStart, active.selectionEnd] : null;
   // The post being written keeps its editor (and the text in it) across a redraw.
   const writing = S.newsEdit && active && S.newsEdit.el.contains(active);
   root.className = `admin tier-${S.tier}`;
   root.replaceChildren(header(), S.status === "ready" ? content() : statesView());
   if (writing) S.newsEdit.editor.view.focus();
-  else if (focused) root.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  else if (focused) {
+    const again = root.querySelector(`[data-key="${CSS.escape(focused)}"]`);
+    again?.focus({ preventScroll: true });
+    if (again && caret && again.type === "text") again.setSelectionRange(...caret);
+  }
   document.body.dataset.ready = "1";
 }
 
