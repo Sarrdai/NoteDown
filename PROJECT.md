@@ -133,7 +133,7 @@ is deleted from code, menu and this table. No variant is open right now.
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 
-In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, and "Simulate reminder" shows today's due-date reminder as a notification banner (not variants).
+In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, "Simulate reminder" shows today's due-date reminder as a notification banner, and "Show storage hint again" brings back a hidden "only stored in this browser" card (not variants).
 
 ### Screenshots
 

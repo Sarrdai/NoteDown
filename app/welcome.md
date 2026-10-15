@@ -20,6 +20,7 @@ The three notes below show you around. Close each one once you've read it.
 
 ## Where your notes live
 - On this device, in one plain Markdown file — they work offline and nothing leaves the device until you turn on sync
+- In a web browser, clearing the site's data deletes the notes — unless sync is on or you exported them
 - Sync is end-to-end encrypted: the server only ever stores encrypted files and can't read your notes
 - There is no account: devices are linked by a QR code, and the **recovery key** shown when you turn on sync is the way back if you lose all of them — keep it somewhere safe
 - **Export** saves your notes as Markdown files, as a backup or to take them anywhere

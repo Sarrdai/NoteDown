@@ -32,6 +32,7 @@ import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
 import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
 import { initExport, openExport } from "./ui/export.js";
+import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
@@ -432,6 +433,7 @@ function moreMenu() {
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
     { section: "Prototype" },
+    s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
@@ -628,6 +630,7 @@ async function start() {
   // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
   initReminders({ open: showDue });
   initExport();
+  initStorageHint({ onSync: openSyncPanel, onExport: exportDialog });
   document.body.dataset.ready = "1";
 }
 
