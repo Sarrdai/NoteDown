@@ -9,7 +9,7 @@
 import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected, markNewsSeen } from "../store.js";
-import { keptMarkerHtml, keptBanner, openKeptMenu } from "./kept.js";
+import { keptMarkerHtml, openKeptMenu } from "./kept.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -115,7 +115,7 @@ function noteElement(n, view = state.view) {
   protect.innerHTML = icon("protect");
   protect.addEventListener("click", () => setProtected([n.id], false));
 
-  el.append(...(n.kept ? [keptBanner(n)] : []), body, meta, ...(n.news ? [] : [protect]), status);
+  el.append(body, meta, ...(n.news ? [] : [protect]), status);
   markSelected(el);
   return el;
 }

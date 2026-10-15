@@ -683,8 +683,8 @@ button.shared-mark::after { content: ""; position: absolute; inset: -11px -6px; 
 button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 999px; }
 
 /* A kept note (ui/kept.js): the others deleted it, it stays here because it is protected.
-   Prototype variants (store.js → keptLook): A the marker alone, B a bar at the top of the
-   card, C a dashed card plus the marker. */
+   A dashed card, so it stands out in a long list, and the marker with its actions. */
+.note.kept:not(.selected):not(.editing) { border-style: dashed; border-color: var(--text-faint); box-shadow: none; }
 .kept-mark .avatar-stack { position: relative; opacity: 0.55; }
 .kept-mark .avatar-stack::after {   /* struck through: gone for these people */
   content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px;
@@ -694,25 +694,6 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px;
   background: var(--danger-soft); color: var(--danger); font-size: 0.75rem;
 }
-.kept-banner {
-  grid-area: banner; display: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px;
-  margin: -6px -2px 8px -6px; padding: 4px 4px 4px 10px; border-radius: 10px;
-  background: var(--danger-soft); color: var(--text-muted); font-size: 0.85rem;
-}
-.kept-text { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.kept-text .icon { width: 15px; height: 15px; flex: none; fill: currentColor; color: var(--accent); }
-.kept-actions { display: inline-flex; margin-left: auto; }
-.kept-banner .link-btn {
-  position: relative; border: 0; padding: 6px 8px; border-radius: 8px; background: transparent;
-  color: var(--accent); font: inherit; font-weight: 600; cursor: pointer;
-}
-.kept-banner .link-btn::after { content: ""; position: absolute; inset: -4px 0; } /* 44 px tall touch target */
-.kept-banner .link-btn:hover { background: var(--surface-hover); }
-.app.kept-look-banner .note.kept { grid-template-areas: "banner banner banner" "body body body" "meta protect status"; }
-.app.kept-look-banner .kept-banner { display: flex; }
-.app.kept-look-banner .kept-label { display: none; }
-.app.kept-look-faded .note.kept:not(.selected):not(.editing) { border-style: dashed; border-color: var(--text-faint); box-shadow: none; }
-.app.selecting .kept-banner { pointer-events: none; }
 
 /* Sync status: an icon in the top bar. "syncing" (spinning arrows) lasts at
    least 0.8 s (sync/client.js); then the check draws itself in the accent

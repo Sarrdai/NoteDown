@@ -95,7 +95,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  for (const v of KEPT_LOOKS) app.classList.toggle("kept-look-" + v, s.keptLook === v);
 
   $("title").textContent = state.view === "open" ? "Notes" : "Archive";
   const sort = sortOf();
@@ -376,9 +375,6 @@ function fitTopbar() {
   title.textContent = text;
 }
 
-// Prototype variants: how a kept note shows (store.js → keptLook).
-const KEPT_LOOKS = ["marker", "banner", "faded"];
-
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
@@ -388,10 +384,6 @@ function moreMenu() {
     hidden.length && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: kept note" },
-    { label: "Marker in the meta line (A)", checked: s.keptLook === "marker", onSelect: () => updateSettings({ keptLook: "marker" }) },
-    { label: "Bar in the card (B)", checked: s.keptLook === "banner", onSelect: () => updateSettings({ keptLook: "banner" }) },
-    { label: "Dashed card + marker (C)", checked: s.keptLook === "faded", onSelect: () => updateSettings({ keptLook: "faded" }) },
     { section: "Prototype" },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -531,7 +523,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (KEPT_LOOKS.includes(p.get("kept"))) patch.keptLook = p.get("kept");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).
