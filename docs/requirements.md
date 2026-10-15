@@ -664,11 +664,13 @@ this needs none of it.
   on the entry above them.
 - While selecting, a **contextual top bar** replaces the normal one: ✕,
   "n selected" (n = parts: whole notes and runs of adjacent sections) and
-  the actions as icons (with labels on the desktop where all of them fit
-  on one line, else tooltips — 2026-10-15: the labels overran the bar); the + button is
+  the actions as icons (with labels on the desktop); the rarer ones —
+  Export, Share, Make permanent, Promote / Demote headings — sit under ⋮
+  in every tier (2026-10-15: the labels overran the desktop bar; backlog
+  #36 revisits which actions are the frequent ones); the + button is
   hidden. On the phone the contents sheet's handle stays at the bottom,
   so the selection can be refined in the contents and back; the bar shows
-  only the number there, and Share and the heading actions move under ⋮ there. Decided
+  only the number there. Decided
   2026-10-13 over a bottom action bar (the thumb area and the list's
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
@@ -678,8 +680,7 @@ this needs none of it.
   (disabled while only parts of a note are selected) and end the
   selection with Undo; Close leaves permanent notes alone (disabled when
   only those are selected). Make permanent applies unless all selected
-  notes are permanent already, then it reads Make closable; it sits
-  under ⋮. In the archive the actions are **Reopen**, **Back to note**, Copy, Export and
+  notes are permanent already, then it reads Make closable. In the archive the actions are **Reopen**, **Back to note**, Copy, Export and
   Delete — closed notes are read-only. In the trash a tap selects; the
   bar holds **Restore**, **Restore as my own** and Copy, Delete
   permanently is the bin at the bottom left ("Main view, archive and
