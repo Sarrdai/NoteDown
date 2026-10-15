@@ -37,6 +37,15 @@ export function viewNotes(notes, { status, search = "", sort, order = [] }) {
   return sortNotes(list, sort);
 }
 
+/** Where a search text occurs in `text`, case-insensitive as the filter:
+ *  [start, end) pairs, left to right, not overlapping. */
+export function matchRanges(text, search) {
+  const q = search.trim();
+  if (!q) return [];
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+  return [...text.matchAll(re)].map(m => [m.index, m.index + m[0].length]);
+}
+
 /** A custom order (backlog #24): the notes listed in `ids`, in that order,
  *  and the rest — "not sorted yet", new notes among them — by last edited. */
 export function customSplit(notes, ids) {

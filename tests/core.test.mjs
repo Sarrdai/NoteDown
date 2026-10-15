@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask } from "../app/js/core/markdown.js";
-import { viewNotes, sortNotes, customSplit, rearrange, tableOfContents, closedOn, protectedFirst, deleteGroups } from "../app/js/core/query.js";
+import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, tableOfContents, closedOn, protectedFirst, deleteGroups } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -168,4 +168,11 @@ test("markdown: script links are disarmed, also with tabs or newlines in the sch
     assert.doesNotMatch(renderMarkdown(src), /href="(?!#")/, src);
   }
   assert.match(renderMarkdown("[a](https://example.com)"), /href="https:\/\/example.com"/);
+});
+
+test("query: search hits are found case-insensitively, also with regex characters", () => {
+  assert.deepEqual(matchRanges("Lisbon trip, lisbon tram", " LISBON "), [[0, 6], [13, 19]]);
+  assert.deepEqual(matchRanges("aaaa", "aa"), [[0, 2], [2, 4]]);
+  assert.deepEqual(matchRanges("costs (1+2)?", "(1+2)?"), [[6, 12]]);
+  assert.deepEqual(matchRanges("anything", "  "), []);
 });

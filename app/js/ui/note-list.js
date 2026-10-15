@@ -16,6 +16,7 @@ import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { openShareDialog } from "./share-dialog.js";
 import { openDueMenu } from "./toolbar.js";
 import { pushEntry, leaveEntry } from "./dom.js";
+import { markHits } from "./search-hits.js";
 
 const list = () => document.getElementById("list");
 
@@ -93,6 +94,7 @@ function noteElement(n, view = state.view) {
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
   wrapSections(body, sections(n.body));
+  markHits(body);
   if (n.status === "closed") body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 

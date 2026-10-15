@@ -10,12 +10,13 @@ import { state, updateSettings } from "../store.js";
 import { flashNote } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
+import { markHits } from "./search-hits.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
 const SLOP = 8;             // px before a drag's direction is decided (as the view swipe's)
 const CLOSE_BELOW = 0.15;   // share of the sheet's range under which a drag closes it
-const FLICK = 0.5;          // px/ms down that closes the sheet from anywhere
+const FLICK = 0.5;          // px/ms: down closes the sheet from anywhere, up from closed opens it fully
 const HOLD_STILL_MS = 100;  // a pause this long before letting go is no flick
 const GLIDE_DECAY = 0.997;  // per ms: how quickly a flick's glide slows down
 const EDGE_STRIP = 24;      // px at either screen edge where a drag up pulls the closed sheet
@@ -54,6 +55,7 @@ export function tocItems(notes, search = state.search) {
     let hidden = 0;
     for (let j = i + 1; j < entries.length && entries[j].level > depth; j++) if (state.selected.has(entries[j].key)) hidden++;
     if (hidden) b.insertAdjacentHTML("beforeend", ` <span class="toc-more">+${hidden}</span>`);
+    markHits(b, search);
     shown.push(b);
   });
   return shown;
@@ -137,8 +139,9 @@ function markOpen(open, fromHistory = false) {
 // whole, so pushing it up and scrolling it are the same: a vertical drag
 // anywhere on it (on the handle only while closed) moves it; up to the top
 // bar it opens, further up it slides out at the top. Let go, it stays where
-// it is, an upward flick glides on, a downward flick closes it from
-// anywhere, near the bottom it closes. A tap on the handle toggles it;
+// it is, an upward flick opens it fully when it was closed and glides on
+// otherwise, a downward flick closes it from anywhere, near the bottom it
+// closes. A tap on the handle toggles it;
 // sideways is the view swipe's (ui/view-swipe.js). Tablet and desktop
 // hide the handle.
 function initSheetDrag() {
@@ -159,10 +162,11 @@ function initSheetDrag() {
     return y;
   };
 
-  // Lets go at `v` px/ms (down positive).
-  const release = v => {
+  // Lets go at `v` px/ms (down positive); `fromClosed` when the drag began with the sheet closed.
+  const release = (v, fromClosed) => {
     const r = range(), y = top();
     if (v > FLICK) return setTocOpen(false);
+    if (fromClosed && v < -FLICK && y > r.open) return setTocOpen(true);
     if (y > r.open && v >= 0 && r.closed - y < (r.closed - r.open) * CLOSE_BELOW) return setTocOpen(false);
     markOpen(true);
     // A glide never brings the sheet further down than the open height, or than where it was let go below it.
@@ -192,7 +196,8 @@ function initSheetDrag() {
     if (!phone.matches || e.button !== 0) return;
     if (!app().classList.contains("toc-open") && e.target !== handle) return;
     stopGlide();
-    drag = { x: e.clientX, y: e.clientY, top: top(), moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0 };
+    drag = { x: e.clientX, y: e.clientY, top: top(), moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0,
+      fromClosed: !app().classList.contains("toc-open") };
   });
   panel.addEventListener("pointermove", e => {
     if (!drag) return;
@@ -209,7 +214,7 @@ function initSheetDrag() {
   });
   const onUp = e => {
     if (!drag) return;
-    const { moved, v, lastT } = drag;
+    const { moved, v, lastT, fromClosed } = drag;
     drag = null;
     if (!moved) {
       if (e.target === handle && e.type === "pointerup") setTocOpen(!app().classList.contains("toc-open"));
@@ -220,12 +225,12 @@ function initSheetDrag() {
     const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
     panel.addEventListener("click", swallow, { capture: true, once: true });
     setTimeout(() => panel.removeEventListener("click", swallow, { capture: true }));
-    release(e.type === "pointerup" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0);
+    release(e.type === "pointerup" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0, fromClosed);
   };
   panel.addEventListener("pointerup", onUp);
   panel.addEventListener("pointercancel", onUp);
   // Closed, a drag up from a thin strip at either screen edge in the
-  // bottom third pulls the sheet up too, so the handle needn't be hit;
+  // bottom third pulls the sheet up too (a flick opens it fully), so the handle needn't be hit;
   // down there it still scrolls the list, sideways it is the view swipe.
   let edge = null;   // { y, top, lastY, lastT, v, x, taken } while a finger is down in a strip
   document.addEventListener("touchstart", e => {
@@ -256,7 +261,7 @@ function initSheetDrag() {
     const { v, lastT } = edge;
     edge = null;
     app().classList.remove("toc-dragging");
-    release(e.type === "touchend" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0);
+    release(e.type === "touchend" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0, true);
   };
   document.addEventListener("touchend", onEdgeEnd);
   document.addEventListener("touchcancel", onEdgeEnd);

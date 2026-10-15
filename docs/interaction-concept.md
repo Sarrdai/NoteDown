@@ -21,7 +21,7 @@ Current state, edited in place when a decision changes.
 | Top bar | Title; icons for search, sort, archive (count on its corner), Sync & sharing (sync status), Reminders, Export, ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards; the same icons right of it |
 | Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People" once there are contacts | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
-| Search | Icon turns the top bar into a search field | Always visible field | Always visible field |
+| Search | Icon turns the top bar into a search field; with a text it shows the hit counter and ▲ / ▼ | Always visible field, wider with a text for the counter and ▲ / ▼ | Always visible field, counter and ▲ / ▼ inside |
 | Multi-select | Contextual top bar: ✕, count, main action icons, rest under ⋮; the contents handle stays | Contextual top bar: ✕, count, action icons | Same, actions with labels |
 | Panels (Sync & sharing, share dialog) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
@@ -87,9 +87,10 @@ Current state, edited in place when a decision changes.
 - **Bottom sheets** (phone) have a handle: a tap opens fully or closes.
   The whole sheet is one surface: dragging it anywhere leaves it at any
   height, past the top it slides out at the top instead of scrolling
-  inside; an upward flick glides on, a downward flick or a drag near the
-  bottom closes. A closed sheet is also pulled up by a drag up from a
-  thin strip at either screen edge in the bottom third.
+  inside; an upward flick opens a closed sheet fully and glides on an
+  open one, a downward flick or a drag near the bottom closes. A closed
+  sheet is also pulled up (or flicked open) by a drag up from a thin
+  strip at either screen edge in the bottom third.
 - **Back** (Android button or gesture) closes the innermost layer first:
   a dialog or panel page, the selection, the editor (editing ends), the
   open contents sheet; only then does it leave the app. Each layer sits
@@ -124,7 +125,8 @@ Current state, edited in place when a decision changes.
   view, sort or search changes, and when a new due date sorts its note
   in under the due-date sort; that note then keeps its place on the
   screen (`docs/requirements.md` → "Sorting").
-- Keyboard on the desktop: `n` new note, `/` search, `Esc` ends editing,
+- Keyboard on the desktop: `n` new note, `/` search (Enter / Shift+Enter
+  next / previous hit), `Esc` ends editing,
   closes menus, panels and dialogs and ends multi-select; Markdown shortcuts in the editor
   (`docs/requirements.md` → "Creating and editing").
 

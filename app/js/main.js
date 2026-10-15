@@ -14,6 +14,7 @@ import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
+import { initSearchHits } from "./ui/search-hits.js";
 import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
@@ -431,7 +432,7 @@ function showDue(ids) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["remindersBtn", "bell"], ["exportBtn", "download"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["remindersBtn", "bell"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -469,6 +470,7 @@ function wire() {
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
   initToc();
+  initSearchHits();
   // Picking a circle on the phone closes the sheet; the chip above the list shows it.
   initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); } });
   initMenu();
