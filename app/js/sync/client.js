@@ -11,9 +11,8 @@
 // confirmations (contacts.js). The sample
 // (`state.sync.simulated`) never reaches this module.
 import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState, contacts, sharedFiles } from "../store.js";
-import { parseNotesFile } from "../core/notes-file.js";
 import * as c from "../core/crypto.js";
-import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal } from "../core/sync-state.js";
+import { withoutUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal } from "../core/sync-state.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, serverUrl } from "../core/linking.js";
 import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
@@ -36,7 +35,6 @@ let pollTimer = null, pollDelay = POLL_MIN_MS;
 let moved = false;       // the running sync downloaded or uploaded something
 
 const active = () => api && state.sync.enabled && !state.sync.simulated;
-const emptyFile = () => parseNotesFile("");
 
 // The identity's home server (a state saved before servers were named: the default one) and the client of
 // a server ("" or none: the home server). Every call goes through the server of its file or contact.
@@ -251,7 +249,7 @@ export async function restore(recoveryKey) {
     apis.forgetTokens();
   }
   await adopt({ name: state.sync.name, identity, server: defaultServer, identityKey: r.identity.publicKey, device });
-  await installRestored(remote, identity, onlyUntouchedWelcome(state.file) ? emptyFile() : state.file);
+  await installRestored(remote, identity, withoutUntouchedWelcome(state.file));
   nameThisDevice();
   await syncNow();
 }
@@ -309,7 +307,7 @@ export async function waitForLink({ device, slot }, cancelled) {
   if (await c.keyId(keyBytes) !== message.identity) throw new Error("The server answered with another identity");
   const devices = await c.verifyChain(keyBytes, entries);
   if (!devices.get(deviceId)?.active) throw new Error("This device isn't on the device list; scan the code again");
-  if (onlyUntouchedWelcome(state.file)) setPrivateFile(emptyFile());
+  if (withoutUntouchedWelcome(state.file) !== state.file) setPrivateFile(withoutUntouchedWelcome(state.file));
   await adopt({ name: message.name, identity: message.identity, server, identityKey: keyBytes, device });
   await syncNow();
   return true;
