@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX } from "../app/js/core/sync-state.js";
+import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince } from "../app/js/core/sync-state.js";
 
 const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -35,10 +35,10 @@ test("deviceRows: this device first, the others numbered by when they were added
 
 test("deviceRows: names from the private file, removed devices' names ignored", () => {
   const devices = new Map([dev("a"), dev("r", "recovery"), dev("b"), dev("c", "device", false)]);
-  const names = [{ id: "a", name: "Chrome on Windows" }, { id: "b", name: "NoteDown app on Android" }, { id: "c", name: "Firefox on Linux" }];
+  const names = [{ id: "a", name: "Chrome on Windows", synced: "2026-10-14T08:00Z" }, { id: "b", name: "NoteDown app on Android" }, { id: "c", name: "Firefox on Linux" }];
   assert.deepEqual(deviceRows(devices, "b", names), [
     { id: "b", own: true, named: true, label: "NoteDown app on Android" },
-    { id: "a", own: false, named: true, label: "Chrome on Windows" },
+    { id: "a", own: false, named: true, synced: "2026-10-14T08:00Z", label: "Chrome on Windows" },
   ]);
 });
 
@@ -138,4 +138,27 @@ test("serverRestored: the same epoch and no older version is business as usual",
 test("serverRestored: an older version than seen is a restore even without a new epoch", () => {
   assert.equal(serverRestored("abc", "abc", [{ seen: 3, served: 3 }, { seen: 4, served: 2 }]), true);
   assert.equal(serverRestored("", null, [{ seen: 1, served: 0 }]), true);
+});
+
+test("withSynced: sets this device's sync time at most once a day and keeps its name", () => {
+  const f = { ...file(), devices: [{ id: "d1", name: "Phone" }] };
+  const once = withSynced(f, "d1", "2026-10-15T08:00Z");
+  assert.deepEqual(once.devices, [{ id: "d1", name: "Phone", synced: "2026-10-15T08:00Z" }]);
+  assert.equal(withSynced(once, "d1", "2026-10-15T20:00Z"), once, "same day: unchanged");
+  assert.equal(withSynced(once, "d1", "2026-10-16T07:00Z").devices[0].synced, "2026-10-16T07:00Z");
+  assert.deepEqual(withSynced(file(), "d2", "2026-10-15T08:00Z").devices, [{ id: "d2", synced: "2026-10-15T08:00Z" }], "a device without a name");
+  assert.equal(withDeviceName(once, "d1", "Pixel").devices[0].synced, "2026-10-15T08:00Z", "renaming keeps the time");
+});
+
+test("dropSeenPurged: a purged marker goes once every active device synced after it", () => {
+  const f = { ...file(), purged: [{ id: "a", purged: "2026-10-01T10:00Z" }, { id: "b", purged: "2026-10-10T10:00Z" }],
+    devices: [{ id: "d1", synced: "2026-10-12T08:00Z" }, { id: "d2", synced: "2026-10-05T08:00Z" }, { id: "gone", synced: "2026-01-01T00:00Z" }] };
+  assert.deepEqual(dropSeenPurged(f, ["d1", "d2"]).purged.map(m => m.id), ["b"], "d2 hasn't synced since b");
+  assert.equal(dropSeenPurged(f, ["d1", "d2", "d3"]), f, "a device that never reported a time keeps them all");
+  assert.deepEqual(dropSeenPurged(f, ["d1"]).purged, [], "a removed device doesn't count");
+});
+
+test("daysSince: whole days, undefined without a time", () => {
+  assert.equal(daysSince("2026-10-01T12:00Z", Date.parse("2026-10-15T11:00Z")), 13);
+  assert.equal(daysSince(undefined), undefined);
 });

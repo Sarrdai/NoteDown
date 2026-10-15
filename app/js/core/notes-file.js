@@ -12,7 +12,8 @@
 // and holds the user's contacts in `<!-- contact … -->` markers; a shared file names its
 // members in `<!-- member … -->` markers, and a note someone left carries `left=<ids>`.
 // A deleted note waits in the trash of the private file for 30 days: it carries `deleted=<time>` and, when it
-// came from a shared file, `kept=<circleKey>` of that circle.
+// came from a shared file, `kept=<circleKey>` of that circle. Removing such a note for good leaves a bodyless
+// `purged=<time>` marker, and each device marker carries the time the device last synced (`synced=`).
 // An `<!-- order … -->` marker holds a custom note order: the user's own in
 // the private file, a circle's shared one in a shared file. `<!-- news … -->`
 // markers in the private file remember which news posts the user has seen,
@@ -20,13 +21,14 @@
 
 const MARKER = /^<!-- (note|device|contact|member|news|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes, moved, devices, contacts, members, news, order }
- *  (`members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
+/** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, order }
+ *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
  *  `news`: [{ id, seen, status? }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
   const moved = [];
+  const purged = [];
   const devices = [];
   const contacts = [];
   const members = [];
@@ -37,8 +39,9 @@ export function parseNotesFile(text) {
     else if (c.kind === "contact") { if (c.meta.id && c.meta.name) contacts.push(finishContact(c.meta)); }
     else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "news") { if (c.meta.id && c.meta.seen) news.push(finishNews(c.meta)); }
-    else if (c.kind === "device") { if (c.meta.id && c.meta.name) devices.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
+    else if (c.kind === "device") { if (c.meta.id && (c.meta.name || c.meta.synced)) devices.push(finishDevice(c.meta)); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved });
+    else if (c.meta.purged && c.meta.id) purged.push({ id: c.meta.id, purged: c.meta.purged });
     else notes.push(finishNote(c));
   };
   const preamble = [];
@@ -55,16 +58,17 @@ export function parseNotesFile(text) {
     }
   }
   if (current) finish(current);
-  return { preamble: preamble.join("\n").trim(), notes, moved, devices, contacts, members, news, order };
+  return { preamble: preamble.join("\n").trim(), notes, moved, purged, devices, contacts, members, news, order };
 }
 
-/** Writes { preamble, notes, moved, devices, contacts, members, news, order } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes, moved = [], devices = [], contacts = [], members = [], news = [], order = null }) {
+/** Writes { preamble, notes, moved, purged, devices, contacts, members, news, order } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [], purged = [], devices = [], contacts = [], members = [], news = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) parts.push(`${noteMarker(n)}\n${n.body.trim()}`);
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
+  for (const m of purged) parts.push(`<!-- note id=${m.id} purged=${m.purged} -->`);
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
-  for (const d of devices) parts.push(`<!-- device id=${d.id} name=${encodeURIComponent(d.name)} -->`);
+  for (const d of devices) parts.push(`<!-- device id=${d.id}${d.name ? " name=" + encodeURIComponent(d.name) : ""}${d.synced ? " synced=" + d.synced : ""} -->`);
   for (const c of contacts) {
     parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""} -->`);
   }
@@ -114,6 +118,11 @@ function parseAttrs(s) {
 
 function decodeName(text) {
   try { return decodeURIComponent(text); } catch { return text; }
+}
+
+// A device: `name` as the device suggested it, `synced` the start of its last complete sync round.
+function finishDevice(meta) {
+  return { id: meta.id, ...(meta.name && { name: decodeName(meta.name) }), ...(meta.synced && { synced: meta.synced }) };
 }
 
 // A contact: `color` is a slot 1–6 (1 when missing or invalid), `server` the contact's home server (absent = the default), `pending` the time the request was sent,

@@ -227,6 +227,15 @@ before the first live test).
     Android"); it travels in the QR code and is kept, encrypted, in the
     private file, so every device lists the same names. Devices linked
     before names existed stay "Device n"; renaming is not built.
+  - **Stale devices** (decided 2026-10-15, user request): the device list
+    shows for every other device when it last synced ("Last synced 3 days
+    ago"). One that hasn't synced for **90 days** gets a warning in its
+    row — "No sync for 104 days — remove it if you don't use it any more"
+    — next to its remove button. Why: a forgotten device still holds keys
+    and gets every new file key, and while it is listed the trash has to
+    keep its purged markers for it (`docs/sync-and-sharing.md` → "Trash").
+    The warning is in the list only, no notification. *Prototype:
+    2026-10-15.*
 
 ### Server maintenance (admin)
 
@@ -366,7 +375,11 @@ paid features per user.
   trash is reached under **⋮ → Trash (n)**, the view button leads back to
   the notes; no swipe (decided 2026-10-15 over a third page right of the
   archive and a button in the archive's top bar: deleted notes are rarely
-  needed and get no permanent place). Not in the trash: notes of a circle
+  needed and get no permanent place). The 30 days count from when the
+  user's first device notices the delete, not from the delete itself: a
+  member who opens NoteDown after two months still finds the note in the
+  trash for 30 days. A note removed for good stays gone even on a device
+  that was offline meanwhile. Not in the trash: notes of a circle
   the user was removed from (the others' decision, not a delete), an
   emptied note (nothing to restore) and news posts (their own state).
   *Prototype: 2026-10-15.*

@@ -12,7 +12,7 @@ import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, contacts, s
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
 import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
-import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored } from "../core/sync-state.js";
+import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored, withSynced, dropSeenPurged } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
 import { ApiError, NetworkError } from "./api.js";
 import { getSecret, setSecret, deleteSecret } from "./keystore.js";
@@ -155,6 +155,7 @@ export async function filesRound() {
   const server = ctx.home();   // the files listed here live on the home server
   const api = ctx.api(server);
   const run = { done: true, again: false, problems: [], chains: new Map() };
+  const started = timestamp();   // what this round downloads is at least as new as this
   const { files, quota, epoch, news } = await api.listFiles();
   const used = files.reduce((sum, f) => sum + f.size, 0);
   const { usage } = state.sync;
@@ -225,11 +226,24 @@ export async function filesRound() {
   if (remote.size) {
     // A trashed note that is back in its shared file (someone undid the delete) leaves the trash; a private copy of
     // a note that is shared again (someone was removed and added back) becomes a note of its own.
+    // A purged marker goes too: a later delete of the note has to reach the trash again.
     const ids = new Set(sharedFiles().flatMap(sf => sf.file.notes.map(n => n.id)));
     if (state.file.notes.some(n => n.deleted && ids.has(n.id))) putFile(PRIVATE, { ...state.file, notes: state.file.notes.filter(n => !(n.deleted && ids.has(n.id))) });
+    if (state.file.purged.some(m => ids.has(m.id))) putFile(PRIVATE, { ...state.file, purged: state.file.purged.filter(m => !ids.has(m.id)) });
     const { file, renamed } = renameDuplicates(state.file, ids);
     if (renamed.length) putFile(PRIVATE, file);
   }
+
+  // This device has everything up to the round's start: it says so in the private file (once a day), and purged
+  // markers all active devices have synced past go (docs/sync-and-sharing.md → "Trash").
+  if (!run.problems.length) await guarded(run, async () => {
+    let file = withSynced(state.file, state.sync.device, started);
+    if (file.purged.length) {
+      const active = [...(await chainOf(state.sync.identity, run)).values()].filter(d => d.active && d.kind === "device").map(d => d.id);
+      file = dropSeenPurged(file, active);
+    }
+    if (file !== state.file) putFile(PRIVATE, file);
+  });
 
   // 3. Upload what differs from the last synced state, creating files that don't exist yet.
   // A file that moved notes away goes after the ones that may have received them, the private file last,

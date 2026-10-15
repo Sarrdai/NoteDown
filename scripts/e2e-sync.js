@@ -303,7 +303,7 @@ async function main() {
       const all = await bodies(d);
       assert.ok(all.includes(sample.s04), "D's own note is synced");
       assert.equal((await syncState(d)).name, "Sam", "the display name came with the relay message");
-      assert.match(await fileText(a), /<!-- device id=\S+ name=NoteDown%20app%20on%20Android -->/);
+      assert.match(await fileText(a), /<!-- device id=\S+ name=NoteDown%20app%20on%20Android synced=\S+Z -->/);
     });
 
     await step("a scanned code that expired or isn't a link code is refused", async () => {

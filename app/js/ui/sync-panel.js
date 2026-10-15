@@ -15,7 +15,7 @@ import {
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
 import { createInvitation, myCode, readInvite, sendRequest, removeContact, onContactConfirmed } from "../sync/contacts.js";
-import { deviceRows, storageUsage } from "../core/sync-state.js";
+import { deviceRows, storageUsage, daysSince, STALE_DAYS } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
@@ -252,6 +252,20 @@ function restart() {
   if (url.href === location.href) location.reload();
   else location.replace(url);
 }
+
+// Another device's row: when it last synced; after STALE_DAYS a warning that suggests removing it
+// (docs/requirements.md → "Sync and sharing"). → { sub, stale }
+function lastSynced(synced) {
+  const days = daysSince(synced);
+  if (days === undefined) return { sub: null, stale: false };
+  if (days >= STALE_DAYS) return { sub: `No sync for ${days} days — remove it if you don't use it any more`, stale: true };
+  return { sub: "Last synced " + (days < 1 ? "today" : days < 2 ? "yesterday" : `${days} days ago`), stale: false };
+}
+
+const deviceRow = (title, synced, remove) => {
+  const { sub, stale } = lastSynced(synced);
+  return row({ icon: "device", title, sub, unverified: stale, remove });
+};
 
 function deviceName() {
   if (matchMedia("(min-width: 1024px)").matches) return "This browser";
@@ -518,7 +532,7 @@ const PAGES = {
     render: data => {
       const { btn, error } = action("Link", async () => {
         if (real()) await linkDevice(data.code);
-        else setSync({ devices: [...state.sync.devices, data.name] });
+        else setSync({ devices: [...state.sync.devices, { name: data.name, synced: timestamp() }] });
         reset("overview");
         showSnackbar("Device linked");
       });
@@ -641,10 +655,9 @@ function realOverview(data) {
   return [
     section("Devices"),
     data.rows
-      ? h("ul", { class: "sheet-card" }, data.rows.map(d => row({
-          icon: "device", title: d.label, sub: d.own ? (d.named ? "This device" : deviceName()) : null,
-          remove: !d.own && (() => go("removeDevice", d)),
-        })))
+      ? h("ul", { class: "sheet-card" }, data.rows.map(d => d.own
+          ? row({ icon: "device", title: d.label, sub: d.named ? "This device" : deviceName() })
+          : deviceRow(d.label, d.synced, () => go("removeDevice", d))))
       : text(data.failed ? `Couldn't load the devices: ${data.failed}` : "Loading…", "sheet-text muted"),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger",
@@ -654,6 +667,9 @@ function realOverview(data) {
   ].flat();
 }
 
+// A simulated device: { name, synced } (a plain name in sync states stored before the sync times).
+const simDevice = d => (typeof d === "string" ? { name: d } : d);
+
 // The sample: simulated devices and contacts.
 function simulatedOverview() {
   const { devices } = state.sync;
@@ -661,7 +677,7 @@ function simulatedOverview() {
     section("Devices"),
     h("ul", { class: "sheet-card" },
       row({ icon: "device", title: "This device", sub: deviceName() }),
-      devices.map((name, i) => row({ icon: "device", title: name, remove: () => removeFromList("devices", i, name) }))),
+      devices.map(simDevice).map((d, i) => deviceRow(d.name, d.synced, () => removeFromList("devices", i, d.name)))),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
     contactsSections((c, i) => removeFromList("contacts", i, c.name)),
@@ -679,7 +695,7 @@ Object.assign(PAGES, {
         return [
           scannerView(hint),
           h("div", { class: "button-row center" }, button("Simulate scan (prototype)", "", () =>
-            go("confirmLink", { name: uniqueName("New device", state.sync.devices) }))),
+            go("confirmLink", { name: uniqueName("New device", state.sync.devices.map(d => simDevice(d).name)) }))),
         ];
       }
       const scanner = cameraScanner({
