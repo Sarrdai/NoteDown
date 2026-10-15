@@ -339,8 +339,9 @@ paid features per user.
   Why: it replaces the device-local protection from deletion, which had
   to be set in advance, didn't reach the user's other devices and was hard
   to explain; with the trash nothing is lost by a delete, and what is
-  meant to last is now visibly marked as such. *Prototype: 2026-10-15;
-  its look is still a variant (B1 mark, B2 mark and accent edge).*
+  meant to last is now visibly marked as such. The mark alone, no colored
+  card edge (decided 2026-10-15: permanent notes are rare, the mark is
+  enough). *Prototype: 2026-10-15.*
 - **Trash** (decided 2026-10-15, user request): **Delete** moves notes
   into the trash at once, with Undo (no confirmation, as nothing is
   lost). The trash keeps them for **30 days**, then they are gone for
@@ -352,17 +353,23 @@ paid features per user.
   **private file**, so every member has their own and nobody can empty
   another's. A note deleted from a shared file shows the circle's avatars
   **crossed out** and stays under that circle in the people filter.
-  Trashed notes are read-only; a tap offers **Restore** — for a note from
-  a shared file **Restore for …** (shares it with the circle again, after
-  a confirmation as it reaches others) or **Restore as my own note** —
-  and **Delete permanently** (asks first). The trash's floating button
-  is the red bin **Empty trash** (asks first). Not in the trash: notes of
-  a circle the user was removed from (the others' decision, not a
-  delete), an emptied note (nothing to restore) and news posts (their own
-  state). *Prototype: 2026-10-15; where the trash is reached is still a
-  variant (A1 a third page right of the archive, the view button a menu of
-  the three views; A2 a trash button in the archive's top bar; A3 an
-  entry under ⋮).*
+  Trashed notes are read-only. **Every action acts on the selection** —
+  there is no "empty trash" (decided 2026-10-15, user request): a tap
+  selects a note, and the selection bar at the top offers **Restore**
+  (a note from a shared file goes back to its circle, after a
+  confirmation as it reaches others), **Restore as my own** (when a note
+  from a shared file is selected) and Copy. **Delete permanently** sits
+  far from those, as the trash's floating button — the archive's red bin
+  at the bottom left, greyed out until notes are selected — and asks
+  first, saying it can't be undone later (Undo for 5 seconds still
+  follows). Why: restoring and destroying must not sit side by side. The
+  trash is reached under **⋮ → Trash (n)**, the view button leads back to
+  the notes; no swipe (decided 2026-10-15 over a third page right of the
+  archive and a button in the archive's top bar: deleted notes are rarely
+  needed and get no permanent place). Not in the trash: notes of a circle
+  the user was removed from (the others' decision, not a delete), an
+  emptied note (nothing to restore) and news posts (their own state).
+  *Prototype: 2026-10-15.*
 - The **+ button** sits at the bottom right of the main view. *Prototype:
   round 1.*
 - Rendered notes show their **due date** as a chip: red when overdue,
@@ -656,10 +663,10 @@ this needs none of it.
   only those are selected). Make permanent applies unless all selected
   notes are permanent already, then it reads Make closable; it sits
   under ⋮. In the archive the actions are **Reopen**, Copy, Export and
-  Delete — closed notes are read-only. In the trash they are **Restore**
-  (asks first for notes going back to a circle), **Restore as my own**
-  (under ⋮, when a note from a shared file is selected), Copy and
-  **Delete permanently** (asks first).
+  Delete — closed notes are read-only. In the trash a tap selects; the
+  bar holds **Restore**, **Restore as my own** and Copy, Delete
+  permanently is the bin at the bottom left ("Main view, archive and
+  trash").
 - **Delete** moves the notes into the trash at once ("Note moved to
   trash · Undo"); shared ones go for everyone in their circle and wait in
   everyone's trash. *Prototype: 2026-10-15 (before: a confirmation).*

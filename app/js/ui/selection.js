@@ -6,8 +6,9 @@
 // selection bar acts on the selection; Copy and Merge first confirm the
 // order in a dialog where it can be changed by drag and drop. Ends with ✕,
 // Esc, the back button, an empty selection or an action that removes the
-// notes from view. Delete moves notes into the trash with Undo; in the trash
-// the actions are Restore and Delete permanently (ui/trash.js).
+// notes from view. Delete moves notes into the trash with Undo. In the trash a
+// tap selects; the bar restores, the red bin at the bottom left deletes the
+// selection permanently after asking (ui/trash.js) — kept apart on purpose.
 import { tableOfContents } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
@@ -124,7 +125,7 @@ function onClick(e) {
   if (!el || el.dataset.id === state.editingId) return;
   const id = el.dataset.id;
   if (e.shiftKey) selectRange(id);
-  else if (e.ctrlKey || e.metaKey || isSelecting() || (frameDown && onFrame(e.target))) toggle(id);
+  else if (e.ctrlKey || e.metaKey || isSelecting() || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
   else return;
   e.preventDefault();
   e.stopPropagation();
@@ -228,9 +229,8 @@ function update() {
   const news = byNote.every(([n]) => n.news);
   const actions = trash ? [
     { id: "restore", label: "Restore", run: () => withIds(restore) },
-    ids.some(id => keptCircle(id).length) && { id: "lock", label: "Restore as my own", run: () => withIds(restoreOwn), menu: true },
+    ids.some(id => keptCircle(id).length) && { id: "lock", label: "Restore as my own", run: () => withIds(restoreOwn) },
     { id: "copy", label: "Copy", run: copy },
-    { id: "trash", label: "Delete permanently", run: () => withIds(purge) },
   ].filter(Boolean) : news ? [
     archive ? { id: "reopen", label: "Reopen", run: reopen } : { id: "done", label: "Close", run: close, disabled: !whole },
     { id: "copy", label: "Copy", run: copy },
@@ -270,6 +270,12 @@ function withIds(fn) {
   const ids = [...new Set(noteIds())];
   endSelection();
   afterLeave(() => fn(ids));
+}
+
+/** The trash's bin: deletes the selected notes permanently after asking; Cancel keeps the selection. */
+export function purgeSelected() {
+  const ids = [...new Set(noteIds())];
+  if (ids.length) purge(ids, { onDone: () => endSelection() });
 }
 
 // Permanent notes stay open: Close leaves them alone.

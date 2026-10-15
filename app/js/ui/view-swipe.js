@@ -1,6 +1,5 @@
 // Swipe between the notes and the archive (phone and tablet, touch only):
-// the archive lies to the right of the notes (and the trash right of the
-// archive, prototype variant A1). Like a pager, the list follows
+// the archive lies to the right of the notes. Like a pager, the list follows
 // the finger anywhere on it (and on the contents) and the other view moves in
 // beside it; let go past half the width (or with a flick) and it snaps onto
 // the other view, otherwise back. Beyond either end it only gives a little.
@@ -17,22 +16,22 @@ const EDGE_GIVE = 0.25;   // how much an impossible swipe follows the finger
 const HOLD_MS = 100;      // a pause this long before letting go cancels a flick
 const SLIDE_MS = 220;
 
+const ORDER = ["open", "closed"];
 
-/** `order()`: the views left to right; `canSwipe(target)`: whether a touch on `target` may start a swipe now;
+/** `canSwipe(target)`: whether a touch on `target` may start a swipe now;
  *  `view()`: the current view; `setView(view)`: switches to another view;
  *  `lanes()`: what moves, the list first — [{ move, rect(), preview(view),
  *  peekClass }]: the element shifted by --swipe-x, the area
  *  (`{ top, left, width, height? }`) the other view's page covers, and that
  *  page's elements (no `preview`: no page, only the tint moves). Other lanes
  *  move in proportion to their width. `follow(pos, ms)`: where the swipe
- *  stands between the views as an index into order() (0…), to get there over
+ *  stands between the views as an index into ORDER (0…1), to get there over
  *  `ms`; null once it is over. */
-export function initViewSwipe({ order, canSwipe, view, setView, lanes, follow }) {
-  const ORDER = { indexOf: v => order().indexOf(v), at: i => order()[i], get length() { return order().length; } };
+export function initViewSwipe({ canSwipe, view, setView, lanes, follow }) {
   let g = null;     // { x, y, dx, horizontal, lastX, lastT, v, next, lanes } while a finger is down
   let busy = false;
 
-  const neighbour = dir => (ORDER.indexOf(view()) < 0 ? null : ORDER.at(ORDER.indexOf(view()) + dir) ?? null);   // dir +1: to the right
+  const neighbour = dir => ORDER[ORDER.indexOf(view()) + dir] ?? null;   // dir +1: to the right
 
   // A lane with its width and, when there is another view, that view's page:
   // a fixed window over the lane's area (it clips), the page moving inside.
@@ -75,7 +74,6 @@ export function initViewSwipe({ order, canSwipe, view, setView, lanes, follow })
       lane.peek?.remove();
     }
     follow?.(null);
-    delete document.documentElement.dataset.swipeTo;
   };
   // Resolves after a transition of `ms`, also if no transitionend comes.
   const settle = ms => new Promise(resolve => setTimeout(resolve, ms + 30));
@@ -100,7 +98,6 @@ export function initViewSwipe({ order, canSwipe, view, setView, lanes, follow })
       if (!g.horizontal) { g = null; return; }
       g.next = neighbour(dx < 0 ? 1 : -1) ?? neighbour(dx < 0 ? -1 : 1);
       g.lanes = lanes().map(lane => openLane(lane, g.next));
-      if (g.next) document.documentElement.dataset.swipeTo = g.next;   // the other view's tint, from its side
       for (const lane of g.lanes) lane.move.classList.add("swiping");
     }
     if (e.cancelable) e.preventDefault();

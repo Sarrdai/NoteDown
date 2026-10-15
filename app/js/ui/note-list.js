@@ -1,7 +1,7 @@
 // The note list: renders the notes of the current view, edits a note in
 // place (editor.js), toggles task checkboxes and the note's own open/closed
 // state. A permanent note has a mark instead of the round button; a trashed
-// note is read-only and offers its actions on a tap (ui/trash.js).
+// note is read-only; a tap selects it (ui/selection.js).
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
 // next structural change (view, sort, search, new / closed note) and when
@@ -10,7 +10,7 @@
 import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen } from "../store.js";
-import { trashMarkerHtml, openTrashMenu } from "./trash.js";
+import { trashMarkerHtml } from "./trash.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
@@ -54,7 +54,7 @@ function divider(onArrange) {
   return el;
 }
 
-// A tap on the shared marker opens the share dialog, on a trashed note's marker its actions.
+// A tap on the shared marker opens the share dialog.
 // (While selecting, the selection's own click handler runs first and keeps the tap.)
 document.addEventListener("click", e => {
   const hit = e.target.closest("#list button.shared-mark");
@@ -62,8 +62,7 @@ document.addEventListener("click", e => {
   const id = hit.closest(".note").dataset.id;
   if (state.editingId) endEdit();
   if (!note(id)) return;
-  if (hit.classList.contains("kept-mark")) openTrashMenu(hit, id);
-  else openShareDialog([id]);
+  openShareDialog([id]);
 });
 
 // A tap on the due chip opens the due-date menu; editing another note ends first.
@@ -147,7 +146,7 @@ export function markSelected(el) {
 
 // The shared marker: overlapping avatars of the members; a button while the
 // note is open (opens the share dialog), plain info in the archive. A note
-// deleted from a shared file shows the circle crossed out (its actions on a tap).
+// deleted from a shared file shows the circle crossed out.
 function markerHtml(n) {
   if (n.deleted) return n.kept ? trashMarkerHtml(n) : "";
   const members = circleOf(n.id);
@@ -201,7 +200,7 @@ function onBodyClick(e, id) {
     return;
   }
   if (e.target.closest("a")) return;
-  if (n.deleted) return openTrashMenu(e.target.closest(".md-section") || e.currentTarget, id);
+  if (n.deleted) return;   // read-only; the selection takes the tap
   if (n.status === "closed") return; // closed notes are read-only
   startEdit(id, { x: e.clientX, y: e.clientY });
 }

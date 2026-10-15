@@ -33,7 +33,10 @@ Current state, edited in place when a decision changes.
   fit, the theme and the prototype's tools.
 - One primary action per view, as a floating button: + at the bottom
   right in the main view; in the archive it moves to the bottom left and
-  turns into the red bin that empties the archive (animated, during a
+  turns into the red bin that empties the archive (in the trash the same
+  bin deletes the selected notes permanently, greyed out without a
+  selection and kept visible while selecting — far from Restore in the
+  selection bar) (animated, during a
   swipe between the views in step with the finger; left, so it is never
   taken for +). The snackbar then sits right of it.
 - The app draws edge-to-edge: top bars, the sidebar and full-screen
@@ -138,8 +141,8 @@ Current state, edited in place when a decision changes.
 - **Delete moves into the trash** (Delete in the selection) at once,
   with Undo: nothing is lost, the trash keeps it for 30 days
   (`docs/requirements.md` → "Main view, archive and trash").
-- **Final and mass deletes ask first** (Empty archive, Empty trash,
-  Delete permanently): the dialog says what goes, its action button is
+- **Final and mass deletes ask first** (Empty archive, Delete
+  permanently in the trash): the dialog says what goes, its action button is
   red, Cancel / `Esc` / back close it; Undo still follows for 5 seconds
   (decided 2026-10-14; Delete itself no longer asks since 2026-10-15).
 - **Giving a trashed note back to others asks first** (Restore for …):

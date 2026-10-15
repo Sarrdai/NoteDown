@@ -1,7 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
 import { state, load, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
-import { purge } from "./ui/trash.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
@@ -22,7 +21,7 @@ import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from 
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
-import { initSelection, syncSelection, endSelection } from "./ui/selection.js";
+import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
@@ -41,13 +40,6 @@ const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
 const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
 
-// Prototype variant A: where the trash is reached. page (A1): a third page right of the archive, the view button
-// a menu of the three views; archive (A2): a trash button in the archive's top bar; menu (A3): an entry under ⋮.
-const TRASH_PLACES = { page: "Third page (A1)", archive: "From the archive (A2)", menu: "Under ⋮ (A3)" };
-// Prototype variant B: how a permanent note looks. icon (B1): its mark in the round button's place; edge (B2): also an accent edge.
-const PERMANENT_LOOKS = { icon: "Mark (B1)", edge: "Mark and edge (B2)" };
-const trashPlace = () => state.settings.trashPlace in TRASH_PLACES ? state.settings.trashPlace : "page";
-const viewOrder = () => trashPlace() === "page" ? ["open", "closed", "trash"] : ["open", "closed"];
 
 const phone = window.matchMedia("(max-width: 599px)");
 
@@ -106,8 +98,6 @@ function render() {
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
 
-  app.dataset.trashPlace = trashPlace();
-  app.classList.toggle("permanent-edge", state.settings.permanentLook === "edge");
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
@@ -116,14 +106,8 @@ function render() {
   const count = closedOn(allNotes(), today());
   $("archiveCount").textContent = count;
   $("archiveCount").classList.toggle("has", count > 0);
-  const menu = trashPlace() === "page";
-  $("viewBtn").setAttribute("aria-haspopup", menu ? "menu" : "false");
-  $("viewBtn").setAttribute("aria-label", menu ? `Views: ${TITLES[state.view]}` : state.view === "open" ? `Archive, ${count} closed today` : "Notes");
-  $("viewBtn").title = menu ? `${TITLES[state.view]} · Notes, Archive, Trash` : state.view === "open" ? `Archive · ${count} closed today` : "Notes";
-  $("trashBtn").hidden = trashPlace() !== "archive" || state.view === "open";
-  $("trashBtn").setAttribute("aria-pressed", String(state.view === "trash"));
-  $("trashBtn").title = state.view === "trash" ? "Back to the archive" : `Trash · ${trashNotes().length}`;
-  $("trashBtn").setAttribute("aria-label", $("trashBtn").title);
+  $("viewBtn").setAttribute("aria-label", state.view === "open" ? `Archive, ${count} closed today` : "Notes");
+  $("viewBtn").title = state.view === "open" ? `Archive · ${count} closed today` : "Notes";
   $("viewHint").hidden = state.view !== "trash";
   renderFab();
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
@@ -356,11 +340,6 @@ function emptyArchive() {
   });
 }
 
-// The trash's bin button: deletes every note in the trash for good, whatever the filter and search show.
-function emptyTrash() {
-  purge(trashNotes().map(n => n.id), { title: "Empty trash?" });
-}
-
 // The first start holds only the welcome note (app/welcome.md), sync off.
 async function loadWelcome() {
   const body = await (await fetch(new URL("../welcome.md", import.meta.url))).text();
@@ -373,12 +352,9 @@ async function loadWelcome() {
 // from the right end (Export first). The sort label goes before any button.
 const ACTIONS = [
   { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
-  { id: "viewBtn", menu: () => trashPlace() === "page"
-    ? { label: `Views: ${TITLES[state.view]}`, icon: "archive", onSelect: () => viewMenu($("moreBtn")) }
-    : state.view === "open"
-      ? { label: `Archive (${closedOn(allNotes(), today())} today)`, icon: "archive", onSelect: () => setView("closed") }
-      : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
-  { id: "trashBtn", menu: () => ({ label: state.view === "trash" ? "Archive" : "Trash", icon: state.view === "trash" ? "archive" : "trash", onSelect: toggleTrash }) },
+  { id: "viewBtn", menu: () => state.view === "open"
+    ? { label: `Archive (${closedOn(allNotes(), today())} today)`, icon: "archive", onSelect: () => setView("closed") }
+    : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
   { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "remindersBtn", menu: () => ({ label: "Reminders…", icon: "bell", onSelect: openReminderDialog }) },
   { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
@@ -390,7 +366,7 @@ function fitTopbar() {
   const title = $("title");
   const search = $("search");
   const label = $("sortBtn").querySelector(".btn-label");
-  for (const a of ACTIONS) { $(a.id).hidden = a.id === "trashBtn" && (trashPlace() !== "archive" || state.view === "open"); delete $(a.id).dataset.folded; }
+  for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
   label.hidden = false;
   // Too tight: the title is cut, or (desktop) the buttons run into the centered search.
   const tight = () => title.scrollWidth > title.clientWidth + 1
@@ -412,7 +388,8 @@ function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
   const hidden = ACTIONS.filter(a => $(a.id).dataset.folded).map(a => a.menu());
-  const trashEntry = trashPlace() === "menu" && state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
+  // The trash is reached under ⋮ (decided 2026-10-15 over a third page and a button in the archive: deleted notes are rarely needed).
+  const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
     ...hidden,
     trashEntry,
@@ -423,47 +400,25 @@ function moreMenu() {
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
-    { section: "Prototype: Trash place" },
-    ...Object.entries(TRASH_PLACES).map(([id, label]) => ({ label, checked: trashPlace() === id, onSelect: () => setTrashPlace(id) })),
-    { section: "Prototype: Permanent look" },
-    ...Object.entries(PERMANENT_LOOKS).map(([id, label]) => ({ label, checked: (state.settings.permanentLook || "icon") === id, onSelect: () => updateSettings({ permanentLook: id }) })),
   ].filter(Boolean));
 }
 
-// A1: the view button opens a menu of the three views.
-function viewMenu(anchor = $("viewBtn")) {
-  const count = closedOn(allNotes(), today());
-  openMenu(anchor, [
-    { label: "Notes", icon: "notes", checked: state.view === "open", onSelect: () => setView("open") },
-    { label: `Archive${count ? ` (${count} today)` : ""}`, icon: "archive", checked: state.view === "closed", onSelect: () => setView("closed") },
-    { label: `Trash (${trashNotes().length})`, icon: "trash", checked: state.view === "trash", onSelect: () => setView("trash") },
-  ]);
-}
-
-// A2: the archive's trash button, pressed in the trash; a tap goes back to the archive.
-function toggleTrash() {
-  setView(state.view === "trash" ? "closed" : "trash");
-}
-
-function setTrashPlace(id) {
-  updateSettings({ trashPlace: id });
-  fitTopbar();
-}
-
-// The + button: a new note in the main view; in the archive and the trash it
-// moves to the left and turns into a bin that empties the view (set apart
-// from + so the two aren't mixed up).
+// The + button: a new note in the main view; in the archive it moves to the
+// left and turns into a bin that empties the archive (set apart from + so the
+// two aren't mixed up). In the trash the same bin deletes the selected notes
+// permanently: greyed out until notes are selected, kept apart from Restore
+// in the selection bar.
 function renderFab() {
   const fab = $("fab");
-  const label = { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Empty trash" }[state.view];
+  const label = { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Delete selected permanently" }[state.view];
   fab.setAttribute("aria-label", label);
   fab.title = state.view === "open" ? "" : label;
   // Also in the main view, so the bin a swipe brings in looks as it will.
-  fab.classList.toggle("inert", state.view === "trash" ? !trashNotes().length : !allNotes().some(n => n.status === "closed"));
+  fab.classList.toggle("inert", state.view === "trash" ? !state.selected.size : !allNotes().some(n => n.status === "closed"));
 }
 const fabTap = () => state.view === "open" ? newNote()
   : $("fab").classList.contains("inert") ? null
-  : state.view === "trash" ? emptyTrash() : emptyArchive();
+  : state.view === "trash" ? purgeSelected() : emptyArchive();
 
 // ⋮ → "Export…": this view in the order the list shows it (filter and search
 // applied; the main view can add its archive below), or all files, one
@@ -518,10 +473,8 @@ function wire() {
   $("syncBtn").addEventListener("click", openSyncPanel);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
-  // One button switches between the notes and the archive, in the same place (A1: a menu of the three views).
-  $("viewBtn").addEventListener("click", () => trashPlace() === "page" ? viewMenu() : setView(state.view === "open" ? "closed" : "open"));
-  $("trashBtn").innerHTML = icon("trash");
-  $("trashBtn").addEventListener("click", toggleTrash);
+  // One button switches between the notes and the archive, in the same place; from the trash it leads to the notes.
+  $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
   $("sortBtn").addEventListener("click", () => sortMenu());
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("filterClear").addEventListener("click", () => pickCircle(null));
@@ -553,7 +506,7 @@ function wire() {
   initArrange();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
+  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initSyncPanel();
   initContactRequests();
   initPullRefresh({
@@ -565,8 +518,7 @@ function wire() {
   // starts anywhere on the list and on the contents (also the open sheet),
   // whose list moves along.
   initViewSwipe({
-    order: viewOrder,
-    canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+    canSwipe: target => state.view !== "trash" && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("recording")
       && !!target.closest(".main, .toc-panel, .scrim") && !target.closest(".topbar, .selectbar, .toc-handle, .toc-head"),
     view: () => state.view,
@@ -576,7 +528,7 @@ function wire() {
     follow: (pos, ms) => {
       const fab = $("fab");
       if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); return; }
-      fab.style.setProperty("--archive", Math.min(pos, 1));
+      fab.style.setProperty("--archive", pos);
       fab.style.setProperty("--archive-ms", ms + "ms");
     },
   });
@@ -589,8 +541,6 @@ function applyUrlOptions() {
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
-  if (p.get("trash") in TRASH_PLACES) state.settings.trashPlace = p.get("trash");
-  if (p.get("permanent") in PERMANENT_LOOKS) state.settings.permanentLook = p.get("permanent");
   // ?api=<url> points this browser at another sync server (local testing).
   if (p.get("api") !== null) writeApi(p.get("api"));
   // ?sample replaces the stored notes with the sample notes (screenshots,

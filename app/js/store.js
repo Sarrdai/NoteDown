@@ -19,8 +19,6 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
-  trashPlace: "page",        // prototype variant (A): where the trash is reached — page | archive | menu
-  permanentLook: "icon",     // prototype variant (B): how a permanent note looks — icon | edge
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
 };
