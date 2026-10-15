@@ -121,7 +121,7 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table. Open: the admin page's layout (`layout`; its own ⋮ → "Prototype: Layout").
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
@@ -130,7 +130,6 @@ is deleted from code, menu and this table. Open: the admin page's layout (`layou
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
-| `layout` | `page` (A) · `sections` (B) | Admin page (`app/admin/`) only: one scrolling page with rows that expand, or Overview / Identities / Backup sections with list and detail (variant) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 
 In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, and "Simulate reminder" shows today's due-date reminder as a notification banner (not variants).

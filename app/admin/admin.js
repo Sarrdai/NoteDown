@@ -3,8 +3,8 @@
 // Signs in with this browser's linked device, like the app does; `?sample` runs on
 // app/sample/admin.json without a network. Logic without DOM access: app/js/core/admin.js.
 //
-// Two layouts to choose from (prototype variants): "page" = one scrolling column (A),
-// "sections" = Overview / Identities / Backup as separate sections (B).
+// Three sections, Overview / Identities / Backup: a nav rail with list and detail side by side on the
+// desktop, tabs with the detail as a page of its own on tablet and phone.
 import { h } from "../js/ui/dom.js";
 import { icon } from "../js/ui/icons.js";
 import { openMenu, initMenu } from "../js/ui/menu.js";
@@ -17,8 +17,6 @@ import {
   defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText, createSampleAdmin,
 } from "../js/core/admin.js";
 
-const LAYOUT_KEY = "notedown.admin.layout";
-const LAYOUTS = { page: "One page (A)", sections: "Sections (B)" };
 const FLAVORS = ["latte", "frappe", "macchiato", "mocha"];
 const params = new URLSearchParams(location.search);
 const $ = id => document.getElementById(id);
@@ -33,16 +31,14 @@ const S = {
   overview: null, identities: [],
   details: new Map(),      // identity ID → detail, or { error }
   sort: { key: "updated", dir: "desc" },
-  layout: "page",
-  section: "overview",     // sections layout: overview | identities | backup
-  open: null,              // the identity ID shown expanded / selected / as a page
+  section: "overview",     // overview | identities | backup
+  open: null,              // the identity ID shown beside the list (desktop) or as a page
   tier: "desktop",
   busy: false,
 };
 let api = null;
 
 const readStore = key => { try { return localStorage.getItem(key); } catch { return null; } };
-const writeStore = (key, value) => { try { localStorage.setItem(key, value); } catch { /* not stored */ } };
 const readJson = key => { try { return JSON.parse(readStore(key) || "null"); } catch { return null; } };
 
 // ---------- theme and tier ----------
@@ -57,19 +53,6 @@ function applyTheme() {
 const desktopMQ = matchMedia("(min-width: 1024px)");
 const tabletMQ = matchMedia("(min-width: 600px)");
 const tierNow = () => (desktopMQ.matches ? "desktop" : tabletMQ.matches ? "tablet" : "phone");
-
-function initLayout() {
-  const wanted = params.get("layout") || readStore(LAYOUT_KEY);
-  S.layout = wanted in LAYOUTS ? wanted : "page";
-  if (params.get("layout") in LAYOUTS) writeStore(LAYOUT_KEY, S.layout);
-}
-
-function setLayout(layout) {
-  S.layout = layout;
-  S.open = null;
-  writeStore(LAYOUT_KEY, layout);
-  render();
-}
 
 // ---------- sign-in ----------
 
@@ -130,7 +113,7 @@ async function loadDetail(id) {
   render();
 }
 
-const shownId = () => S.open || (S.layout === "sections" && S.tier === "desktop" && S.section === "identities" ? sorted()[0]?.id : null);
+const shownId = () => S.open || (S.tier === "desktop" && S.section === "identities" ? sorted()[0]?.id : null);
 function loadOpenDetail() {
   const id = shownId();
   if (id && !S.details.has(id)) loadDetail(id);
@@ -220,19 +203,16 @@ function header() {
           class: "btn outline adm-refresh", type: "button", "data-key": "refresh", disabled: S.busy, onclick: loadAll,
         }, ico("refresh"), h("span", { class: "adm-refresh-label" }, "Refresh")) : null,
         h("button", { class: "icon-btn", type: "button", id: "moreBtn", "data-key": "more", "aria-haspopup": "menu", "aria-label": "More", title: "More", html: icon("more"), onclick: moreMenu }))),
-    S.status === "ready" && S.layout === "sections" && S.tier !== "desktop" && h("div", { class: "adm-wrap" }, nav()));
+    S.status === "ready" && S.tier !== "desktop" && h("div", { class: "adm-wrap" }, nav()));
 }
 
 function moreMenu(e) {
   openMenu(e.currentTarget, [
-    { section: "Prototype: Layout" },
-    ...Object.entries(LAYOUTS).map(([id, label]) => ({ label, checked: S.layout === id, onSelect: () => setLayout(id) })),
-    { separator: true },
     { label: "Open NoteDown", onSelect: () => { location.href = "../"; } },
   ]);
 }
 
-// ---------- sections layout: navigation ----------
+// ---------- navigation ----------
 
 const SECTIONS = [["overview", "Overview", "notes"], ["identities", "Identities", "user"], ["backup", "Backup", "cloud"]];
 
@@ -276,95 +256,76 @@ function overviewSection() {
 
 // ---------- identities ----------
 
-// How the rows look: a table with all columns (desktop), fewer columns (tablet) or cards (phone,
-// and the narrow list beside the detail in the sections layout on desktop).
-function rowStyle() {
-  if (S.tier === "phone" || (S.layout === "sections" && S.tier === "desktop")) return "cards";
-  return S.tier === "desktop" ? "full" : "reduced";
-}
+// How the rows look: a table (tablet) or cards (phone, and the narrow list beside the detail on the desktop).
+const rowStyle = () => (S.tier === "tablet" ? "table" : "cards");
 
-const COLUMNS = {
-  full: [["id", "ID"], ["created", "Created"], ["devices", "Devices"], ["files", "Files"], ["used", "Storage"], ["updated", "Last change"], ["contacts", "Contacts"]],
-  reduced: [["id", "ID"], ["devices", "Devices"], ["files", "Files"], ["used", "Storage"], ["updated", "Last change"]],
-};
+const COLUMNS = [["id", "ID"], ["devices", "Devices"], ["files", "Files"], ["used", "Storage"], ["updated", "Last change"]];
 
 function sortBy(key) {
   S.sort = S.sort.key === key ? { key, dir: S.sort.dir === "asc" ? "desc" : "asc" } : { key, dir: defaultDirection(key) };
   render();
 }
 
-function listHead(style) {
-  const sortable = S.tier === "desktop";
+function listHead() {
   return h("div", { class: "adm-head", role: "group", "aria-label": "Columns" },
-    COLUMNS[style].map(([key, label]) => {
+    COLUMNS.map(([key, label]) => {
       const active = S.sort.key === key;
-      return sortable
-        ? h("button", {
-          class: "adm-sort", type: "button", "data-key": "sort-" + key, "data-active": String(active),
-          "aria-label": `Sort by ${label}`, "aria-pressed": String(active), onclick: () => sortBy(key),
-        }, label, active && ico(S.sort.dir === "asc" ? "up" : "down"))
-        : h("span", { class: "adm-sort" }, label);
+      return h("button", {
+        class: "adm-sort", type: "button", "data-key": "sort-" + key, "data-active": String(active),
+        "aria-label": `Sort by ${label}`, "aria-pressed": String(active), onclick: () => sortBy(key),
+      }, label, active && ico(S.sort.dir === "asc" ? "up" : "down"));
     }));
 }
 
-function toggle(id) {
-  S.open = S.open === id && S.layout === "page" ? null : id;
-  if (S.layout === "sections" && S.tier !== "desktop") S.listScroll = window.scrollY;
+function select(id) {
+  S.open = id;
+  if (S.tier !== "desktop") S.listScroll = window.scrollY;
   render();
   loadOpenDetail();
-  if (S.layout === "sections" && S.tier !== "desktop") window.scrollTo(0, 0);
+  if (S.tier !== "desktop") window.scrollTo(0, 0);
 }
 
 function openIdentity(id) {
   S.open = id;
   render();
   loadOpenDetail();
-  if (S.layout === "page") $("admin").querySelector(`[data-key="row-${CSS.escape(id)}"]`)?.scrollIntoView({ block: "start" });
-  else window.scrollTo(0, 0);
+  window.scrollTo(0, 0);
 }
 
-function row(i, style, selected, expanded) {
+function row(i, style, selected) {
   const key = "row-" + i.id;
   const id = h("span", { class: "c-id" }, ico("down", "icon chevron"), mono(shortId(i.id)), i.id === S.identity && youChip());
   const cells = style === "cards"
     ? [id, storageBlock(i), h("span", { class: "c-meta" }, cardMeta(i))]
     : [id,
-      style === "full" && h("span", { class: "c-created" }, formatDate(i.created)),
       h("span", { class: "c-num" }, i.devices), h("span", { class: "c-num" }, i.files),
       storageBlock(i),
-      h("span", { class: "c-updated" }, formatDate(i.updated)),
-      style === "full" && h("span", { class: "c-num" }, i.contacts)];
+      h("span", { class: "c-updated" }, formatDate(i.updated))];
   return h("div", {
     class: "adm-row " + style, role: "button", tabindex: "0", "data-key": key,
-    ...(S.layout === "page" ? { "aria-expanded": String(expanded) } : { "aria-current": String(selected) }),
-    onclick: () => toggle(i.id),
-    onkeydown: e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(i.id); } },
+    "aria-current": String(selected),
+    onclick: () => select(i.id),
+    onkeydown: e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(i.id); } },
   }, cells);
 }
 
 function identityList() {
   const style = rowStyle();
-  const inline = S.layout === "page";
   const current = shownId();
   return h("div", { class: "adm-listwrap" },
-    style !== "cards" && listHead(style),
+    style === "table" && listHead(),
     h("ul", { class: "adm-list " + style },
-      sorted().map(i => {
-        const expanded = inline && S.open === i.id;
-        const selected = !inline && current === i.id;
-        return h("li", { class: "adm-item" + (expanded || selected ? " open" : "") },
-          row(i, style, selected, expanded),
-          expanded && detailView(i.id));
-      })));
+      sorted().map(i => h("li", { class: "adm-item" + (current === i.id ? " open" : "") },
+        row(i, style, current === i.id)))));
 }
 
 function identitiesSection() {
   const head = h("h2", { class: "adm-h", id: "h-identities" }, "Identities", h("span", { class: "count" }, String(S.identities.length)));
-  if (S.layout === "sections" && S.tier === "desktop") {
+  if (S.tier === "desktop") {
     return h("section", { class: "adm-section", "aria-labelledby": "h-identities" }, head,
       h("div", { class: "adm-split" }, identityList(), h("div", { class: "adm-pane" }, detailView(shownId()))));
   }
-  if (S.layout === "sections" && S.open) {
+  if (S.open) {
     return h("section", { class: "adm-section", "aria-label": "Identity" },
       h("button", {
         class: "adm-back", type: "button", "data-key": "back",
@@ -585,20 +546,16 @@ function statesView() {
 // ---------- page ----------
 
 function content() {
-  const sections = S.layout === "page"
-    ? [overviewSection(), identitiesSection(), backupSection()]
-    : [S.section === "overview" ? overviewSection() : S.section === "identities" ? identitiesSection() : backupSection()];
-  if (S.layout === "sections" && S.tier === "desktop") {
-    return h("div", { class: "adm-wrap adm-shell" }, nav(), h("main", { class: "adm-main" }, sections));
-  }
-  return h("div", { class: "adm-wrap" }, h("main", { class: "adm-main" }, sections));
+  const section = S.section === "overview" ? overviewSection() : S.section === "identities" ? identitiesSection() : backupSection();
+  if (S.tier === "desktop") return h("div", { class: "adm-wrap adm-shell" }, nav(), h("main", { class: "adm-main" }, section));
+  return h("div", { class: "adm-wrap" }, h("main", { class: "adm-main" }, section));
 }
 
 function render() {
   const root = $("admin");
   S.tier = tierNow();
   const focused = document.activeElement && root.contains(document.activeElement) ? document.activeElement.dataset.key : null;
-  root.className = `admin layout-${S.layout} tier-${S.tier}`;
+  root.className = `admin tier-${S.tier}`;
   root.replaceChildren(header(), S.status === "ready" ? content() : statesView());
   if (focused) root.querySelector(`[data-key="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   document.body.dataset.ready = "1";
@@ -614,7 +571,6 @@ async function start() {
 
 applyTheme();
 systemDark.addEventListener("change", applyTheme);
-initLayout();
 initMenu();
 $("restoreFile").addEventListener("change", e => { const f = e.target.files[0]; if (f) openRestoreDialog(f); });
 for (const mq of [desktopMQ, tabletMQ]) mq.addEventListener("change", () => { if (S.status !== "loading") render(); });
