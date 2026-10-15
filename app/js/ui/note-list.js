@@ -3,7 +3,8 @@
 // state and its protection from deletion.
 // A finished edit or a task toggle patches only that note, so the list
 // never reorders under the user's finger; the order is recomputed on the
-// next structural change (view, sort, search, new / closed note).
+// next structural change (view, sort, search, new / closed note) and when
+// a new due date sorts its note in (reorderList).
 import { renderMarkdown, toggleTask, sections } from "../core/markdown.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, removeNote, circleOf, isProtected, setProtected } from "../store.js";
@@ -22,6 +23,18 @@ const list = () => document.getElementById("list");
  *  "Not sorted yet" divider above that note (backlog #24). */
 export function renderList(notes, options) {
   list().replaceChildren(...listItems(notes, options));
+}
+
+/** Renders the tiles in a new order but keeps `keepId`'s element (it may
+ *  hold the editor): the others are placed around it. */
+export function reorderList(notes, { keepId, ...options }) {
+  const kept = list().querySelector(`.note[data-id="${keepId}"]`);
+  const items = listItems(notes, options);
+  const i = items.findIndex(el => el.dataset.id === keepId);
+  if (!kept || i < 0) return list().replaceChildren(...items);
+  for (const el of [...list().children]) if (el !== kept) el.remove();
+  kept.before(...items.slice(0, i));
+  kept.after(...items.slice(i + 1));
 }
 
 /** The tiles' elements without placing them (also the swipe's preview of the other view). */

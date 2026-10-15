@@ -12,7 +12,7 @@ import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
-import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
+import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
@@ -198,6 +198,17 @@ subscribe(kind => {
     render();
   }
 });
+
+// Sorted by due date, a new due date sorts its note in at once; the note
+// stays where it is on screen and the list moves around it.
+function sortInByDue(id) {
+  if (sortOf().key !== "due") return;
+  const top = () => document.querySelector(`#list .note[data-id="${id}"]`)?.getBoundingClientRect().top;
+  const before = top();
+  const { tiles, dividerBefore } = tilesOf(state.view, currentNotes());
+  reorderList(tiles, { keepId: id, dividerBefore, onArrange: arrange });
+  if (before !== undefined) window.scrollBy(0, top() - before);
+}
 
 function setView(view) {
   if (state.view === view) return;
@@ -417,7 +428,7 @@ function wire() {
   initMenu();
   initConfirm();
   initArrange();
-  initToolbar();
+  initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
   initSyncPanel();

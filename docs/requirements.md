@@ -351,6 +351,10 @@ before the first live test).
 - A finished edit doesn't reorder the list right away, so a note never
   jumps away under the user's finger; the order updates on the next view
   change, sort or search. *Prototype: round 1.*
+- Sorted by due date, a **new due date sorts its note in at once** (also
+  while it is edited): the note stays where it is on the screen and the
+  list moves around it, as far as the scroll range allows (decided
+  2026-10-15: the user wants to see where it lands). *Prototype: 2026-10-15.*
 - A **full-text search** in the top bar filters the current view; the
   table of contents follows the filter. *Prototype: round 1.*
 

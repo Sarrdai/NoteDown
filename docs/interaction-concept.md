@@ -106,7 +106,9 @@ Current state, edited in place when a decision changes.
   transcript show that it is listening. Short vibration on start, lock
   and cancel where the device supports it.
 - The list never reorders while the user works in it — only after
-  view, sort or search changes (`docs/requirements.md` → "Sorting").
+  view, sort or search changes, and when a new due date sorts its note
+  in under the due-date sort; that note then keeps its place on the
+  screen (`docs/requirements.md` → "Sorting").
 - Keyboard on the desktop: `n` new note, `/` search, `Esc` ends editing,
   closes menus, panels and dialogs and ends multi-select; Markdown shortcuts in the editor
   (`docs/requirements.md` → "Creating and editing").
