@@ -34,6 +34,10 @@ REQUEST_DAYS = 30
 # SQL: an invitation that can still be requested, or has a request waiting for the inviter.
 INVITATION_LIVE = ("((requester IS NULL AND expires > now()) OR "
                    f"(requester IS NOT NULL AND requested_at > now() - interval '{REQUEST_DAYS} days'))")
+# Version history (docs/server-api.md → "Version history"): one state per hour for this many hours, then one
+# per day, and nothing replaced longer ago than this many days.
+HISTORY_HOURLY_HOURS = 24
+HISTORY_DAYS = 30
 # Per-IP limits on the unauthenticated endpoints that create something: (max requests, window seconds).
 LIMIT_IDENTITIES = (10, 24 * 3600)
 LIMIT_RELAY = (30, 3600)
@@ -80,6 +84,8 @@ class Upload(BaseModel):
     ciphertext: str
     keys: dict[str, str] | None = None
     members: list[str] | None = None
+    previous_key: str | None = None   # with new keys on an existing file: the old key, sealed with the new one
+    restore: bool = False             # this upload brings back an older version: pin the one it replaces
 
 
 class Keys(BaseModel):
@@ -213,6 +219,22 @@ def create_app(settings: Settings) -> FastAPI:
                 "ON CONFLICT (file_id, device_id) DO UPDATE SET wrapped = EXCLUDED.wrapped",
                 [(file_id, d, w) for d, w in keys.items()],
             )
+
+    def keeps_history(conn: psycopg.Connection, members: list[str]) -> bool:
+        return bool(conn.execute("SELECT bool_or(history) FROM identities WHERE id = ANY(%s)",
+                                 (members,)).fetchone()[0])
+
+    def thin_versions(conn: psycopg.Connection, file_id: str) -> None:
+        """Keeps, per hour (the last HISTORY_HOURLY_HOURS) or per UTC day (before), the first state replaced
+        in it: the one from before that hour's or day's changes. Pinned states stay; nothing stays longer
+        than HISTORY_DAYS after it was replaced."""
+        bucket = ("CASE WHEN v.replaced >= now() - make_interval(hours => %(hours)s) THEN 'hour' ELSE 'day' END")
+        conn.execute(
+            "DELETE FROM file_versions v WHERE v.file_id = %(file)s AND "
+            "(v.replaced < now() - make_interval(days => %(days)s) OR (NOT v.pinned AND EXISTS ("
+            "SELECT 1 FROM file_versions w WHERE w.file_id = v.file_id AND w.replaced < v.replaced "
+            f"AND date_trunc({bucket}, w.replaced, 'UTC') = date_trunc({bucket}, v.replaced, 'UTC'))))",
+            {"file": file_id, "hours": HISTORY_HOURLY_HOURS, "days": HISTORY_DAYS})
 
     # --- health and auth ---
 
@@ -353,7 +375,9 @@ def create_app(settings: Settings) -> FastAPI:
             # COLLATE "C": code point order, whatever the database's collation.
             rows = conn.execute(
                 "SELECT f.id, f.version, f.updated, length(f.ciphertext), "
-                "(SELECT array_agg(identity_id) FROM file_members WHERE file_id = f.id) "
+                "(SELECT array_agg(identity_id) FROM file_members WHERE file_id = f.id), "
+                "(SELECT bool_or(i.history) FROM file_members m JOIN identities i ON i.id = m.identity_id "
+                " WHERE m.file_id = f.id) "
                 "FROM files f JOIN file_members me ON me.file_id = f.id AND me.identity_id = %s "
                 'ORDER BY f.id COLLATE "C"', (who.identity,)).fetchall()
             quota = conn.execute("SELECT coalesce(quota, %s) FROM identities WHERE id = %s",
@@ -362,7 +386,7 @@ def create_app(settings: Settings) -> FastAPI:
             news = conn.execute("SELECT value FROM server_state WHERE key = 'news'").fetchone()
         return {
             "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3],
-                       "members": sorted(r[4])} for r in rows],
+                       "members": sorted(r[4]), "history": bool(r[5])} for r in rows],
             "quota": quota,
             "epoch": epoch[0] if epoch else None,
             "news": news[0] if news else None,
@@ -410,6 +434,13 @@ def create_app(settings: Settings) -> FastAPI:
                 members = requested or [who.identity]
             if body.keys is not None:
                 check_keys(conn, members, body.keys)
+                if row is not None:
+                    # Renewing: the old key goes into the chain, so the file's history stays readable.
+                    if body.previous_key is None:
+                        raise ProtocolError("new keys for an existing file need previous_key")
+                    if len(body.previous_key) > MAX_WRAPPED_KEY:
+                        raise ProtocolError("previous_key too long")
+                    from_b64u(body.previous_key)
             current = row[0] if row else 0
             if body.base_version != current:
                 return JSONResponse(status_code=409, content={
@@ -461,12 +492,56 @@ def create_app(settings: Settings) -> FastAPI:
                     cur.executemany("INSERT INTO file_members (file_id, identity_id) VALUES (%s, %s)",
                                     [(file_id, m) for m in members])
             else:
-                conn.execute("UPDATE files SET version = version + 1, ciphertext = %s, "
-                             "updated = now() WHERE id = %s", (ciphertext, file_id))
+                if keeps_history(conn, members):
+                    conn.execute(
+                        "INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned) "
+                        "SELECT id, version, ciphertext, updated, now(), key_gen, %s FROM files WHERE id = %s",
+                        (body.restore, file_id))
+                    thin_versions(conn, file_id)
+                renewed = body.keys is not None
+                if renewed:
+                    conn.execute("INSERT INTO file_key_chain (file_id, gen, sealed) "
+                                 "SELECT id, key_gen, %s FROM files WHERE id = %s", (body.previous_key, file_id))
+                conn.execute("UPDATE files SET version = version + 1, ciphertext = %s, updated = now(), "
+                             "key_gen = key_gen + %s WHERE id = %s", (ciphertext, int(renewed), file_id))
             if body.keys is not None:
                 conn.execute("DELETE FROM file_keys WHERE file_id = %s", (file_id,))
                 save_keys(conn, file_id, body.keys)
         return {"version": current + 1}
+
+    # The window a stored state is listed in; thinning on the next upload deletes what is older.
+    LISTED = f"replaced > now() - make_interval(days => {HISTORY_DAYS})"
+
+    @app.get("/v1/files/{file_id}/versions")
+    def list_versions(file_id: str, who: Authed):
+        with pool.connection() as conn:
+            row = conn.execute(
+                "SELECT f.key_gen FROM files f JOIN file_members m ON m.file_id = f.id AND m.identity_id = %s "
+                "WHERE f.id = %s", (who.identity, file_id)).fetchone()
+            if row is None:
+                raise HTTPException(404, "unknown file")
+            versions = conn.execute(
+                "SELECT version, updated, replaced, length(ciphertext), key_gen, pinned FROM file_versions "
+                f"WHERE file_id = %s AND {LISTED} ORDER BY version DESC", (file_id,)).fetchall()
+            chain = conn.execute("SELECT gen, sealed FROM file_key_chain WHERE file_id = %s ORDER BY gen",
+                                 (file_id,)).fetchall()
+        return {"key_gen": row[0],
+                "versions": [{"version": v[0], "updated": utc_iso(v[1]), "replaced": utc_iso(v[2]), "size": v[3],
+                              "key_gen": v[4], "pinned": v[5]} for v in versions],
+                "chain": [{"gen": c[0], "sealed": c[1]} for c in chain]}
+
+    @app.get("/v1/files/{file_id}/versions/{version}")
+    def get_version(file_id: str, version: int, who: Authed):
+        if not 0 < version < 2 ** 31:
+            raise HTTPException(404, "unknown version")
+        with pool.connection() as conn:
+            row = conn.execute(
+                "SELECT v.ciphertext, v.key_gen FROM file_versions v "
+                "JOIN file_members m ON m.file_id = v.file_id AND m.identity_id = %s "
+                f"WHERE v.file_id = %s AND v.version = %s AND {LISTED}", (who.identity, file_id, version)).fetchone()
+        if row is None:
+            raise HTTPException(404, "unknown version")
+        return {"id": file_id, "version": version, "ciphertext": b64u(row[0]), "key_gen": row[1]}
 
     @app.post("/v1/files/{file_id}/keys", status_code=204)
     def add_keys(file_id: str, body: Keys, who: Authed):

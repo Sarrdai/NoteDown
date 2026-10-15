@@ -119,3 +119,30 @@ CREATE TABLE IF NOT EXISTS news (
     modified timestamptz NOT NULL DEFAULT now(),
     archived boolean NOT NULL DEFAULT false
 );
+
+-- Version history (backlog #7, docs/server-api.md → "Version history"): switched on per identity by the
+-- admin; a file keeps older states while one of its members has it.
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS history boolean NOT NULL DEFAULT false;
+-- The generation of a file's current key: 1 at creation, + 1 whenever the keys are replaced (renewed).
+ALTER TABLE files ADD COLUMN IF NOT EXISTS key_gen integer NOT NULL DEFAULT 1;
+
+-- Older states of a file: `updated` is when the state was uploaded, `replaced` when the next one came;
+-- `pinned` marks the state a restore replaced, which thinning keeps.
+CREATE TABLE IF NOT EXISTS file_versions (
+    file_id    text NOT NULL REFERENCES files (id) ON DELETE CASCADE,
+    version    integer NOT NULL,
+    ciphertext bytea NOT NULL,
+    updated    timestamptz NOT NULL,
+    replaced   timestamptz NOT NULL,
+    key_gen    integer NOT NULL,
+    pinned     boolean NOT NULL DEFAULT false,
+    PRIMARY KEY (file_id, version)
+);
+
+-- A file's earlier keys: the key of generation `gen`, sealed with the key of generation gen + 1 (opaque here).
+CREATE TABLE IF NOT EXISTS file_key_chain (
+    file_id text NOT NULL REFERENCES files (id) ON DELETE CASCADE,
+    gen     integer NOT NULL,
+    sealed  text NOT NULL,
+    PRIMARY KEY (file_id, gen)
+);

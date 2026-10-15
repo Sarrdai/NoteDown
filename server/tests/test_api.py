@@ -9,10 +9,12 @@ from conftest import DATABASE_URL, Identity, Keys, token
 FILE = b64u(os.urandom(16))
 
 
-def upload(client, headers, base, data=b"cipher", keys=None, file_id=FILE, members=None):
-    body = {"base_version": base, "ciphertext": b64u(data)}
+def upload(client, headers, base, data=b"cipher", keys=None, file_id=FILE, members=None, previous_key=None, **extra):
+    body = {"base_version": base, "ciphertext": b64u(data), **extra}
     if keys is not None:
         body["keys"] = keys
+        if base > 0:   # renewing: the old key sealed with the new one (opaque to the server)
+            body["previous_key"] = previous_key if previous_key is not None else b64u(b"previous")
     if members is not None:
         body["members"] = members
     return client.put(f"/v1/files/{file_id}", json=body, headers=headers)
