@@ -535,7 +535,10 @@ paid features per user.
   sort order and search filter. *Prototype: round 1.*
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
-  and the deepest level present). The level count is remembered.
+  and the deepest level present). The level count is remembered. The
+  − / + stepper floats at the contents' bottom left, at the height of the
+  + button (decided 2026-10-15, user request: within the thumb's reach);
+  on the phone it shows while the sheet is open.
 - Text without a heading — a note without one, or the start of a note
   before its first heading — appears with its first sentence (shortened,
   italic) **one level below the last heading above it**, in whichever note
@@ -614,8 +617,7 @@ whose labels need a place).
   picking one filters, picking it again clears it. Without labels it
   says how to add one. Chosen 2026-10-15 over a row of label chips above
   the list: many labels (after an import) fit a list, and it works like
-  the people filter. The three tabs take the head's full width, the
-  contents' level stepper sits below them.
+  the people filter. The three tabs take the head's full width.
 - While a note is edited its labels show as plain text. *Prototype:
   2026-10-15.*
 

@@ -87,8 +87,7 @@ Current state, edited in place when a decision changes.
   except the contents panel takes the swipe, also below the last card.
 - **On the contents panel** (tablet sidebar, phone's open sheet, its tab
   row included) the same swipe moves between its tabs Contents, People,
-  Labels instead, left to right, the same way: the tab's pane (Contents
-  with its level stepper) follows the finger, the neighbouring one moves
+  Labels instead, left to right, the same way: the tab's pane follows the finger, the neighbouring one moves
   in beside it, the tab row is updated once it has switched; past the
   first or last tab it only gives a little, it never switches the view
   (decided 2026-10-15, user request: a swipe on the panel belongs to what
