@@ -27,7 +27,9 @@ const BUTTONS = [
 const $ = id => document.getElementById(id);
 let dictation = null;
 
-export function initToolbar() {
+/** `onDue(id)`: runs after a due date was set from the menu. */
+export function initToolbar({ onDue }) {
+  dueSet = onDue;
   const bar = $("toolbar");
   $("toolbarButtons").replaceChildren(...BUTTONS.map(([cmd, label, ic]) => {
     const b = document.createElement("button");
@@ -51,7 +53,7 @@ export function initToolbar() {
   });
 
   $("dueInput").addEventListener("change", e => {
-    if (dueTarget && e.target.value) setDue(dueTarget, e.target.value);
+    if (dueTarget && e.target.value) { setDue(dueTarget, e.target.value); dueSet(dueTarget); }
     refocus(dueTarget);
   });
 
@@ -81,6 +83,7 @@ export function initToolbar() {
 
 // The note whose date "Pick a date…" sets.
 let dueTarget = null;
+let dueSet = () => {};
 const refocus = id => { if (id && id === state.editingId) currentEditor()?.view.focus(); };
 
 /** The due-date menu of a note: from the toolbar and from the note's due chip. */
@@ -88,7 +91,7 @@ export function openDueMenu(anchor, id) {
   const n = note(id);
   if (!n) return;
   const t = today();
-  const pick = due => { setDue(id, due); refocus(id); };
+  const pick = due => { setDue(id, due); dueSet(id); refocus(id); };
   openMenu(anchor, [
     { section: "Due date" },
     { label: "Today", checked: n.due === t, onSelect: () => pick(t) },

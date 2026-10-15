@@ -22,7 +22,8 @@ const ORDER = ["open", "closed"];
  *  `lanes()`: what moves, the list first — [{ move, rect(), preview(view),
  *  peekClass }]: the element shifted by --swipe-x, the area
  *  (`{ top, left, width, height? }`) the other view's page covers, and that
- *  page's elements. Other lanes move in proportion to their width. */
+ *  page's elements (no `preview`: no page, only the tint moves). Other lanes
+ *  move in proportion to their width. */
 export function initViewSwipe({ canSwipe, view, setView, lanes }) {
   let g = null;     // { x, y, dx, horizontal, lastX, lastT, v, next, lanes } while a finger is down
   let busy = false;
@@ -33,7 +34,7 @@ export function initViewSwipe({ canSwipe, view, setView, lanes }) {
   // a fixed window over the lane's area (it clips), the page moving inside.
   const openLane = (lane, next) => {
     const r = lane.rect();
-    if (!next) return { ...lane, width: r.width, peek: null };
+    if (!next || !lane.preview) return { ...lane, width: r.width, peek: null };
     const peek = document.createElement("div");
     peek.className = ["swipe-peek", lane.peekClass].filter(Boolean).join(" ");
     peek.dataset.view = next;

@@ -12,7 +12,7 @@ import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
-import { renderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
+import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderPeople, initPeople, circleName, pickCircle } from "./ui/people-list.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
@@ -130,7 +130,8 @@ function emptyText(view, search) {
 }
 
 // What moves in a view swipe (ui/view-swipe.js): the list column below the
-// top bar, and the contents list where it shows (the sidebar, the open sheet).
+// top bar, and the contents panel where it shows (the sidebar, the sheet):
+// its list where that shows, else (the closed sheet) only its tint.
 function swipeLanes() {
   const lanes = [{
     move: document.querySelector(".main"),
@@ -140,11 +141,12 @@ function swipeLanes() {
     },
     preview: previewView,
   }];
-  const toc = $("tocList");
-  if (toc.getClientRects().length && getComputedStyle(toc).visibility === "visible") lanes.push({
-    move: $("tocPanel"),   // the panel carries --swipe-x: the list moves by it, the background splits at it
-    rect: () => { const r = toc.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
-    preview: view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; },
+  const panel = $("tocPanel"), toc = $("tocList");
+  const listShows = toc.getClientRects().length && getComputedStyle(toc).visibility === "visible";
+  if (panel.getClientRects().length) lanes.push({
+    move: panel,   // the panel carries --swipe-x: the list moves by it, the background splits at it
+    rect: () => { const r = (listShows ? toc : panel).getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
+    preview: listShows ? view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; } : null,
     peekClass: "toc-peek",
   });
   return lanes;
@@ -196,6 +198,17 @@ subscribe(kind => {
     render();
   }
 });
+
+// Sorted by due date, a new due date sorts its note in at once; the note
+// stays where it is on screen and the list moves around it.
+function sortInByDue(id) {
+  if (sortOf().key !== "due") return;
+  const top = () => document.querySelector(`#list .note[data-id="${id}"]`)?.getBoundingClientRect().top;
+  const before = top();
+  const { tiles, dividerBefore } = tilesOf(state.view, currentNotes());
+  reorderList(tiles, { keepId: id, dividerBefore, onArrange: arrange });
+  if (before !== undefined) window.scrollBy(0, top() - before);
+}
 
 function setView(view) {
   if (state.view === view) return;
@@ -415,7 +428,7 @@ function wire() {
   initMenu();
   initConfirm();
   initArrange();
-  initToolbar();
+  initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
   initSyncPanel();

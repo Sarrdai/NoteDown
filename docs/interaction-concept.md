@@ -69,15 +69,19 @@ Current state, edited in place when a decision changes.
   where it shows (sidebar, open sheet) moves along in step, the other
   view's contents moving in beside it; the top bar and the contents' head
   stay in place (an open sheet stays open) and are refilled once the view
-  has switched, but their background tint moves with the pages, split
-  where the two views meet. The whole screen below the top bar takes the
+  has switched, but their background tint (also the closed sheet's)
+  moves with the pages, split where the two views meet, in one straight
+  line with them also in a flick. The whole screen below the top bar takes the
   swipe, also below the last card. Not while editing,
   selecting or recording; content that scrolls sideways itself (a wide
   table) keeps the gesture. Desktop has no touch, the view button
   switches there.
-- **Bottom sheets** (phone) have a handle: a tap opens fully or closes,
-  dragging leaves the sheet at any height, a flick or a drag near the
-  bottom closes.
+- **Bottom sheets** (phone) have a handle: a tap opens fully or closes.
+  The whole sheet is one surface: dragging it anywhere leaves it at any
+  height, past the top it slides out at the top instead of scrolling
+  inside; an upward flick glides on, a downward flick or a drag near the
+  bottom closes. A closed sheet is also pulled up by a drag up from a
+  thin strip at either screen edge in the bottom third.
 - **Back** (Android button or gesture) closes the innermost layer first:
   a dialog or panel page, the selection, the editor (editing ends), the
   open contents sheet; only then does it leave the app. Each layer sits
@@ -105,7 +109,9 @@ Current state, edited in place when a decision changes.
   transcript show that it is listening. Short vibration on start, lock
   and cancel where the device supports it.
 - The list never reorders while the user works in it — only after
-  view, sort or search changes (`docs/requirements.md` → "Sorting").
+  view, sort or search changes, and when a new due date sorts its note
+  in under the due-date sort; that note then keeps its place on the
+  screen (`docs/requirements.md` → "Sorting").
 - Keyboard on the desktop: `n` new note, `/` search, `Esc` ends editing,
   closes menus, panels and dialogs and ends multi-select; Markdown shortcuts in the editor
   (`docs/requirements.md` → "Creating and editing").

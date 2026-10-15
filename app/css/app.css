@@ -121,19 +121,25 @@ button { font: inherit; color: inherit; }
    contents list follow the finger, the other view's pages (.swipe-peek) move
    in beside them. */
 .main.swiping :is(.filter-bar, .list, .empty), .toc-panel.swiping .toc-list { transform: translateX(var(--swipe-x, 0)); transition: transform var(--swipe-ms, 0ms) ease-out; }
-/* The top bar and the contents panel stay in place, but their color moves
-   with the pages: the other view's tint comes in from its side (the archive
-   lies to the right), split where the pages meet. A registered --swipe-x lets
-   the split follow the snap after letting go. */
-@property --swipe-x { syntax: "<length>"; inherits: true; initial-value: 0px; }
+/* The top bar and the contents panel (also the closed sheet) stay in place,
+   but their color moves with the pages: two layers behind their content, this
+   view's tint and the other's from its side (the archive lies to the right),
+   split where the pages meet. Moved by transform like the pages, so the split
+   runs in step with them also in a flick. */
 .main.swiping .topbar { --pane: color-mix(in srgb, var(--bg) 88%, transparent); --pane-other: color-mix(in srgb, var(--bg-other) 88%, transparent); }
 .toc-panel.swiping { --pane: var(--bg); --pane-other: var(--bg-other); }
-:is(.main.swiping .topbar, .toc-panel.swiping) { transition: --swipe-x var(--swipe-ms, 0ms) ease-out; }
-.app[data-view="open"] :is(.main.swiping .topbar, .toc-panel.swiping) {
-  background: linear-gradient(to right, var(--pane) calc(100% + var(--swipe-x)), var(--pane-other) 0);
+.app { --other-side: 100%; }
+.app[data-view="closed"] { --other-side: -100%; }
+:is(.main.swiping .topbar, .toc-panel.swiping) { background: transparent; overflow: clip; }
+:is(.main.swiping .topbar, .toc-panel.swiping)::before,
+:is(.main.swiping .topbar, .toc-panel.swiping)::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--pane); pointer-events: none;
+  transform: translateX(var(--swipe-x, 0px)); transition: transform var(--swipe-ms, 0ms) ease-out;
 }
-.app[data-view="closed"] :is(.main.swiping .topbar, .toc-panel.swiping) {
-  background: linear-gradient(to right, var(--pane-other) var(--swipe-x), var(--pane) 0);
+:is(.main.swiping .topbar, .toc-panel.swiping)::after {
+  background: var(--pane-other);
+  transform: translateX(calc(var(--swipe-x, 0px) + var(--other-side)));
 }
 .swipe-peek { position: fixed; z-index: 5; bottom: 0; overflow: hidden; pointer-events: none; }
 .swipe-page { position: absolute; inset: 0; background: var(--bg); }
@@ -936,18 +942,21 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   .app:is(.toc-open, .toc-dragging) .scrim { opacity: 1; pointer-events: auto; }
   /* The contents are a bottom sheet, within thumb reach: closed, only its
      handle peeks out at the bottom; open, it reaches up to the top bar or
-     stays at the height it was dragged to (ui/toc.js). */
+     stays where it was dragged to. It is one surface as tall as its
+     contents (at least up to the top bar) that moves as a whole, so instead
+     of scrolling inside it slides out at the top (ui/toc.js). */
   :root {
     --peek: calc(26px + var(--safe-bottom));
     --sheet-max: calc(100dvh - var(--topbar-h) - var(--safe-top) - 8px);
   }
   .toc-panel {
-    transition: height 0.25s ease; box-shadow: var(--shadow-high); background: var(--surface);
-    top: auto; right: 0; width: auto;
-    height: var(--peek); min-height: var(--peek); max-height: var(--sheet-max);
+    transition: transform 0.25s ease; box-shadow: var(--shadow-high); background: var(--surface);
+    top: 0; bottom: auto; right: 0; width: auto; min-height: var(--sheet-max);
+    transform: translateY(calc(100dvh - var(--peek))); touch-action: none;
     border-right: 0; border-radius: 18px 18px 0 0; padding-top: 0; padding-bottom: var(--safe-bottom);
   }
-  .app.toc-open .toc-panel { height: var(--sheet-max); }
+  .app.toc-open .toc-panel { transform: translateY(calc(100dvh - var(--sheet-max))); }
+  .toc-panel :is(.toc-list, .people-list) { overflow: visible; touch-action: none; }
   .toc-peek .swipe-page { background: var(--surface); }
   .toc-panel.swiping { --pane: var(--surface); --pane-other: var(--surface-other); }
   .app.toc-dragging .toc-panel { transition: none; }

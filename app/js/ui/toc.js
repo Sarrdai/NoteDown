@@ -1,7 +1,7 @@
 // Table of contents over the notes in view order: a fixed sidebar on tablet
 // and desktop, a bottom sheet on the phone whose handle always peeks out at
-// the bottom: a tap on it opens the sheet fully (or closes it), dragging it
-// leaves the sheet at any height; the Android back key closes it. In the main view it is also a
+// the bottom: a tap on it opens the sheet fully (or closes it), a drag
+// anywhere on it moves and scrolls it (initSheetDrag); the Android back key closes it. In the main view it is also a
 // way into multi-select (ui/selection.js): a long-press (or Ctrl+click) on
 // an entry selects that section with everything below it, then taps add or
 // remove entries.
@@ -13,8 +13,13 @@ import { pushEntry, leaveEntry } from "./dom.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
+const SLOP = 8;             // px before a drag's direction is decided (as the view swipe's)
 const CLOSE_BELOW = 0.15;   // share of the sheet's range under which a drag closes it
-const FLICK = 0.5;          // px/ms that opens fully or closes regardless of the height
+const FLICK = 0.5;          // px/ms down that closes the sheet from anywhere
+const HOLD_STILL_MS = 100;  // a pause this long before letting go is no flick
+const GLIDE_DECAY = 0.997;  // per ms: how quickly a flick's glide slows down
+const EDGE_STRIP = 24;      // px at either screen edge where a drag up pulls the closed sheet
+const EDGE_ZONE = 1 / 3;    // the share of the screen's height, from the bottom, that has these strips
 
 const $ = id => document.getElementById(id);
 const app = () => $("app");
@@ -106,8 +111,17 @@ function onClick(e) {
 
 /** Opens or closes the phone's sheet; `fromHistory` when the back key already left its entry. */
 export function setTocOpen(open, { fromHistory = false } = {}) {
-  $("tocPanel").style.height = "";   // opening goes to the full height
+  stopGlide();
+  $("tocPanel").style.transform = "";   // opening goes to the full height, from the top of the contents
   markOpen(open, fromHistory);
+}
+
+let glide = 0;   // the animation frame of the sheet's glide after a flick
+function stopGlide() {
+  if (!glide) return;
+  cancelAnimationFrame(glide);
+  glide = 0;
+  app().classList.remove("toc-dragging");
 }
 
 // The open sheet sits on a history entry (phone only: elsewhere the contents are a sidebar).
@@ -119,52 +133,149 @@ function markOpen(open, fromHistory = false) {
   else if (!open && was && !fromHistory) leaveEntry("toc");
 }
 
-// Phone: the handle (and the sheet's head, outside its controls) drags the
-// sheet; a tap on the handle toggles it. Tablet and desktop hide the handle.
+// Phone: the sheet is one surface as tall as its contents that moves as a
+// whole, so pushing it up and scrolling it are the same: a vertical drag
+// anywhere on it (on the handle only while closed) moves it; up to the top
+// bar it opens, further up it slides out at the top. Let go, it stays where
+// it is, an upward flick glides on, a downward flick closes it from
+// anywhere, near the bottom it closes. A tap on the handle toggles it;
+// sideways is the view swipe's (ui/view-swipe.js). Tablet and desktop
+// hide the handle.
 function initSheetDrag() {
-  const panel = $("tocPanel");
-  let drag = null;   // { y, h, min, max, moved, lastY, lastT, v }
+  const panel = $("tocPanel"), handle = $("tocHandle");
+  let drag = null;    // { x, y, top, moved, lastY, lastT, v } while a pointer is down
 
-  const onDown = e => {
+  const top = () => panel.getBoundingClientRect().top;
+  // Where the sheet's top may be: closed (only the handle shows), open (just
+  // below the top bar) and the highest (its last entry at the bottom edge).
+  const range = () => {
+    const h = window.innerHeight, style = getComputedStyle(panel);
+    const open = h - parseFloat(style.minHeight);
+    return { closed: h - handle.offsetHeight - parseFloat(style.paddingBottom), open, min: Math.min(open, h - panel.offsetHeight) };
+  };
+  const moveTo = (y, r = range()) => {
+    y = Math.min(r.closed, Math.max(r.min, y));
+    panel.style.transform = `translateY(${y}px)`;
+    return y;
+  };
+
+  // Lets go at `v` px/ms (down positive).
+  const release = v => {
+    const r = range(), y = top();
+    if (v > FLICK) return setTocOpen(false);
+    if (y > r.open && v >= 0 && r.closed - y < (r.closed - r.open) * CLOSE_BELOW) return setTocOpen(false);
+    markOpen(true);
+    // A glide never brings the sheet further down than the open height, or than where it was let go below it.
+    const floor = Math.max(r.open, y);
+    let at = y, last = performance.now();
+    app().classList.add("toc-dragging");
+    const step = now => {
+      const dt = Math.min(now - last, 50);
+      last = now;
+      at = Math.min(floor, Math.max(r.min, at + v * dt));
+      v *= Math.pow(GLIDE_DECAY, dt);
+      moveTo(at, r);
+      glide = Math.abs(v) > 0.02 && at > r.min && at < floor ? requestAnimationFrame(step) : (stopGlide(), 0);
+    };
+    glide = requestAnimationFrame(step);
+  };
+
+  // Moves the sheet with a drag `d` to `y` at time `t`, tracking its speed.
+  const follow = (d, y, t) => {
+    const dt = t - d.lastT;
+    if (dt > 0) d.v = 0.7 * ((y - d.lastY) / dt) + 0.3 * d.v;
+    d.lastY = y; d.lastT = t;
+    moveTo(d.top + y - d.y);
+  };
+
+  panel.addEventListener("pointerdown", e => {
     if (!phone.matches || e.button !== 0) return;
-    if (e.currentTarget !== $("tocHandle") && (e.target.closest("button") || !app().classList.contains("toc-open"))) return;
-    const style = getComputedStyle(panel);
-    drag = { y: e.clientY, h: panel.offsetHeight, min: parseFloat(style.minHeight), max: parseFloat(style.maxHeight),
-      moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0 };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onMove = e => {
+    if (!app().classList.contains("toc-open") && e.target !== handle) return;
+    stopGlide();
+    drag = { x: e.clientX, y: e.clientY, top: top(), moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0 };
+  });
+  panel.addEventListener("pointermove", e => {
     if (!drag) return;
-    const dy = drag.y - e.clientY;
-    if (!drag.moved && Math.abs(dy) < MOVE_TOLERANCE) return;
-    if (!drag.moved) { drag.moved = true; app().classList.add("toc-dragging"); }
-    const dt = e.timeStamp - drag.lastT;
-    if (dt > 0) drag.v = 0.7 * ((drag.lastY - e.clientY) / dt) + 0.3 * drag.v;
-    drag.lastY = e.clientY; drag.lastT = e.timeStamp;
-    panel.style.height = Math.min(drag.max, Math.max(drag.min, drag.h + dy)) + "px";
-  };
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved) {
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+      if (Math.abs(dx) > Math.abs(dy)) { drag = null; return; }   // sideways: the view swipe
+      drag.moved = true;
+      cancelPress();
+      app().classList.add("toc-dragging");
+      panel.setPointerCapture(e.pointerId);
+    }
+    follow(drag, e.clientY, e.timeStamp);
+  });
   const onUp = e => {
     if (!drag) return;
-    const { moved, min, max, v } = drag;
+    const { moved, v, lastT } = drag;
     drag = null;
-    app().classList.remove("toc-dragging");
     if (!moved) {
-      if (e.currentTarget === $("tocHandle") && e.type === "pointerup") setTocOpen(!app().classList.contains("toc-open"));
+      if (e.target === handle && e.type === "pointerup") setTocOpen(!app().classList.contains("toc-open"));
       return;
     }
-    const h = panel.offsetHeight;
-    if (v < -FLICK || h < min + (max - min) * CLOSE_BELOW) return setTocOpen(false);
-    if (v > FLICK) return setTocOpen(true);
-    markOpen(true);   // left where it was let go
+    app().classList.remove("toc-dragging");
+    // The click that ends a drag doesn't reach an entry or a button.
+    const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
+    panel.addEventListener("click", swallow, { capture: true, once: true });
+    setTimeout(() => panel.removeEventListener("click", swallow, { capture: true }));
+    release(e.type === "pointerup" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0);
   };
-  for (const el of [$("tocHandle"), panel.querySelector(".toc-head")]) {
-    el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    el.addEventListener("pointercancel", onUp);
-  }
+  panel.addEventListener("pointerup", onUp);
+  panel.addEventListener("pointercancel", onUp);
+  // Closed, a drag up from a thin strip at either screen edge in the
+  // bottom third pulls the sheet up too, so the handle needn't be hit;
+  // down there it still scrolls the list, sideways it is the view swipe.
+  let edge = null;   // { y, top, lastY, lastT, v, x, taken } while a finger is down in a strip
+  document.addEventListener("touchstart", e => {
+    edge = null;
+    if (!phone.matches || e.touches.length !== 1 || app().classList.contains("toc-open") || !panel.getClientRects().length) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    if (y < window.innerHeight * (1 - EDGE_ZONE) || (x > EDGE_STRIP && x < window.innerWidth - EDGE_STRIP)) return;
+    if (!e.target.closest(".main") || e.target.closest(".fab, .topbar")) return;
+    edge = { x, y, top: 0, lastY: y, lastT: e.timeStamp, v: 0, taken: false };
+  }, { passive: true });
+  document.addEventListener("touchmove", e => {
+    if (!edge) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    if (!edge.taken) {
+      const dx = x - edge.x, dy = y - edge.y;
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+      if (!e.cancelable || dy > 0 || Math.abs(dx) > Math.abs(dy)) { edge = null; return; }
+      stopGlide();
+      edge.taken = true;
+      edge.top = top();
+      app().classList.add("toc-dragging");
+    }
+    e.preventDefault();
+    follow(edge, y, e.timeStamp);
+  }, { passive: false });
+  const onEdgeEnd = e => {
+    if (!edge?.taken) { edge = null; return; }
+    const { v, lastT } = edge;
+    edge = null;
+    app().classList.remove("toc-dragging");
+    release(e.type === "touchend" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0);
+  };
+  document.addEventListener("touchend", onEdgeEnd);
+  document.addEventListener("touchcancel", onEdgeEnd);
+  // A mouse wheel (a narrow desktop window) scrolls the open sheet the same way.
+  panel.addEventListener("wheel", e => {
+    if (!phone.matches || !app().classList.contains("toc-open")) return;
+    e.preventDefault();
+    stopGlide();
+    const r = range();
+    moveTo(Math.min(Math.max(r.open, top()), top() - e.deltaY), r);
+  }, { passive: false });
+  // Fewer entries (another view, a lower depth) or another window height:
+  // the sheet's end doesn't lift off the bottom edge.
+  const fit = () => { if (panel.style.transform && top() < range().min) moveTo(range().min); };
+  new ResizeObserver(fit).observe(panel);
+  window.addEventListener("resize", fit);
+  phone.addEventListener("change", () => { panel.style.transform = ""; });   // the sidebar doesn't move
   // Keyboard: the handle is a button.
-  $("tocHandle").addEventListener("keydown", e => {
+  handle.addEventListener("keydown", e => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTocOpen(!app().classList.contains("toc-open")); }
   });
 }
