@@ -203,8 +203,12 @@ export function startEdit(id, at = {}) {
   el.classList.add("editing");
   const host = document.createElement("div");
   host.className = "note-body md editor-host";
+  // The page keeps its scroll position: while the host is still empty the
+  // page may be too short for it and the browser would clamp it.
+  const scrolled = window.scrollY;
   el.querySelector(".note-body").replaceWith(host);
   const editor = createEditor({ parent: host, doc: n.body, onChange: text => setBody(id, text), onEscape: () => endEdit() });
+  if (window.scrollY !== scrolled) window.scrollTo(0, scrolled);
   editing = { id, editor };
   editor.focusAt(at.x, at.y);
   if (!switching) pushEntry({ editing: true });
@@ -239,9 +243,16 @@ window.addEventListener("popstate", () => {
 });
 
 // A click outside the edited note ends the edit before the click's own
-// handler runs; the clicked note is kept where it was on screen.
+// handler runs; the clicked note is kept where it was on screen. A press
+// that started inside the note is no such click: a text selection dragged
+// out of the note fires its click on a common ancestor outside it.
+let pressedInside = false;
+const keepsEditing = target => !!target.closest?.(`.note[data-id="${editing.id}"], .keep-editing`);
+document.addEventListener("pointerdown", e => { pressedInside = !!editing && keepsEditing(e.target); }, true);
 document.addEventListener("click", e => {
-  if (!editing || e.target.closest(`.note[data-id="${editing.id}"], .keep-editing`)) return;
+  const fromInside = pressedInside;
+  pressedInside = false;
+  if (!editing || fromInside || keepsEditing(e.target)) return;
   const other = e.target.closest(".note");
   const top = other && other.getBoundingClientRect().top;
   endEdit();

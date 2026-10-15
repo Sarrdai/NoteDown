@@ -55,7 +55,7 @@ export const state = {
   panelTab: "toc",           // sidebar / sheet tab: toc | people
   circle: null,              // people filter (#23): null = all, else a circleKey ("" = private); not remembered
   editingId: null,
-  topId: null,               // a new note stays on top until its first edit ends
+  topId: null,               // a new note stays on top until its first edit ends or view, sort, search or circle change
   protectedIds: new Set(),   // ids protected from deletion: a setting of this device, not synced
   selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting
 };

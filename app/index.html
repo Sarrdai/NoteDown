@@ -44,12 +44,14 @@
         </label>
         <button class="icon-btn" id="searchBtn" aria-label="Search"></button>
         <button class="icon-btn labelled" id="sortBtn" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="sortLabel"></span></button>
-        <button class="icon-btn" id="syncBtn" hidden></button>
-        <button class="icon-btn labelled" id="viewBtn">
-          <span class="view-face to-archive"><span class="btn-icon"></span><span class="btn-label">Archive</span><span class="count" id="archiveCount">0</span></span>
-          <span class="view-face to-notes"><span class="btn-icon"></span><span class="btn-label">Notes</span></span>
+        <button class="icon-btn" id="viewBtn">
+          <span class="view-face to-archive"><span class="btn-icon"></span><span class="count" id="archiveCount">0</span></span>
+          <span class="view-face to-notes"><span class="btn-icon"></span></span>
         </button>
-        <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More"></button>
+        <button class="icon-btn" id="syncBtn"></button>
+        <button class="icon-btn" id="remindersBtn" aria-label="Reminders" title="Reminders"></button>
+        <button class="icon-btn" id="exportBtn" aria-label="Export" title="Export"></button>
+        <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More" title="More"></button>
       </header>
       <div class="selectbar keep-editing" id="selectBar" role="toolbar" aria-label="Selection" hidden>
         <button class="icon-btn" id="selCancel" aria-label="Cancel selection"></button>
@@ -66,7 +68,7 @@
       <p class="empty" id="empty" hidden></p>
     </main>
 
-    <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"></button>
+    <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"><span class="fab-face fab-new"></span><span class="fab-face fab-empty"></span></button>
     <div class="recorder keep-editing" id="recorder" hidden>
       <div class="rec-preview" id="recPreview" aria-live="polite"></div>
       <div class="rec-bar">
@@ -113,6 +115,7 @@
         <h2 class="dialog-title" id="arrangeTitle">Custom order</h2>
         <p class="dialog-hint" id="arrangeHint"></p>
         <ol class="order-list arrange-list" id="arrangeList"></ol>
+        <div class="arrange-sort">Not sorted yet by <button class="icon-btn small labelled" id="arrangeSort" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="arrangeSortLabel"></span></button></div>
         <div class="dialog-actions">
           <button class="btn" id="arrangeCancel">Cancel</button>
           <button class="btn primary" id="arrangeOk">Save</button>

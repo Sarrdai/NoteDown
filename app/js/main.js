@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, fileText, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles } from "./store.js";
+import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, protectedFirst, deleteGroups, customSplit, rearrange } from "./core/query.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, removeNote, removeNotes, replaceFiles, allNotes, isProtected, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles } from "./store.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
 import { WELCOME_PREFIX } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
@@ -35,11 +35,6 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", due: "asc", title: "asc", custom: "asc" };
-const DIR_LABELS = {
-  title: ["A–Z", "Z–A"],
-  due: ["Soonest first", "Latest first"],
-  default: ["Oldest first", "Newest first"],
-};
 
 const phone = window.matchMedia("(max-width: 599px)");
 
@@ -69,8 +64,13 @@ const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloud
 
 function renderSyncStatus() {
   const btn = $("syncBtn");
-  btn.hidden = !state.sync.enabled;
-  if (!state.sync.enabled) return;
+  if (!state.sync.enabled) {
+    btn.dataset.status = "";
+    btn.innerHTML = icon("cloud");
+    btn.setAttribute("aria-label", "Sync & sharing");
+    btn.title = "Sync & sharing";
+    return;
+  }
   const { status } = state.sync;
   if (btn.dataset.status !== status) {
     // A round that transferred something ends with the check drawing itself in.
@@ -78,7 +78,8 @@ function renderSyncStatus() {
     btn.dataset.status = status;
     btn.innerHTML = icon(SYNC_ICONS[status]);
   }
-  btn.setAttribute("aria-label", statusText());
+  btn.setAttribute("aria-label", "Sync & sharing: " + statusText());
+  btn.title = "Sync & sharing · " + statusText();
 }
 
 function render() {
@@ -92,13 +93,17 @@ function render() {
   const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
+  $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label;
   const count = closedOn(allNotes(), today());
   $("archiveCount").textContent = count;
   $("archiveCount").classList.toggle("has", count > 0);
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? `Archive, ${count} closed today` : "Notes");
+  $("viewBtn").title = state.view === "open" ? `Archive · ${count} closed today` : "Notes";
+  renderFab();
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
 
   renderSyncStatus();
+  fitTopbar();
   renderCircleFilter();
   const notes = currentNotes();
   const { tiles, dividerBefore } = tilesOf(state.view, notes);
@@ -190,7 +195,7 @@ function renderCircleFilter() {
 }
 
 subscribe(kind => {
-  if (kind === "sync") return renderSyncStatus();   // the sync panel follows these itself
+  if (kind === "sync") { renderSyncStatus(); return fitTopbar(); }   // the sync panel follows these itself
   if (kind.startsWith("note:")) {
     patchNote(kind.slice(5));
     renderToc(currentNotes());
@@ -261,21 +266,25 @@ function arrange() {
   const { sorted, unsorted } = customSplit(shown, orderIds());
   const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
   openArrange(key ? {
+    archive: state.view === "closed",
     title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
     save: ids => showSnackbar("Shared order saved", setCircleOrder(key, next(ids))),
   } : {
+    archive: state.view === "closed",
     sorted, unsorted,
     save: ids => showSnackbar("Order saved", setCustomOrder(next(ids))),
   });
 }
 
-function sortMenu() {
+function sortMenu(anchor = $("sortBtn")) {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.archiveOnly || state.view === "closed") && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
-  const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
+  // A sort change ends a new note's place on top, like a view or search change.
+  const reorder = patch => { state.topId = null; updateSettings(patch); };
+  const setSort = next => reorder({ sort: { ...state.settings.sort, [state.view]: next } });
   const onTop = state.settings.protectedFirst[state.view];
-  openMenu($("sortBtn"), [
+  openMenu(anchor, [
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
@@ -285,11 +294,11 @@ function sortMenu() {
       { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     ]),
     { separator: true },
-    { label: "Protected first", checked: onTop, onSelect: () => updateSettings({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
+    { label: "Protected first", checked: onTop, onSelect: () => reorder({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
   ]);
 }
 
-// ⋮ → "Empty archive…": deletes every closed note except the protected ones;
+// The archive's bin button (renderFab): deletes every closed note except the protected ones;
 // shared notes only when ticked, as they go for everyone in their circle.
 function emptyArchive() {
   const closed = allNotes().filter(n => n.status === "closed");
@@ -320,27 +329,67 @@ async function loadWelcome() {
   replaceFiles({ file });
 }
 
+// The top bar's actions, left to right; what doesn't fit moves under ⋮,
+// from the right end (Export first). The sort label goes before any button.
+const ACTIONS = [
+  { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
+  { id: "viewBtn", menu: () => state.view === "open"
+    ? { label: `Archive (${closedOn(allNotes(), today())} today)`, icon: "archive", onSelect: () => setView("closed") }
+    : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
+  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
+  { id: "remindersBtn", menu: () => ({ label: "Reminders…", icon: "bell", onSelect: openReminderDialog }) },
+  { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
+];
+const wide = window.matchMedia("(min-width: 1024px)");
+
+function fitTopbar() {
+  const bar = $("topbar");
+  const title = $("title");
+  const search = $("search");
+  const label = $("sortBtn").querySelector(".btn-label");
+  for (const a of ACTIONS) $(a.id).hidden = false;
+  label.hidden = false;
+  // Too tight: the title is cut, or (desktop) the buttons run into the centered search.
+  const tight = () => title.scrollWidth > title.clientWidth + 1
+    || (wide.matches && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
+  if (!bar.offsetWidth) return;
+  // Measured with the longer title, so both views keep the same buttons and
+  // the view button its place.
+  const text = title.textContent;
+  title.textContent = "Archive";
+  if (tight()) label.hidden = true;
+  for (let i = ACTIONS.length - 1; i >= 0 && tight(); i--) $(ACTIONS[i].id).hidden = true;
+  title.textContent = text;
+}
+
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
-  const archive = state.view === "closed";
-  const deletable = archive && allNotes().some(n => n.status === "closed" && !isProtected(n.id));
+  const hidden = ACTIONS.filter(a => $(a.id).hidden).map(a => a.menu());
   openMenu($("moreBtn"), [
-    archive && { label: "Empty archive…", disabled: !deletable, onSelect: emptyArchive },
-    archive && { separator: true },
-    { label: "Sync & sharing…", onSelect: openSyncPanel },
-    { label: "Reminders…", onSelect: openReminderDialog },
-    { label: "Export…", onSelect: exportDialog },
-    { separator: true },
+    ...hidden,
+    hidden.length && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
     { section: "Prototype" },
-    { label: "Download notes.md", onSelect: download },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
 }
+
+// The + button: a new note in the main view; in the archive it moves to the
+// left and turns into a bin that empties the archive (set apart from + so the
+// two aren't mixed up).
+function renderFab() {
+  const fab = $("fab");
+  const archive = state.view === "closed";
+  fab.setAttribute("aria-label", archive ? "Empty archive" : "New note (hold to dictate)");
+  fab.title = archive ? "Empty archive" : "";
+  const deletable = allNotes().some(n => n.status === "closed" && !isProtected(n.id));
+  fab.classList.toggle("inert", archive && !deletable);
+}
+const fabTap = () => state.view === "open" ? newNote() : !$("fab").classList.contains("inert") && emptyArchive();
 
 // ⋮ → "Export…": this view in the order the list shows it (filter and search
 // applied; the main view can add its archive below), or all files, one
@@ -381,30 +430,27 @@ function showDue(ids) {
   ids.forEach(flashNote);
 }
 
-function download() {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([fileText()], { type: "text/markdown" }));
-  a.download = "notes.md";
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["fab", "plus"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["remindersBtn", "bell"], ["exportBtn", "download"], ["searchClose", "close"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
   $("searchIcon").innerHTML = icon("search");
+  $("fab").querySelector(".fab-new").innerHTML = icon("plus");
+  $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
+  $("remindersBtn").addEventListener("click", openReminderDialog);
+  $("exportBtn").addEventListener("click", exportDialog);
+  window.addEventListener("resize", fitTopbar);
   $("syncBtn").addEventListener("click", openSyncPanel);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
   // One button switches between the notes and the archive, in the same place.
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
-  $("sortBtn").addEventListener("click", sortMenu);
+  $("sortBtn").addEventListener("click", () => sortMenu());
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("filterClear").addEventListener("click", () => pickCircle(null));
   $("moreBtn").addEventListener("click", moreMenu);
-  $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
+  $("searchInput").addEventListener("input", e => setUi({ search: e.target.value, topId: null }));
   $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
   $("searchClose").addEventListener("click", () => { app.classList.remove("searching"); setUi({ search: "" }); });
   systemDark.addEventListener("change", render);
@@ -429,7 +475,7 @@ function wire() {
   initConfirm();
   initArrange();
   initToolbar({ onDue: sortInByDue });
-  initRecorder({ onTap: newNote, onTranscript: addDictatedNote });
+  initRecorder({ onTap: fabTap, canHold: () => state.view === "open", onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => renderToc(currentNotes()) });
   initSyncPanel();
   initContactRequests();

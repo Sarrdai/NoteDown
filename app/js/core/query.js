@@ -13,6 +13,13 @@ export const SORT_KEYS = {
   shared: { label: "Shared order", field: null, custom: true, circleOnly: true },
 };
 
+/** The two directions of a sort key, ascending first. */
+export const DIR_LABELS = {
+  title: ["A–Z", "Z–A"],
+  due: ["Soonest first", "Latest first"],
+  default: ["Oldest first", "Newest first"],
+};
+
 export const DEFAULT_SORT = {
   open: { key: "modified", dir: "desc" },
   closed: { key: "closed", dir: "desc" },
