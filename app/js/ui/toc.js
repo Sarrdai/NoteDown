@@ -18,6 +18,8 @@ const CLOSE_BELOW = 0.15;   // share of the sheet's range under which a drag clo
 const FLICK = 0.5;          // px/ms down that closes the sheet from anywhere
 const HOLD_STILL_MS = 100;  // a pause this long before letting go is no flick
 const GLIDE_DECAY = 0.997;  // per ms: how quickly a flick's glide slows down
+const EDGE_STRIP = 24;      // px at either screen edge where a drag up pulls the closed sheet
+const EDGE_ZONE = 1 / 3;    // the share of the screen's height, from the bottom, that has these strips
 
 const $ = id => document.getElementById(id);
 const app = () => $("app");
@@ -109,8 +111,17 @@ function onClick(e) {
 
 /** Opens or closes the phone's sheet; `fromHistory` when the back key already left its entry. */
 export function setTocOpen(open, { fromHistory = false } = {}) {
+  stopGlide();
   $("tocPanel").style.transform = "";   // opening goes to the full height, from the top of the contents
   markOpen(open, fromHistory);
+}
+
+let glide = 0;   // the animation frame of the sheet's glide after a flick
+function stopGlide() {
+  if (!glide) return;
+  cancelAnimationFrame(glide);
+  glide = 0;
+  app().classList.remove("toc-dragging");
 }
 
 // The open sheet sits on a history entry (phone only: elsewhere the contents are a sidebar).
@@ -133,7 +144,6 @@ function markOpen(open, fromHistory = false) {
 function initSheetDrag() {
   const panel = $("tocPanel"), handle = $("tocHandle");
   let drag = null;    // { x, y, top, moved, lastY, lastT, v } while a pointer is down
-  let glide = 0;      // the animation frame of a glide
 
   const top = () => panel.getBoundingClientRect().top;
   // Where the sheet's top may be: closed (only the handle shows), open (just
@@ -148,7 +158,6 @@ function initSheetDrag() {
     panel.style.transform = `translateY(${y}px)`;
     return y;
   };
-  const stopGlide = () => { cancelAnimationFrame(glide); glide = 0; app().classList.remove("toc-dragging"); };
 
   // Lets go at `v` px/ms (down positive).
   const release = v => {
@@ -171,6 +180,14 @@ function initSheetDrag() {
     glide = requestAnimationFrame(step);
   };
 
+  // Moves the sheet with a drag `d` to `y` at time `t`, tracking its speed.
+  const follow = (d, y, t) => {
+    const dt = t - d.lastT;
+    if (dt > 0) d.v = 0.7 * ((y - d.lastY) / dt) + 0.3 * d.v;
+    d.lastY = y; d.lastT = t;
+    moveTo(d.top + y - d.y);
+  };
+
   panel.addEventListener("pointerdown", e => {
     if (!phone.matches || e.button !== 0) return;
     if (!app().classList.contains("toc-open") && e.target !== handle) return;
@@ -188,10 +205,7 @@ function initSheetDrag() {
       app().classList.add("toc-dragging");
       panel.setPointerCapture(e.pointerId);
     }
-    const dt = e.timeStamp - drag.lastT;
-    if (dt > 0) drag.v = 0.7 * ((e.clientY - drag.lastY) / dt) + 0.3 * drag.v;
-    drag.lastY = e.clientY; drag.lastT = e.timeStamp;
-    moveTo(drag.top + dy);
+    follow(drag, e.clientY, e.timeStamp);
   });
   const onUp = e => {
     if (!drag) return;
@@ -210,6 +224,42 @@ function initSheetDrag() {
   };
   panel.addEventListener("pointerup", onUp);
   panel.addEventListener("pointercancel", onUp);
+  // Closed, a drag up from a thin strip at either screen edge in the
+  // bottom third pulls the sheet up too, so the handle needn't be hit;
+  // down there it still scrolls the list, sideways it is the view swipe.
+  let edge = null;   // { y, top, lastY, lastT, v, x, taken } while a finger is down in a strip
+  document.addEventListener("touchstart", e => {
+    edge = null;
+    if (!phone.matches || e.touches.length !== 1 || app().classList.contains("toc-open") || !panel.getClientRects().length) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    if (y < window.innerHeight * (1 - EDGE_ZONE) || (x > EDGE_STRIP && x < window.innerWidth - EDGE_STRIP)) return;
+    if (!e.target.closest(".main") || e.target.closest(".fab, .topbar")) return;
+    edge = { x, y, top: 0, lastY: y, lastT: e.timeStamp, v: 0, taken: false };
+  }, { passive: true });
+  document.addEventListener("touchmove", e => {
+    if (!edge) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    if (!edge.taken) {
+      const dx = x - edge.x, dy = y - edge.y;
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+      if (!e.cancelable || dy > 0 || Math.abs(dx) > Math.abs(dy)) { edge = null; return; }
+      stopGlide();
+      edge.taken = true;
+      edge.top = top();
+      app().classList.add("toc-dragging");
+    }
+    e.preventDefault();
+    follow(edge, y, e.timeStamp);
+  }, { passive: false });
+  const onEdgeEnd = e => {
+    if (!edge?.taken) { edge = null; return; }
+    const { v, lastT } = edge;
+    edge = null;
+    app().classList.remove("toc-dragging");
+    release(e.type === "touchend" && e.timeStamp - lastT < HOLD_STILL_MS ? v : 0);
+  };
+  document.addEventListener("touchend", onEdgeEnd);
+  document.addEventListener("touchcancel", onEdgeEnd);
   // A mouse wheel (a narrow desktop window) scrolls the open sheet the same way.
   panel.addEventListener("wheel", e => {
     if (!phone.matches || !app().classList.contains("toc-open")) return;

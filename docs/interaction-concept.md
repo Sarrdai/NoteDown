@@ -80,7 +80,8 @@ Current state, edited in place when a decision changes.
   The whole sheet is one surface: dragging it anywhere leaves it at any
   height, past the top it slides out at the top instead of scrolling
   inside; an upward flick glides on, a downward flick or a drag near the
-  bottom closes.
+  bottom closes. A closed sheet is also pulled up by a drag up from a
+  thin strip at either screen edge in the bottom third.
 - **Back** (Android button or gesture) closes the innermost layer first:
   a dialog or panel page, the selection, the editor (editing ends), the
   open contents sheet; only then does it leave the app. Each layer sits
