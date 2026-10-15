@@ -101,7 +101,11 @@ Current state, edited in place when a decision changes.
   focus, so the on-screen keyboard stays open.
 - The **caret stays visible** while editing: when the on-screen keyboard
   opens, and while typing, the list scrolls so the edited line sits
-  between the top bar and the toolbar above the keyboard.
+  between the top bar and the toolbar above the keyboard, with up to three
+  lines of context above and below it where there is room (an edited line
+  at the very edge loses what it continues).
+- Editing ends only on a tap or click that **starts** outside the note: a
+  text selection dragged out of the note keeps editing and the selection.
 - **Hold-to-record** follows Signal: hold the + button (350 ms) to start,
   release to finish, slide left to cancel, slide up onto the lock to
   record hands-free — then the button turns into a check to finish and a

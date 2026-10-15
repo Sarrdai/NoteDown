@@ -109,29 +109,34 @@ export const COMMANDS = {
 };
 
 // The caret stays clear of the sticky top bar and of the toolbar, which sits
-// above the on-screen keyboard (toolbar.js). CodeMirror already leaves out
-// what the keyboard covers of the visual viewport; these are the rest.
-function visibleMargins() {
+// above the on-screen keyboard (toolbar.js), and keeps up to three lines of
+// context above and below it where the visible part has room for them.
+// CodeMirror already leaves out what the keyboard covers of the visual
+// viewport; these are the rest.
+const CONTEXT_LINES = 3;
+
+function visibleMargins(view) {
   const vv = window.visualViewport;
   const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
   const bar = document.getElementById("toolbar");
   const topbar = document.getElementById("topbar");
-  return {
-    top: (topbar ? Math.max(0, topbar.getBoundingClientRect().bottom - (vv ? vv.offsetTop : 0)) : 0) + 12,
-    bottom: (bar && !bar.hidden ? Math.max(0, bottom - bar.getBoundingClientRect().top) : 0) + 12,
-  };
+  const top = (topbar ? Math.max(0, topbar.getBoundingClientRect().bottom - (vv ? vv.offsetTop : 0)) : 0) + 12;
+  const below = (bar && !bar.hidden ? Math.max(0, bottom - bar.getBoundingClientRect().top) : 0) + 12;
+  const room = (vv ? vv.height : window.innerHeight) - top - below;
+  const context = Math.max(0, Math.min(CONTEXT_LINES * view.defaultLineHeight, (room - view.defaultLineHeight) / 3));
+  return { top: top + context, bottom: below + context };
 }
 
-// Scrolls the page until the caret lies between the top bar and the toolbar.
-// Also after CodeMirror's own scrolling, which clamps to the note's box and so
-// can leave the caret just behind the toolbar.
+// Scrolls the page until the caret lies between the top bar and the toolbar,
+// with its context lines. Also after CodeMirror's own scrolling, which clamps
+// to the note's box and so can leave the caret just behind the toolbar.
 function revealCaret(view) {
   view.requestMeasure({
     key: revealCaret,
     read: v => v.coordsAtPos(v.state.selection.main.head),
     write: pos => {
       if (!pos) return;
-      const vv = window.visualViewport, m = visibleMargins();
+      const vv = window.visualViewport, m = visibleMargins(view);
       const top = (vv ? vv.offsetTop : 0) + m.top;
       const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - m.bottom;
       if (pos.bottom > bottom) window.scrollBy(0, pos.bottom - bottom);
