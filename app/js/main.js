@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, hasPeople, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { state, load, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
@@ -193,13 +193,11 @@ function previewView(view) {
 
 // The people overview and the chip of the active filter above the list.
 function renderCircleFilter() {
-  const people = hasPeople();
-  app.classList.toggle("has-people", people);
-  app.dataset.tab = people ? state.panelTab : "toc";
+  app.dataset.tab = state.panelTab;
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
-  if (people) renderPeople(key => inView(circleNotes(key)).length);
+  renderPeople(key => inView(circleNotes(key)).length);
   // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
-  const fresh = people ? freshCount(newsNotes()) : 0;
+  const fresh = freshCount(newsNotes());
   document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
   $("tocHandle").innerHTML = newsBadgeHtml(fresh);
   const circle = activeCircle();
@@ -500,7 +498,7 @@ function wire() {
   initToc();
   initSearchHits();
   // Picking a circle on the phone closes the sheet; the chip above the list shows it.
-  initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); } });
+  initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); }, onAdd: openSyncPanel });
   initMenu();
   initConfirm();
   initArrange();

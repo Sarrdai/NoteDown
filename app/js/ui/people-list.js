@@ -3,13 +3,15 @@
 // contact on their own and each group. Picking one filters the note list to
 // that circle; a long-press (or right-click) on a contact lists the groups
 // they are in, to jump there. The server owner's news are pinned on top,
-// with a badge while posts are new or updated.
+// with a badge while posts are new or updated. Without contacts it still
+// shows, with a hint and Add contact, so the feature is there to be found.
 import { circleEntries, groupsWith, circleKey } from "../core/sharing.js";
 import { NEWS, freshCount } from "../core/news.js";
 import { state, setUi, sharedCircles, activeCircle, contacts, newsNotes } from "../store.js";
 import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people.js";
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
+import { h, button } from "./dom.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -17,6 +19,7 @@ const $ = id => document.getElementById(id);
 let press = null;
 let swallowClick = false;
 let onPicked = () => {};
+let onAddContact = () => {};
 
 /** Label of a circle key: "All notes", "Private", "Lea", "Lea & Tom". */
 export function circleName(key, members = key ? key.split("+") : []) {
@@ -48,7 +51,9 @@ export function renderPeople(count) {
     b.innerHTML = `${leading(e)}<span class="people-name">${esc(circleName(e.key, e.members))}</span>${badge}<span class="people-count">${n}</span>`;
     if (e.key === active) b.setAttribute("aria-current", "true");
     return b;
-  }));
+  }), ...(contacts().length ? [] : [h("div", { class: "people-empty" },
+    h("p", {}, "No contacts yet. Add one to share notes with them."),
+    button("Add contact", "outline", () => onAddContact()))]));
 }
 
 const keyOf = el => el.dataset.key === "*" ? null : el.dataset.key;
@@ -71,8 +76,9 @@ function groupsMenu(el) {
   ]);
 }
 
-export function initPeople({ onPick }) {
+export function initPeople({ onPick, onAdd }) {
   onPicked = onPick;
+  onAddContact = onAdd;
   const list = $("peopleList");
   list.addEventListener("pointerdown", e => {
     swallowClick = false;

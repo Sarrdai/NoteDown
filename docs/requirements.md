@@ -529,7 +529,10 @@ paid features per user.
   (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
   over a second section below the contents (both lists get cramped) and a
   separate phone sheet (one more top-bar icon on a full bar). The tabs
-  only show while sync is on and there are contacts.
+  **always show**, also with sync off and without contacts: then People
+  holds All notes, Private, a hint "No contacts yet" and **Add contact**
+  (opens Sync & sharing) — decided 2026-10-15 so the feature is there
+  to be found.
 
 ### News from the server's owner
 
@@ -554,8 +557,7 @@ this needs none of it.
   new version.
 - **In the app** they appear only while sync is on (without sync the app
   talks to no server), as **News** pinned at the top of the people
-  overview, above All notes; the overview (tabs Contents | People) also
-  shows when there are news but no contacts. Picking it lists the posts
+  overview, above All notes. Picking it lists the posts
   as **read-only notes** (no editing, no due date), newest first; they
   appear nowhere else (not under All notes). A post can be **closed**
   into the archive (round button, Undo) and reopened there, copied, and
