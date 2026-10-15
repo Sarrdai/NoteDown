@@ -672,8 +672,8 @@ this needs none of it.
 
 ### Creating and editing
 
-- A **new note** starts in edit mode with the cursor after `## `, ready
-  for a level-2 heading; it stays at the top of the list until editing
+- A **new note** starts empty in edit mode (no heading preset; the
+  heading button adds one); it stays at the top of the list until editing
   ends. A new note shown at the top (also a dictated or merged one) takes
   its sorted place with the next view, sort, search or circle change.
   *Prototype: round 1.*
@@ -693,7 +693,7 @@ this needs none of it.
   and its toolbar; the tapped target then acts normally (e.g. starts
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
-  (cycles ## → ### → #### → none), bullet list, task checkbox, outdent /
+  (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
   indent, bold, italic, link, **due date** (today, tomorrow, in a week,
   pick a date, remove), a **microphone** that dictates at the cursor,
   undo / redo, and Done. On phone and tablet it sits above the on-screen

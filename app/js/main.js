@@ -281,7 +281,7 @@ function newNote() {
   endSelection();
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote("## ", newNoteMembers());
+  const n = addNote("", newNoteMembers());
   state.topId = n.id;
   render();
   window.scrollTo(0, 0);

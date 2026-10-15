@@ -19,12 +19,12 @@ export function listPrefix(line) {
   };
 }
 
-/** Cycles a line through no heading → ## → ### → #### → no heading. */
+/** Cycles a line through no heading → # → ## → ### → #### → no heading. */
 export function cycleHeading(line) {
   const m = HEADING.exec(line);
   const text = m ? line.slice(m[0].length) : stripList(line);
   const level = m ? m[2].length : 0;
-  const next = level === 0 ? 2 : level >= 4 || level < 2 ? 0 : level + 1;
+  const next = level >= 4 ? 0 : level + 1;
   return next ? "#".repeat(next) + " " + text : text;
 }
 

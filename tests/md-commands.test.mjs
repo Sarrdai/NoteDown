@@ -3,12 +3,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cycleHeading, toggleBullet, toggleTaskItem, toggleTaskChecked, indentLine, outdentLine, continueList, toggleWrap, insertLink, joinDictation, listPrefix } from "../app/js/core/md-commands.js";
 
-test("cycleHeading: none → ## → ### → #### → none, list markers dropped", () => {
-  assert.equal(cycleHeading("Title"), "## Title");
+test("cycleHeading: none → # → ## → ### → #### → none, list markers dropped", () => {
+  assert.equal(cycleHeading("Title"), "# Title");
+  assert.equal(cycleHeading("# Title"), "## Title");
   assert.equal(cycleHeading("## Title"), "### Title");
   assert.equal(cycleHeading("### Title"), "#### Title");
   assert.equal(cycleHeading("#### Title"), "Title");
-  assert.equal(cycleHeading("- [ ] Item"), "## Item");
+  assert.equal(cycleHeading("- [ ] Item"), "# Item");
 });
 
 test("toggleBullet and toggleTaskItem keep the indent", () => {
