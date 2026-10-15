@@ -870,25 +870,17 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .app.has-people[data-tab="people"] :is(.toc-list, .stepper) { display: none; }
 
 /* ---------- news ---------- */
-/* New or updated posts: a badge on the News entry, the People tab and (phone)
-   the closed contents sheet; a label on each such card. Prototype variants:
-   the badge as a count or a dot, the label in the meta line or at the corner. */
+/* New or updated posts: a badge with their number on the News entry, the
+   People tab and (phone) the closed contents sheet; a label in the meta line
+   of each such card (decided 2026-10-15 over a dot and a corner tag). */
 .news-badge {
   flex: none; display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   background: var(--accent); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px; text-align: center;
 }
-.app.news-badge-dot .news-badge { min-width: 0; width: 8px; height: 8px; padding: 0; font-size: 0; }
 .panel-tab .news-badge { margin-left: 5px; vertical-align: 1px; }
-.app.news-badge-dot .panel-tab .news-badge { vertical-align: 2px; }
 .toc-handle .news-badge { position: absolute; top: 4px; left: calc(50% + 30px); }
-.app.news-badge-dot .toc-handle .news-badge { top: 9px; }
 .chip.news-chip { background: var(--accent); color: var(--on-accent); }
-.news-tag {
-  display: none; position: absolute; top: -9px; right: 14px; z-index: 1; height: 20px; padding: 0 8px; border-radius: 999px;
-  background: var(--accent); color: var(--on-accent); font-size: 0.72rem; font-weight: 700; line-height: 20px;
-}
-.app.news-label-tag .news-tag { display: block; }
-.app.news-label-tag .chip.news-chip { display: none; }
+
 .app.has-people[data-tab="people"] .people-pane { display: flex; flex: 1; }
 
 /* The active filter as a chip above the list. */

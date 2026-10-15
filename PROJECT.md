@@ -130,8 +130,6 @@ is deleted from code, menu and this table. No variant is open right now.
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
-| `newsBadge` | `count` · `dot` | Variant: the badge of new / updated news as a count (A, default) or a dot (B) |
-| `newsLabel` | `chip` · `tag` | Variant: the New / Updated label of a news card in the meta line (A, default) or as a tag at the card's top corner (B) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 
 In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, and "Simulate reminder" shows today's due-date reminder as a notification banner (not variants).

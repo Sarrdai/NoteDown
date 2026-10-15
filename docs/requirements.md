@@ -525,8 +525,10 @@ this needs none of it.
   back only when the owner edits it — then marked as updated. + from the
   news starts a note under All notes.
 - **New and updated posts are marked:** a label **New** or **Updated**
-  on the card, and a badge with their number on the News entry, the
-  People tab and (phone) the closed contents sheet. A post counts as
+  as a chip in the card's meta line, and a badge with their number on
+  the News entry, the People tab and (phone) the closed contents sheet
+  (decided 2026-10-15 over a dot, which doesn't say how much is new, and
+  a tag at the card's corner, which sits on the card's edge). A post counts as
   seen once its card was in view and the user leaves the news (another
   filter, the archive, or the app goes to the background), or at once
   when the card is tapped, closed or deleted — so the label stays while
@@ -536,9 +538,6 @@ this needs none of it.
   (`docs/file-format.md` → "News"), one marker per post that is still in
   the feed; markers of posts that left the feed are dropped, so the
   file doesn't grow with old news.
-- **Open** (prototype variants, ⋮ → "Prototype: news badge" / "new /
-  updated label"): the badge as a count or a dot; the label as a chip in
-  the meta line or as a tag at the card's top corner.
 - *Prototype: 2026-10-15 — the sample shows three posts (one new, one
   updated, one closed) from `app/sample/news.md`; real sync fetches the
   server's feed.*

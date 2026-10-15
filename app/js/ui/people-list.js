@@ -29,7 +29,7 @@ function leading(e) {
   return `<span class="people-lead">${inner}</span>`;
 }
 
-/** The badge of new or updated news posts (`n` of them): a count or a dot, by the prototype option. */
+/** The badge with the number of new or updated news posts (none for 0). */
 export function newsBadgeHtml(n) {
   return n ? `<span class="news-badge" aria-label="${n} new">${n}</span>` : "";
 }

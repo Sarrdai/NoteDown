@@ -22,8 +22,6 @@ export const DEFAULT_SETTINGS = {
   protectedFirst: { open: false, closed: false }, // "Protected first", per view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
-  newsBadge: "count",        // prototype variant: count | dot
-  newsLabel: "chip",         // prototype variant: chip | tag
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

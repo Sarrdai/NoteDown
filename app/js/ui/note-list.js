@@ -85,13 +85,6 @@ function noteElement(n, view = state.view) {
   el.className = "note" + (n.status === "closed" ? " closed" : "") + (isProtected(n.id) ? " protected" : "")
     + (n.news ? " news" : "") + (n.fresh ? " fresh" : "");
   el.dataset.id = n.id;
-  if (n.fresh) {
-    // The corner tag (prototype variant B); variant A shows the same in the meta line.
-    const tag = document.createElement("span");
-    tag.className = "news-tag";
-    tag.textContent = n.fresh === "new" ? "New" : "Updated";
-    el.append(tag);
-  }
 
   const status = document.createElement("button");
   status.className = "status";

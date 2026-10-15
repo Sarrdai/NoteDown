@@ -198,8 +198,6 @@ function renderCircleFilter() {
   const fresh = people ? freshCount(newsNotes()) : 0;
   document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
   $("tocHandle").innerHTML = newsBadgeHtml(fresh);
-  for (const v of ["count", "dot"]) app.classList.toggle("news-badge-" + v, state.settings.newsBadge === v);
-  for (const v of ["chip", "tag"]) app.classList.toggle("news-label-" + v, state.settings.newsLabel === v);
   const circle = activeCircle();
   $("filterBar").hidden = circle === null;
   if (circle === null) return;
@@ -386,12 +384,6 @@ function moreMenu() {
     hidden.length && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: news badge" },
-    { label: "Count (A)", checked: s.newsBadge === "count", onSelect: () => updateSettings({ newsBadge: "count" }) },
-    { label: "Dot (B)", checked: s.newsBadge === "dot", onSelect: () => updateSettings({ newsBadge: "dot" }) },
-    { section: "Prototype: new / updated label" },
-    { label: "Chip in the meta line (A)", checked: s.newsLabel === "chip", onSelect: () => updateSettings({ newsLabel: "chip" }) },
-    { label: "Tag at the corner (B)", checked: s.newsLabel === "tag", onSelect: () => updateSettings({ newsLabel: "tag" }) },
     { section: "Prototype" },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -531,8 +523,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["count", "dot"].includes(p.get("newsBadge"))) patch.newsBadge = p.get("newsBadge");
-  if (["chip", "tag"].includes(p.get("newsLabel"))) patch.newsLabel = p.get("newsLabel");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (p.get("view") === "closed") state.view = "closed";
   // ?api=<url> points this browser at another sync server (local testing).
