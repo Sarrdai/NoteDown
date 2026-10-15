@@ -420,10 +420,13 @@ paid features per user.
   at the bottom left, greyed out until notes are selected — and asks
   first, saying it can't be undone later (Undo for 5 seconds still
   follows). Why: restoring and destroying must not sit side by side. The
-  trash is reached under **⋮ → Trash (n)**, the view button leads back to
-  the notes; no swipe (decided 2026-10-15 over a third page right of the
-  archive and a button in the archive's top bar: deleted notes are rarely
-  needed and get no permanent place). The 30 days count from when the
+  trash is reached under **⋮ → Trash (n)** only, the view button leads back to
+  the notes (decided 2026-10-15 over a button in the archive's top bar:
+  deleted notes are rarely needed and get no permanent place). Once there,
+  it behaves like a page right of the archive: swiping right or the
+  Android back gesture goes to the archive; swiping left in the archive
+  never reaches it (2026-10-15, user request: the way in stays deliberate,
+  the way out is free). The 30 days count from when the
   user's first device notices the delete, not from the delete itself: a
   member who opens NoteDown after two months still finds the note in the
   trash for 30 days. A note removed for good stays gone even on a device
@@ -717,14 +720,24 @@ this needs none of it.
 ### Multi-select
 
 - **One selection, three ways in** (decided 2026-10-14): a **long-press on
-  a note** (450 ms) selects the whole note, a **long-press on a contents
+  a note** (450 ms) selects the whole note — **held on** (900 ms) its
+  sections below the title one by one instead (the title with its intro
+  stays out; a note without sections below the title stays whole), and
+  while selecting, a long-press on a further note does that at once
+  (2026-10-15, user request: collect sections of several notes without
+  the contents) — a **long-press on a contents
   entry** selects that section together with everything below it — deeper
   headings and the untitled notes hanging under it, also on hidden
   levels — and a **long-press on a heading in a note** selects its
   section with the deeper ones below it in that note (2026-10-15, user
   request: pick a section without opening the contents; the untitled
-  notes stay out, as they aren't visible there). Then taps in each place add or remove: a tap on a heading in a card
-  toggles its section, a tap elsewhere on a card toggles its whole note, a tap on an entry toggles it with what is below
+  notes stay out, as they aren't visible there; on touch the heading's
+  target takes its margins as well, as a finger lands a little off its
+  text line). Then taps in each place add or remove: a tap on a heading in a card
+  toggles its section, a tap elsewhere on a card toggles its whole note —
+  on a fully selected note every tap deselects it, also on a heading
+  (2026-10-15, user request: taking out one section there surprised) —
+  a tap on an entry toggles it with what is below
   it, so single parts can be taken out again. A selected section reaches
   up to the next entry that is not selected. A finger that moves first
   scrolls instead; task checkboxes, links and the round button don't act
@@ -741,7 +754,9 @@ this needs none of it.
   entries are tinted and selected sections on hidden levels show as "+n"
   on the entry above them.
 - While selecting, a **contextual top bar** replaces the normal one: ✕,
-  "n selected" (n = parts: whole notes and runs of adjacent sections) and
+  "n selected" (n = parts: whole notes, and each selected section with the
+  selected deeper ones right below it — 2026-10-15, so sections picked one
+  by one also count and reorder one by one) and
   the actions as icons (with labels on the desktop); the rarer ones —
   Export, Share, Make permanent, Promote / Demote headings — sit under ⋮
   in every tier (2026-10-15: the labels overran the desktop bar; backlog

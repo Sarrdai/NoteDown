@@ -15,6 +15,7 @@ import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
+import { pushEntry, leaveEntry, afterLeave } from "./ui/dom.js";
 import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { initSearchHits } from "./ui/search-hits.js";
@@ -239,10 +240,17 @@ function sortInByDue(id) {
   if (before !== undefined) window.scrollBy(0, top() - before);
 }
 
-function setView(view) {
+// The trash lies right of the archive (ui/view-swipe.js): the back key leads
+// from it to the archive, so it sits on a history entry of its own.
+let trashDepth = 0;
+const enterTrash = () => pushEntry({ trash: true }, depth => { trashDepth = depth; });
+
+function setView(view, { fromHistory = false } = {}) {
   if (state.view === view) return;
   endSelection();
   hideSnackbar();
+  if (state.view === "trash" && !fromHistory) afterLeave(() => leaveEntry("trash"));
+  if (view === "trash") enterTrash();
   setUi({ view, search: "", topId: null });
   app.classList.remove("searching");
   window.scrollTo(0, 0);
@@ -395,7 +403,7 @@ function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
   const hidden = ACTIONS.filter(a => $(a.id).dataset.folded).map(a => a.menu());
-  // The trash is reached under ⋮ (decided 2026-10-15 over a third page and a button in the archive: deleted notes are rarely needed).
+  // The trash is reached under ⋮ only (decided 2026-10-15 over a button in the archive: deleted notes are rarely needed); swiping and back lead out of it to the archive.
   const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
     ...hidden,
@@ -482,6 +490,10 @@ function wire() {
 
   // One button switches between the notes and the archive, in the same place; from the trash it leads to the notes.
   $("viewBtn").addEventListener("click", () => setView(state.view === "open" ? "closed" : "open"));
+  // Back from the trash (its entry left; the layers above it have their own) goes to the archive.
+  window.addEventListener("popstate", () => {
+    if (state.view === "trash" && (history.state?.depth ?? 0) < trashDepth) setView("closed", { fromHistory: true });
+  });
   $("sortBtn").addEventListener("click", () => sortMenu());
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("filterClear").addEventListener("click", () => pickCircle(null));
@@ -522,13 +534,14 @@ function wire() {
       && !app.classList.contains("toc-open") && !target.closest(".toc-panel, .recorder, .fab, .topbar, .selectbar"),
     onRefresh: syncOnRequest,
   });
-  // Swiping sideways switches views: the archive lies right of the notes. It
+  // Swiping sideways switches views: the archive lies right of the notes, the trash right of the archive. It
   // starts anywhere on the list and on the contents (also the open sheet),
   // whose list moves along.
   initViewSwipe({
-    canSwipe: target => state.view !== "trash" && !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
+    canSwipe: target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
       && !app.classList.contains("recording")
       && !!target.closest(".main, .toc-panel, .scrim") && !target.closest(".topbar, .selectbar, .toc-handle, .toc-head"),
+    canEnter: view => view !== "trash",   // only by its ⋮ entry, swiped back from
     view: () => state.view,
     setView,
     lanes: swipeLanes,
@@ -536,7 +549,7 @@ function wire() {
     follow: (pos, ms) => {
       const fab = $("fab");
       if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); return; }
-      fab.style.setProperty("--archive", pos);
+      fab.style.setProperty("--archive", Math.min(pos, 1));   // the trash keeps the archive's bin
       fab.style.setProperty("--archive-ms", ms + "ms");
     },
   });
@@ -574,6 +587,7 @@ async function start() {
   wire();
   const hadFile = load();
   const sample = applyUrlOptions();
+  if (state.view === "trash") enterTrash();
   if (sample) replaceFiles(await loadSampleState(sample));
   else if (!hadFile) await loadWelcome();
   purgeExpiredTrash();

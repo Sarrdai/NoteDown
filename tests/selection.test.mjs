@@ -7,7 +7,7 @@ import { createNote, parseNotesFile } from "../app/js/core/notes-file.js";
 import { sections } from "../app/js/core/markdown.js";
 import { tableOfContents } from "../app/js/core/query.js";
 import {
-  rangeIds, subtree, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectedParts,
+  rangeIds, subtree, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectSections, selectedParts,
   partText, partPreview, withoutParts, copyText, hasHeadings, canShiftHeadings, shiftHeadings, alignParts, mergeParts,
 } from "../app/js/core/selection.js";
 
@@ -73,7 +73,7 @@ test("selection: a card toggles its whole note; ranges of notes", () => {
   assert.equal(selectNotes(entries, new Set(), ["s01", "s02"]).size, 2);
 });
 
-test("selection: parts are runs of adjacent sections of one note", () => {
+test("selection: parts are whole notes or a section with the deeper ones right below it", () => {
   const { entries } = tableOfContents(sample);
   let sel = toggleEntry(entries, new Set(), keyOf(entries, "Weekly groceries"));
   sel = toggleEntry(entries, sel, keyOf(entries, "Things to see"));
@@ -81,8 +81,23 @@ test("selection: parts are runs of adjacent sections of one note", () => {
   assert.deepEqual(selectedParts(entries, sel), [
     { noteId: "s01", from: 0, to: 1, whole: true },
     { noteId: "s02", from: 0, to: 1, whole: true },
-    { noteId: "s03", from: 2, to: 6, whole: false },
+    { noteId: "s03", from: 2, to: 5, whole: false },
+    { noteId: "s03", from: 5, to: 6, whole: false },
   ]);
+  // A deeper section without its parent is a part of its own; all sections selected are the whole note.
+  sel = toggleEntry(entries, new Set(), keyOf(entries, "Sintra"));
+  sel = toggleEntry(entries, sel, keyOf(entries, "Packing"));
+  assert.equal(selectedParts(entries, sel).length, 2);
+  assert.deepEqual(selectedParts(entries, toggleNote(entries, new Set(), "s03")), [{ noteId: "s03", from: 0, to: 6, whole: true }]);
+});
+
+test("selection: a long hold selects a note's sections below its title one by one", () => {
+  const { entries } = tableOfContents(sample);
+  const sel = selectSections(entries, toggleNote(entries, new Set(), "s03"), "s03");
+  assert.equal(noteState(entries, sel, "s03"), "some");
+  assert.deepEqual(selectedParts(entries, sel).map(p => [p.from, p.to]), [[1, 2], [2, 5], [5, 6]]);   // Before we go, Things to see, Packing
+  // A note of one section is selected whole.
+  assert.equal(noteState(entries, selectSections(entries, new Set(), "s01"), "s01"), "all");
 });
 
 test("parts: text, preview, what is left, copy", () => {

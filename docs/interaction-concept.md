@@ -72,7 +72,8 @@ Current state, edited in place when a decision changes.
   the long-press callout, so the long-press stays free for multi-select;
   text is selected in the editor or copied with Copy.
 - **Swipe sideways** (phone and tablet) moves between the notes and the
-  archive, which lies to their right, like pages: it starts anywhere on
+  archive, which lies to their right, like pages (the trash lies right of
+  the archive, but a swipe only leads out of it, never in): it starts anywhere on
   the list or the contents (also the open sheet); the list follows the
   finger and the other view's page moves in beside it; let go past half
   the width or with a flick, it snaps onto the other view, otherwise
@@ -97,7 +98,8 @@ Current state, edited in place when a decision changes.
 - **Back** (Android button or gesture) closes the innermost layer first:
   a dialog or panel page, the selection, the editor (editing ends), the
   open contents sheet; only then does it leave the app. Each layer sits
-  on its own history entry.
+  on its own history entry. The trash counts as such a layer: back from it
+  goes to the archive.
 - **Pull to refresh** (phone and tablet, while sync is on): pulling the
   list down from its top syncs now; a round indicator follows the finger
   and spins until the sync is over. Desktop syncs by opening Sync &

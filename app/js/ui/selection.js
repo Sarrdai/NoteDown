@@ -1,8 +1,10 @@
 // Multi-select over the note list and the table of contents: one selection
 // of sections (core/selection.js). A long-press on a note (or Ctrl+click, or
-// a mouse click on the card's frame) selects it whole, a long-press on a
-// contents entry selects that section with everything below it; then taps
-// add or remove in either place, and Shift+click selects a range. The
+// a mouse click on the card's frame) selects it whole, held on longer — or a
+// long-press on a further note while selecting — its sections one by one; a
+// long-press on a contents entry selects that section with everything below
+// it; then taps add or remove in either place (any tap on a fully selected
+// note deselects it), and Shift+click selects a range. The
 // selection bar acts on the selection; Copy and Merge first confirm the
 // order in a dialog where it can be changed by drag and drop. Ends with ✕,
 // Esc, the back button, an empty selection or an action that removes the
@@ -11,7 +13,7 @@
 // selection permanently after asking (ui/trash.js) — kept apart on purpose.
 import { tableOfContents, sectionKey } from "../core/query.js";
 import {
-  rangeIds, toggleEntry, selectEntryRange, toggleNote, selectNotes, selectedParts, partText, partPreview,
+  rangeIds, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectSections, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks } from "../store.js";
@@ -30,6 +32,7 @@ import { icon } from "./icons.js";
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 
 const HOLD_MS = 450;
+const SPLIT_MS = 900;   // held this long, a note's sections are selected one by one instead of the whole note
 const MOVE_TOLERANCE = 10;
 
 const $ = id => document.getElementById(id);
@@ -37,7 +40,8 @@ const list = () => $("list");
 let opts = null;      // { viewNotes, onMerged, onChange }
 let anchorNote = null; // last note toggled, start of a Shift range in the list
 let anchorKey = null;  // same for the contents
-let press = null;     // { id, x, y, timer } while a finger / button is down
+let press = null;     // { id, key, split, x, y, timer } while a finger / button is down
+let down = null;      // { id, key }: the card and heading under the last pointerdown (the click may be moved by the browser's touch adjustment)
 let swallowClick = false;
 let frameDown = false; // the mouse went down on a card's frame (desktop)
 let dialog = null;    // { onConfirm } while the order dialog is open
@@ -102,10 +106,13 @@ function onPointerDown(e) {
   swallowClick = false;
   // Only with the mouse: on touch the frame is a small target and the long-press stays.
   frameDown = e.pointerType === "mouse" && onFrame(e.target);
-  if (e.button !== 0 || isSelecting() || e.ctrlKey || e.metaKey || e.shiftKey) return;
   const el = e.target.closest(".note");
-  if (!el || el.dataset.id === state.editingId) return; // long-press in the editor selects text
-  press = { id: el.dataset.id, key: headingKey(e.target, el.dataset.id), x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
+  down = el && { id: el.dataset.id, key: headingKey(e.target, el.dataset.id) };
+  if (!el || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (el.dataset.id === state.editingId) return; // long-press in the editor selects text
+  // While selecting, a long-press on another note selects its sections one by one (main view only).
+  if (isSelecting() && state.view !== "open") return;
+  press = { ...down, split: isSelecting(), x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
 }
 
 function cancelPress() {
@@ -114,14 +121,20 @@ function cancelPress() {
   press = null;
 }
 
+const buzz = () => { try { navigator.vibrate?.(15); } catch { /* not allowed */ } };
+
 function onHold() {
-  const { id, key } = press;
+  const { id, key, split, x, y } = press;
   press = null;
   swallowClick = true; // the click that follows the release
-  try { navigator.vibrate?.(15); } catch { /* not allowed */ }
+  buzz();
   window.getSelection()?.removeAllRanges();
-  if (key) toggleSection(key, { ownNote: true });
-  else toggle(id);
+  if (split) return splitNote(id);
+  if (key) return toggleSection(key, { ownNote: true });
+  toggle(id);
+  // Held on: the note's sections one by one instead (main view, a note with sections below its title).
+  if (state.view !== "open" || entries().filter(e => e.noteId === id).length < 2) return;
+  press = { id, x, y, timer: setTimeout(() => { press = null; buzz(); splitNote(id); }, SPLIT_MS - HOLD_MS) };
 }
 
 function onClick(e) {
@@ -133,9 +146,11 @@ function onClick(e) {
   }
   if (!el || el.dataset.id === state.editingId) return;
   const id = el.dataset.id;
-  const key = headingKey(e.target, id);
+  const key = down?.id === id ? down.key : headingKey(e.target, id);
+  down = null;
   if (e.shiftKey) key ? selectSectionRange(key) : selectRange(id);
-  else if (key && (e.ctrlKey || e.metaKey || isSelecting())) toggleSection(key, { ownNote: true });
+  // A fully selected note is deselected by any tap on it, also on a heading.
+  else if (key && (e.ctrlKey || e.metaKey || isSelecting()) && noteState(entries(), state.selected, id) !== "all") toggleSection(key, { ownNote: true });
   else if (e.ctrlKey || e.metaKey || isSelecting() || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
   else return;
   e.preventDefault();
@@ -146,6 +161,14 @@ function onClick(e) {
 function toggle(id) {
   if (!isSelecting()) begin();
   state.selected = toggleNote(entries(), state.selected, id);
+  anchorNote = id;
+  changed();
+}
+
+// A long hold: the note's sections below its title one by one.
+function splitNote(id) {
+  if (!isSelecting()) begin();
+  state.selected = selectSections(entries(), state.selected, id);
   anchorNote = id;
   changed();
 }
