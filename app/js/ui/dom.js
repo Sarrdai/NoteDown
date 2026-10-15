@@ -34,9 +34,14 @@ window.addEventListener("popstate", e => {
   if (!leaving) queue.splice(0).forEach(fn => fn());
 });
 
-/** Adds a history entry for a layer that just opened. */
-export function pushEntry(entry) {
-  afterLeave(() => history.pushState(entry, ""));
+/** Adds a history entry for a layer that just opened; entries count their `depth` in the stack, which `onPushed`
+ *  gets (a layer below others can tell from it whether back left its own entry). */
+export function pushEntry(entry, onPushed) {
+  afterLeave(() => {
+    const depth = (history.state?.depth ?? 0) + 1;
+    history.pushState({ ...entry, depth }, "");
+    onPushed?.(depth);
+  });
 }
 
 /** Leaves the current entry when it is the layer's (`key` set in its state). */

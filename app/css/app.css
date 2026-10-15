@@ -77,7 +77,9 @@
 }
 /* The other view's colors, for what stays in place while swiping (top bar, contents panel). */
 .app { --bg-other: var(--bg-archive); --surface-other: var(--surface-archive); }
-.app[data-view="closed"], .app[data-view="trash"] { --bg-other: var(--ctp-mantle); --surface-other: var(--ctp-base); }
+.app[data-view="closed"] { --bg-other: var(--ctp-mantle); --surface-other: var(--ctp-base); }
+/* The trash lies right of the archive: swiping back brings the archive in. */
+.app[data-view="trash"] { --bg-other: var(--bg-archive); --surface-other: var(--surface-archive); }
 .app[data-view="closed"], .swipe-peek[data-view="closed"] {
   --bg: var(--bg-archive);
   --surface: var(--surface-archive);
@@ -383,6 +385,10 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 }
 @media (hover: none) {
   .note:not(.editing) .note-body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* A held heading selects its section (ui/selection.js): the finger lands a little above or below its text
+     line, so the heading takes its margins as well — a target of about 40 px, the layout unchanged. */
+  .note:not(.editing) .note-body :is(h1, h2, h3, h4, h5, h6) { position: relative; }
+  .note:not(.editing) .note-body :is(h1, h2, h3, h4, h5, h6)::before { content: ""; position: absolute; inset: -10px 0 -5px; }
 }
 .sel-count { flex: 1; min-width: 0; margin: 0 6px; font-size: 1.15rem; font-weight: 650; white-space: nowrap; }
 .sel-actions { display: flex; align-items: center; gap: 2px; }

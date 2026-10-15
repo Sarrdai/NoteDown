@@ -61,20 +61,36 @@ export function selectNotes(entries, selected, ids) {
   return next;
 }
 
+/** A long hold on a note: its sections one by one — everything but its first section (the title with its intro);
+ *  a note of one section is selected whole. Replaces what was selected of that note. */
+export function selectSections(entries, selected, noteId) {
+  const own = entries.filter(e => e.noteId === noteId);
+  const next = new Set(selected);
+  own.forEach((e, i) => (i > 0 || own.length === 1) ? next.add(e.key) : next.delete(e.key));
+  return next;
+}
+
 /**
- * The selection as parts in contents order: runs of adjacent selected
- * sections of one note, sections `from` to `to` (exclusive); `whole` when
- * the run is the entire note. [{ noteId, from, to, whole }]
+ * The selection as parts in contents order: a whole note, or a selected
+ * section with the selected deeper ones right below it — each section of
+ * the same or a higher level starts a part of its own. Sections `from` to
+ * `to` (exclusive); `whole` when the part is the entire note.
+ * [{ noteId, from, to, whole }]
  */
 export function selectedParts(entries, selected) {
-  const count = {};
-  for (const e of entries) count[e.noteId] = (count[e.noteId] || 0) + 1;
+  const count = {}, on = {};
+  for (const e of entries) {
+    count[e.noteId] = (count[e.noteId] || 0) + 1;
+    if (selected.has(e.key)) on[e.noteId] = (on[e.noteId] || 0) + 1;
+  }
   const parts = [];
+  let level = 0;   // level of the section the last part starts with
   for (const e of entries) {
     if (!selected.has(e.key)) continue;
+    const whole = on[e.noteId] === count[e.noteId];
     const last = parts[parts.length - 1];
-    if (last && last.noteId === e.noteId && last.to === e.index) last.to++;
-    else parts.push({ noteId: e.noteId, from: e.index, to: e.index + 1 });
+    if (last && last.noteId === e.noteId && last.to === e.index && (whole || e.level > level)) last.to++;
+    else { parts.push({ noteId: e.noteId, from: e.index, to: e.index + 1 }); level = e.level; }
   }
   for (const p of parts) p.whole = p.from === 0 && p.to === count[p.noteId];
   return parts;
