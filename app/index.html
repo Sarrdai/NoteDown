@@ -19,6 +19,7 @@
         <div class="panel-tabs" id="panelTabs" role="tablist" aria-label="Sidebar">
           <button class="panel-tab" role="tab" data-tab="toc" aria-selected="true">Contents</button>
           <button class="panel-tab" role="tab" data-tab="people" aria-selected="false">People</button>
+          <button class="panel-tab labels-tab" role="tab" data-tab="labels" aria-selected="false">Labels</button>
         </div>
         <div class="stepper" role="group" aria-label="Heading levels">
           <button class="icon-btn small" id="tocLess" aria-label="Fewer levels"></button>
@@ -29,6 +30,9 @@
       <nav class="toc-list" id="tocList"></nav>
       <section class="people-pane" id="peoplePane" aria-label="People">
         <nav class="people-list" id="peopleList"></nav>
+      </section>
+      <section class="labels-pane" id="labelsPane" aria-label="Labels">
+        <nav class="people-list" id="labelList"></nav>
       </section>
     </aside>
     <div class="scrim" id="scrim"></div>
@@ -63,7 +67,9 @@
       </div>
       <div class="filter-bar" id="filterBar" hidden>
         <span class="filter-chip" id="filterChip"><span id="filterChipLabel"></span><button class="icon-btn small" id="filterClear" aria-label="Show all notes"></button></span>
+        <span class="filter-chip" id="labelChip"><span id="labelChipLabel"></span><button class="icon-btn small" id="labelClear" aria-label="Show all labels"></button></span>
       </div>
+      <div class="label-bar" id="labelBar" role="toolbar" aria-label="Labels" hidden></div>
       <div class="pull-indicator" id="pullIndicator" aria-hidden="true"></div>
       <div class="request-cards" id="requestCards" hidden></div>
       <p class="view-hint" id="viewHint" hidden>Deleted notes stay here for 30 days, then they are gone for good. Tap notes to select them, then restore them or delete them permanently.</p>

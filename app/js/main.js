@@ -18,6 +18,8 @@ import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } f
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { initSearchHits } from "./ui/search-hits.js";
 import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from "./ui/people-list.js";
+import { renderLabels, initLabels } from "./ui/labels.js";
+import { hasLabel } from "./core/labels.js";
 import { avatarHtml, avatarStackHtml } from "./ui/people.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
@@ -39,6 +41,7 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
 const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
+const LABELS_UI = { tab: "Labels tab (A)", bar: "Label row (B)" };
 
 
 const phone = window.matchMedia("(max-width: 599px)");
@@ -52,6 +55,9 @@ function sortOf(view = state.view) {
 }
 const orderIds = (view = state.view) => sortOf(view).key === "shared" ? circleOrder(sharedCircle()) : customOrder();
 const inView = (notes, view = state.view, search = state.search) => viewNotes(notes, { status: view, search, sort: sortOf(view), order: orderIds(view) });
+// The notes the list shows before view and search: the circle filter, then the label filter.
+const withLabel = notes => state.label === null ? notes : notes.filter(n => hasLabel(n.body, state.label));
+const listed = () => withLabel(circleNotes(activeCircle()));
 const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
 
 // The members a new note goes to: those of the circle the list is filtered to.
@@ -62,7 +68,7 @@ function newNoteMembers() {
 }
 
 function currentNotes() {
-  const notes = inView(circleNotes(activeCircle()));
+  const notes = inView(listed());
   const i = notes.findIndex(n => n.id === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
   return notes;
@@ -140,6 +146,7 @@ function tilesOf(view, notes) {
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
+    : state.label !== null ? `No notes labelled #${state.label} here.`
     : view === "trash" ? "The trash is empty."
     : circle === NEWS ? (view === "open" ? "No news right now." : "No archived news.")
     : circle && view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
@@ -164,7 +171,7 @@ function swipeLanes() {
   if (panel.getClientRects().length) lanes.push({
     move: panel,   // the panel carries --swipe-x: the list moves by it, the background splits at it
     rect: () => { const r = (listShows ? toc : panel).getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
-    preview: listShows ? view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(circleNotes(activeCircle()), view, ""), "")); return [l]; } : null,
+    preview: listShows ? view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(listed(), view, ""), "")); return [l]; } : null,
     peekClass: "toc-peek",
   });
   return lanes;
@@ -173,10 +180,10 @@ function swipeLanes() {
 // What the other view will show once the swipe lands there (ui/view-swipe.js):
 // the circle filter chip and the list as setView will render them, not live.
 function previewView(view) {
-  const notes = inView(circleNotes(activeCircle()), view, "");
+  const notes = inView(listed(), view, "");
   const { tiles, dividerBefore } = tilesOf(view, notes);
   const nodes = [];
-  if (!$("filterBar").hidden) nodes.push($("filterBar").cloneNode(true));
+  for (const id of ["filterBar", "labelBar"]) if (!$(id).hidden) nodes.push($(id).cloneNode(true));
   const list = document.createElement("div");
   list.className = "list";
   list.append(...listItems(tiles, { dividerBefore, view }));
@@ -191,17 +198,21 @@ function previewView(view) {
   return nodes;
 }
 
-// The people overview and the chip of the active filter above the list.
+// The people and label overviews and the chips of the active filters above the list.
 function renderCircleFilter() {
-  app.dataset.tab = state.panelTab;
+  const circle = activeCircle();
+  const bar = state.settings.labelsUi === "bar";
+  app.classList.toggle("labels-bar", bar);
+  app.dataset.tab = bar && state.panelTab === "labels" ? "toc" : state.panelTab;
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
-  renderPeople(key => inView(circleNotes(key)).length);
+  renderPeople(key => inView(withLabel(circleNotes(key))).length);
+  renderLabels(inView(circleNotes(circle)));
   // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
   const fresh = freshCount(newsNotes());
   document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
   $("tocHandle").innerHTML = newsBadgeHtml(fresh);
-  const circle = activeCircle();
-  $("filterBar").hidden = circle === null;
+  $("filterBar").hidden = circle === null && (state.label === null || state.settings.labelsUi === "bar");
+  $("filterChip").hidden = circle === null;
   if (circle === null) return;
   const members = circle && circle !== NEWS ? circle.split("+") : [];
   const lead = circle === NEWS ? icon("news") : !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
@@ -276,7 +287,7 @@ function onMerged(n, undo, message) {
 // The arrange dialog over the notes the list shows: the user's own custom
 // order, or the shared order of the circle in view.
 function arrange() {
-  const shown = inView(circleNotes(activeCircle()));
+  const shown = inView(listed());
   const key = sortOf().key === "shared" ? sharedCircle() : null;
   const { sorted, unsorted } = customSplit(shown, orderIds());
   const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
@@ -394,6 +405,8 @@ function moreMenu() {
     (hidden.length || trashEntry) && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: Labels" },
+    ...Object.entries(LABELS_UI).map(([id, label]) => ({ label, checked: s.labelsUi === id, onSelect: () => updateSettings({ labelsUi: id }) })),
     { section: "Prototype" },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -432,7 +445,7 @@ function exportDialog() {
     archiveInView: state.view === "closed",
     view: withArchive => [
       { items: items(tilesOf(state.view, currentNotes()).tiles) },
-      ...(withArchive && state.view === "open" ? [archive(circleNotes(activeCircle()), state.search)] : []),
+      ...(withArchive && state.view === "open" ? [archive(listed(), state.search)] : []),
     ],
     files: withArchive => {
       const taken = [];
@@ -450,7 +463,7 @@ function exportDialog() {
 function showDue(ids) {
   endSelection();
   if (state.view !== "open") setView("open");
-  setUi({ search: "", circle: null });
+  setUi({ search: "", circle: null, label: null });
   app.classList.remove("searching");
   const first = document.querySelector(`.note[data-id="${ids[0]}"]`);
   first?.scrollIntoView({ block: "center" });
@@ -458,7 +471,7 @@ function showDue(ids) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["remindersBtn", "bell"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["remindersBtn", "bell"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -499,6 +512,7 @@ function wire() {
   initSearchHits();
   // Picking a circle on the phone closes the sheet; the chip above the list shows it.
   initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); }, onAdd: openSyncPanel });
+  initLabels({ onPick: () => { if (phone.matches) setTocOpen(false); } });
   initMenu();
   initConfirm();
   initArrange();
@@ -537,6 +551,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (LABELS_UI[p.get("labels")]) patch.labelsUi = p.get("labels");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

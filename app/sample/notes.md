@@ -5,6 +5,8 @@
 - [ ] Tomatoes, basil, mozzarella
 - [ ] Dishwasher tablets
 
+#shopping
+
 <!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z due=2026-10-13 -->
 Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks.
 
@@ -26,12 +28,16 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 - [ ] Rain jacket
 - [ ] Power adapter? (no, same plug type)
 
+#travel
+
 <!-- note id=s04 status=open created=2026-10-08T14:30Z modified=2026-10-11T16:45Z due=2026-10-10 -->
 ## Tax return 2025
 The deadline was extended, but the accountant wants the papers this week.
 - [ ] Collect the craftsman invoices
 - [x] Download the annual bank statement
 - [ ] Find the donation receipts
+
+#paperwork
 
 <!-- note id=s05 status=permanent created=2026-10-11T09:15Z modified=2026-10-11T09:15Z -->
 ## Book ideas
@@ -48,6 +54,8 @@ The deadline was extended, but the accountant wants the papers this week.
 - [ ] Sharpen the hedge trimmer
 - [ ] New hose connector
 
+#home #garden
+
 <!-- note id=s07 status=open created=2026-10-09T12:40Z modified=2026-10-09T12:40Z due=2026-10-21 -->
 ## Call the dentist
 Six-month check-up is due. Ask whether Tuesday mornings are possible.
@@ -60,7 +68,7 @@ Idea for the team meeting: start with the open questions from last week instead 
 ### Guests
 - Grandparents, Lea's sister, the neighbours
 ### Food
-- [ ] Order the cake
+- [ ] Order the cake #shopping
 - [ ] Lemonade and juice
 - [x] Ask grandma for the potato salad
 ### Games
@@ -74,6 +82,8 @@ Idea for the team meeting: start with the open questions from last week instead 
 3. Simmer for 20 minutes, blend half of it
 4. Lemon juice and cumin at the end
 
+#recipes
+
 <!-- note id=s11 status=open created=2026-10-03T21:45Z modified=2026-10-03T21:45Z deleted=2026-10-12T18:20Z kept=lea+tom -->
 ## Wi-Fi at the cabin
 Network `Cabin-5G`, the password is on the router. Reset button only works when held for 10 seconds.
@@ -83,9 +93,11 @@ Network `Cabin-5G`, the password is on the router. Reset button only works when 
 - [ ] Winter tyres
 - [ ] Inspection sticker expires end of October
 
+#paperwork
+
 <!-- note id=s13 status=closed created=2026-10-10T09:00Z modified=2026-10-13T07:30Z closed=2026-10-13T07:30Z -->
 ## Pay the electricity bill
-Done by bank transfer, reference number in the banking app.
+Done by bank transfer, reference number in the banking app. #paperwork #home
 
 <!-- note id=s14 status=closed created=2026-10-12T18:00Z modified=2026-10-13T08:10Z closed=2026-10-13T08:10Z -->
 Return the parcel with the wrong shoe size. Drop-off point is the kiosk on the corner.
@@ -110,6 +122,8 @@ New date confirmed by mail.
 <!-- note id=s18 status=closed created=2026-09-20T20:00Z modified=2026-10-04T09:00Z closed=2026-10-04T09:00Z -->
 ## Holiday photos
 Sorted and backed up to the external drive.
+
+#travel
 
 <!-- note id=s19 status=closed created=2026-09-15T12:00Z modified=2026-09-29T13:00Z closed=2026-09-29T13:00Z deleted=2026-10-01T09:00Z -->
 Cancel the old phone contract. Confirmation arrived, ends on 31 December.

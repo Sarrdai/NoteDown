@@ -2,9 +2,26 @@
 // the table of contents, the preview title, and toggling task checkboxes in
 // the source.
 import { Marked } from "../../vendor/marked.esm.js";
+import { LABEL_AT } from "./labels.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
 marked.use({
+  // Labels (core/labels.js) render as chips; a tap filters the list by them.
+  extensions: [{
+    name: "label",
+    level: "inline",
+    start(src) {
+      const m = /(^|[\s(])#[\p{L}\p{N}_]/u.exec(src);
+      return m ? m.index + m[1].length : undefined;
+    },
+    tokenizer(src) {
+      const m = LABEL_AT.exec(src);
+      if (m) return { type: "label", raw: m[0], name: m[1] };
+    },
+    renderer({ name }) {
+      return `<button type="button" class="label-chip" data-label="${escapeAttr(name)}">#${escapeHtml(name)}</button>`;
+    },
+  }],
   renderer: {
     // Task checkboxes stay clickable; the view maps a click to taskIndex.
     checkbox({ checked }) {

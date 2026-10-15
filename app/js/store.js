@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS = {
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
+  labelsUi: "tab",           // prototype variant: where the labels are listed — tab (A) | bar (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -57,7 +58,8 @@ export const state = {
   settings: structuredClone(DEFAULT_SETTINGS),
   view: "open",              // open | closed | trash
   search: "",
-  panelTab: "toc",           // sidebar / sheet tab: toc | people
+  panelTab: "toc",           // sidebar / sheet tab: toc | people | labels
+  label: null,               // label filter: null = all, else a label name (core/labels.js); not remembered
   circle: null,              // people filter (#23): null = all, else a circleKey ("" = private); not remembered
   editingId: null,
   topId: null,               // a new note stays on top until its first edit ends or view, sort, search or circle change
