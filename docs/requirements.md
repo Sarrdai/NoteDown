@@ -536,9 +536,9 @@ paid features per user.
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
   and the deepest level present). The level count is remembered. The
-  − / + stepper floats at the contents' bottom left, at the height of the
+  − / + stepper floats at the contents' bottom right, at the height of the
   + button (decided 2026-10-15, user request: within the thumb's reach);
-  on the phone it shows while the sheet is open.
+  on the phone it takes the + button's place while the sheet is open.
 - Text without a heading — a note without one, or the start of a note
   before its first heading — appears with its first sentence (shortened,
   italic) **one level below the last heading above it**, in whichever note
