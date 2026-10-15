@@ -3,9 +3,10 @@
 // the finger anywhere on it (and on the contents) and the other view moves in
 // beside it; let go past half the width (or with a flick) and it snaps onto
 // the other view, otherwise back. Beyond either end it only gives a little.
-// The contents list, where it shows, moves along the same way. The top bar
-// and the contents' head stay in place; they are redrawn once the view has
-// switched (docs/interaction-concept.md → "Input").
+// The contents list, where it shows, moves along the same way, and what
+// changes with the view (the + button) is told how far the swipe has come.
+// The top bar and the contents' head stay in place; they are redrawn once the
+// view has switched (docs/interaction-concept.md → "Input").
 // Desktop has no touch, so no gesture; the view button switches there.
 
 const SLOP = 8;           // px before the direction is decided
@@ -23,8 +24,10 @@ const ORDER = ["open", "closed"];
  *  peekClass }]: the element shifted by --swipe-x, the area
  *  (`{ top, left, width, height? }`) the other view's page covers, and that
  *  page's elements (no `preview`: no page, only the tint moves). Other lanes
- *  move in proportion to their width. */
-export function initViewSwipe({ canSwipe, view, setView, lanes }) {
+ *  move in proportion to their width. `follow(pos, ms)`: where the swipe
+ *  stands between the views as an index into ORDER (0…1), to get there over
+ *  `ms`; null once it is over. */
+export function initViewSwipe({ canSwipe, view, setView, lanes, follow }) {
   let g = null;     // { x, y, dx, horizontal, lastX, lastT, v, next, lanes } while a finger is down
   let busy = false;
 
@@ -60,6 +63,8 @@ export function initViewSwipe({ canSwipe, view, setView, lanes }) {
       lane.page.style.transition = `transform ${ms}ms ease-out`;
       lane.page.style.transform = `translateX(${lx + side * lane.width}px)`;
     }
+    const pos = ORDER.indexOf(view()) - x / g.lanes[0].width;
+    follow?.(Math.min(Math.max(pos, 0), ORDER.length - 1), ms);
   };
   const reset = () => {
     for (const lane of g.lanes) {
@@ -68,6 +73,7 @@ export function initViewSwipe({ canSwipe, view, setView, lanes }) {
       lane.move.style.removeProperty("--swipe-ms");
       lane.peek?.remove();
     }
+    follow?.(null);
   };
   // Resolves after a transition of `ms`, also if no transitionend comes.
   const settle = ms => new Promise(resolve => setTimeout(resolve, ms + 30));

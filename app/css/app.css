@@ -870,24 +870,32 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 
 /* ---------- FAB, snackbar, menu ---------- */
 .fab {
-  position: fixed; z-index: 15; right: 20px; bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px));
+  position: fixed; z-index: 15; bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px));
   width: var(--fab-size); height: var(--fab-size); border: 0; border-radius: 18px; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-high);
+  align-items: center; justify-content: center; box-shadow: var(--shadow-high);
   /* none: a pan would fire pointercancel and end a held dictation (ui/recorder.js). */
   touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
 }
 .fab .icon { width: 28px; height: 28px; stroke-width: 2.4; }
 .fab:active { transform: scale(0.96); }
 /* In the archive the + moves to the left edge and turns into the bin that
-   empties the archive; both faces share one cell and cross over. */
-.fab { display: inline-grid; transition: right 0.35s cubic-bezier(.3,.7,.3,1), background-color 0.25s; }
-.fab-face { grid-area: 1 / 1; display: inline-flex; transition: transform 0.35s, opacity 0.25s; }
-.fab-empty { opacity: 0; transform: rotate(-90deg) scale(0.4); }
-.app[data-view="closed"] .fab { right: calc(100% - var(--fab-left) - var(--fab-size)); background: var(--danger); }
-.app[data-view="closed"] .fab-new { opacity: 0; transform: rotate(90deg) scale(0.4); }
-.app[data-view="closed"] .fab-empty { opacity: 1; transform: none; }
-.app[data-view="closed"] .fab.inert { background: var(--surface-hover); color: var(--text-faint); box-shadow: none; cursor: default; }
+   empties the archive; both faces share one cell and cross over. All of it
+   follows --archive, 0 in the notes and 1 in the archive: the view button
+   lets it run, a view swipe sets it as the finger goes (ui/view-swipe.js). */
+@property --archive { syntax: "<number>"; inherits: true; initial-value: 0; }
+.fab {
+  --archive: 0; --bin: var(--danger); --bin-ink: var(--on-accent);
+  display: inline-grid; transition: --archive var(--archive-ms, 0.35s) cubic-bezier(.3,.7,.3,1);
+  right: calc(20px + (100% - var(--fab-left) - var(--fab-size) - 20px) * var(--archive));
+  background: color-mix(in srgb, var(--bin) calc(var(--archive) * 100%), var(--accent));
+  color: color-mix(in srgb, var(--bin-ink) calc(var(--archive) * 100%), var(--on-accent));
+}
+.fab.inert { --bin: var(--surface-hover); --bin-ink: var(--text-faint); }   /* nothing to delete */
+.fab-face { grid-area: 1 / 1; display: inline-flex; }
+.fab-new { opacity: calc(1 - var(--archive)); transform: rotate(calc(var(--archive) * 90deg)) scale(calc(1 - var(--archive) * 0.6)); }
+.fab-empty { opacity: var(--archive); transform: rotate(calc((var(--archive) - 1) * 90deg)) scale(calc(0.4 + var(--archive) * 0.6)); }
+.app[data-view="closed"] .fab { --archive: 1; }
+.app[data-view="closed"] .fab.inert { box-shadow: none; cursor: default; }
 /* The snackbar steps aside for the bin. */
 .app[data-view="closed"] .snackbar { left: calc(var(--fab-left) + var(--fab-size) + 16px); max-width: calc(100% - var(--fab-left) - var(--fab-size) - 32px); }
 
