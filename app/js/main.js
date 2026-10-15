@@ -273,7 +273,9 @@ function sortMenu() {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.archiveOnly || state.view === "closed") && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
-  const setSort = next => updateSettings({ sort: { ...state.settings.sort, [state.view]: next } });
+  // A sort change ends a new note's place on top, like a view or search change.
+  const reorder = patch => { state.topId = null; updateSettings(patch); };
+  const setSort = next => reorder({ sort: { ...state.settings.sort, [state.view]: next } });
   const onTop = state.settings.protectedFirst[state.view];
   openMenu($("sortBtn"), [
     { section: "Sort by" },
@@ -285,7 +287,7 @@ function sortMenu() {
       { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     ]),
     { separator: true },
-    { label: "Protected first", checked: onTop, onSelect: () => updateSettings({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
+    { label: "Protected first", checked: onTop, onSelect: () => reorder({ protectedFirst: { ...state.settings.protectedFirst, [state.view]: !onTop } }) },
   ]);
 }
 
@@ -404,7 +406,7 @@ function wire() {
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("filterClear").addEventListener("click", () => pickCircle(null));
   $("moreBtn").addEventListener("click", moreMenu);
-  $("searchInput").addEventListener("input", e => setUi({ search: e.target.value }));
+  $("searchInput").addEventListener("input", e => setUi({ search: e.target.value, topId: null }));
   $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
   $("searchClose").addEventListener("click", () => { app.classList.remove("searching"); setUi({ search: "" }); });
   systemDark.addEventListener("change", render);

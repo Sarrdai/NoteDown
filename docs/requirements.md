@@ -418,7 +418,9 @@ before the first live test).
 
 - A **new note** starts in edit mode with the cursor after `## `, ready
   for a level-2 heading; it stays at the top of the list until editing
-  ends. *Prototype: round 1.*
+  ends. A new note shown at the top (also a dictated or merged one) takes
+  its sorted place with the next view, sort, search or circle change.
+  *Prototype: round 1.*
 - **Tapping into a note's text** starts editing it with the cursor where
   the user tapped, except on task checkboxes (they toggle) and links
   (they open). Closed notes don't enter edit mode. *Prototype: round 2.*
