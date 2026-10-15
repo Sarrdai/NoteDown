@@ -239,6 +239,13 @@ paid features per user.
   against the hosting limit), the identities with their storage use,
   devices, files and contacts, and backup / restore. *Prototype:
   `app/admin/` (`?sample`).*
+- **Three sections, Overview / Identities / Backup** (decided 2026-10-15
+  over one long page: scales to many identities and keeps the backup
+  apart): on the desktop a rail on the left and the identities as list
+  and detail side by side; on tablet and phone tabs under the header,
+  the identities as a table (tablet) or cards (phone), and the detail as
+  a page of its own with a back button. The list is sorted by last
+  change, newest first; on the tablet its columns sort.
 - **Only the owner gets in, without a password of its own:** the page
   signs in with the browser's linked NoteDown device (same origin as the
   web app, so it shares its keys), and the server answers the admin API
