@@ -2,12 +2,18 @@
 // formatting, usage levels, sorting, reading a backup file before restore, the
 // storage-limit input, and the in-memory server of the sample mode (`?sample`).
 // The API it mirrors is /v1/admin (the server owner's maintenance endpoints).
+import { newId, timestamp } from "./notes-file.js";
 
 export const MB = 1024 * 1024;
 export const MAX_QUOTA = 1024 * MB;      // MAX_QUOTA_OVERRIDE of the server: 1 GiB
 export const BACKUP_FORMAT = "notedown-backup";
 export const BACKUP_VERSION = 1;
 export const BACKUP_TABLES = ["identities", "device_entries", "files", "file_members", "file_keys", "contacts", "invitations"];
+// Tables a backup may lack: the server restores one from before they existed with none of their rows.
+export const OPTIONAL_BACKUP_TABLES = ["news"];
+export const MAX_NEWS_BODY = 16 * 1024;   // bytes, UTF-8
+export const MAX_NEWS_PUBLISHED = 20;
+export const MAX_NEWS = 200;
 
 const round1 = n => Math.round(n * 10) / 10;
 const trim = n => String(round1(n));
@@ -133,6 +139,9 @@ export function readBackup(text) {
   for (const name of BACKUP_TABLES) {
     if (!Array.isArray(tables[name])) return { error: `The backup is missing the table "${name}".` };
   }
+  for (const name of OPTIONAL_BACKUP_TABLES) {
+    if (name in tables && !Array.isArray(tables[name])) return { error: `The table "${name}" of the backup is not a list.` };
+  }
   return {
     backup,
     summary: { created: typeof backup.created === "string" ? backup.created : null, identities: tables.identities.length, files: tables.files.length },
@@ -162,6 +171,57 @@ export function backupFileName(contentDisposition, now = new Date()) {
   return name || `notedown-backup-${now.toISOString().slice(0, 10)}.json`;
 }
 
+// ---------- news posts ----------
+
+/** What a new post's editor starts with; the caret goes after it. */
+export const NEW_POST_TEXT = "## ";
+
+/** The text of a post ready to send: `{ body }` (trimmed) or `{ error }` (nothing to publish, or over 16 KiB). */
+export function checkNewsBody(text) {
+  const body = String(text ?? "").trim();
+  if (!body) return { error: "A post needs some text." };
+  if (new TextEncoder().encode(body).length > MAX_NEWS_BODY) return { error: "A post can be at most 16 KB long." };
+  return { body };
+}
+
+/** The sentence for a refused news request (`status`, `body` = the ApiError's), or null for the error's own message. */
+export function newsErrorText(status, body) {
+  if (status === 409 && body && body.detail === "too many news") {
+    return `At most ${MAX_NEWS_PUBLISHED} posts can be published. Archive one first.`;
+  }
+  if (status === 404) return "This post no longer exists.";
+  return null;
+}
+
+/** A server time (ISO 8601) in the file's timestamp format, which the app's date labels take. */
+export function newsTime(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : timestamp(d);
+}
+
+/**
+ * "Published today 08:40 · Edited 12 Oct" — `relative` is the app's relativeTime (a file
+ * timestamp → "Today 08:40", "Yesterday 19:22", "12 Oct"). A post counts as edited when its
+ * `modified` differs from `created`.
+ */
+export function newsDateText(post, relative) {
+  const label = iso => relative(newsTime(iso)).replace(/^(Today|Yesterday)/, m => m.toLowerCase());
+  const edited = post.modified !== post.created;
+  return `Published ${label(post.created)}` + (edited ? ` · Edited ${label(post.modified)}` : "");
+}
+
+/** Newest `created` first, ties by ID (the server's order). */
+export const newestFirst = (a, b) => new Date(b.created) - new Date(a.created) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/** The posts as `{ published, archived }`, each newest first. A new object, the posts are not copied. */
+export function splitNews(posts) {
+  const sorted = [...posts].sort(newestFirst);
+  return { published: sorted.filter(p => !p.archived), archived: sorted.filter(p => p.archived) };
+}
+
+/** The sample posts (app/sample/news.md, parsed by `parseNotesFile`) as the admin API lists them, none archived. */
+export const newsFromNotes = notes => notes.map(n => ({ id: n.id, created: n.created, modified: n.modified, body: n.body, archived: false }));
+
 // ---------- sample mode ----------
 
 /** A backup-shaped snapshot of the sample server (identities and files; `sample` lets the sample restore it). */
@@ -176,6 +236,7 @@ export function sampleBackup(data, now = new Date()) {
       files: [...files.values()].map(f => ({ id: f.id, owner: f.members[0], version: f.version, ciphertext: "", updated: f.updated, member_key: "" })),
       file_members: [...files.values()].flatMap(f => f.members.map(m => ({ file_id: f.id, identity_id: m }))),
       file_keys: [], contacts: [], invitations: [],
+      news: (data.news || []).map(n => ({ id: n.id, body: n.body, created: n.created, modified: n.modified, archived: n.archived })),
     },
     sample: data,
   };
@@ -183,14 +244,20 @@ export function sampleBackup(data, now = new Date()) {
 
 /**
  * The admin API of the sample mode, kept in memory: the same methods as `createApi`'s
- * admin methods. `data` is app/sample/admin.json; errors carry a `status` like ApiError.
+ * admin methods. `data` is app/sample/admin.json; `news` the sample posts (`newsFromNotes`);
+ * errors carry a `status` like ApiError.
  */
-export function createSampleAdmin(data) {
-  let server = structuredClone(data);
+export function createSampleAdmin(data, news = []) {
+  let server = { ...structuredClone(data), news: structuredClone(news) };
   const fail = (status, detail) => Object.assign(new Error(`${status}: ${detail}`), { status, body: { detail } });
   const row = id => server.identities.find(i => i.id === id);
+  const publishedCount = () => server.news.filter(p => !p.archived).length;
   return {
-    adminOverview: async () => structuredClone(server.overview),
+    adminOverview: async () => {
+      const overview = structuredClone(server.overview);
+      overview.counts.news = publishedCount();
+      return overview;
+    },
     adminIdentities: async () => ({ identities: structuredClone(server.identities) }),
     adminIdentity: async id => {
       const i = row(id);
@@ -206,12 +273,38 @@ export function createSampleAdmin(data) {
       i.quota = quota ?? server.overview.quota;
       return null;
     },
+    adminNews: async () => ({ news: structuredClone([...server.news].sort(newestFirst)) }),
+    adminCreateNews: async (body, now = new Date()) => {
+      const text = checkNewsBody(body);
+      if (text.error) throw fail(400, "invalid body");
+      if (server.news.length >= MAX_NEWS || publishedCount() >= MAX_NEWS_PUBLISHED) throw fail(409, "too many news");
+      const at = now.toISOString();
+      server.news.push({ id: newId(), body: text.body, created: at, modified: at, archived: false });
+      return { id: server.news.at(-1).id, created: at, modified: at };
+    },
+    adminUpdateNews: async (id, patch, now = new Date()) => {
+      const text = patch && "body" in patch ? checkNewsBody(patch.body) : null;
+      const hasArchived = !!patch && "archived" in patch;
+      if (!patch || !(text || hasArchived) || (text && text.error) || (hasArchived && typeof patch.archived !== "boolean")) {
+        throw fail(400, "invalid patch");
+      }
+      const post = server.news.find(p => p.id === id);
+      if (!post) throw fail(404, "unknown news");
+      if (hasArchived && post.archived && !patch.archived && publishedCount() >= MAX_NEWS_PUBLISHED) throw fail(409, "too many news");
+      if (text && text.body !== post.body) { post.body = text.body; post.modified = now.toISOString(); }
+      if (hasArchived) post.archived = patch.archived;
+      return null;
+    },
+    adminDeleteNews: async id => {
+      server.news = server.news.filter(p => p.id !== id);
+      return null;
+    },
     adminBackup: async (now = new Date()) => ({
       text: JSON.stringify(sampleBackup(server, now), null, 1),
       filename: backupFileName("", now),
     }),
     adminRestore: async backup => {
-      if (backup.sample && backup.sample.identities && backup.sample.details) server = structuredClone(backup.sample);
+      if (backup.sample && backup.sample.identities && backup.sample.details) server = { news: [], ...structuredClone(backup.sample) };
       return { identities: backup.tables.identities.length, files: backup.tables.files.length };
     },
   };
