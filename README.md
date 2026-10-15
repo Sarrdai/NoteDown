@@ -42,7 +42,9 @@ own linked device): what the server stores, the identities with their
 devices and files, a storage limit per identity, news posts for everyone
 using the server (they show as **News** at the top of the people
 overview), and backup / restore — `app/admin/?sample` shows it with
-sample data.
+sample data. Notes from Google Keep come in through `/import/`: choose
+the Google Takeout ZIP, check the preview of every note, import the ones
+you want (`app/import/?sample` shows it with sample data).
 
 ## Try the prototype
 

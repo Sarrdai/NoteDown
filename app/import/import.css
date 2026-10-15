@@ -1,0 +1,71 @@
+/* The Google Keep import page (import.js). Colors only via the semantic tokens of
+ * ../css/app.css; the preview reuses the app's note cards (.note, .note-body, .note-meta). */
+
+body { background: var(--bg); }
+.imp { min-height: 100dvh; color: var(--text); }
+.imp-wrap { width: 100%; max-width: 812px; margin: 0 auto; padding: 0 16px; }
+
+.imp-top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--border); padding-top: var(--safe-top); }
+.imp-top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 812px; min-height: var(--topbar-h); margin: 0 auto; padding: 0 8px 0 16px; }
+.imp-top h1 { margin: 0; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-top a.btn { display: inline-flex; align-items: center; flex: none; text-decoration: none; }
+
+/* ---------- step 1: the file ---------- */
+.imp-intro { margin: 24px 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.imp-steps { margin: 0 0 20px; padding-left: 22px; line-height: 1.5; }
+.imp-steps li + li { margin-top: 8px; }
+.imp-steps a { color: var(--accent); }
+.imp-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 16px;
+  border: 2px dashed var(--border); border-radius: var(--radius); text-align: center;
+}
+.imp-drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.imp-drop-text { margin: 0; color: var(--text-muted); font-weight: 600; }
+.imp-error { margin: 0; color: var(--danger); font-size: 0.92rem; }
+.imp-hint { margin: 16px 0 0; color: var(--text-faint); font-size: 0.9rem; line-height: 1.45; }
+/* Touch devices have no drag and drop: only the button. */
+@media (pointer: coarse) { .imp-drop-text { display: none; } .imp-drop { border-style: solid; padding: 24px 16px; } }
+
+/* ---------- step 2: the preview ---------- */
+.imp-summary {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px;
+  margin: 12px 0 0; color: var(--text-muted); font-size: 0.92rem;
+}
+.imp-summary p { margin: 0; }
+.imp-bulk { display: flex; gap: 2px; }
+.imp-bulk .btn { height: 36px; padding: 0 12px; }
+.imp-list { max-width: none; padding: 12px 0 calc(96px + var(--safe-bottom)); }
+.imp-card { cursor: pointer; padding-bottom: 10px; }
+.imp-card .note-body { cursor: pointer; }
+.imp-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.imp-card.archived { background: var(--surface-archive); }
+.imp-card:not(.selected) .note-body, .imp-card:not(.selected) .note-meta { opacity: 0.5; }
+.imp-card.no-text { cursor: default; }
+.imp-nothing { color: var(--text-faint); font-style: italic; }
+.chip.imp-lost { background: var(--danger-soft); color: var(--danger); }
+/* The selection mark sits where the app's round button is. */
+.imp-check {
+  grid-area: status; display: inline-flex; align-items: center; justify-content: center; align-self: end;
+  width: 26px; height: 26px; margin: 0 4px 2px; border: 2px solid var(--text-faint); border-radius: 7px; color: transparent;
+}
+.imp-check .icon { width: 18px; height: 18px; stroke-width: 3; }
+.imp-card.selected .imp-check { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.imp-card.no-text .imp-check { opacity: 0.35; }
+
+/* The action bar at the bottom. */
+.imp-bar {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px calc(10px + var(--safe-bottom));
+  background: var(--ctp-base); border-top: 1px solid var(--border); box-shadow: var(--shadow-high);
+}
+.imp-count { flex: 1; min-width: 0; text-align: center; color: var(--text-muted); font-size: 0.88rem; white-space: nowrap; }
+.imp-bar .btn { flex: none; padding: 0 14px; }
+.imp-bar .btn.primary:disabled { opacity: 0.5; cursor: default; }
+@media (min-width: 1024px) {
+  .imp-bar { left: 50%; right: auto; bottom: 16px; width: 780px; transform: translateX(-50%); border: 1px solid var(--border); border-radius: 999px; padding: 8px 8px 8px 12px; }
+}
+
+/* ---------- step 3: done ---------- */
+.imp-done { text-align: center; }
+.imp-done h2 { margin: 0; }
+.imp-done .btn { display: inline-flex; align-items: center; margin-top: 16px; text-decoration: none; }

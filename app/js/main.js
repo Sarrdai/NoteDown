@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
-import { state, load, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { state, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
@@ -576,6 +576,7 @@ async function start() {
   if (sample) replaceFiles(await loadSampleState(sample));
   else if (!hadFile) await loadWelcome();
   purgeExpiredTrash();
+  followOtherTabs();
   initSyncSim();
   const config = await loadConfig();
   initSync(readApi() || config.api, webAddress(config.web));

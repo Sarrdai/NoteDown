@@ -17,6 +17,7 @@
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
   - [Export](#export)
+  - [Import from Google Keep](#import-from-google-keep)
   - [Quick capture](#quick-capture)
   - [Look](#look)
   - [Not in scope (for now)](#not-in-scope-for-now)
@@ -803,6 +804,40 @@ one is worth it is discussed separately (backlog #31).
   `NoteDown-YYYY-MM-DD`. The web app downloads the file; the Android app
   hands it to the system's share sheet (save to Files, send) — *app
   phase*. *Prototype: 2026-10-14 (download).*
+
+### Import from Google Keep
+
+Decided 2026-10-15 (user request): someone moving from Google Keep should
+bring their notes along without copying them one by one.
+
+- **Source: a Google Takeout export** of Keep (one ZIP, one JSON file per
+  note) — the only way open to everyone: Keep's API serves Workspace
+  domains only, unofficial clients need the Google password token.
+- **An import page** at `<web app>/import/` (no link from the app, like
+  the admin page): a rare action stays out of the app. It needs no sign-in:
+  it writes into the private file of NoteDown in the same browser; sync,
+  if on, takes the notes to the other devices from there (Android users
+  import in a browser). An app tab that is open meanwhile follows the
+  change at once. The ZIP is read in the browser and never uploaded.
+- **Choose or drop** the ZIP (drag and drop on the desktop; tablet and
+  phone use the system's file picker).
+- **The preview is the result**: every note as a card like in the app,
+  rendered as it will be stored, newest first, with a summary on top
+  (notes, archived, pinned, how many in Keep's trash were left out). All
+  are selected; a tap on a card deselects it (All / None for everything).
+  **Import n notes** asks once more, then shows how many were imported
+  and leads to the app. Nothing is stored before that confirmation.
+- **Mapping:** title → `## Title`; text as it is; checklists → task
+  checkboxes (ticked stays ticked); labels → a last line of #labels
+  ("Labels"; spaces become `-`); created and edited dates are kept;
+  archived → closed, in the archive; pinned → permanent. Not taken over,
+  and said so on the card: images, recordings and drawings ("2 images not
+  imported"; a note with nothing but those can't be selected); a note
+  shared in Keep comes in private. Not in the export at all: reminders,
+  colors. Notes in Keep's trash are left out.
+- A second import of the same export brings the notes in again (no
+  duplicate detection yet, backlog #37). *Prototype: `app/import/`
+  (`?sample` previews `app/sample/keep.json`).*
 
 ### Quick capture
 

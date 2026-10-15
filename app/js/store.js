@@ -105,6 +105,11 @@ export function load() {
     sync.storageFull = false;
     state.sync = sync;
   } catch { /* keep defaults */ }
+  return readFiles();
+}
+
+// The private and shared files from storage; false when there is no private file yet.
+function readFiles() {
   try {
     state.shared = JSON.parse(read(SHARED_KEY) || "[]").map(s => ({ members: s.members, file: withMoved(parseNotesFile(s.text)) }));
   } catch { state.shared = []; }
@@ -112,6 +117,24 @@ export function load() {
   if (text === null) return false;
   state.file = withMoved(parseNotesFile(text));
   return true;
+}
+
+/** Follows the files another tab of this browser changed (the import page,
+ *  a second app tab): reads them again, re-renders and lets sync upload. */
+export function followOtherTabs() {
+  window.addEventListener("storage", e => {
+    if (e.key !== FILE_KEY && e.key !== SHARED_KEY) return;
+    readFiles();
+    emit("structure");
+    fileListeners.forEach(fn => fn());
+  });
+}
+
+/** Adds imported notes (the Google Keep import) to the private file, on top. */
+export function importNotes(notes) {
+  state.file.notes.unshift(...notes);
+  saveFiles();
+  emit("structure");
 }
 
 const withMoved = file => ({ ...file, moved: file.moved || [], purged: file.purged || [] });
