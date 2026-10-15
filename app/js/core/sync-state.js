@@ -3,14 +3,31 @@
 // as stale and a purged marker as seen, and which server file is which (the
 // private file, the shared files by circle).
 import { circleKey } from "./sharing.js";
+import { createNote, timestamp, newId } from "./notes-file.js";
 
-/** Id prefix of the welcome note a first start creates (main.js). */
+/** Id prefix of the welcome notes a first start creates (main.js). */
 export const WELCOME_PREFIX = "welcome-";
 
-/** True when a parsed file holds nothing but the welcome note, never edited. */
-export function onlyUntouchedWelcome(file) {
-  return file.notes.length === 1 && !file.moved.length && file.notes[0].id.startsWith(WELCOME_PREFIX)
-    && file.notes[0].status === "open" && file.notes[0].created === file.notes[0].modified;
+/**
+ * The welcome notes of a first start from app/welcome.md: a new note at each
+ * line starting with "## ". The first is the newest by a minute each, so the
+ * default sort (last edited) lists them in the file's order.
+ */
+export function welcomeNotes(text, now = new Date()) {
+  const bodies = text.replace(/\r\n?/g, "\n").split(/^(?=## )/m).map(b => b.trim()).filter(Boolean);
+  return bodies.map((body, i) => createNote(body, timestamp(new Date(now.getTime() - i * 60000)), WELCOME_PREFIX + newId()));
+}
+
+const untouchedWelcome = n => n.id.startsWith(WELCOME_PREFIX) && n.created === n.modified;
+
+/**
+ * The file without the welcome notes that were never edited (closed or not),
+ * for linking a device: the synced notes bring their own. Same object when
+ * there are none.
+ */
+export function withoutUntouchedWelcome(file) {
+  const notes = file.notes.filter(n => !untouchedWelcome(n));
+  return notes.length === file.notes.length ? file : { ...file, notes };
 }
 
 /**

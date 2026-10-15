@@ -269,7 +269,7 @@ async function main() {
     });
 
     await step("B joins with the recovery key and gets A's notes", async () => {
-      const welcomeA = (await bodies(a))[0];
+      const welcomeA = await bodies(a);
       await openPanel(b);
       await b.getByRole("button", { name: "Link to an existing device" }).click();
       await shot(b, "link-desktop");
@@ -279,7 +279,7 @@ async function main() {
       await shot(b, "overview-desktop");
       await b.keyboard.press("Escape");
       await converge(a, b);
-      assert.deepEqual(await bodies(b), [welcomeA], "B keeps only one welcome note");
+      assert.deepEqual(await bodies(b), welcomeA, "B keeps only one set of welcome notes");
     });
 
     let d;
@@ -416,7 +416,7 @@ async function main() {
         notes: window.__store.allNotes().length,
       }));
       assert.equal(left.sync, false, "sync is off");
-      assert.equal(left.notes, 1, "first start: the welcome note");
+      assert.equal(left.notes, 4, "first start: the welcome notes");
       assert.deepEqual(left.databases, [], "no IndexedDB left");
       assert.ok(left.keys.every(k => ["notedown.api", "notedown.file", "notedown.shared", "notedown.sync"].includes(k)), `only first-start keys: ${left.keys}`);
       await shot(c, "signed-out-tablet");

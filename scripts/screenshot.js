@@ -11,7 +11,7 @@
 // The repo is served over a throwaway local HTTP server (ES modules don't
 // load from file://). Each run starts with empty storage and adds `sample`
 // to the query, so the app shows the sample notes; --first-start leaves it
-// out and shows what a new user sees (the welcome note). --device sets
+// out and shows what a new user sees (the welcome notes). --device sets
 // viewport and input: desktop = 1440x900 mouse, tablet = 820x1180 touch,
 // phone = 390x844 touch. --theme sets
 // prefers-color-scheme (the app's "System" theme follows it). --query is

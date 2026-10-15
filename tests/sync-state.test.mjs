@@ -3,23 +3,30 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { onlyUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince } from "../app/js/core/sync-state.js";
+import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince } from "../app/js/core/sync-state.js";
 
-const welcomeBody = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8").trim();
+const welcomeText = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8");
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const file = (...notes) => ({ preamble: "", notes, moved: [] });
-const welcome = createNote(welcomeBody, "2026-10-13T08:00Z", WELCOME_PREFIX + "abc");
+const welcome = welcomeNotes(welcomeText, new Date("2026-10-13T08:00Z"));
 
-test("onlyUntouchedWelcome: the fresh welcome note alone", () => {
-  assert.equal(onlyUntouchedWelcome(file(welcome)), true);
+test("welcomeNotes: one open note per top heading, newest first in the file's order", () => {
+  assert.ok(welcome.length > 1);
+  assert.ok(welcome.every(n => n.id.startsWith(WELCOME_PREFIX) && n.status === "open" && n.body.startsWith("## ")));
+  assert.equal(welcome.map(n => n.body).join("\n\n"), welcomeText.trim());
+  assert.equal(welcome[0].modified, "2026-10-13T08:00Z");
+  assert.equal(welcome[1].modified, "2026-10-13T07:59Z");
+  assert.equal(new Set(welcome.map(n => n.id)).size, welcome.length);
 });
 
-test("onlyUntouchedWelcome: edited, closed, or with other notes it counts as the user's", () => {
-  assert.equal(onlyUntouchedWelcome(file({ ...welcome, modified: "2026-10-13T09:00Z" })), false);
-  assert.equal(onlyUntouchedWelcome(file({ ...welcome, status: "closed" })), false);
-  assert.equal(onlyUntouchedWelcome(file(welcome, sample.notes[0])), false);
-  assert.equal(onlyUntouchedWelcome(file(sample.notes[0])), false);
-  assert.equal(onlyUntouchedWelcome(file()), false);
+test("withoutUntouchedWelcome: drops unedited welcome notes, open or closed, and keeps the rest", () => {
+  const [a, b, c] = welcome;
+  const edited = { ...b, modified: "2026-10-13T09:00Z" };
+  const closed = { ...c, status: "closed", closed: "2026-10-13T09:00Z" };
+  assert.deepEqual(withoutUntouchedWelcome(file(a, edited, closed, sample.notes[0])).notes, [edited, sample.notes[0]]);
+  assert.deepEqual(withoutUntouchedWelcome(file(...welcome)).notes, []);
+  const own = file(sample.notes[0]);
+  assert.equal(withoutUntouchedWelcome(own), own);
 });
 
 const dev = (id, kind = "device", active = true) => [id, { id, kind, active }];

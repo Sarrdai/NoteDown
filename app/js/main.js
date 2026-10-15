@@ -3,8 +3,8 @@ import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit
 import { state, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
-import { parseNotesFile, createNote, timestamp, newId } from "./core/notes-file.js";
-import { WELCOME_PREFIX } from "./core/sync-state.js";
+import { parseNotesFile } from "./core/notes-file.js";
+import { welcomeNotes } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
@@ -375,11 +375,11 @@ function emptyArchive() {
   });
 }
 
-// The first start holds only the welcome note (app/welcome.md), sync off.
+// The first start holds only the welcome notes (app/welcome.md), sync off.
 async function loadWelcome() {
-  const body = await (await fetch(new URL("../welcome.md", import.meta.url))).text();
+  const text = await (await fetch(new URL("../welcome.md", import.meta.url))).text();
   const file = parseNotesFile("");
-  file.notes.push(createNote(body.trim(), timestamp(), WELCOME_PREFIX + newId()));
+  file.notes.push(...welcomeNotes(text));
   replaceFiles({ file });
 }
 

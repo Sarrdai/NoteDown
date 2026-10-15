@@ -339,10 +339,16 @@ paid features per user.
 
 ### Main view, archive and trash
 
-- **First start:** the app holds only a **welcome note** (`app/welcome.md`)
-  that explains the basics as tasks to tick and close — onboarding with
-  the app's own means instead of a tour (decided 2026-10-13). *Prototype:
-  holds real notes from then on; the sample notes only with `?sample`.*
+- **First start:** the app holds only four short **welcome notes**
+  (`app/welcome.md`, one per `## ` heading): what NoteDown is and what is
+  good to know, how to operate it (tasks to tick), where the notes live
+  and how they are protected, sync and sharing — onboarding with the
+  app's own means instead of a tour (decided 2026-10-13; split into
+  topics 2026-10-15 so each can be read and closed on its own). One text
+  for every device tier ("tap or click", "Ctrl+click on a computer"), as
+  the notes sync to the others. Linking a device drops the welcome notes
+  never edited, open or closed. *Prototype: holds real notes from then
+  on; the sample notes only with `?sample`.*
 - The **main view** shows the open notes; the **archive** shows the
   closed ones. Both look alike; the archive has a clearly different
   background tint. *Prototype: round 1.*

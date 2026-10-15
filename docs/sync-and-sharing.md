@@ -268,8 +268,8 @@ the first sync round.
   shows synced, syncing, offline or an error (e.g. "This device was
   removed from sync").
 - **Linking with the recovery key** combines the notes already on the new
-  device with the synced ones; an untouched welcome note is dropped, so
-  only one remains.
+  device with the synced ones; welcome notes never edited are dropped, so
+  only one set remains.
 - Each device keeps, per file, the last state it synced (the **base**).
   A device rejects a version older than the one it has seen, so the
   server can't roll a file back unnoticed.
