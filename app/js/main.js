@@ -41,7 +41,6 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
 const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
-const LABELS_UI = { tab: "Labels tab (A)", bar: "Label row (B)" };
 
 
 const phone = window.matchMedia("(max-width: 599px)");
@@ -183,7 +182,7 @@ function previewView(view) {
   const notes = inView(listed(), view, "");
   const { tiles, dividerBefore } = tilesOf(view, notes);
   const nodes = [];
-  for (const id of ["filterBar", "labelBar"]) if (!$(id).hidden) nodes.push($(id).cloneNode(true));
+  if (!$("filterBar").hidden) nodes.push($("filterBar").cloneNode(true));
   const list = document.createElement("div");
   list.className = "list";
   list.append(...listItems(tiles, { dividerBefore, view }));
@@ -201,9 +200,7 @@ function previewView(view) {
 // The people and label overviews and the chips of the active filters above the list.
 function renderCircleFilter() {
   const circle = activeCircle();
-  const bar = state.settings.labelsUi === "bar";
-  app.classList.toggle("labels-bar", bar);
-  app.dataset.tab = bar && state.panelTab === "labels" ? "toc" : state.panelTab;
+  app.dataset.tab = state.panelTab;
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   renderPeople(key => inView(withLabel(circleNotes(key))).length);
   renderLabels(inView(circleNotes(circle)));
@@ -211,7 +208,7 @@ function renderCircleFilter() {
   const fresh = freshCount(newsNotes());
   document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
   $("tocHandle").innerHTML = newsBadgeHtml(fresh);
-  $("filterBar").hidden = circle === null && (state.label === null || state.settings.labelsUi === "bar");
+  $("filterBar").hidden = circle === null && state.label === null;
   $("filterChip").hidden = circle === null;
   if (circle === null) return;
   const members = circle && circle !== NEWS ? circle.split("+") : [];
@@ -405,8 +402,6 @@ function moreMenu() {
     (hidden.length || trashEntry) && { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: Labels" },
-    ...Object.entries(LABELS_UI).map(([id, label]) => ({ label, checked: s.labelsUi === id, onSelect: () => updateSettings({ labelsUi: id }) })),
     { section: "Prototype" },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -551,7 +546,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (LABELS_UI[p.get("labels")]) patch.labelsUi = p.get("labels");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

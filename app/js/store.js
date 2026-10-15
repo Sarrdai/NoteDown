@@ -22,7 +22,6 @@ export const DEFAULT_SETTINGS = {
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
-  labelsUi: "tab",           // prototype variant: where the labels are listed — tab (A) | bar (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

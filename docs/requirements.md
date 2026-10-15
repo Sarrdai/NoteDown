@@ -11,6 +11,7 @@
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
   - [People circles as a filter](#people-circles-as-a-filter)
+  - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
   - [Dictation](#dictation)
@@ -534,6 +535,34 @@ paid features per user.
   (opens Sync & sharing) — decided 2026-10-15 so the feature is there
   to be found.
 
+### Labels
+
+Decided 2026-10-15 (user request, together with the Google Keep import,
+whose labels need a place).
+
+- A label is a **#hashtag in the note's text** (`#travel`, `#home/garden`),
+  as in Obsidian: plain Markdown that other editors show, typed like any
+  text, no file format change (chosen over a hidden marker attribute,
+  which needs its own UI and is invisible elsewhere). It follows a space
+  or the line start and holds a letter (`# Heading`, `issue#5` and `#5`
+  are none); none in code or links. Labels compare case-insensitively.
+- Labels are part of the text, so everyone a note is shared with sees
+  them; there are no private labels on shared notes.
+- In a note a label shows as a small **chip**; tapping it **filters the
+  list** to the notes with that label. Circle filter, archive, search
+  and sort apply on top; the table of contents follows. The active
+  label shows as a **chip with ×** above the list, next to the circle's
+  chip; it is not remembered across starts.
+- A third tab **"Contents | People | Labels"** lists every label of the
+  current view (circle filter and search applied) A–Z with its count;
+  picking one filters, picking it again clears it. Without labels it
+  says how to add one. Chosen 2026-10-15 over a row of label chips above
+  the list: many labels (after an import) fit a list, and it works like
+  the people filter. The three tabs take the head's full width, the
+  contents' level stepper sits below them.
+- While a note is edited its labels show as plain text. *Prototype:
+  2026-10-15.*
+
 ### News from the server's owner
 
 Decided 2026-10-15 (user request): the server's owner needs a curated
@@ -751,7 +780,7 @@ one is worth it is discussed separately (backlog #31).
 
 - **What:** the top bar's **Export** button (⋮ → "Export…" when it
   doesn't fit) offers **This view** — the notes the list
-  shows (main view or archive, circle filter and search applied), in the
+  shows (main view or archive, circle and label filter and search applied), in the
   order it shows them — as one Markdown file, or **All files** — one
   Markdown file per NoteDown file, private plus one per circle with notes
   (named "Private.md", "Lea.md", "Lea & Tom.md"), packed into one ZIP.
@@ -806,4 +835,5 @@ one is worth it is discussed separately (backlog #31).
 
 ### Not in scope (for now)
 
-Tags and folders / notebooks — until there is a concrete need.
+Folders / notebooks — until there is a concrete need (labels cover
+grouping).
