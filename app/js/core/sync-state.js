@@ -66,6 +66,17 @@ export function matchFiles(files, identity) {
   return { privateFile, shared };
 }
 
+/**
+ * Whether the server went back in time (a restored backup, docs/server-api.md → "Admin"): the epoch it reports
+ * (`epoch`, null until the first restore) differs from the one this device last saw (`remembered`; none yet counts
+ * as "never restored"), or it serves an older version of a file than this device has seen (`versions`: [{ seen,
+ * served }] per file with a record), which also catches a restore without a new epoch (the database host's own
+ * point-in-time recovery). The device then merges everything again and keeps its notes.
+ */
+export function serverRestored(remembered, epoch, versions) {
+  return (remembered || "") !== (epoch || "") || versions.some(v => v.served < v.seen);
+}
+
 /** True when a file has anything worth keeping on the server (an empty circle left behind by an undo needs none). */
 export const hasContent = file => file.notes.length > 0 || Boolean(file.order);
 

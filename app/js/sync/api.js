@@ -63,7 +63,7 @@ export function createApi(baseUrl, who) {
     getIdentity: (id, invitation) => call(
       "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
-    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota }) => ({ files, quota })),   // each file with its `size`
+    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch }) => ({ files, quota, epoch: epoch ?? null })),   // each file with its `size`; `epoch` changes when the server was restored
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),

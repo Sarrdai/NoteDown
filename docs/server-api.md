@@ -7,6 +7,7 @@
 - [Contacts and invitations](#contacts-and-invitations)
 - [Authentication](#authentication)
 - [Endpoints](#endpoints)
+- [Admin](#admin)
 - [Limits](#limits)
 <!-- /toc -->
 
@@ -158,7 +159,7 @@ No accounts and no passwords: a device signs a challenge.
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
 | `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`; 404 unless the caller may read it ("Contacts and invitations") |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the storage limit per identity (so the app can show the usage) |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members"}], "quota", "epoch"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin") |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
@@ -219,11 +220,86 @@ No accounts and no passwords: a device signs a challenge.
   large, or the storage quota is used up), 429 (rate limit; the
   `Retry-After` header gives the seconds until the window ends).
 
+## Admin
+
+For the server's owner. Every endpoint below needs the usual bearer token
+and answers **404 `{"detail": "not found"}`** unless the caller's identity
+ID is listed in the environment variable `ADMIN_IDENTITIES` (IDs separated
+by commas or white space; empty or unset: nobody). That holds for a missing
+or invalid token and for a request body that doesn't parse as well, so
+nobody else learns the endpoints exist. Only exact IDs match; anything
+else in the variable (a typo, `*`) is ignored. Every device of an admin
+identity is an admin. The admin endpoints record nothing new about
+identities or devices: they show what the tables hold (no last-seen times,
+no request logs).
+
+| Method and path | Request → response |
+|---|---|
+| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations"}, "storage": {"files", "database", "database_limit"}, "quota"}`; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
+| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts"}]}`, newest first; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
+| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations"}`; devices in the order they were added to the list, files newest first; 404 for an unknown identity |
+| `PUT /v1/admin/identities/{id}/quota` | `{"quota": <bytes> \| null}` → 204; `null` resets to the default; 400 unless `1 <= quota <= 1 GiB`; 404 for an unknown identity |
+| `GET /v1/admin/backup` | → the backup file (below), `Content-Disposition: attachment; filename="notedown-backup-<YYYY-MM-DD-HHMM>.json"` (UTC) |
+| `POST /v1/admin/restore` | a backup → 200 `{"identities", "files"}` (the numbers restored); 400, 409 (below) |
+
+**Backup format.** One consistent snapshot (a single `REPEATABLE READ`
+read-only transaction), a JSON document
+`{"format": "notedown-backup", "version": 1, "created": "<iso>", "tables": {…}}`.
+`tables` holds an array of row objects per table, with these columns
+(binary values `b64u`, times ISO 8601 UTC):
+
+| Table | Columns |
+|---|---|
+| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`) |
+| `device_entries` | `identity_id`, `seq`, `entry` (the signed entry as in "Device list") |
+| `files` | `id`, `owner`, `version`, `ciphertext`, `updated`, `member_key` |
+| `file_members` | `file_id`, `identity_id` |
+| `file_keys` | `file_id`, `device_id`, `wrapped` |
+| `contacts` | `a`, `b` (both directions, as stored) |
+| `invitations` | `id`, `identity_id`, `kind`, `device_id`, `sig`, `expires`, `requester`, `requested_at`, `cards` |
+
+Not in it: `devices` (derived from the device lists), relay slots, rate
+limit counters and the server state (the epoch). The file is as sensitive
+as the database: it holds the encrypted files and the public device lists.
+
+**Restore** replaces everything in one transaction, so a failed restore
+changes nothing:
+
+- The document is checked first: 400 for a wrong `format` or unsupported
+  `version`, a missing table, a row with other columns than listed, a
+  malformed or dangling value, or a device list that doesn't verify (every
+  identity's list goes through the same check as `POST /v1/identities`; a
+  file's `member_key` must match its members).
+- 409 `{"detail": "the backup would lock you out"}` when the calling
+  identity is not in the backup or the calling device is not active on its
+  list there: the admin could not sign in afterwards.
+- Then every table (relay slots and rate limit counters too) is emptied,
+  the backup's rows are inserted from a fixed list of columns per table
+  (never from the JSON keys), `devices` is rebuilt from the verified lists
+  and a new random **restore epoch** is stored. Tokens stay valid for
+  devices that are active in the backup.
+- Devices linked after the backup are not on the restored list and have to
+  be linked again; so are identities created after it (they are gone).
+- The request body is at most 32 MB (Cloud Run's limit), which is the
+  largest backup that can be restored; the code doesn't enforce it.
+
+**Restore epoch.** `GET /v1/files` returns the epoch (16 random bytes,
+`b64u`; `null` until the first restore). A client remembers it per server.
+When the server's epoch differs from the remembered one, or the server
+lists a file at a lower version than the client has seen (a restore
+without an epoch, such as the database host's own point-in-time
+recovery), the client treats the server as restored: all its file records
+for that server start over (`version` 0, empty base) so everything it
+holds is merged with the server's. No note on a device is lost; notes
+deleted since the backup may come back, and a note edited on both sides
+becomes a conflict copy. A file the restored server no longer has is
+created again. The client's side is `app/js/sync/files.js`.
+
 ## Limits
 
 | What | Limit |
 |---|---|
-| Storage per identity (decoded ciphertext of all files it is a member of, shared ones in full) | 2 MB |
+| Storage per identity (decoded ciphertext of all files it is a member of, shared ones in full) | 2 MB, or the admin's override per identity (1 byte to 1 GiB) |
 | Files per identity (it is a member of) | 50 |
 | Open invitations per identity | 20 |
 | Members per file | 20 |
@@ -239,8 +315,10 @@ of them (backlog #27; so the usage the app shows is the one enforced).
 The replaced file's old size doesn't count. Over a limit the upload
 answers 413 `{"detail": "storage quota exceeded" | "too many files",
 "members": [<identity IDs over the limit>]}`, so the app can say whose
-storage is full. The quota is one constant for now, to be raised later
-as a paid option.
+storage is full. The default quota is one constant; the admin can set a
+different quota per identity ("Admin"), the basis for a paid option later.
+Each member is checked against its own quota, and `GET /v1/files` returns
+the caller's.
 
 The rate limits count per client IP in fixed windows (counters in
 Postgres, shared by all server instances); IPv6 addresses count per /64

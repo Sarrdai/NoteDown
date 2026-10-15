@@ -10,12 +10,15 @@
 // a protected note another member deletes stays private on that device, a restored device gets the shared
 // files and starts without protected notes, removing a device renews the keys of the shared files too,
 // a merge across circles creates the file of everyone involved, removing a person moves the note into a
-// new file and the removed person's concurrent edit lands in the private file. Every step checks that the devices end up
+// new file and the removed person's concurrent edit lands in the private file. Last, the server owner (Sam's
+// identity, made admin on a second server process on the same database) takes a backup, both of Sam's devices edit on,
+// the backup is restored, and no note is lost. Every step checks that the devices end up
 // with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
 "use strict";
 const fs = require("fs");
+const { spawn } = require("child_process");
 const http = require("http");
 const path = require("path");
 const assert = require("assert/strict");
@@ -23,6 +26,7 @@ const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
 const API = "http://127.0.0.1:8765";
+const ADMIN_API = "http://127.0.0.1:8768";   // a second server on the same database that knows the admin
 const PORT = 8766;   // the origin the server allows (CORS_ORIGINS in test-sync.sh)
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".md": "text/markdown", ".json": "application/json", ".svg": "image/svg+xml" };
 const CAMERA = path.join(require("os").tmpdir(), `notedown-e2e-camera-${process.pid}.y4m`);   // read when a camera opens
@@ -192,6 +196,32 @@ const tidy = page => page.evaluate(async () => {
 });
 
 const fileKeyOf = (page, record) => page.evaluate(async r => window.__crypto.b64u(await window.__keystore.getSecret("file:" + r.server + "/" + r.id)), record);
+
+// Starts a second server process on the same database with `identity` as the admin (the first one can't know it:
+// the identity exists only after a device turned sync on). Resolves once it answers; `.kill()` stops it.
+async function startAdminServer(identity) {
+  const proc = spawn(process.env.E2E_UVICORN, ["notedown_server.main:app", "--host", "127.0.0.1", "--port", "8768", "--log-level", "warning"], {
+    cwd: path.join(ROOT, "server"), stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL, SERVER_SECRET: "e2e-secret", RATE_LIMITS: "off", CORS_ORIGINS: `http://127.0.0.1:${PORT}`, ADMIN_IDENTITIES: identity },
+  });
+  for (let i = 0; i < 100; i++) {
+    if (await fetch(ADMIN_API + "/health").then(r => r.ok, () => false)) return proc;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  proc.kill();
+  throw new Error("the admin server did not start");
+}
+
+// An admin call made from `page` with its device's keys (the way the admin page signs in). → { status, body } with the body as text.
+const adminCall = (page, method, route, body) => page.evaluate(async ([base, method, route, body]) => {
+  const s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+  const get = async (path, init) => fetch(base + path, init);
+  const { challenge } = await (await get("/v1/auth/challenge")).json();
+  const sig = await window.__crypto.signChallenge(keys.sign.privateKey, challenge);
+  const { token } = await (await get("/v1/auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity: s.identity, device: s.device, challenge, sig }) })).json();
+  const res = await get(route, { method, headers: { Authorization: "Bearer " + token }, body });
+  return { status: res.status, body: await res.text() };
+}, [ADMIN_API, method, route, body]);
 
 async function step(name, fn) {
   await fn();
@@ -713,6 +743,56 @@ async function main() {
       await setBody(a, noteK, (await noteBody(a, noteK)) + "\n\nafter the contact was removed");
       await convergeShared([a, e], a, d, e);
       assert.match(await noteBody(e, noteK), /after the contact was removed$/);
+    });
+
+    await step("a restored server loses no note: backup, both of Sam's devices edit on, restore, sync", async () => {
+      await tidy(a);
+      await converge(a, d);
+      await convergeShared([a, e], a, d, e);
+      const admin = await startAdminServer(await ident(a));
+      try {
+        assert.equal((await adminCall(d, "GET", "/v1/admin/overview")).status, 200, "every device of the admin identity is the admin");
+        const overview = await adminCall(a, "GET", "/v1/admin/overview");
+        assert.equal(overview.status, 200);
+        assert.ok(JSON.parse(overview.body).counts.identities >= 3);
+        const backup = await adminCall(a, "GET", "/v1/admin/backup");
+        assert.equal(backup.status, 200);
+        const epoch = async p => (await p.evaluate(() => Object.values(window.__store.state.sync.epochs)))[0] || null;
+        assert.equal(await epoch(a), null, "no restore yet");
+
+        // Both devices edit on: a new note each, an edit to a shared note, so the server moves past the backup.
+        await addNote(a, sample.s14);
+        await addNote(d, sample.s15);
+        await setBody(d, noteK, (await noteBody(d, noteK)) + "\n\nafter the backup");
+        await converge(a, d);
+        await convergeShared([a, e], a, d, e);
+        const expected = await bodies(a);
+        assert.ok(expected.includes(sample.s14) && expected.includes(sample.s15));
+
+        const restored = await adminCall(a, "POST", "/v1/admin/restore", backup.body);
+        assert.equal(restored.status, 200, restored.body);
+
+        // The first sync after the restore: nothing lost, nobody sees an "older version" error, both converge.
+        for (const p of [a, d]) {
+          await sync(p);
+          assert.equal((await syncState(p)).status, "synced", (await syncState(p)).error);
+        }
+        await converge(a, d);
+        const after = await bodies(a);
+        for (const b of expected) assert.ok(after.includes(b), "a note survived the restore on A: " + b.slice(0, 30));
+        for (const b of await bodies(d)) assert.ok(after.includes(b), "the same notes on D");
+        assert.ok((await epoch(a)) && (await epoch(a)) === (await epoch(d)), "both remember the server's new epoch");
+        // The shared file too, with Lea's device joining in.
+        await convergeShared([a, e], a, d, e);
+        assert.match(await noteBody(a, noteK), /after the backup$/, "the shared note keeps the edit made after the backup (a note edited on both sides gets a conflict copy)");
+        assert.match(await noteBody(e, noteK), /after the backup$/);
+        // Later changes go on as usual.
+        await addNote(d, sample.s16);
+        await converge(a, d);
+        assert.ok((await bodies(a)).includes(sample.s16));
+      } finally {
+        admin.kill();
+      }
     });
 
     await step("without a server, sync can't be turned on", async () => {

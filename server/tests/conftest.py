@@ -57,9 +57,10 @@ def make_client(rate_limits: bool):
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         conn.execute(
             "DROP TABLE IF EXISTS contacts, invitations, file_members, file_keys, files, devices, "
-            "device_entries, identities, relay, rate_limits CASCADE")
+            "device_entries, identities, relay, rate_limits, server_state CASCADE")
     settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=rate_limits)
     with TestClient(create_app(settings)) as c:
+        c.settings = settings   # tests set settings.admin_identities once they know an identity
         yield c
 
 
