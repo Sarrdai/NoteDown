@@ -1,6 +1,6 @@
 # NoteDown — Feature Backlog
 
-LAST_ID: 37
+LAST_ID: 38
 
 Raw ideas only, not yet decided. Pick items up individually: an entry is
 elaborated with the user, built into the prototype, and then leaves this file for
@@ -58,4 +58,5 @@ The column stays the last one, so a row added without it still reads right.
 | 5 | "Reset identity" emergency button | Lost-device discussion (2026-10-13): if the recovery key itself may be compromised, a new identity with a new recovery key and new device keys; contacts then see a key change. Rarely needed, since removing a device already renews the file keys. | mittel |  |  |
 | 6 | App lock with PIN or biometrics | Lost-device discussion (2026-10-13): keys sit in the platform key store, but an unlocked phone still opens NoteDown. Open: on every start or after a timeout, web app included? | klein |  |  |
 | 7 | Version history of the synced files | Lost-device discussion (2026-10-13): until a device is removed it can change or delete notes, shared ones included. The server could keep the encrypted versions of each file for e.g. 30 days, and the user could bring a state back. Open: how far back, per note or per file, storage per identity. Old versions are encrypted with older file keys, so removing a device must keep the old keys readable for the remaining devices. Could be a paid option on the default server (2026-10-14): a Play Billing purchase token sent to the server and checked there marks the identity, so all its devices (web included) get it, and restoring with the recovery key keeps it; the server still learns no name. | mittel |  | #9; #11 for a paid option |
+| 38 | Restore a single note from the version history | Version history (backlog #7, 2026-10-15): restoring works on a whole file; a single note that was changed or lost could come back on its own, e.g. a button on a note in a state's view. Open: what happens to a note edited since (replace, or bring back as a copy), and whether it needs its own preview. | klein |  | Version history (`docs/requirements.md` → "Sync and sharing") |
 | 16 | Temporary session (memory only) | Security review (2026-10-14): for a public PC, link by QR code and keep notes and keys only in memory, with the device taken off the list when the session ends. Rejected with the user (2026-10-14): a private browser window plus "Sign out this device" with local erase (#15) already cover the public-PC case, a mode of its own isn't worth it. | mittel | verworfen |  |

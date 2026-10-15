@@ -90,6 +90,13 @@ export function registerPage(name, def) {
   PAGES[name] = def;
 }
 
+const extraSections = [];   // what other modules add to the overview, after Storage: () → nodes or null
+
+/** Adds a section to the overview (both modes), drawn by `fn()` each time; null leaves it out. */
+export function addOverviewSection(fn) {
+  extraSections.push(fn);
+}
+
 /** Replaces the page stack with [[page, data], …] (the last is shown). */
 export function setStack(entries) {
   stack = entries.map(([page, data = {}]) => ({ page, data }));
@@ -126,7 +133,7 @@ export function popPage() {
 }
 
 /** Redraws the page on screen (e.g. after switching its tab). */
-export function refreshPage() { render(); }
+export function refreshPage(options) { render(options); }
 
 /** Back to only `page`, e.g. the overview after a flow. */
 export function resetPanel(page) { reset(page); }
@@ -177,7 +184,7 @@ function render({ keepScroll = false } = {}) {
 
 // ---------- small DOM helpers ----------
 
-const section = title => h("h3", { class: "sheet-section" }, title);
+export const section = title => h("h3", { class: "sheet-section" }, title);
 
 function field(label, input, hint) {
   return h("label", { class: "field" }, h("span", { class: "field-label" }, label), input, hint && h("span", { class: "field-hint" }, hint));
@@ -197,7 +204,7 @@ function segmented(options, current, onPick) {
     h("button", { class: "segment", role: "tab", type: "button", "aria-selected": String(id === current), onclick: () => onPick(id) }, label)));
 }
 
-function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
+export function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
   const lead = [
     avatar ? h("span", { class: "avatar", "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
     h("span", { class: "row-text" }, h("span", { class: "row-title" }, title), sub && h("span", { class: "row-sub" + (unverified ? " unverified-sub" : "") }, sub)),
@@ -693,6 +700,7 @@ function realOverview(data) {
       () => go("signOut", { others: data.rows ? data.rows.length > 1 : null }))),
     contactsSections(c => go("removeContact", { id: c.id, name: c.name })),
     storageSection(),
+    ...extraSections.map(fn => fn()),
     identitySection(),
   ].flat();
 }
@@ -712,6 +720,7 @@ function simulatedOverview() {
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
     contactsSections((c, i) => removeFromList("contacts", i, c.name)),
     storageSection(),
+    ...extraSections.map(fn => fn()),
     identitySection(),
   ].flat();
 }

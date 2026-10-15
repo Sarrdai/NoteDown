@@ -247,14 +247,17 @@ export async function signChallenge(privateKey, challenge) {
 
 const aesKey = (bytes, usage) => subtle().importKey("raw", bytes, "AES-GCM", false, [usage]);
 
-async function seal(keyBytes, plain) {
+// `aad`: additional authenticated data, only for what isn't a file (the previous key of the key chain).
+async function seal(keyBytes, plain, aad) {
   const nonce = globalThis.crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
-  const sealed = await subtle().encrypt({ name: "AES-GCM", iv: nonce }, await aesKey(keyBytes, "encrypt"), plain);
+  const params = aad ? { name: "AES-GCM", iv: nonce, additionalData: aad } : { name: "AES-GCM", iv: nonce };
+  const sealed = await subtle().encrypt(params, await aesKey(keyBytes, "encrypt"), plain);
   return { nonce, sealed: new Uint8Array(sealed) };
 }
 
-async function open(keyBytes, nonce, sealed) {
-  return new Uint8Array(await subtle().decrypt({ name: "AES-GCM", iv: nonce }, await aesKey(keyBytes, "decrypt"), sealed));
+async function open(keyBytes, nonce, sealed, aad) {
+  const params = aad ? { name: "AES-GCM", iv: nonce, additionalData: aad } : { name: "AES-GCM", iv: nonce };
+  return new Uint8Array(await subtle().decrypt(params, await aesKey(keyBytes, "decrypt"), sealed));
 }
 
 /** A new random AES-256 file key (32 bytes). */
@@ -282,17 +285,41 @@ function unpad(bytes) {
   return end > 0 && bytes[end - 1] === PAD_MARKER ? bytes.subarray(0, end - 1) : bytes;
 }
 
-/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded UTF-8 text. */
+// The first byte of a compressed file's plaintext: 0x01, then the raw DEFLATE stream (RFC 1951) of the UTF-8
+// text. Markdown never starts with 0x01, so files from before compression are read as plain UTF-8.
+const COMPRESSED = 0x01;
+
+async function through(bytes, stream) {
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+}
+
+/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded 0x01 ‖ DEFLATE of the UTF-8 text. */
 export async function encryptFile(fileKey, text) {
-  const { nonce, sealed } = await seal(fileKey, pad(utf8(text)));
+  const packed = concat(Uint8Array.of(COMPRESSED), await through(utf8(text), new CompressionStream("deflate-raw")));
+  const { nonce, sealed } = await seal(fileKey, pad(packed));
   return b64u(concat(nonce, sealed));
 }
 
-/** The text of `encryptFile`'s output (or of an older, unpadded file); throws when the key is wrong or the data was changed. */
+/** The text of `encryptFile`'s output (or of an older, uncompressed or unpadded file); throws when the key is wrong or the data was changed. */
 export async function decryptFile(fileKey, ciphertext) {
   const raw = fromB64u(ciphertext);
-  const plain = await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES));
-  return new TextDecoder("utf-8", { fatal: true }).decode(unpad(plain));
+  const body = unpad(await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES)));
+  const bytes = body[0] === COMPRESSED ? await through(body.subarray(1), new DecompressionStream("deflate-raw")) : body;
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+const PREVIOUS_KEY = utf8("notedown-previous-key");
+
+/** The key chain of the version history: b64u of nonce ‖ AES-GCM(new file key, old file key), associated data `notedown-previous-key`. */
+export async function sealPreviousKey(newKey, oldKey) {
+  const { nonce, sealed } = await seal(newKey, oldKey, PREVIOUS_KEY);
+  return b64u(concat(nonce, sealed));
+}
+
+/** The old file key from `sealPreviousKey`'s output; throws when `newKey` is the wrong one. */
+export function openPreviousKey(newKey, text) {
+  const raw = fromB64u(text);
+  return open(newKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES), PREVIOUS_KEY);
 }
 
 async function wrapKey(label, privateKey, otherPublic, ephemeralPublic, recipientPublic) {

@@ -608,6 +608,14 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .storage-bar[data-level="warn"] .storage-fill { background: var(--warning); }
 .storage-bar[data-level="full"] .storage-fill { background: var(--danger); }
 .storage-text { margin: -6px 0 0; }
+/* Version history (ui/history.js): notes of an older state, read-only and cut to a few lines. */
+.history-notes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.history-note { position: relative; max-height: 9.5em; overflow: hidden; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); font-size: 0.92rem; }
+.history-note::after { content: ""; position: absolute; inset: auto 0 0; height: 2em; background: linear-gradient(transparent, var(--bg)); }
+.history-note.back { box-shadow: inset 3px 0 0 var(--ctp-green); }
+.history-note.gone { box-shadow: inset 3px 0 0 var(--danger); opacity: 0.8; }
+.history-note.changed { box-shadow: inset 3px 0 0 var(--accent); }
+.history-note-body { overflow-wrap: anywhere; pointer-events: none; }
 .sheet-card { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
 .sheet-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px 6px 14px; }
 .sheet-row + .sheet-row { border-top: 1px solid var(--border); }

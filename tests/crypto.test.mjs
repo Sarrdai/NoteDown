@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import {
   b64u, fromB64u, canonicalJson, keyId, entryHash, recoveryKeyBytes, deriveRecovery, generateDeviceKeys,
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
-  decryptFile, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
+  decryptFile, sealPreviousKey, openPreviousKey, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
   newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
 } from "../app/js/core/crypto.js";
 
@@ -245,22 +245,41 @@ async function plaintextOf(key, ciphertext) {
     { name: "AES-GCM", iv: raw.subarray(0, 12) }, aes, raw.subarray(12)));
 }
 
-test("file: padding is 0x80 then zeros up to the next multiple of 4096 bytes", async () => {
+test("file: the plaintext is 0x01, the DEFLATE stream, then 0x80 and zeros up to the next multiple of 4096 bytes", async () => {
   const key = generateFileKey();
-  const cases = [
-    ["", 4096], ["a", 4096], ["a".repeat(4094), 4096], ["a".repeat(4095), 4096],
-    ["a".repeat(4096), 8192], ["a".repeat(8191), 8192], ["a".repeat(8192), 12288],
-  ];
+  const random = n => Array.from(globalThis.crypto.getRandomValues(new Uint8Array(n)), b => String.fromCharCode(33 + (b % 90))).join("");
+  const cases = [["", 4096], ["a", 4096], ["a".repeat(100000), 4096], [random(4000), 4096], [random(9000), 8192]];
   for (const [text, size] of cases) {
     const ciphertext = await encryptFile(key, text);
     const plain = await plaintextOf(key, ciphertext);
-    assert.equal(fromB64u(ciphertext).length, 12 + size + 16, `${text.length} bytes`);
-    assert.equal(plain.length, size);
-    const used = new TextEncoder().encode(text).length;
-    assert.equal(plain[used], 0x80);
-    assert.ok(plain.subarray(used + 1).every(b => b === 0));
+    assert.equal(fromB64u(ciphertext).length, 12 + size + 16, `${text.length} characters`);
+    assert.equal(plain[0], 0x01);
+    let end = plain.length;
+    while (plain[end - 1] === 0) end--;
+    assert.equal(plain[end - 1], 0x80);
+    const inflated = await new Response(new Blob([plain.subarray(1, end - 1)]).stream()
+      .pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    assert.equal(inflated, text);
     assert.equal(await decryptFile(key, ciphertext), text);
   }
+});
+
+test("file: decrypts the Python compressed ciphertext; uncompressed files from before still decrypt", async () => {
+  const key = hex(vectors.compressed_file.key);
+  assert.equal(await decryptFile(key, vectors.compressed_file.ciphertext), vectors.compressed_file.text);
+  assert.equal(fromB64u(vectors.compressed_file.ciphertext).length, 12 + 4096 + 16);
+  assert.equal(await decryptFile(hex(vectors.file.key), vectors.file.ciphertext), vectors.file.text);
+});
+
+test("previous key: opens the Python sealed key, round trips, the wrong key is rejected", async () => {
+  const { new_key: newKey, old_key: oldKey, sealed } = vectors.previous_key;
+  assert.equal(b64u(await openPreviousKey(hex(newKey), sealed)), b64u(hex(oldKey)));
+  const fresh = generateFileKey(), old = generateFileKey();
+  const mine = await sealPreviousKey(fresh, old);
+  assert.equal(fromB64u(mine).length, 12 + 32 + 16);
+  assert.ok(mine.length <= 512);
+  assert.equal(b64u(await openPreviousKey(fresh, mine)), b64u(old));
+  await assert.rejects(openPreviousKey(old, mine));
 });
 
 test("file: texts ending in a multi-byte character or in a 0x80 byte round trip", async () => {

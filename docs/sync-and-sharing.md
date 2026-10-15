@@ -9,6 +9,7 @@
 - [Contacts](#contacts)
 - [Keys](#keys)
 - [Sync](#sync)
+- [Version history](#version-history)
 - [Merging](#merging)
 - [Server](#server)
 - [Open points](#open-points)
@@ -234,7 +235,7 @@ the first sync round.
 | Recovery key | Seed of the identity key and of the recovery "device" key | Only with the user; never sent anywhere |
 | Identity key (Ed25519) | Who the user is: contacts remember it; signs the start of the device list | Derived from the recovery key when needed, stored on no device |
 | Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device, non-exportable (WebCrypto, IndexedDB) |
-| File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; renewed when a device is removed |
+| File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; renewed when a device is removed, the previous key sealed with the new one so the version history stays readable |
 
 - **Sharing a note in a new set of people:** the device creates a random
   file key, wraps it for every device on each member's device list,
@@ -243,8 +244,9 @@ the first sync round.
   list counts only if its chain starts with the identity key the user's
   app remembered for that contact, so the server can't add a device. Members' devices
   pick up their wrapped key with the file on their next sync.
-- Files are encrypted with AES-256-GCM, a fresh nonce per upload, which
-  also detects any change to the ciphertext. All primitives are in
+- Files are compressed (DEFLATE) and then encrypted with AES-256-GCM, a
+  fresh nonce per upload, which also detects any change to the
+  ciphertext. All primitives are in
   WebCrypto in current browsers and in the app's web view.
 
 ## Sync
@@ -272,6 +274,31 @@ the first sync round.
   A device rejects a version older than the one it has seen, so the
   server can't roll a file back unnoticed.
 
+## Version history
+
+Backlog #7, decided 2026-10-15: the server keeps older states of a file
+for 30 days (one per hour for the last day, then one per day), as long as
+one member of the file has version history switched on; for now the
+server's owner switches it per identity on the admin page, later it may
+become a paid option (backlog #33). The server can offer it although it
+only sees ciphertext: it keeps each replaced encrypted state instead of
+overwriting it and thins them out; every device of a member reads,
+decrypts and compares the states itself (`docs/server-api.md` → "Version
+history").
+
+- **Readable after a device was removed:** renewing a file key stores the
+  previous key sealed with the new one (a key chain), so any device with
+  the current key reads every older state, a device linked later too.
+- **Restoring** a state is an ordinary change: the device puts the
+  state's notes into the file (contacts, device names and other parts of
+  the file stay as they are, `restoredFile` in `app/js/core/history.js`)
+  and uploads it; the server pins the state it replaces, so the restore
+  can be undone, and the other devices merge it like any edit. For a
+  shared file it changes the notes for every member.
+- Costs storage on the server (whole encrypted copies, no deltas are
+  possible), not counted against the quota; compression keeps a state at
+  about a third of its text.
+
 ## Merging
 
 `mergeNotesFiles(base, local, remote)` compares both sides per note id
@@ -292,7 +319,8 @@ devices don't keep re-uploading the same notes in each other's order.
 ## Server
 
 - Holds: anonymous identities (ID, public keys, signed device
-  list), files (ciphertext + version, file keys wrapped per device) and
+  list), files (ciphertext + version, file keys wrapped per device, older
+  encrypted states where version history is on) and
   which identities may access which file, short-lived relay slots
   for linking devices and contacts, and the owner's news posts (plain
   text, fetched only when the file list reports a new version).

@@ -17,7 +17,8 @@ import { onlyUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limit
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, serverUrl } from "../core/linking.js";
 import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
-import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored } from "./files.js";
+import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored,
+  listVersions, readVersion, restoreVersion } from "./files.js";
 import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
@@ -378,6 +379,30 @@ export async function removeDevice(id) {
   markRenew();
   for (let i = 0; i < ATTEMPTS && state.sync.renew.length; i++) await syncNow();
   if (state.sync.renew.length) throw new Error("The device is removed, but the file keys couldn't be renewed yet; sync will try again");
+}
+
+// ---------- version history (docs/requirements.md → "Version history") ----------
+
+/** The older states the server keeps of a file (slot: circleKey, "" = private), newest first, after a sync round. */
+export async function fileVersions(slot) {
+  await syncNow();
+  await loadKeys();
+  return listVersions(slot);
+}
+
+/** The text of one older state of a file. */
+export async function fileVersionText(slot, version) {
+  await loadKeys();
+  return readVersion(slot, version);
+}
+
+/** Brings back an older state of a file for everyone in it; the state it replaces stays in the history. */
+export async function restoreFileVersion(slot, version) {
+  await syncNow();
+  await loadKeys();
+  await restoreVersion(slot, version);
+  await syncNow();
+  if (state.sync.restore.includes(slot)) throw new Error(state.sync.error || "The restored state isn't synced yet; sync will try again");
 }
 
 /**

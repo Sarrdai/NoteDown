@@ -12,6 +12,7 @@ import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, contacts, s
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
 import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
+import { restoredFile } from "../core/history.js";
 import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored, withSynced, dropSeenPurged } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
 import { ApiError, NetworkError } from "./api.js";
@@ -165,6 +166,8 @@ export async function filesRound() {
   const { privateFile, shared } = matchFiles(files, state.sync.identity);
   const slots = new Map();
   noteRestore(server, epoch, [[PRIVATE, privateFile], ...shared]);
+  const kept = [[PRIVATE, privateFile], ...shared].filter(([, f]) => f && f.history).map(([key]) => key);
+  if (kept.join("\n") !== state.sync.history.join("\n")) setSync({ history: kept });
   for (const [key, f] of shared) if (!fileAt(key)) setSharedFile(circle(key), emptyFile());
   for (const [key, f] of [[PRIVATE, privateFile], ...shared]) {
     const r = rec(key);
@@ -335,14 +338,18 @@ async function download(server, id) {
 }
 
 // Uploads a changed file on top of the version this device has seen; a version conflict ends the pass early.
+// A restored file (`state.sync.restore`) says so, so the server pins the state it replaces.
 async function upload(key, run) {
   const r = rec(key), text = textAt(key);
-  if (text === r.base) return true;
+  const restoring = state.sync.restore.includes(key);
+  const restored = () => { if (restoring) setSync({ restore: state.sync.restore.filter(k => k !== key) }); };
+  if (text === r.base) { restored(); return true; }
   const fileKey = await keyOf(r.server, r.id);
   if (!fileKey) throw new Error("No key for this device on the server");
   ctx.busy();
   const body = { base_version: r.version, ciphertext: await c.encryptFile(fileKey, text) };
-  if (await put(key, r.server, r.id, body, text, run)) return true;
+  if (restoring) body.restore = true;
+  if (await put(key, r.server, r.id, body, text, run)) { restored(); return true; }
   run.done = false;
   return false;
 }
@@ -406,11 +413,13 @@ async function renewPending(run) {
     const r = rec(key);
     if (r && fileAt(key)) {
       const renewed = await guarded(run, async () => {
-        const text = textAt(key), fileKey = c.generateFileKey();
+        const text = textAt(key), fileKey = c.generateFileKey(), oldKey = await keyOf(r.server, r.id);
+        if (!oldKey) throw new Error("No key for this device on the server");
         ctx.busy();
         const body = {
           base_version: r.version, ciphertext: await c.encryptFile(fileKey, text),
           keys: await wrapFor(await holdersFor(key, run), fileKey),
+          previous_key: await c.sealPreviousKey(fileKey, oldKey),   // keeps the file's history readable
         };
         if (!await put(key, r.server, r.id, body, text, run)) { run.done = false; return false; }
         await rememberKey(r.server, r.id, fileKey);
@@ -420,6 +429,59 @@ async function renewPending(run) {
     }
     setSync({ renew: state.sync.renew.filter(k => k !== key) });
   }
+}
+
+// ---------- version history ----------
+
+const listings = new Map();   // "<server>/<file ID>" → the last version listing (with the key chain)
+
+function synced(slot) {
+  const r = rec(slot);
+  if (!r) throw new Error("This file isn't synced yet");
+  return r;
+}
+
+/** The stored older states of a slot's file, newest first: [{ version, updated, replaced, size, pinned }]. */
+export async function listVersions(slot) {
+  const r = synced(slot);
+  const listing = await ctx.api(r.server).fileVersions(r.id);
+  listings.set(keyName(r.server, r.id), listing);
+  return listing.versions.map(({ version, updated, replaced, size, pinned }) => ({ version, updated, replaced, size, pinned }));
+}
+
+// The key of generation `gen`: this device's key (the current generation), opened down the chain.
+async function keyOfGeneration(r, listing, gen) {
+  let key = await keyOf(r.server, r.id);
+  if (!key) throw new Error("No key for this device on the server");
+  for (let g = listing.key_gen - 1; g >= gen; g--) {
+    const link = listing.chain.find(l => l.gen === g);
+    if (!link) throw new Error("The key of this version is missing");
+    key = await c.openPreviousKey(key, link.sealed);
+  }
+  return key;
+}
+
+/** The text of an older state of a slot's file. */
+export async function readVersion(slot, version) {
+  const r = synced(slot), name = keyName(r.server, r.id);
+  const fresh = !listings.has(name);
+  if (fresh) await listVersions(slot);
+  const got = await ctx.api(r.server).fileVersion(r.id, version);
+  try {
+    return await c.decryptFile(await keyOfGeneration(r, listings.get(name), got.key_gen), got.ciphertext);
+  } catch (e) {
+    if (fresh) throw e;
+    // The key was renewed since the listing was read: read the chain again.
+    await listVersions(slot);
+    return c.decryptFile(await keyOfGeneration(r, listings.get(name), got.key_gen), got.ciphertext);
+  }
+}
+
+/** Puts an older state's notes into a slot's file (`restoredFile`); the next round uploads it as a restore. */
+export async function restoreVersion(slot, version) {
+  const old = parseNotesFile(await readVersion(slot, version));
+  putFile(slot, restoredFile(fileAt(slot), old));
+  setSync({ restore: [...new Set([...state.sync.restore, slot])] });
 }
 
 // ---------- restoring ----------
