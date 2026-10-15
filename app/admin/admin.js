@@ -225,7 +225,7 @@ function moreMenu(e) {
 
 // ---------- navigation ----------
 
-const SECTIONS = [["overview", "Overview", "notes"], ["identities", "Identities", "user"], ["news", "News", "bell"], ["backup", "Backup", "cloud"]];
+const SECTIONS = [["overview", "Overview", "notes"], ["identities", "Identities", "user"], ["news", "News", "news"], ["backup", "Backup", "cloud"]];
 
 function nav() {
   return h("nav", { class: "adm-nav", role: "tablist", "aria-label": "Sections" },
