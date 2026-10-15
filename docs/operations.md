@@ -9,6 +9,7 @@
 - [4. Server subdomain](#4-server-subdomain)
 - [5. Android signing key](#5-android-signing-key)
 - [6. Alerts](#6-alerts)
+- [7. Admin page](#7-admin-page)
 - [Installing the test app](#installing-the-test-app)
 - [Checks](#checks)
 - [Day to day](#day-to-day)
@@ -60,7 +61,8 @@ don't.
 4. Server subdomain on Cloud Run.
 5. Android signing key.
 6. Alerts by email.
-7. Check everything (see "Checks").
+7. Admin page (needs sync on in your browser).
+8. Check everything (see "Checks").
 
 ## 1. Web app on GitHub Pages
 
@@ -218,6 +220,26 @@ charge of $0.35 per month per metric in a policy from September 2027,
 which would be $0.70 a month for these two. The checks keep one Cloud Run
 instance warm; idle instances cost nothing with request-based billing.
 
+## 7. Admin page
+
+`https://notedown.example.com/admin/` is the owner's maintenance page
+(`docs/requirements.md` → "Server maintenance (admin)"). It signs in with
+the NoteDown device of the browser it is opened in, so open it in a
+browser where the web app has sync turned on (or is linked to your
+phone).
+
+1. Open the admin page. It answers "This identity is not an admin …" and
+   shows your identity ID; *Copy ID*.
+2. GitHub → *Settings* → *Secrets and variables* → *Actions* →
+   *Variables* → New repository variable `ADMIN_IDENTITIES` = the ID
+   (several IDs separated by commas). The ID is not secret; without the
+   device keys it opens nothing.
+3. *Actions* → *Server* → *Run workflow* on `main`, then reload the admin
+   page.
+
+To take the access away, remove the ID from the variable and deploy
+again, or remove the device from your identity.
+
 ## Installing the test app
 
 On the Android phone: open the repository's *Releases* → **android-test**
@@ -230,6 +252,7 @@ the browser when asked. Later builds install over it.
 |---|---|
 | `https://notedown.example.com` | The app opens, padlock in the address bar |
 | `https://notedown-api.example.com/health` | `{"ok":true}` |
+| `https://notedown.example.com/admin/` | the overview with your identity marked "You" |
 | Cloud Console → *Monitoring* → *Uptime checks* → `notedown-api live` | green in all 3 regions |
 | Cloud Console → *Monitoring* → *Alerting* | the policies `NoteDown server down` and `NoteDown server errors`, notifying your email |
 | *Actions* → latest *Server*, *Web*, *Android* runs on `main` | green; deploy jobs not skipped |
@@ -247,5 +270,14 @@ checks; wait an hour).
 - Server logs: Cloud Console → *Cloud Run* → `notedown-api` → *Logs*.
 - The database schema is created and extended by the server at start
   (`server/notedown_server/schema.sql`, only additive statements).
+- **Backups:** the admin page → *Download backup* saves the whole server
+  state as one file (encrypted notes, public keys, who shares with whom
+  — keep it private anyway). Take one before risky changes and from time
+  to time. *Restore backup…* replaces everything with such a file (up to
+  32 MB, Cloud Run's request limit); devices merge their notes back in at
+  their next sync, devices linked after the backup must be linked again.
+  Neon's own point-in-time restore (Neon console → the project →
+  *Restore*; the free plan keeps only a short history window) works too
+  and is handled by the devices the same way.
 - To shut everything down: delete the Google Cloud project, the Neon
   project, the Pages custom domain and the DNS records.

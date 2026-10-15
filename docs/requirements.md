@@ -6,6 +6,7 @@
 - [Functional areas](#functional-areas)
   - [Notes and storage](#notes-and-storage)
   - [Sync and sharing](#sync-and-sharing)
+  - [Server maintenance (admin)](#server-maintenance-admin)
   - [Main view and archive](#main-view-and-archive)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
@@ -225,6 +226,48 @@ before the first live test).
     Android"); it travels in the QR code and is kept, encrypted, in the
     private file, so every device lists the same names. Devices linked
     before names existed stay "Device n"; renaming is not built.
+
+### Server maintenance (admin)
+
+Decided 2026-10-15 (user request): the owner of the default server needs
+an overview for maintenance, a manual backup, and later a place to switch
+paid features per user.
+
+- **An admin page** at `<web app>/admin/` (no link from the app): an
+  overview of what the server stores (identities, active devices, files
+  and shared files, contact pairs, open invitations, database size
+  against the hosting limit), the identities with their storage use,
+  devices, files and contacts, and backup / restore. *Prototype:
+  `app/admin/` (`?sample`).*
+- **Only the owner gets in, without a password of its own:** the page
+  signs in with the browser's linked NoteDown device (same origin as the
+  web app, so it shares its keys), and the server answers the admin API
+  only for identities listed in its configuration (`ADMIN_IDENTITIES`);
+  for anyone else it doesn't exist (404). Removing the device ends its
+  access. Why: no second secret to lose or leak, and the existing
+  challenge sign-in is already the strongest one available.
+- **No new metadata** (user decision): the page shows only what the
+  server holds anyway — anonymous IDs, public keys, sizes, versions,
+  times of change and who shares with whom; nothing like "last seen" is
+  recorded for it. Devices appear by ID and kind, not by name (names live
+  in the encrypted private file).
+- **Storage limit per identity:** the admin can raise or lower one
+  identity's limit (default 2 MB) or reset it to the default; the app's
+  storage bar shows the identity's own limit. Why: the first lever for a
+  paid option, useful for testers right away; real payments are backlog
+  #33.
+- **Backup:** "Download backup" saves one file with everything the server
+  stores (encrypted files, public keys, device lists, sharing); "Restore
+  backup…" replaces the whole server state with such a file after the
+  admin types RESTORE. A restore refuses a backup that would lock the
+  admin's own device out. Devices notice the restore at their next sync
+  and merge their notes into the restored files, so **nothing a device
+  holds is lost** (notes deleted since the backup may come back); a
+  device linked after the backup has to be linked again. Hosting limits:
+  a backup up to 32 MB can be restored through the page; the database
+  host's own point-in-time restore covers the same case
+  (`docs/operations.md`).
+- Not built: deleting or blocking an identity (backlog #34).
 
 ### Main view and archive
 
