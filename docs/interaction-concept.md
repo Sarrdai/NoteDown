@@ -87,9 +87,10 @@ Current state, edited in place when a decision changes.
 - **Bottom sheets** (phone) have a handle: a tap opens fully or closes.
   The whole sheet is one surface: dragging it anywhere leaves it at any
   height, past the top it slides out at the top instead of scrolling
-  inside; an upward flick glides on, a downward flick or a drag near the
-  bottom closes. A closed sheet is also pulled up by a drag up from a
-  thin strip at either screen edge in the bottom third.
+  inside; an upward flick opens a closed sheet fully and glides on an
+  open one, a downward flick or a drag near the bottom closes. A closed
+  sheet is also pulled up (or flicked open) by a drag up from a thin
+  strip at either screen edge in the bottom third.
 - **Back** (Android button or gesture) closes the innermost layer first:
   a dialog or panel page, the selection, the editor (editing ends), the
   open contents sheet; only then does it leave the app. Each layer sits

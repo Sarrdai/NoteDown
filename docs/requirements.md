@@ -393,11 +393,14 @@ before the first live test).
   it and leaves it at any height; dragged past the top bar it slides
   out at the top, which is how longer contents scroll (decided
   2026-10-15: opening and scrolling are one gesture, so it can also be
-  pushed back down from anywhere). An upward flick glides on, a flick
-  down closes it from anywhere, so does a drag below ~15 %. Closed, a
-  drag up from a thin strip at either screen edge in the bottom third
-  pulls it up as well (decided 2026-10-15: the handle is a small
-  target); there a drag down still scrolls the list. The height is not
+  pushed back down from anywhere). An upward flick that starts with the
+  sheet closed (on the handle or an edge strip) opens it fully, like a
+  tap on the handle (decided 2026-10-15: opening in one gesture); on the
+  open sheet it glides on. A flick down closes it from anywhere, so does
+  a drag below ~15 %. Closed, a drag up from a thin strip at either
+  screen edge in the bottom third pulls it up as well (decided
+  2026-10-15: the handle is a small target); there a drag down still
+  scrolls the list. The height is not
   remembered. While editing and recording the handle
   gives way. Tablet and desktop show it as a fixed sidebar.
 
