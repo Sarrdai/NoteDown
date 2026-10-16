@@ -349,7 +349,9 @@ paid features per user.
 - **An admin page** at `<web app>/admin/` (no link from the app): an
   overview of what the server stores (identities, active devices, files
   and shared files, contact pairs, open invitations, database size
-  against the hosting limit), the identities with their storage use,
+  against the hosting limit — a server setting, `DATABASE_LIMIT_MB`,
+  since the database can't report it; an (i) next to "Database" says so
+  on hover or tap), the identities with their storage use,
   devices, files and contacts, and backup / restore. *Prototype:
   `app/admin/` (`?sample`).*
 - **Four sections, Overview / Identities / News / Backup** (decided 2026-10-15

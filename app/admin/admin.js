@@ -263,7 +263,9 @@ function overviewSection() {
       tile("Contacts", counts.contacts),
       tile("Open invitations", counts.invitations),
       h("div", { class: "adm-tile adm-meter" },
-        h("div", { class: "tile-label" }, "Database"),
+        h("div", { class: "tile-label" }, "Database", infoTip("db-limit", "About the database limit",
+          `The limit (${formatBytes(storage.database_limit)}) is set on the server with DATABASE_LIMIT_MB; the server can't ask the database host for it. ` +
+          "The default, 1024 MB, is Neon's free plan. Change it when the plan or the host changes.")),
         h("div", { class: "tile-value small" }, meterText(storage.database, storage.database_limit)),
         h("div", {
           class: "meter", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(db.percent),
@@ -281,6 +283,16 @@ function overviewSection() {
         // Every identity without an override of its own follows it.
         done: () => { S.details.clear(); return reloadIdentity(null); },
       })));
+}
+
+/** An (i) button with a hint that shows on hover and keyboard focus, and on a tap on touch screens. */
+function infoTip(id, label, text) {
+  const btn = h("button", {
+    class: "adm-info", type: "button", "aria-label": label, "aria-describedby": id, "aria-expanded": "false",
+    onclick: () => btn.setAttribute("aria-expanded", String(btn.getAttribute("aria-expanded") !== "true")),
+    onblur: () => btn.setAttribute("aria-expanded", "false"),
+  }, ico("info", "icon"));
+  return h("span", { class: "adm-infowrap" }, btn, h("span", { class: "adm-tip", role: "tooltip", id }, text));
 }
 
 // ---------- identities ----------

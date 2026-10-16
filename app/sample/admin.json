@@ -13,7 +13,7 @@
   "storage": {
    "files": 6778591,
    "database": 9856614,
-   "database_limit": 536870912,
+   "database_limit": 1073741824,
    "history": 508000
   },
   "quota": 2097152,

@@ -22,8 +22,6 @@ from .protocol import (DEFAULT_MEMBERS, MAX_MEMBERS, MIN_MEMBERS, MAX_NEWS, MAX_
                        member_key, verify_chain)
 
 MAX_QUOTA_OVERRIDE = 1024 ** 3
-# The Neon free plan's database size; the overview shows the usage against it.
-DATABASE_LIMIT_BYTES = 512 * 1024 * 1024
 BACKUP_FORMAT = "notedown-backup"
 BACKUP_VERSION = 1
 MAX_WRAPPED_KEY = 512   # as in app.py: the longest wrapped key / sealed card
@@ -420,7 +418,7 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 "files": count(conn, "SELECT coalesce(sum(length(ciphertext)), 0) FROM files"),
                 "history": count(conn, "SELECT coalesce(sum(length(ciphertext)), 0) FROM file_versions"),
                 "database": count(conn, "SELECT pg_database_size(current_database())"),
-                "database_limit": DATABASE_LIMIT_BYTES,
+                "database_limit": settings.database_limit,
             }
             override = conn.execute("SELECT value::int FROM server_state WHERE key = 'max_members'").fetchone()
         return {"identity": who.identity, "counts": counts, "storage": storage, "quota": default_quota,

@@ -97,6 +97,22 @@ def test_admin_identities_come_from_the_environment(monkeypatch):
     assert Settings.from_env().admin_identities == []
 
 
+def test_the_database_limit_comes_from_the_environment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "x")
+    monkeypatch.setenv("SERVER_SECRET", "x")
+    monkeypatch.delenv("DATABASE_LIMIT_MB", raising=False)
+    assert Settings.from_env().database_limit == 1024 * 1024 * 1024
+    for empty in ("", " "):   # an unset GitHub variable deploys as an empty value
+        monkeypatch.setenv("DATABASE_LIMIT_MB", empty)
+        assert Settings.from_env().database_limit == 1024 * 1024 * 1024
+    monkeypatch.setenv("DATABASE_LIMIT_MB", "3072")
+    assert Settings.from_env().database_limit == 3072 * 1024 * 1024
+    for bad in ("0", "-5", "1.5", "1GB"):
+        monkeypatch.setenv("DATABASE_LIMIT_MB", bad)
+        with pytest.raises(ValueError):
+            Settings.from_env()
+
+
 # --- overview and identities ---
 
 
@@ -112,7 +128,10 @@ def test_overview_counts(client, people, admin):
     assert got["counts"] == {"identities": 3, "devices": 4, "files": 2, "shared_files": 1, "contacts": 1,
                              "invitations": 1, "news": 0, "blocked": 0}
     assert got["storage"]["files"] == 150
-    assert 0 < got["storage"]["database"] < got["storage"]["database_limit"] == 512 * 1024 * 1024
+    assert 0 < got["storage"]["database"] < got["storage"]["database_limit"] == 1024 * 1024 * 1024
+    # The limit comes from the settings (DATABASE_LIMIT_MB).
+    client.settings.database_limit = 2048 * 1024 * 1024
+    assert client.get("/v1/admin/overview", headers=admin.h).json()["storage"]["database_limit"] == 2048 * 1024 * 1024
     assert got["quota"] == MAX_STORAGE_BYTES and got["max_members"] == 20
 
 

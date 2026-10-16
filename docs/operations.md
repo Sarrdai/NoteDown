@@ -42,7 +42,9 @@ month (a synced app that is open polls every 5 s with two requests — the
 file list and the open invitations — about 260,000 requests a month for
 a device open all working day; while nothing changes the interval grows
 to 30 s, so a mostly idle device needs about 40,000), and the service is capped at 2 instances; Artifact Registry
-0.5 GB (the setup keeps the 5 newest images); Neon 0.5 GB of data and a
+0.5 GB (the setup keeps the 5 newest images); Neon 1 GB of data per
+project (since 2026-10; the admin page measures against it,
+`DATABASE_LIMIT_MB` below) and a
 database that sleeps after 5 idle minutes (the first request afterwards
 takes about a second; compute hours are limited on the free plan).
 Google needs a billing account even within the free tier; a budget alert
@@ -105,7 +107,13 @@ Namecheap the same way, then *Verify*.
    (Frankfurt)**.
 2. *Connect* → turn **Connection pooling off** and copy the connection
    string (`postgresql://…neon.tech/neondb?sslmode=require…`). It is
-   needed in step 3 and then never again — don't store it anywhere else.
+   needed in section 3 and then never again — don't store it anywhere else.
+3. The admin page shows the database size against the plan's limit,
+   which the server can't ask Neon for: it reads it from
+   `DATABASE_LIMIT_MB` (default 1024, the free plan). On another plan or
+   host: GitHub → *Settings* → *Secrets and variables* → *Actions* →
+   *Variables* → New repository variable `DATABASE_LIMIT_MB` = the limit
+   in MB, then run the *Server* workflow.
 
 ## 3. Google Cloud
 

@@ -38,6 +38,8 @@ INVITATION_LIVE = ("((requester IS NULL AND expires > now()) OR "
 # per day, and nothing replaced longer ago than this many days.
 HISTORY_HOURLY_HOURS = 24
 HISTORY_DAYS = 30
+# The database size the admin page measures against, in MiB: Neon's free plan (1 GB per project since 2026-10).
+DEFAULT_DATABASE_LIMIT_MB = 1024
 # Per-IP limits on the unauthenticated endpoints that create something: (max requests, window seconds).
 LIMIT_IDENTITIES = (10, 24 * 3600)
 LIMIT_RELAY = (30, 3600)
@@ -50,6 +52,8 @@ class Settings:
     cors_origins: list[str]
     rate_limits: bool = True   # switched off only for tests and the local end-to-end run
     admin_identities: list[str] = field(default_factory=list)   # who may use /v1/admin; empty = nobody
+    # The database host's size limit, only shown on the admin page (env DATABASE_LIMIT_MB; Postgres doesn't know it).
+    database_limit: int = DEFAULT_DATABASE_LIMIT_MB * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -60,7 +64,17 @@ class Settings:
             rate_limits=os.environ.get("RATE_LIMITS", "on").lower() != "off",
             # Exact identity IDs only: anything else (a typo, "*") never matches and is dropped here.
             admin_identities=[i for i in re.split(r"[,\s]+", os.environ.get("ADMIN_IDENTITIES", "")) if is_id(i)],
+            database_limit=database_limit_mb(os.environ.get("DATABASE_LIMIT_MB", "")) * 1024 * 1024,
         )
+
+
+def database_limit_mb(value: str) -> int:
+    """DATABASE_LIMIT_MB: a whole number of MiB above 0; empty (an unset deploy variable) is the default."""
+    if not value.strip():
+        return DEFAULT_DATABASE_LIMIT_MB
+    if not value.strip().isdigit() or int(value) < 1:
+        raise ValueError(f"DATABASE_LIMIT_MB must be a whole number of MB, not {value!r}")
+    return int(value)
 
 
 class NewIdentity(BaseModel):
