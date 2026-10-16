@@ -12,7 +12,6 @@ import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
 import { h, button } from "./dom.js";
-import { circleMenuEntry } from "./external-settings.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -65,24 +64,16 @@ export function pickCircle(key) {
   onPicked(key);
 }
 
-// Prototype variant B (#30): a circle's own "Links & media" setting is set from its long-press menu.
-const perCircleSetting = () => state.settings.protoExtSettings === "people";
-const HOLDABLE = () => perCircleSetting() ? ".people-entry.contact, .people-entry.group, .people-entry.private" : ".people-entry.contact";
-
-// The groups a contact is in, as a menu at the entry (variant B: and the circle's setting).
+// The groups a contact is in, as a menu at the entry.
 function groupsMenu(el) {
   const id = keyOf(el);
-  const setting = perCircleSetting() ? [circleMenuEntry(id)] : [];
-  if (!el.classList.contains("contact")) return openMenu(el, setting);
   const groups = groupsWith(id, sharedCircles());
   openMenu(el, [
-    ...setting,
-    setting.length && { separator: true },
     { section: `Groups with ${nameOf(id)}` },
     ...(groups.length
       ? groups.map(m => ({ label: membersLabel([...m].sort()), onSelect: () => pickCircle(circleKey(m)) }))
       : [{ label: "Not in any group yet", disabled: true, onSelect: () => {} }]),
-  ].filter(Boolean));
+  ]);
 }
 
 export function initPeople({ onPick, onAdd }) {
@@ -91,7 +82,7 @@ export function initPeople({ onPick, onAdd }) {
   const list = $("peopleList");
   list.addEventListener("pointerdown", e => {
     swallowClick = false;
-    const el = e.target.closest(HOLDABLE());
+    const el = e.target.closest(".people-entry.contact");
     if (!el || e.button !== 0) return;
     press = { el, x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
   });
@@ -103,7 +94,7 @@ export function initPeople({ onPick, onAdd }) {
     const el = e.target.closest(".people-entry");
     if (!el) return;
     e.preventDefault();
-    if (el.matches(HOLDABLE()) && !swallowClick) groupsMenu(el);
+    if (el.classList.contains("contact") && !swallowClick) groupsMenu(el);
   });
   list.addEventListener("click", e => {
     const el = e.target.closest(".people-entry");

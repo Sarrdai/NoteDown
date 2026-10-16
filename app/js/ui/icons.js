@@ -53,6 +53,7 @@ const PATHS = {
   restore: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
   image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.5" r="1.6"/><path d="M4 17.5l5-5 4 4 2.5-2.5 4.5 4.5"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3z"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
   grip: '<circle cx="9" cy="6" r="0.9"/><circle cx="15" cy="6" r="0.9"/><circle cx="9" cy="12" r="0.9"/><circle cx="15" cy="12" r="0.9"/><circle cx="9" cy="18" r="0.9"/><circle cx="15" cy="18" r="0.9"/>',
 };
 

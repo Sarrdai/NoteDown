@@ -30,11 +30,11 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
-import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
+import { initReminders, simulateReminder } from "./ui/reminders.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
-import { initExternalSettings, openExternalDialog } from "./ui/external-settings.js";
+import { openSettings, FLAVORS } from "./ui/settings.js";
 import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
@@ -43,7 +43,6 @@ const $ = id => document.getElementById(id);
 const app = $("app");
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
-const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
 const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
 
@@ -394,7 +393,6 @@ const ACTIONS = [
     ? { label: `Archive (${closedOn(allNotes(), today())} today)`, icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
   { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
-  { id: "remindersBtn", menu: () => ({ label: "Reminders…", icon: "bell", onSelect: openReminderDialog }) },
   { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
 ];
 const wide = window.matchMedia("(min-width: 1024px)");
@@ -422,9 +420,6 @@ function fitTopbar() {
   title.textContent = text;
 }
 
-// Prototype variants (#30): where a circle's own links & media setting is made.
-const EXT_VARIANTS = { dialog: "In the dialog (A)", people: "Long-press under People (B)" };
-
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
@@ -434,12 +429,7 @@ function moreMenu() {
   openMenu($("moreBtn"), [
     ...hidden,
     trashEntry,
-    { label: "Links & media…", icon: "link", onSelect: () => openExternalDialog() },
-    { separator: true },
-    { section: "Theme" },
-    ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
-    { section: "Prototype: Links & media per circle" },
-    ...Object.entries(EXT_VARIANTS).map(([id, label]) => ({ label, checked: s.protoExtSettings === id, onSelect: () => updateSettings({ protoExtSettings: id }) })),
+    { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -505,14 +495,13 @@ function showDue(ids) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["remindersBtn", "bell"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
   $("searchIcon").innerHTML = icon("search");
   $("fab").querySelector(".fab-new").innerHTML = icon("plus");
   $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
-  $("remindersBtn").addEventListener("click", openReminderDialog);
   $("exportBtn").addEventListener("click", exportDialog);
   window.addEventListener("resize", fitTopbar);
   $("syncBtn").addEventListener("click", openSyncPanel);
@@ -554,7 +543,6 @@ function wire() {
   initMenu();
   initConfirm();
   initExternal();
-  initExternalSettings();
   initArrange();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", onTranscript: addDictatedNote });
@@ -600,7 +588,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (EXT_VARIANTS[p.get("extsettings")]) patch.protoExtSettings = p.get("extsettings");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

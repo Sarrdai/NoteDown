@@ -8,6 +8,7 @@ import { openMenu } from "./menu.js";
 import { showSnackbar } from "./snackbar.js";
 import { today, addDays } from "./format.js";
 import { icon } from "./icons.js";
+import { openSettings } from "./settings.js";
 
 const BUTTONS = [
   ["heading", "Heading", "heading"],
@@ -105,6 +106,9 @@ export function openDueMenu(anchor, id) {
       try { input.showPicker(); } catch { input.focus(); input.click(); }
     } },
     ...(n.due ? [{ separator: true }, { label: "Remove due date", onSelect: () => pick(null) }] : []),
+    // Reminders are set in the settings; here is where they are looked for.
+    { separator: true },
+    { label: "Reminders…", icon: "bell", onSelect: () => openSettings("reminders") },
   ]);
 }
 
