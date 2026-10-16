@@ -1,3 +1,3 @@
 # Demo transcript for ?dictation=demo (app/js/ui/dictation.js)
 
-Pick up the winter jackets from the dry cleaner on Thursday. They close at six. Also ask whether they can fix the zip on the blue one.
+Lea says the fado bar in Mouraria only takes cash. Bring some euros for Friday night.

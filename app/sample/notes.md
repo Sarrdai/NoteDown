@@ -30,6 +30,14 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 
 #travel
 
+<!-- note id=s21 status=open created=2026-10-12T20:15Z modified=2026-10-12T20:40Z -->
+## Where to eat in Lisbon
+- Grilled sardines in Alfama, the place with the blue tiles
+- Bifanas at the Time Out Market
+- Seafood in Cascais after the beach, ask Lea for the name
+
+#travel
+
 <!-- note id=s04 status=open created=2026-10-08T14:30Z modified=2026-10-11T16:45Z due=2026-10-10 -->
 ## Tax return 2025
 The deadline was extended, but the accountant wants the papers this week.
@@ -62,6 +70,9 @@ Six-month check-up is due. Ask whether Tuesday mornings are possible.
 
 <!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z deleted=2026-10-13T07:45Z -->
 Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.
+
+<!-- note id=s20 status=open created=2026-10-08T21:30Z modified=2026-10-08T21:30Z -->
+Tom says the custard tarts in Belém are worth the queue. Go before the tower opens.
 
 <!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 -->
 ## Birthday party for Mia
