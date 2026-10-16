@@ -1,8 +1,9 @@
 // Taps on a counter (core/counter.js), in the rendered note and in the
 // editor's live preview: the number pops up its step buttons around itself,
 // floating over the text; each tap on one changes the number. A tap beside
-// them or Esc closes them.
+// them, Esc or the back key closes them (they sit on their own history entry).
 import { addStep } from "../core/counter.js";
+import { pushEntry, leaveEntry } from "./dom.js";
 
 let open = null;   // { scrim, pop, value }
 
@@ -39,9 +40,10 @@ function openPop(counter, apply) {
     apply(b.dataset.step);
   });
   scrim.addEventListener("pointerdown", e => e.preventDefault());
-  scrim.addEventListener("click", closePop);
+  scrim.addEventListener("click", () => closePop());
   document.body.append(scrim, pop);
   placeOver(pop, counter);
+  pushEntry({ counter: true });
   requestAnimationFrame(() => pop.classList.add("shown"));
 }
 
@@ -55,12 +57,20 @@ function placeOver(pop, chip) {
   pop.style.top = Math.max(8, r.top + r.height / 2 - pop.offsetHeight / 2) + "px";
 }
 
-export function closePop() {
+export function closePop({ fromHistory = false } = {}) {
   if (!open) return;
   open.scrim.remove();
   open.pop.remove();
   open = null;
+  if (!fromHistory) leaveEntry("counter");
 }
 
-document.addEventListener("keydown", e => { if (e.key === "Escape") closePop(); });
-window.addEventListener("resize", closePop);
+// Esc closes only the buttons, not the edit around them (capture: before the editor).
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || !open) return;
+  e.preventDefault();
+  e.stopPropagation();
+  closePop();
+}, true);
+window.addEventListener("resize", () => closePop());
+window.addEventListener("popstate", () => { if (open && !history.state?.counter) closePop({ fromHistory: true }); });

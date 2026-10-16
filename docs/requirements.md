@@ -786,7 +786,8 @@ this needs none of it.
   chip; a tap pops its step buttons up around it, floating over the text
   (− steps left, + steps right, the number between them counting along).
   Each tap changes only the number in the text, without entering edit
-  mode; a tap beside them or `Esc` closes them. Why: the note reads like
+  mode; a tap beside them, `Esc` or the Android back key closes them
+  (only them: an edit around them goes on). Why: the note reads like
   plain text, the buttons appear where the user tapped (decided
   2026-10-16 over always visible buttons, a menu and a centered card).
   Only the current value is kept, no history (the version history covers
