@@ -37,13 +37,15 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      # The app finds its sync server and the web address that invitation links start with
-      # in app/config.json (empty in the repository).
-      - if: vars.API_HOST != ''
-        run: |
-          web=''
-          if [ -n "$WEB_HOST" ]; then web=", \"web\": \"https://$WEB_HOST\""; fi
-          echo "{ \"api\": \"https://${{ vars.API_HOST }}\"$web }" > ../app/config.json
+      # The app finds its sync server, the web address that invitation links start with, the
+      # operator named in the privacy policy and terms of use, and its version in app/config.json
+      # (empty in the repository). The version starts with the APK's versionName (app/build.gradle).
+      - run: APP_VERSION="0.1.$VERSION_CODE · $(date -u +%F) · ${GITHUB_SHA::7}" node ../scripts/write-config.js
+        env:
+          API_HOST: ${{ vars.API_HOST }}
+          OPERATOR_NAME: ${{ vars.OPERATOR_NAME }}
+          OPERATOR_EMAIL: ${{ vars.OPERATOR_EMAIL }}
+          OPERATOR_ADDRESS: ${{ vars.OPERATOR_ADDRESS }}
       - run: npx cap sync android
 
       - name: Build signed release APK

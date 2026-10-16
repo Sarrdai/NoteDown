@@ -1,0 +1,29 @@
+/* The privacy policy and the terms of use (../privacy/, ../terms/, legal.js). Colors only via the
+ * semantic tokens of ../css/app.css. */
+
+body { background: var(--bg); }
+.legal { min-height: 100dvh; color: var(--text); }
+.legal-wrap { width: 100%; max-width: 720px; margin: 0 auto; padding: 0 16px 48px; }
+
+.legal-top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--border); padding-top: var(--safe-top); }
+.legal-top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 720px; min-height: var(--topbar-h); margin: 0 auto; padding: 0 8px 0 16px; }
+.legal-top h1 { margin: 0; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legal-top a.btn { display: inline-flex; align-items: center; flex: none; text-decoration: none; }
+
+.legal-langs { display: flex; gap: 16px; margin: 20px 4px 0; font-size: 0.92rem; }
+.legal a { color: var(--link); }
+
+.legal-doc {
+  margin: 16px 0 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); line-height: 1.55; overflow-wrap: anywhere;
+}
+.legal-doc + .legal-doc { margin-top: 24px; }
+.legal-doc > h2 { margin: 0 0 4px; font-size: 1.3rem; }
+.legal-doc h3 { margin: 22px 0 6px; font-size: 1.02rem; }
+.legal-doc p, .legal-doc ul { margin: 0 0 10px; }
+.legal-doc ul { padding-left: 20px; }
+.legal-doc li { margin: 0 0 4px; }
+.legal-meta { color: var(--text-faint); font-size: 0.88rem; }
+.legal-contact > span:not([hidden]) { display: block; }
+.legal-operator { white-space: pre-line; }
+.legal-missing { color: var(--text-muted); font-style: italic; }

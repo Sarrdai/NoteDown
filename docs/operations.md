@@ -81,6 +81,17 @@ don't.
    Save. GitHub checks the DNS record (up to an hour), then issues the
    certificate; tick **Enforce HTTPS** as soon as it can be ticked.
    Afterwards `https://notedown.example.com` shows the app.
+6. Repository variables `OPERATOR_NAME` and `OPERATOR_EMAIL` (and, if
+   you want it shown, `OPERATOR_ADDRESS`, with `\n` between lines): who
+   runs this copy, named in the privacy policy (`/privacy/`) and the terms
+   of use (`/terms/`). The web and Android deploys write them into
+   `app/config.json` (`scripts/write-config.js`), together with the
+   version Settings → About shows; without them the pages say no operator
+   is set. The texts describe this setup (GitHub Pages, Cloud Run in
+   `europe-west1`, Neon in Frankfurt): whoever hosts elsewhere edits
+   `app/privacy/index.html`. The Play Console asks for
+   `https://notedown.example.com/privacy/` and, for deleting data,
+   `https://notedown.example.com/delete/`.
 
 Recommended against someone else claiming the subdomain on GitHub: your
 GitHub *profile* settings → *Pages* → *Add a domain* → `example.com`; it

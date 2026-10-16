@@ -37,11 +37,16 @@ jobs:
         with:
           node-version: 22
       - run: node --test
-      # The app finds its sync server and its own web address (the start of invitation
-      # links) in app/config.json (empty in the repository).
-      - if: vars.API_HOST != ''
-        run: |
-          echo '{ "api": "https://${{ vars.API_HOST }}", "web": "https://${{ vars.WEB_HOST }}" }' > app/config.json
+      # The app finds its sync server, its own web address (the start of invitation links), the
+      # operator named in the privacy policy and terms of use, and its version in app/config.json
+      # (empty in the repository).
+      - run: APP_VERSION="$(date -u +%F) · ${GITHUB_SHA::7}" node scripts/write-config.js
+        env:
+          API_HOST: ${{ vars.API_HOST }}
+          WEB_HOST: ${{ vars.WEB_HOST }}
+          OPERATOR_NAME: ${{ vars.OPERATOR_NAME }}
+          OPERATOR_EMAIL: ${{ vars.OPERATOR_EMAIL }}
+          OPERATOR_ADDRESS: ${{ vars.OPERATOR_ADDRESS }}
       # The Android App Link check (docs/operations.md) reads app/.well-known/assetlinks.json, which holds
       # the SHA-256 fingerprint of the release key. It is generated from the same keystore secret the
       # Android build signs with; without that secret no file is published (and none is in the repository).
