@@ -61,8 +61,9 @@ The deadline was extended, but the accountant wants the papers this week.
 
 <!-- note id=s20 status=open created=2026-10-01T07:30Z modified=2026-10-13T17:10Z -->
 ## Hours in October
-- P-2041 Website relaunch: 23,5 [-4 -1 +1 +8]
+- P-2041 Website relaunch: 23,5 h [-4 -1 +1 +8 ⏱15]
 - P-2057 Annual report: 6 [-1 -0,5 +0,5 +1]
+- P-2063 Support hotline: 3:45 [-0:15 +0:15 ⏱]
 - Running this month: 4 [-1 +1]
 
 #work

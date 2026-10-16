@@ -8,8 +8,8 @@
 // a new due date sorts its note in (reorderList). News posts are read-only
 // cards: no editing, no due date, a label while they are new or updated.
 import { renderMarkdown, toggleTask, setTaskState, sections, noteTitle } from "../core/markdown.js";
-import { stepCounter } from "../core/counter.js";
-import { counterClick } from "./counter.js";
+import { changeCounter } from "../core/counter.js";
+import { counterClick, fillWatches } from "./counter.js";
 import { holdForStates } from "./task-menu.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
@@ -116,6 +116,7 @@ function noteElement(n, view = state.view) {
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
   applyExternal(body, circleKey(circleOf(n.id)));
+  fillWatches(body);
   wrapSections(body, sections(n.body));
   markHits(body);
   if (state.settings.tocProgress) addProgress(body, n.body);
@@ -227,7 +228,7 @@ function onBodyClick(e, id) {
   }
   const counter = e.target.closest(".counter");
   const index = counter && [...e.currentTarget.querySelectorAll(".counter")].indexOf(counter);
-  if (counterClick(e, step => setBody(id, stepCounter(note(id).body, index, step)))) return;
+  if (counterClick(e, change => setBody(id, changeCounter(note(id).body, index, change)))) return;
   const cb = e.target.closest("input.task");
   if (cb) {
     e.preventDefault();

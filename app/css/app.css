@@ -856,8 +856,19 @@ a.row-open { text-decoration: none; }
 .counter::before { content: ""; position: absolute; inset: -8px -4px; } /* larger touch target */
 .counter:disabled { cursor: default; opacity: 0.55; }
 .counter-scrim { position: fixed; inset: 0; z-index: 60; }
+/* A stopwatch (time and hours counters): an icon in the chip, while running
+   the time counting; in variant C (on the chip) a Start / Stop part of its own. */
+.counter-watch { position: relative; display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; vertical-align: -0.12em; font-weight: 600; }
+.counter-watch .icon { width: 15px; height: 15px; }
+.counter.running { background: var(--accent); color: var(--on-accent); }
+.counter.running .counter-watch .icon { animation: watch-pulse 1.6s ease-in-out infinite; }
+@keyframes watch-pulse { 50% { opacity: 0.35; } }
+.counter.watch-zone { padding-right: 0; }
+.counter.watch-zone .counter-watch { margin-left: 8px; padding: 0 9px 0 8px; min-height: 26px; border-left: 1.5px solid currentColor; }
+.counter.watch-zone .counter-watch .icon { fill: currentColor; }
 .counter-pop {
-  position: fixed; z-index: 61; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
+  position: fixed; z-index: 61; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border-radius: 28px;
+  max-width: calc(100vw - 16px); box-sizing: border-box;
   background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-high); border: 1px solid var(--border);
   opacity: 0; transform: scale(0.85); transition: opacity 0.14s ease, transform 0.14s ease;
 }
@@ -869,6 +880,23 @@ a.row-open { text-decoration: none; }
   background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums;
 }
 .counter-pop .counter-step.minus { background: var(--code-bg); color: var(--text-muted); }
+/* A row too wide for the screen wraps (many steps and Start / Stop on the phone). */
+.counter-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.counter-pop-value { border: 0; background: transparent; font-family: inherit; height: var(--tap); border-radius: 999px; cursor: text; }
+.counter-pop.watch-rows .counter-pop-value { cursor: default; }
+.counter-input {
+  width: 8.5em; height: var(--tap); padding: 0 12px; border-radius: 999px; box-sizing: border-box;
+  border: 1.5px solid var(--accent); background: var(--bg); color: var(--text); font: inherit; text-align: center;
+}
+.counter-pop.watch-rows .counter-input { flex: 1; border-color: var(--border); }
+.counter-input:focus { outline: none; border-color: var(--accent); }
+.counter-input.invalid { border-color: var(--danger); background: var(--danger-soft); }
+.counter-watch-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--tap); padding: 0 14px 0 11px; border: 0; border-radius: 999px;
+  font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; cursor: pointer; background: var(--accent); color: var(--on-accent);
+}
+.counter-watch-btn .icon { width: 16px; height: 16px; fill: currentColor; }
+.counter-watch-btn.running { background: var(--danger); }
 .counter-pop .counter-step:active { filter: brightness(0.92); }
 .md a { color: var(--link); }
 /* External content (#30, ui/external.js): a link that isn't clickable, and

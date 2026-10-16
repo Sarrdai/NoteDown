@@ -824,12 +824,33 @@ Decided 2026-10-16 (user request).
   visible before it counts (user request 2026-10-16). Why: the note reads like
   plain text, the buttons appear where the user tapped (decided
   2026-10-16 over always visible buttons, a menu and a centered card).
+  A tap on the number in the pop-up types an amount of one's own
+  (without sign it adds, `-2` subtracts); it joins the pending change.
   Only the current value is kept, no history (the version history covers
   that). Archived, deleted and news notes show their counters read-only.
   Counters inside code are plain text.
 - The toolbar's **counter** button adds `0 [-1 +1]` at the end of the
   current line (a line that has a counter stays as it is); the line then
-  shows its Markdown to edit the steps.
+  shows its Markdown to edit the steps. A long-press (desktop:
+  right-click) on it adds a time counter with a stopwatch,
+  `0:00 [-0:15 +0:15 ⏱15]`.
+- **Times** (decided 2026-10-16, user request): a counter counts time in
+  either of two forms — **hours and minutes** `3:45 [-0:15 +0:15]`
+  (steps in h:mm too) or **decimal hours** with the unit `h`
+  `23,5 h [-1 +1]`. Why: a plain `+1` doesn't say whether it means an
+  hour or a minute. Typed into a time, a plain number is minutes (`40` →
+  `+0:40`).
+- A time counter can carry a **stopwatch** `⏱` in its brackets, a plain
+  number can't (no unit). The number after it is the rounding in minutes
+  (`⏱15`: quarter hours; `⏱` alone: to the minute); a run is always
+  rounded **up**, at least one unit (usual for billed hours). Start and
+  Stop are written at once (with any pending taps); while it runs, its
+  start stands in the brackets, UTC to the second
+  (`⏱15 2026-10-16T08:05:12Z`), so it runs on across devices and sync,
+  and the chip shows the running time live. Stopping adds the rounded
+  run to the value. Several stopwatches may run at once.
+  *Prototype: 2026-10-16; where Start / Stop and the amount input sit is
+  still open (three variants, ⋮ → Prototype).*
 
 ### Links and media from the web
 

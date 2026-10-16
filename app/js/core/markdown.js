@@ -4,7 +4,7 @@
 import { Marked } from "../../vendor/marked.esm.js";
 import { LABEL_AT } from "./labels.js";
 import { mediaSource, mediaKind } from "./external.js";
-import { COUNTER_AT, counterStart, parseSteps, counterHtml } from "./counter.js";
+import { counterAt, counterStart, counterHtml } from "./counter.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
 marked.use({
@@ -32,11 +32,11 @@ marked.use({
       return i < 0 ? undefined : i;
     },
     tokenizer(src) {
-      const m = COUNTER_AT.exec(src);
-      if (m) return { type: "counter", raw: m[0], value: m[1], steps: parseSteps(m[2]) };
+      const c = counterAt(src);
+      if (c) return { type: "counter", raw: c.raw, counter: c };
     },
-    renderer({ value, steps }) {
-      return counterHtml(value, steps);
+    renderer({ counter }) {
+      return counterHtml(counter);
     },
   }, {
     // A task in progress or cancelled (`[/]`, `[-]`), set up by walkTokens below.
@@ -181,7 +181,7 @@ function plain(md) {
   return md
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/^\s*(?:[-*+]|\d+[.)])\s+(\[[ xX/-]\]\s+)?/gm, "")
-    .replace(/(\d)[ \t]?\[[ \t]*[+-]\d[\d.,+\- \t]*\]/g, "$1")
+    .replace(/(\d)([ \t]?h)?[ \t]?\[[ \t]*(?:[+-]\d|⏱)[^\]\n]*\]/g, "$1$2")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*_~`]+/g, "")
     .replace(/<[^>]+>/g, "")

@@ -45,7 +45,8 @@ Done by bank transfer, reference number in the banking app.
   progress, `[-]` cancelled (as Obsidian themes write them;
   `docs/requirements.md` → "Task states and progress").
 - Counters (`23,5 [-4 -1 +1 +8]`, `docs/requirements.md` → "Counters")
-  are plain text in the body too: the app changes only the number.
+  are plain text in the body too: the app changes only the number, and a
+  stopwatch's start time in the brackets.
 - Text before the first marker is the file's preamble (e.g. a title); it
   is kept unchanged.
 - When writing, notes are separated by one blank line and the body is
