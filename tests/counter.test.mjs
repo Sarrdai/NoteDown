@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { counters, stepCounter, addStep, appendCounter, counterStart, COUNTER_AT } from "../app/js/core/counter.js";
+import { counters, stepCounter, addStep, sumSteps, pendingText, appendCounter, counterStart, COUNTER_AT } from "../app/js/core/counter.js";
 import { renderMarkdown, noteTitle } from "../app/js/core/markdown.js";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
 
@@ -36,6 +36,18 @@ test("addStep keeps the decimals and the comma as written", () => {
   assert.equal(addStep("0.1", "+0.2"), "0.3");
   assert.equal(addStep("0,5", "-0,5"), "0,0");
   assert.equal(addStep("1", "-1"), "0");
+});
+
+test("sumSteps adds the pending taps, pendingText shows them after the value", () => {
+  assert.equal(sumSteps(sumSteps("+0", "+4"), "+4"), "+8");
+  assert.equal(sumSteps("+0", "-1"), "-1");
+  assert.equal(sumSteps("+1", "-1"), "+0");
+  assert.equal(sumSteps("+0", "+0,5"), "+0,5");
+  assert.equal(pendingText("36", "+8"), "36 + 8");
+  assert.equal(pendingText("36", "-2"), "36 − 2");
+  assert.equal(pendingText("23,5", "+0,5"), "23,5 + 0,5");
+  assert.equal(pendingText("36", "+0"), "36");
+  assert.equal(stepCounter("A 36 [+4]", 0, "+8"), "A 44 [+4]");
 });
 
 test("stepCounter changes only the n-th counter's number", () => {
