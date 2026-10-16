@@ -504,7 +504,7 @@ function showDue(ids) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");

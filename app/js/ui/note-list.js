@@ -7,9 +7,12 @@
 // next structural change (view, sort, search, new / closed note) and when
 // a new due date sorts its note in (reorderList). News posts are read-only
 // cards: no editing, no due date, a label while they are new or updated.
-import { renderMarkdown, toggleTask, sections, noteTitle } from "../core/markdown.js";
+import { renderMarkdown, toggleTask, setTaskState, sections, noteTitle } from "../core/markdown.js";
 import { stepCounter } from "../core/counter.js";
 import { counterClick } from "./counter.js";
+import { holdForStates } from "./task-menu.js";
+import { progressBadge } from "./toc.js";
+import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
@@ -115,7 +118,9 @@ function noteElement(n, view = state.view) {
   applyExternal(body, circleKey(circleOf(n.id)));
   wrapSections(body, sections(n.body));
   markHits(body);
+  if (state.settings.tocProgress) addProgress(body, n.body);
   if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter").forEach(cb => (cb.disabled = true));
+  else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(n.id, setTaskState(note(n.id).body, index, s))));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
   const meta = document.createElement("div");
@@ -125,6 +130,24 @@ function noteElement(n, view = state.view) {
   el.append(body, meta, ...(n.deleted ? [] : [status]));
   markSelected(el);
   return el;
+}
+
+// The task progress at each heading whose section has tasks (the switch in the
+// contents, ui/toc.js); text before the first heading shows it in the meta line.
+function addProgress(body, md) {
+  sectionProgress(md).forEach((p, i) => {
+    const h = p && body.querySelector(`.md-section[data-section="${i}"] > :is(h1, h2, h3, h4, h5, h6):first-child`);
+    if (h) h.append(" ", progressBadge(p));
+  });
+}
+
+function leadProgress(n) {
+  if (!state.settings.tocProgress) return "";
+  const p = sections(n.body)[0].depth === null && sectionProgress(n.body)[0];
+  if (!p) return "";
+  const badge = progressBadge(p);
+  badge.classList.add("chip");
+  return badge.outerHTML;
 }
 
 // Groups the rendered blocks by section (core/markdown.js → sections), so
@@ -185,6 +208,7 @@ function metaHtml(n, view = state.view) {
     // An empty slot to set one.
     parts.push(`<button type="button" class="chip due-chip due-add">${icon("calendar")}Due date</button>`);
   }
+  parts.push(leadProgress(n));
   const key = state.settings.sort[view].key;
   const field = n.deleted && view === "trash" ? "deleted" : { created: "created", closed: "closed" }[key] || "modified";
   const label = { created: "Created", closed: "Closed", deleted: "Deleted", modified: "Edited" }[field];

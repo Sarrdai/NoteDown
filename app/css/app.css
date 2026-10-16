@@ -831,7 +831,20 @@ a.row-open { text-decoration: none; }
 .md input.task::before { content: ""; position: absolute; inset: -10px; } /* larger touch target */
 .md input.task:checked { background: var(--accent); border-color: var(--accent); }
 .md input.task:checked::after { content: ""; width: 9px; height: 5px; border: solid var(--on-accent); border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
-.md li:has(> input.task:checked, > p:first-child > input.task:checked) { color: var(--text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-faint) 60%, transparent); }
+/* Task states (core/markdown.js): in progress is a half-filled box, cancelled a
+   struck box with its text faded and struck through like a done one. */
+.md input.task[data-state="doing"] { border-color: var(--accent); background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
+.md input.task[data-state="cancelled"]::after { content: ""; width: 10px; height: 2px; border-radius: 1px; background: var(--text-faint); }
+.md li:has(> input.task:is(:checked, [data-state="cancelled"]), > p:first-child > input.task:is(:checked, [data-state="cancelled"])) { color: var(--text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-faint) 60%, transparent); }
+/* Task progress (ui/toc.js): "done/total" at a heading, in the meta line and in the contents. */
+.task-progress {
+  display: inline-block; margin-left: 4px; padding: 0 7px; border-radius: 999px; vertical-align: 0.1em;
+  font-size: 0.72rem; font-weight: 600; line-height: 1.6; font-variant-numeric: tabular-nums;
+  color: var(--text-muted); background: var(--surface-hover);
+}
+.task-progress.complete { color: var(--on-accent); background: var(--done); }
+.note-meta .chip.task-progress { margin-left: 0; padding: 0 9px; font-size: inherit; line-height: normal; vertical-align: baseline; }
+.toc-entry .task-progress { float: right; margin: 1px 0 0 8px; font-style: normal; }
 .note.closed .md input.task { cursor: default; }
 /* Counters (core/counter.js): the number as an accent chip; a tap pops its step
    buttons up around it, floating over the text (ui/counter.js). */
@@ -929,6 +942,8 @@ a.row-open { text-decoration: none; }
 .stepper { display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
 .stepper-value { min-width: 18px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); }
 .stepper .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.stepper-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--border); }
+.stepper .icon-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
 .toc-list { flex: 1; overflow-y: auto; touch-action: pan-y pinch-zoom; padding: 4px 8px 84px; overscroll-behavior: contain; }
 .toc-entry {
   display: block; width: 100%; padding: 6px 10px; border: 0; border-radius: 8px; text-align: left;

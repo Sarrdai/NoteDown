@@ -1,6 +1,6 @@
 // Markdown helpers on a note's body: rendering, headings and sections for
-// the table of contents, the preview title, and toggling task checkboxes in
-// the source.
+// the table of contents, the preview title, and the task checkboxes and their
+// states in the source.
 import { Marked } from "../../vendor/marked.esm.js";
 import { LABEL_AT } from "./labels.js";
 import { mediaSource, mediaKind } from "./external.js";
@@ -38,11 +38,30 @@ marked.use({
     renderer({ value, steps }) {
       return counterHtml(value, steps);
     },
+  }, {
+    // A task in progress or cancelled (`[/]`, `[-]`), set up by walkTokens below.
+    name: "taskState",
+    renderer({ state }) {
+      return taskBox(state);
+    },
   }],
+  // GFM knows `[ ]` and `[x]` only: a list item starting with `[/]` or `[-]`
+  // becomes a task too, its box drawn by the taskState renderer.
+  walkTokens(token) {
+    if (token.type !== "list_item" || token.task) return;
+    const m = /^\[([/-])\] +(?=\S)/.exec(token.text);
+    const block = token.tokens[0];
+    const first = block && (block.type === "text" || block.type === "paragraph") && block.tokens?.[0];
+    if (!m || !first || first.type !== "text" || !first.text.startsWith(m[0])) return;
+    first.text = first.text.slice(m[0].length);
+    first.raw = first.raw.slice(m[0].length);
+    block.tokens.unshift({ type: "taskState", raw: "", state: STATES[m[1]] });
+    token.task = true;
+  },
   renderer: {
     // Task checkboxes stay clickable; the view maps a click to taskIndex.
     checkbox({ checked }) {
-      return `<input type="checkbox" class="task"${checked ? " checked" : ""}> `;
+      return taskBox(checked ? "done" : "open");
     },
     link({ href, title, tokens }) {
       const text = this.parser.parseInline(tokens);
@@ -113,30 +132,55 @@ export function firstSentence(body, max = 80) {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
-/** Flips the n-th task checkbox (0-based, document order) in the source. */
-export function toggleTask(body, index) {
-  const lines = body.split("\n");
+// A task's state by the character in its box, and back.
+const STATES = { " ": "open", x: "done", X: "done", "/": "doing", "-": "cancelled" };
+const MARKS = { open: " ", done: "x", doing: "/", cancelled: "-" };
+/** A task line (as GFM: text after the box): the marker up to "[", the state character, "]". */
+export const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX/-])(\])(?= +\S)/;
+
+function taskBox(state) {
+  const extra = state === "done" ? " checked" : state === "open" ? "" : ` data-state="${state}"`;
+  return `<input type="checkbox" class="task"${extra}> `;
+}
+
+/**
+ * The tasks of a body in document order, outside code fences:
+ * [{ line (0-based), indent, state: open | done | doing | cancelled }].
+ */
+export function tasks(body) {
+  const out = [];
   let fence = null;
-  let n = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const f = /^\s*(```|~~~)/.exec(lines[i]);
-    if (f) { fence = fence === null ? f[1] : fence === f[1] ? null : fence; continue; }
-    if (fence !== null) continue;
-    const m = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/.exec(lines[i]);
-    if (!m) continue;
-    if (n++ === index) {
-      lines[i] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + lines[i].slice(m[0].length);
-      return lines.join("\n");
-    }
-  }
-  return body;
+  body.split("\n").forEach((text, line) => {
+    const f = /^\s*(```|~~~)/.exec(text);
+    if (f) { fence = fence === null ? f[1] : fence === f[1] ? null : fence; return; }
+    if (fence !== null) return;
+    const m = TASK_LINE.exec(text);
+    if (m) out.push({ line, indent: /^\s*/.exec(text)[0].length, state: STATES[m[2]] });
+  });
+  return out;
+}
+
+/** Sets the n-th task (0-based, document order) to `state` in the source. */
+export function setTaskState(body, index, state) {
+  const t = tasks(body)[index];
+  if (!t) return body;
+  const lines = body.split("\n");
+  lines[t.line] = lines[t.line].replace(TASK_LINE, (_, a, __, c) => a + MARKS[state] + c);
+  return lines.join("\n");
+}
+
+/** What a tap on the n-th task does: open ↔ done, in progress → done, cancelled → open. */
+export function toggleTask(body, index) {
+  const t = tasks(body)[index];
+  if (!t) return body;
+  return setTaskState(body, index, t.state === "open" || t.state === "doing" ? "done" : "open");
 }
 
 // Markdown inline syntax stripped to plain text.
 function plain(md) {
   return md
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+(\[[ xX/-]\]\s+)?/gm, "")
     .replace(/(\d)[ \t]?\[[ \t]*[+-]\d[\d.,+\- \t]*\]/g, "$1")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*_~`]+/g, "")

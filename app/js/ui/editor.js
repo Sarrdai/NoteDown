@@ -49,7 +49,7 @@ function selectionEdit(view, fn) {
   const { state } = view;
   let { from, to } = state.selection.main;
   const line = state.doc.lineAt(from);
-  const prefix = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?|\s{0,3}#{1,6}\s+)/.exec(line.text);
+  const prefix = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/-]\]\s+)?|\s{0,3}#{1,6}\s+)/.exec(line.text);
   const start = line.from + (prefix ? prefix[0].length : 0);
   if (from < start) { from = start; to = Math.max(to, start); }
   const doc = view.state.doc.toString();

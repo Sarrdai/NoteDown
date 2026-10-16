@@ -14,6 +14,7 @@
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
+  - [Task states and progress](#task-states-and-progress)
   - [Counters](#counters)
   - [Links and media from the web](#links-and-media-from-the-web)
   - [Dictation](#dictation)
@@ -606,6 +607,8 @@ paid features per user.
   − / + stepper floats at the contents' bottom right, at the height of the
   + button (decided 2026-10-15, user request: within the thumb's reach);
   on the phone it takes the + button's place while the sheet is open.
+  Beside − / + a switch shows the task progress ("Task states and
+  progress").
 - Text without a heading — a note without one, or the start of a note
   before its first heading — appears with its first sentence (shortened,
   italic) **one level below the last heading above it**, in whichever note
@@ -745,7 +748,8 @@ this needs none of it.
   its sorted place with the next view, sort, search or circle change.
   *Prototype: round 1.*
 - **Tapping into a note's text** starts editing it with the cursor where
-  the user tapped, except on task checkboxes (they toggle) and links
+  the user tapped, except on task checkboxes (they toggle; a long-press
+  picks their state) and links
   (they open). Closed notes don't enter edit mode. *Prototype: round 2.*
 - The editor renders Markdown live like Obsidian's mobile app: only the
   lines the cursor or selection touch stay raw; headings, emphasis,
@@ -773,6 +777,33 @@ this needs none of it.
   opens the search (Enter / Shift+Enter there step through the hits) and
   `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
+
+### Task states and progress
+
+Decided 2026-10-16 (user request).
+
+- A task has four states, plain Markdown as Obsidian themes write them:
+  **open** `[ ]`, **done** `[x]`, **in progress** `[/]` (a half-filled
+  box) and **cancelled** `[-]` (a struck box; its text faded and struck
+  through like a done one). Why: in progress and cancelled are the two
+  that are not just open or done; "deferred" stayed out, it reads like
+  open.
+- A **tap** on the box ticks it as before: open and in progress become
+  done, done and cancelled become open. A **long-press** (desktop:
+  right-click) opens a small menu with the four states, in the rendered
+  note and in the editor; on the box it doesn't start multi-select.
+  Ctrl/Cmd+Enter in the editor ticks like a tap; Enter after any task
+  continues with an open one.
+- **Task progress** ("done/total") is shown when the switch next to the
+  contents' − / + is on, and then both in the contents and at the
+  notes' headings — nowhere else (user request). A heading counts its
+  section's tasks with those under its subheadings; tasks before the
+  first heading show in the note's meta line. Subtasks count, cancelled
+  tasks don't count at all, in progress counts as open; a complete list
+  shows green. The switch is a setting of this device, off by default,
+  and remembered like the level count.
+- **Clear done tasks** takes cancelled tasks along with the done ones;
+  tasks in progress stay.
 
 ### Counters
 
@@ -953,8 +984,8 @@ that host its IP address and the reading time.
   which keep them for their members (the dialog says so) — like a private
   copy. *Prototype: 2026-10-15.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
-  without losing what was done: the ticked task items (`- [x]`, with the
-  indented lines below them) of the selection leave their note — of the
+  without losing what was done: the ticked and the cancelled task items
+  (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the
   whole note when it is selected whole, only of the selected sections
   when they were picked in the contents. After a confirmation that says
   how many go and from where (asked although nothing is lost:
@@ -962,7 +993,7 @@ that host its IP address and the reading time.
   own** per source note, with Undo. That note starts with the source's
   title heading and keeps each task under the heading of its section; its
   meta line reads "From <source title>" and it stays in the source's
-  circle. Disabled when the selection holds no ticked task; a note left
+  circle. Disabled when the selection holds no ticked or cancelled task; a note left
   empty disappears. *Prototype: 2026-10-15.*
 - **Back to note** (archive, whole notes) puts such archived tasks back
   into their source note — each at the end of the section with the same

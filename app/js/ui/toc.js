@@ -4,8 +4,10 @@
 // anywhere on it moves and scrolls it (initSheetDrag); the Android back key closes it. In the main view it is also a
 // way into multi-select (ui/selection.js): a long-press (or Ctrl+click) on
 // an entry selects that section with everything below it, then taps add or
-// remove entries.
+// remove entries. Next to the level stepper a switch shows the task progress
+// of each section here and at the notes' headings (ui/note-list.js).
 import { tableOfContents } from "../core/query.js";
+import { sectionProgress } from "../core/tasks.js";
 import { state, updateSettings } from "../store.js";
 import { flashNote } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
@@ -34,6 +36,7 @@ export function renderToc(notes) {
   $("tocDepth").textContent = depth;
   $("tocLess").disabled = depth <= 1;
   $("tocMore").disabled = depth >= maxLevel;
+  $("tocProgress").setAttribute("aria-pressed", String(!!state.settings.tocProgress));
   $("tocList").replaceChildren(...tocItems(notes));
 }
 
@@ -41,6 +44,7 @@ export function renderToc(notes) {
 export function tocItems(notes, search = state.search) {
   const { entries, maxLevel } = tableOfContents(notes);
   const depth = Math.min(state.settings.tocDepth, maxLevel);
+  const progress = state.settings.tocProgress && new Map(notes.map(n => [n.id, sectionProgress(n.body)]));
   if (!entries.length) return [Object.assign(document.createElement("p"), { className: "toc-empty", textContent: search ? "No matches" : "No notes" })];
   const shown = [];
   entries.forEach((e, i) => {
@@ -56,14 +60,29 @@ export function tocItems(notes, search = state.search) {
     for (let j = i + 1; j < entries.length && entries[j].level > depth; j++) if (state.selected.has(entries[j].key)) hidden++;
     if (hidden) b.insertAdjacentHTML("beforeend", ` <span class="toc-more">+${hidden}</span>`);
     markHits(b, search);
+    const p = progress && progress.get(e.noteId)[e.index];
+    if (p) b.prepend(progressBadge(p));
     shown.push(b);
   });
   return shown;
 }
 
+/** "done/total" of a section's tasks, green once all are done. */
+export function progressBadge({ done, total }) {
+  return Object.assign(document.createElement("span"), {
+    className: "task-progress" + (done === total ? " complete" : ""),
+    textContent: `${done}/${total}`,
+    title: `${done} of ${total} tasks done`,
+  });
+}
+
 export function initToc() {
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
+  $("tocProgress").addEventListener("click", () => {
+    updateSettings({ tocProgress: !state.settings.tocProgress });
+    $("tocProgress").setAttribute("aria-pressed", String(state.settings.tocProgress));
+  });
   $("scrim").addEventListener("click", () => setTocOpen(false));
   window.addEventListener("popstate", () => {
     if (app().classList.contains("toc-open") && !history.state?.toc) setTocOpen(false, { fromHistory: true });

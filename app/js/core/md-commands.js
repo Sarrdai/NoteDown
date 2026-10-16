@@ -2,7 +2,8 @@
 // toolbar and shortcuts. Line commands take and return one line; selection
 // commands take the text and a selection and return { text, from, to }.
 
-const LIST = /^(\s*)(?:([-*+])|(\d+)([.)]))\s+(\[[ xX]\]\s+)?/;
+const LIST = /^(\s*)(?:([-*+])|(\d+)([.)]))\s+(\[[ xX/-]\]\s+)?/;
+const TASK_STATE = { " ": "open", x: "checked", X: "checked", "/": "doing", "-": "cancelled" };
 const HEADING = /^(\s{0,3})(#{1,6})\s+/;
 
 /** Parsed list prefix of a line, or null. */
@@ -14,7 +15,7 @@ export function listPrefix(line) {
     bullet: m[2] || null,
     number: m[3] ? Number(m[3]) : null,
     delimiter: m[4] || null,
-    task: m[5] ? (/\[[xX]\]/.test(m[5]) ? "checked" : "open") : null,
+    task: m[5] ? TASK_STATE[m[5][1]] : null,   // open | checked | doing | cancelled
     length: m[0].length,
   };
 }
@@ -46,11 +47,11 @@ export function toggleTaskItem(line) {
   return indent + "- [ ] " + stripHeading(rest);
 }
 
-/** Ticks / unticks a task line; any other line becomes an open task. */
+/** Ticks / unticks a task line as a tap does (in progress → done, cancelled → open); any other line becomes an open task. */
 export function toggleTaskChecked(line) {
   const p = listPrefix(line);
   if (!p || !p.task) return toggleTaskItem(line);
-  const box = line.slice(0, p.length).replace(/\[[ xX]\]/, p.task === "open" ? "[x]" : "[ ]");
+  const box = line.slice(0, p.length).replace(/\[[ xX/-]\]/, p.task === "open" || p.task === "doing" ? "[x]" : "[ ]");
   return box + line.slice(p.length);
 }
 

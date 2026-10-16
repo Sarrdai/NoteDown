@@ -1,15 +1,15 @@
-// Clearing done tasks (docs/requirements.md → "Clear done tasks"): the
-// ticked task items of a note, or of selected sections of it, leave the note
-// and become a closed note of their own in the archive; "Back to note" puts
-// them back into the note they came from.
-import { sections, noteTitle } from "./markdown.js";
+// Task lists: their progress per section (docs/requirements.md → "Task
+// states and progress") and clearing done tasks ("Clear done tasks"): the
+// ticked and the cancelled task items of a note, or of selected sections of
+// it, leave the note and become a closed note of their own in the archive;
+// "Back to note" puts them back into the note they came from.
+import { sections, noteTitle, tasks, TASK_LINE as TASK } from "./markdown.js";
 
-const TASK = /^(\s*)(?:[-*+]|\d+[.)])\s+\[([ xX])\]/;
 const FENCE = /^\s*(```|~~~)/;
 const indent = line => /^\s*/.exec(line)[0].length;
 
-// Line numbers of the ticked tasks within [a, b) and the lines below them that
-// belong to them (deeper indented, up to a blank line), outside code fences.
+// Line numbers of the ticked and cancelled tasks within [a, b) and the lines
+// below them that belong to them (deeper indented, up to a blank line), outside code fences.
 function doneLines(lines, a, b) {
   const out = new Set();
   let fence = null;
@@ -18,10 +18,10 @@ function doneLines(lines, a, b) {
     if (f) { fence = fence === null ? f[1] : fence === f[1] ? null : fence; continue; }
     if (fence !== null) continue;
     const m = TASK.exec(lines[i]);
-    if (!m || m[2] === " ") continue;
+    if (!m || m[2] === " " || m[2] === "/") continue;
     out.add(i);
     let j = i + 1;
-    for (; j < b && lines[j].trim() && indent(lines[j]) > m[1].length; j++) out.add(j);
+    for (; j < b && lines[j].trim() && indent(lines[j]) > indent(lines[i]); j++) out.add(j);
     i = j - 1;
   }
   return out;
@@ -33,14 +33,38 @@ function ranges(body, parts) {
   return parts.map(p => (p.whole ? [0, body.split("\n").length] : [ss[p.from].start, ss[p.to - 1].end]));
 }
 
-/** How many ticked tasks the parts of a note hold. */
+/**
+ * The task progress of each section (core/markdown.js → sections) as
+ * { done, total } over its own tasks and those under the headings below it,
+ * or null when it has none. Cancelled tasks don't count, in progress is open.
+ */
+export function sectionProgress(body) {
+  const ss = sections(body);
+  const own = ss.map(() => ({ done: 0, total: 0 }));
+  for (const t of tasks(body)) {
+    const i = ss.findIndex(s => t.line >= s.start && t.line < s.end);
+    if (i < 0 || t.state === "cancelled") continue;
+    own[i].total++;
+    if (t.state === "done") own[i].done++;
+  }
+  return ss.map((s, i) => {
+    const sum = { ...own[i] };
+    for (let j = i + 1; s.depth !== null && j < ss.length && ss[j].depth > s.depth; j++) {
+      sum.done += own[j].done;
+      sum.total += own[j].total;
+    }
+    return sum.total ? sum : null;
+  });
+}
+
+/** How many ticked or cancelled tasks the parts of a note hold. */
 export function countDone(body, parts) {
   const lines = body.split("\n");
   return ranges(body, parts).reduce((sum, [a, b]) => sum + [...doneLines(lines, a, b)].filter(i => TASK.test(lines[i])).length, 0);
 }
 
 /**
- * Takes the ticked tasks out of the parts of a note. → { body (the rest; null
+ * Takes the ticked and cancelled tasks out of the parts of a note. → { body (the rest; null
  * when nothing is left), done (the archived note's body), count }. The archived
  * body starts with the note's title heading and keeps each task under the
  * heading of the section it came from, so it can go back there.

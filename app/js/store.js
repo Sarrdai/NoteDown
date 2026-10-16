@@ -19,6 +19,7 @@ const SETTINGS_KEY = "notedown.settings";
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
+  tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced

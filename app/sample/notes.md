@@ -29,14 +29,14 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 - Pena Palace first, it gets crowded after 11
 ### Packing
 - [ ] Rain jacket
-- [ ] Power adapter? (no, same plug type)
+- [-] Power adapter? (no, same plug type)
 
 #travel
 
 <!-- note id=s04 status=open created=2026-10-08T14:30Z modified=2026-10-11T16:45Z due=2026-10-10 -->
 ## Tax return 2025
 The deadline was extended, but the accountant wants the papers this week.
-- [ ] Collect the craftsman invoices
+- [/] Collect the craftsman invoices
 - [x] Download the annual bank statement
 - [ ] Find the donation receipts
 
