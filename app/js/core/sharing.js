@@ -50,7 +50,7 @@ export function circleEntries(contacts, circles, nameOf) {
   ].map(({ label, ...e }) => e);
 }
 
-/** The circles of several people that contain `contactId` (what a long-press on a contact offers). */
+/** The circles of several people that contain `contactId` (listed on the contact's page). */
 export function groupsWith(contactId, circles) {
   return circles.filter(m => m.length > 1 && m.includes(contactId));
 }

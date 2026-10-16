@@ -20,7 +20,6 @@ export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
-  filterUi: "check",         // prototype variant: how several circles / labels are picked (ui/filter-pick.js) — toggle | check | hold
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
@@ -72,6 +71,7 @@ export const state = {
   panelTab: "toc",           // sidebar / sheet tab: toc | people | labels
   labels: [],                // label filter: the picked label names, none = all (core/filters.js); not remembered
   circles: [],               // people filter (#23): the picked circleKeys ("" = private), none = all; not remembered
+  picking: null,             // the tab picking several entries (ui/filter-pick.js): null | "people" | "labels"
   editingId: null,
   topId: null,               // a new note stays on top until its first edit ends or view, sort, search or circle change
   selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting

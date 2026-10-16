@@ -1016,7 +1016,8 @@ a.row-open { text-decoration: none; }
 .people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-count { font-size: 0.8rem; font-weight: 650; color: var(--text-faint); }
 .people-entry.none .people-name { color: var(--text-muted); }
-/* Variant B (ui/filter-pick.js): a checkbox at the row's end adds the entry to the filter. */
+/* Picking several (ui/filter-pick.js): a bar with × and the count above the entries, a checkbox at each row's end. */
+.pick-bar { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 6px 4px; font-size: 0.92rem; font-weight: 650; color: var(--text); }
 .pick-check {
   flex: none; width: 20px; height: 20px; margin: -10px -6px -10px 2px; padding: 10px; box-sizing: content-box;
   background: radial-gradient(circle, transparent 0 8px, var(--text-faint) 8px 9.5px, transparent 9.5px) content-box;
@@ -1073,6 +1074,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .filter-chip > span > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-chip > span > .icon { width: 16px; height: 16px; color: var(--text-muted); }
 .filter-chip .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--accent-soft); }
+.filter-clear-all { align-self: center; color: var(--text-muted); }
 .menu-lead { display: inline-flex; min-width: 22px; justify-content: center; }
 .menu-lead .icon { width: 18px; height: 18px; color: var(--text-muted); }
 /* The running stopwatches (ui/watch-bar.js), one chip each above the filters. */

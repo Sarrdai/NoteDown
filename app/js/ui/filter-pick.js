@@ -1,38 +1,67 @@
-// How the People and Labels tabs pick several entries at once. Prototype
-// variants (⋮ → "Prototype: Picking several"):
-//   toggle (A) — a tap adds or removes the entry; the phone sheet stays open.
-//   check  (B) — a tap shows only this entry (closes the phone sheet); the
-//                checkbox at the row's end adds or removes it.
-//   hold   (C) — a tap shows only this entry; a long-press (desktop:
-//                right-click) adds or removes it.
-// Ctrl/Cmd+click adds or removes in every variant (desktop).
-import { state } from "../store.js";
+// Picking several entries in the People and Labels tabs (decided 2026-10-16,
+// like multi-select on notes): a tap shows only this entry (and closes the
+// phone sheet); a long-press — desktop: right-click or Ctrl/Cmd+click —
+// starts picking several: the tab shows a bar with × and the count, every
+// entry a checkbox, and a tap then adds or removes an entry. ×, the back
+// key, Esc or taking out the last entry leave it; the picked entries stay.
+import { state, setUi } from "../store.js";
+import { pushEntry, leaveEntry } from "./dom.js";
+import { icon } from "./icons.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
 
-export const filterMode = () => state.settings.filterUi;
+const picking = tab => state.picking === tab;
 
-/** The checkbox at a row's end (variant B); `on` = picked. */
-export function checkHtml(on) {
-  return filterMode() === "check" ? `<span class="pick-check${on ? " on" : ""}" role="checkbox" aria-checked="${on}" aria-label="Add to the filter"></span>` : "";
+/** Starts (tab) or ends (null) picking several; `fromHistory` when the back key ended it. */
+export function setPicking(tab, { fromHistory = false } = {}) {
+  if (state.picking === tab) return;
+  const was = state.picking;
+  setUi({ picking: tab });
+  if (tab && !was) pushEntry({ picking: true });
+  if (!tab && was && !fromHistory) leaveEntry("picking");
 }
 
-/** Wires taps on the entries of `list` (matching `selector`):
+window.addEventListener("popstate", () => { if (state.picking && !history.state?.picking) setPicking(null, { fromHistory: true }); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && state.picking) setPicking(null); });
+
+/** The checkbox at a row's end while its tab picks several; `on` = picked. */
+export function checkHtml(tab, on) {
+  return picking(tab) ? `<span class="pick-check${on ? " on" : ""}" aria-hidden="true"></span>` : "";
+}
+
+/** The bar above a tab's entries while it picks several: × and the count; null otherwise. */
+export function pickBar(tab, count) {
+  if (!picking(tab)) return null;
+  const bar = document.createElement("div");
+  bar.className = "pick-bar";
+  bar.innerHTML = `<button class="icon-btn small" type="button" aria-label="Stop picking several">${icon("close")}</button><span aria-live="polite"></span>`;
+  bar.lastChild.textContent = `${count} selected`;
+  bar.firstChild.addEventListener("click", () => setPicking(null));
+  return bar;
+}
+
+/** Wires the entries of `list` (matching `selector`) of tab `tab`:
  *  `single(el)` shows only this entry, `toggle(el)` adds or removes it,
- *  `menu(el)` (optional) is the long-press menu where no variant claims the long-press.
- *  Each returns nothing; `closes(true|false)` is told whether the phone sheet may close. */
-export function wirePick(list, { selector, single, toggle, menu, isAll = () => false, closes }) {
+ *  `picked(el)` says whether it is picked now, `count()` how many are;
+ *  `closes(true)` lets the phone sheet close after a single pick. */
+export function wirePick(list, { tab, selector, single, toggle, picked, count, isAll = () => false, closes }) {
   let press = null;
   let swallowClick = false;
-  const holds = el => filterMode() === "hold" ? !isAll(el) : !!menu && menu.accepts(el);
-  const hold = el => { if (filterMode() === "hold") { toggle(el); closes(false); } else menu.open(el); };
   const cancel = () => { if (press) { clearTimeout(press.timer); press = null; } };
+  const settle = () => { if (picking(tab) && !count()) setPicking(null); };
+  // A long-press starts picking with this entry added (kept, if it was the one shown); while picking it toggles.
+  const hold = el => {
+    if (isAll(el)) return;
+    if (!picking(tab)) { setPicking(tab); if (!picked(el)) toggle(el); }
+    else toggle(el);
+    settle();
+  };
 
   list.addEventListener("pointerdown", e => {
     swallowClick = false;
     const el = e.target.closest(selector);
-    if (!el || e.button !== 0 || !holds(el)) return;
+    if (!el || e.button !== 0 || isAll(el)) return;
     press = { x: e.clientX, y: e.clientY, timer: setTimeout(() => {
       press = null;
       swallowClick = true; // the click that follows the release
@@ -48,14 +77,17 @@ export function wirePick(list, { selector, single, toggle, menu, isAll = () => f
     const el = e.target.closest(selector);
     if (!el) return;
     e.preventDefault();
-    if (!swallowClick && holds(el)) hold(el);
+    if (!swallowClick) hold(el);
   });
   list.addEventListener("click", e => {
     const el = e.target.closest(selector);
     if (!el) return;
     if (swallowClick) { swallowClick = false; return; }
-    const adds = !isAll(el) && (filterMode() === "toggle" || e.ctrlKey || e.metaKey || e.target.closest(".pick-check"));
-    if (adds) { toggle(el); closes(false); }
-    else { single(el); closes(filterMode() !== "toggle"); }
+    if (e.ctrlKey || e.metaKey) return hold(el);
+    if (!picking(tab)) { single(el); return closes(true); }
+    // While picking, "All notes" clears the filter and ends it.
+    if (isAll(el)) { single(el); return setPicking(null); }
+    toggle(el);
+    settle();
   });
 }

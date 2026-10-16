@@ -23,6 +23,7 @@ import { renderWatchBar, initWatchBar } from "./ui/watch-bar.js";
 import { initSearchHits } from "./ui/search-hits.js";
 import { renderPeople, initPeople, circleName, circleLeadHtml, pickCircle, toggleCircleFilter, newsBadgeHtml } from "./ui/people-list.js";
 import { renderLabels, initLabels, toggleLabelFilter } from "./ui/labels.js";
+import { setPicking } from "./ui/filter-pick.js";
 import { hasAnyLabel } from "./core/filters.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
@@ -229,6 +230,11 @@ function previewView(view) {
   return nodes;
 }
 
+// Picking several in a tab ends once its last entry is taken out (e.g. by a chip's ×).
+function settlePicking() {
+  if ((state.picking === "people" && !state.circles.length) || (state.picking === "labels" && !state.labels.length)) setPicking(null);
+}
+
 // The people and label overviews and the chips of the active filters above the list.
 function renderCircleFilter() {
   const circle = activeCircle();
@@ -250,9 +256,16 @@ function renderCircleFilter() {
     el.lastChild.addEventListener("click", onClear);
     return el;
   };
-  $("filterBar").replaceChildren(
-    ...state.circles.map(k => chip(circleLeadHtml(k, "small"), circleName(k), `Stop showing ${circleName(k)}`, () => toggleCircleFilter(k))),
-    ...state.labels.map(l => chip("", "#" + l, `Stop showing #${l}`, () => toggleLabelFilter(l))));
+  // With several chips, a × in front of them clears all filters.
+  const many = state.circles.length + state.labels.length > 1;
+  const clearAll = many && Object.assign(document.createElement("button"), { className: "icon-btn small filter-clear-all", type: "button", innerHTML: icon("close") });
+  if (clearAll) {
+    clearAll.setAttribute("aria-label", "Clear all filters");
+    clearAll.addEventListener("click", () => { setPicking(null); setUi({ circles: [], labels: [], topId: null }); });
+  }
+  $("filterBar").replaceChildren(...[clearAll].filter(Boolean),
+    ...state.circles.map(k => chip(circleLeadHtml(k, "small"), circleName(k), `Stop showing ${circleName(k)}`, () => { toggleCircleFilter(k); settlePicking(); })),
+    ...state.labels.map(l => chip("", "#" + l, `Stop showing #${l}`, () => { toggleLabelFilter(l); settlePicking(); })));
   $("filterBar").hidden = !state.circles.length && !state.labels.length;
 }
 
@@ -456,9 +469,6 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    { section: "Prototype: Picking several" },
-    ...[["toggle", "Tap adds (A)"], ["check", "Checkbox adds (B)"], ["hold", "Long-press adds (C)"]]
-      .map(([v, label]) => ({ label, checked: s.filterUi === v, onSelect: () => updateSettings({ filterUi: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -523,6 +533,7 @@ function exportDialog() {
 function showDue(ids) {
   endSelection();
   if (state.view !== "open") setView("open");
+  setPicking(null);
   setUi({ search: "", circles: [], labels: [] });
   app.classList.remove("searching");
   const first = document.querySelector(`.note[data-id="${ids[0]}"]`);
@@ -626,7 +637,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["toggle", "check", "hold"].includes(p.get("pick"))) patch.filterUi = p.get("pick");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

@@ -1,22 +1,20 @@
 // The people overview (backlog #23): next to the contents, a list of the
 // circles the user shares with — everything, the private notes, each
 // contact on their own and each group. Picking entries filters the note
-// list to those circles (several at once: ui/filter-pick.js); a long-press
-// (or right-click) on a contact lists the groups they are in, to jump there
-// (in variant C the long-press picks instead; the groups also show on the
-// contact's page). The server owner's news are pinned on top, with a badge
-// while posts are new or updated, and are picked only on their own. Without
-// contacts it still shows, with a hint and Add contact, so the feature is
-// there to be found.
-import { circleEntries, groupsWith, circleKey } from "../core/sharing.js";
+// list to those circles; a long-press starts picking several
+// (ui/filter-pick.js). The groups a contact is in show on the contact's page
+// (ui/verify-contact.js). The server owner's news are pinned on top, with a
+// badge while posts are new or updated, and are picked only on their own.
+// Without contacts it still shows, with a hint and Add contact, so the
+// feature is there to be found.
+import { circleEntries } from "../core/sharing.js";
 import { toggleCircle } from "../core/filters.js";
 import { NEWS, freshCount } from "../core/news.js";
 import { state, setUi, sharedCircles, contacts, newsNotes } from "../store.js";
 import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people.js";
-import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
 import { h, button } from "./dom.js";
-import { wirePick, checkHtml } from "./filter-pick.js";
+import { wirePick, checkHtml, pickBar } from "./filter-pick.js";
 
 const $ = id => document.getElementById(id);
 let onPicked = () => {};
@@ -44,7 +42,7 @@ export function renderPeople(count) {
   const news = newsNotes();
   const entries = [...(news.length ? [{ key: NEWS, kind: "news", members: [] }] : []), ...circleEntries(contacts(), sharedCircles(), nameOf)];
   const picked = state.circles;
-  $("peopleList").replaceChildren(...entries.map(e => {
+  $("peopleList").replaceChildren(...[pickBar("people", picked.length)].filter(Boolean), ...entries.map(e => {
     const b = document.createElement("button");
     const n = count(e.key);
     const on = e.key === null ? !picked.length : picked.includes(e.key);
@@ -52,7 +50,7 @@ export function renderPeople(count) {
     b.dataset.key = e.key ?? "*";
     const badge = e.kind === "news" ? newsBadgeHtml(freshCount(news)) : "";
     b.innerHTML = `<span class="people-lead">${circleLeadHtml(e.key)}</span><span class="people-name">${esc(circleName(e.key, e.members))}</span>${badge}<span class="people-count">${n}</span>`
-      + (e.kind === "all" ? "" : checkHtml(on));
+      + (e.kind === "all" ? "" : checkHtml("people", on));
     if (on) b.setAttribute("aria-current", "true");
     return b;
   }), ...(contacts().length ? [] : [h("div", { class: "people-empty" },
@@ -78,27 +76,17 @@ export function toggleCircleFilter(key) {
   setCircles(toggleCircle(state.circles, key, NEWS));
 }
 
-// The groups a contact is in, as a menu at the entry.
-function groupsMenu(el) {
-  const id = keyOf(el);
-  const groups = groupsWith(id, sharedCircles());
-  openMenu(el, [
-    { section: `Groups with ${nameOf(id)}` },
-    ...(groups.length
-      ? groups.map(m => ({ label: membersLabel([...m].sort()), onSelect: () => pickCircle(circleKey(m)) }))
-      : [{ label: "Not in any group yet", disabled: true, onSelect: () => {} }]),
-  ]);
-}
-
 export function initPeople({ onPick, onAdd }) {
   onPicked = onPick;
   onAddContact = onAdd;
   wirePick($("peopleList"), {
+    tab: "people",
     selector: ".people-entry",
     isAll: el => keyOf(el) === null,
     single: el => setCircles(keyOf(el) === null ? [] : [keyOf(el)]),
     toggle: el => toggleCircleFilter(keyOf(el)),
-    menu: { accepts: el => el.classList.contains("contact"), open: groupsMenu },
+    picked: el => state.circles.includes(keyOf(el)),
+    count: () => state.circles.length,
     closes: close => onPicked(close),
   });
 }
