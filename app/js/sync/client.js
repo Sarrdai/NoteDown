@@ -125,7 +125,7 @@ async function round() {
     if (failure) throw failure;
     const wait = busySince + MIN_BUSY_MS - Date.now();
     if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-    setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false });
+    setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false, blocked: null });
   } catch (e) {
     fail(e);
   }
@@ -143,10 +143,11 @@ function fail(e) {
   if (state.sync.storageFull !== storageFull) setSync({ storageFull });
   if (limit && !limit.own) return setSync({ status: "error", error: limit.message });
   if (e instanceof NetworkError) return setSync({ status: "offline", error: "" });
-  if (e instanceof ApiError && e.status === 410) return detach();
-  // The server refuses a device that is no longer on the list (401 after a fresh token).
-  const removed = e instanceof ApiError && (e.status === 401 || e.status === 403);
-  setSync({ status: "error", error: removed ? "This device was removed from sync" : e.message || e.name });
+  // Deleted (410), or this device is no longer on the list (401 after a fresh token): sync ends here.
+  if (e instanceof ApiError && e.status === 410) return detach("deleted");
+  if (e instanceof ApiError && e.status === 401) return detach("removed");
+  const blocked = e instanceof ApiError && e.status === 423 ? { until: e.body.until ?? null } : null;
+  setSync({ status: "error", error: e.message || e.name, blocked });
 }
 
 function busy() {
@@ -180,7 +181,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   forgetKeys();
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "", ended: "",
+    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "", ended: "", blocked: null,
   });
 }
 
@@ -413,18 +414,19 @@ export async function restoreFileVersion(slot, version) {
  */
 export async function deleteIdentity(recoveryKey) {
   await deleteWithRecoveryKey(serverApi(), recoveryKey, state.sync.identity);
-  await detach();
+  await detach("deleted");
 }
 
-// The identity is gone from the server (deleted here, on another device or by the server's owner): sync ends
-// on this device, the notes stay as private notes (core/sync-state.js → detachedFile), the keys are erased.
-async function detach() {
+// The identity is gone from the server (`why` "deleted": here, on another device or by the server's owner) or this
+// device was taken off its list ("removed"): sync ends on this device, the notes stay as private notes
+// (core/sync-state.js → detachedFile), the keys are erased; a card above the notes says so (ui/sync-notice.js).
+async function detach(why) {
   if (!state.sync.enabled) return;
   const file = detachedFile(state.file, state.shared, state.sync.identity);
   keys = null;
   forgetKeys();
   apis.forgetTokens();
-  replaceFiles({ file, shared: [], sync: { ended: "deleted" } });
+  replaceFiles({ file, shared: [], sync: { ended: why } });
   await clearSecrets();
 }
 

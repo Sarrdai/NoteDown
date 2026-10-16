@@ -189,6 +189,10 @@ the first sync round.
   it as deleted. Each device then keeps all its notes as private notes
   and drops its keys. The server's owner can delete or block an
   identity too (`docs/server-api.md` → "Blocked and deleted identities").
+- **A removed device notices:** its next sync round gets 401 even with a
+  fresh token; it then turns sync off, keeps its notes as private notes,
+  drops its keys and shows a card above the notes with "Link again"
+  (`docs/requirements.md` → "When sync stops on a device").
 - **Own name:** the user picks a display name; it only travels inside
   QR codes, links and encrypted files, never in plain text to the server.
 

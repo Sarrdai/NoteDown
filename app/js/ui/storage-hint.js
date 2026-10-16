@@ -8,6 +8,7 @@
 import { Capacitor } from "../../vendor/capacitor-core.esm.js";
 import { state, subscribe, updateSettings } from "../store.js";
 import { showStorageHint, HINT_PAUSE_DAYS } from "../core/storage-hint.js";
+import { syncNotice } from "../core/sync-state.js";
 import { h, button } from "./dom.js";
 import { icon } from "./icons.js";
 import { today } from "./format.js";
@@ -28,7 +29,8 @@ export function initStorageHint({ onSync, onExport }) {
     h("div", { class: "request-actions" }, button("Export", "", onExport), button("Turn on sync", "primary", onSync)));
   $("viewHint").before(card);
   const render = () => {
-    card.hidden = state.view !== "open"
+    // A card about sync having stopped (ui/sync-notice.js) comes first.
+    card.hidden = state.view !== "open" || Boolean(syncNotice(state.sync))
       || !showStorageHint({ native, syncOn: state.sync.enabled, hiddenOn: state.settings.storageHintHidden, today: today() });
   };
   subscribe(render);

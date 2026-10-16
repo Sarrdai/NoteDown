@@ -68,6 +68,13 @@ export function openSyncPanel() {
   syncOnRequest();
 }
 
+/** Sync & sharing on "Link this device" (the card of a removed device, ui/sync-notice.js). */
+export function openLinkPage() {
+  openPanel("off");
+  if (real() && !syncAvailable()) return;   // no sync server: the first page says so
+  setStack([["off"], ["link", { seed: "link-" + Math.random() }]]);
+}
+
 /** A sync the user asked for (opening this panel, pull to refresh): shows
  *  "syncing" even when nothing changed; resolves once it is over. */
 export function syncOnRequest() {
@@ -443,6 +450,7 @@ const PAGES = {
     render: () => [
       h("div", { class: "hero", html: icon("sync") }),
       state.sync.ended === "deleted" && text("Your sync data was deleted from the server. Your notes stay on this device, all of them private now.", "sheet-notice"),
+      state.sync.ended === "removed" && text("This device was removed from your devices. Its notes stay here, all of them private now; link it again to sync.", "sheet-notice"),
       text("Keep your notes in step on all your devices and share single notes with others. End-to-end encrypted — no account, no email."),
       real() && !syncAvailable()
         ? text("This copy of the app has no sync server.", "sheet-text muted")

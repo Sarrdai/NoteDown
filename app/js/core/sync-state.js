@@ -185,7 +185,26 @@ export function blockedMessage(until, timeZone) {
 }
 
 /**
- * The private file a device keeps once its identity is deleted from the server (backlog #34): its own
+ * The card above the notes when sync stopped working on this device (user request 2026-10-16: so nobody types
+ * on here and wonders why nothing syncs), from the sync state: → null or { kind, title, sub, closable }.
+ * "removed": this device was taken off the device list; "deleted": the identity's sync data was deleted (both:
+ * sync is off, the notes stayed); "blocked": the server's owner blocks the identity (sync resumes after it).
+ */
+export function syncNotice(sync, timeZone) {
+  if (!sync.enabled && sync.ended === "removed") {
+    return { kind: "removed", title: "This device was removed from sync", sub: "Changes you make here stay on this device only. Link it again to sync.", closable: true };
+  }
+  if (!sync.enabled && sync.ended === "deleted") {
+    return { kind: "deleted", title: "Your sync data was deleted", sub: "Your notes stay on this device only. Turn on sync to start again.", closable: true };
+  }
+  if (sync.enabled && sync.blocked) {
+    return { kind: "blocked", title: blockedMessage(sync.blocked.until, timeZone), sub: "Changes you make here are kept and sync once the block ends.", closable: false };
+  }
+  return null;
+}
+
+/**
+ * The private file a device keeps once it was removed from sync or its identity was deleted (backlog #34): its own
  * notes and trash plus every note of the shared files it hasn't left (`me`: the identity ID), all
  * private now; nothing tied to the identity — devices, contacts, moved and purged markers, which circle
  * a trashed note came from. The news state and the custom order stay.

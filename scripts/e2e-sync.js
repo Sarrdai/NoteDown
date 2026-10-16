@@ -369,10 +369,13 @@ async function main() {
       await a.getByRole("button", { name: "Remove", exact: true }).click();
       await a.getByText("Chrome on Windows removed").waitFor();
       await a.keyboard.press("Escape");
+      const kept = (await bodies(b)).sort();
       await sync(b);
       const s = await syncState(b);
-      assert.equal(s.status, "error");
-      assert.match(s.error, /removed/, JSON.stringify(s));
+      assert.deepEqual([s.enabled, s.ended], [false, "removed"], JSON.stringify(s));
+      assert.deepEqual((await bodies(b)).sort(), kept, "B keeps its notes");
+      await b.locator("#syncNotice", { hasText: "This device was removed from sync" }).waitFor();
+      await shot(b, "removed-desktop");
       await addNote(a, sample.s07);
       await converge(a, d);
       assert.doesNotMatch(await fileText(a), /name=Chrome%20on%20Windows/, "B's name is gone");
@@ -637,7 +640,7 @@ async function main() {
       assert.notEqual(after[0], before[0], "the shared file has a new key");
       assert.notEqual(after[1], before[1], "the private file has a new key");
       await sync(g);
-      assert.match((await stateOf(g)).error, /removed/);
+      assert.equal((await stateOf(g)).ended, "removed");
       await sync(e);
       assert.equal(await fileKeyOf(e, await circleRecord(e, [a, e])), after[0], "Lea unwrapped the new key");
       await setBody(e, noteN, (await noteBody(e, noteN)) + "\n\nafter renewal");
@@ -891,12 +894,14 @@ async function main() {
         assert.equal(blocked.status, 204, blocked.body);
         await sync(e);
         assert.match((await syncState(e)).error, /^Sync is blocked by the server's owner until \d+ \w+ \d{4}\.$/);
+        await e.locator("#syncNotice", { hasText: "Sync is blocked by the server's owner until" }).waitFor();
         await setBody(a, noteK, (await noteBody(a, noteK)) + "\n\nwhile Lea is blocked");
         await sync(a);
         assert.equal((await syncState(a)).status, "synced", "a block doesn't stop the others");
         const lifted = await adminCall(a, "PUT", `/v1/admin/identities/${lea}/block`, JSON.stringify({ blocked: false }));
         assert.equal(lifted.status, 204, lifted.body);
         await convergeShared([a, e], a, d, e);
+        assert.equal(await e.locator("#syncNotice").isHidden(), true, "the card goes once the block is lifted");
       } finally {
         await stopAdminServer(admin);
       }

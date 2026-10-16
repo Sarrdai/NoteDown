@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince, blockedMessage, detachedFile } from "../app/js/core/sync-state.js";
+import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince, blockedMessage, detachedFile, syncNotice } from "../app/js/core/sync-state.js";
 
 const welcomeText = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8");
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -191,4 +191,15 @@ test("detachedFile keeps every note as a private one and drops what belongs to t
   assert.deepEqual([out.moved, out.purged, out.devices, out.contacts], [[], [], [], []]);
   assert.deepEqual(out.news, file.news);
   assert.deepEqual(out.order, file.order);
+});
+
+test("syncNotice: removed and deleted while sync is off, blocked while it is on", () => {
+  assert.equal(syncNotice({ enabled: true, ended: "", blocked: null }), null);
+  assert.equal(syncNotice({ enabled: false, ended: "" }), null);
+  assert.equal(syncNotice({ enabled: false, ended: "removed" }).kind, "removed");
+  assert.equal(syncNotice({ enabled: false, ended: "deleted" }).closable, true);
+  const blocked = syncNotice({ enabled: true, blocked: { until: "2026-10-25T00:00:00Z" } }, "UTC");
+  assert.deepEqual([blocked.kind, blocked.title, blocked.closable], ["blocked", "Sync is blocked by the server's owner until 25 Oct 2026.", false]);
+  assert.equal(syncNotice({ enabled: true, blocked: { until: null } }).title, "Sync is blocked by the server's owner.");
+  assert.equal(syncNotice({ enabled: true, ended: "removed" }), null, "sync on again: no notice");
 });

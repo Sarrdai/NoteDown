@@ -149,6 +149,22 @@ before the first live test).
   keys of every file it could read, so it can't read anything changed
   afterwards — without a new recovery key and without bothering contacts
   (decided 2026-10-13 over only blocking it or a new identity).
+- **When sync stops on a device, a card above the notes says so** (user
+  request 2026-10-16: nobody should type on a device and wonder why
+  nothing syncs), in the look of the "only in this browser" card, which
+  it replaces while it shows, in every view and tier:
+  - **Removed** from another device: at its next sync round the device
+    turns sync off by itself and keeps its notes, shared ones included,
+    all private then. "This device was removed from sync — Changes you
+    make here stay on this device only." with **Link again** (Sync &
+    sharing → Link this device) and ✕.
+  - **Sync data deleted** ("Deleting your sync data"): the same, "Your
+    sync data was deleted" with **Turn on sync** and ✕.
+  - **Blocked** by the server's owner: sync stays on and resumes when the
+    block ends; "Sync is blocked by the server's owner until 25 Oct
+    2026. — Changes you make here are kept and sync once the block
+    ends.", no ✕ (it goes by itself).
+  *Prototype: 2026-10-16 (⋮ → Prototype → "Simulate device removal").*
 - **Signing out this device** (backlog #15): Sync & sharing → "Sign out
   this device" takes the device off the device list by itself and erases
   everything NoteDown keeps on it (notes, settings, keys); the app then
@@ -169,8 +185,9 @@ before the first live test).
   person shows there as "Tom (deleted)", with "Deleted their sync data"
   in the contact list, and can't be picked for new shares. Every device
   of the identity stops syncing at its next round and **keeps its notes**,
-  shared ones included, all private then; Sync & sharing says so and can
-  turn sync on again as a new identity. Without the recovery key only the
+  shared ones included, all private then; a card above the notes and
+  Sync & sharing say so, and sync can be turned on again as a new
+  identity. Without the recovery key only the
   server's owner can delete it on request (admin page). *Prototype:
   2026-10-16 (`app/delete/?sample`).*
 - **Version history** (backlog #7, decided 2026-10-15, user request):
