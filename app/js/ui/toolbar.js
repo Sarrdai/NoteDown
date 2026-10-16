@@ -1,11 +1,10 @@
-// The editing toolbar: Markdown helpers, due date, dictation at the cursor
-// and Done. It sits above the on-screen keyboard on touch devices and
-// floats at the bottom of the list on the desktop.
+// The editing toolbar: Markdown helpers, a counter, undo / redo and Done. It
+// sits above the on-screen keyboard on touch devices and floats at the
+// bottom of the list on the desktop. Also the due-date menu, which the
+// note's due chip opens (the toolbar has no due-date button since 2026-10-16).
 import { state, note, setDue } from "../store.js";
 import { currentEditor, endEdit, onEditingChange } from "./note-list.js";
-import { dictationAvailable, startDictation } from "./dictation.js";
 import { openMenu } from "./menu.js";
-import { showSnackbar } from "./snackbar.js";
 import { today, addDays } from "./format.js";
 import { icon } from "./icons.js";
 import { openSettings } from "./settings.js";
@@ -20,14 +19,12 @@ const BUTTONS = [
   ["italic", "Italic (Ctrl+I)", "italic"],
   ["link", "Link (Ctrl+K)", "link"],
   ["media", "Image or video from the web", "image"],
-  ["due", "Due date", "calendar"],
-  ["mic", "Dictate at cursor", "mic"],
+  ["counter", "Counter", "counter"],
   ["undo", "Undo (Ctrl+Z)", "undo"],
   ["redo", "Redo (Ctrl+Shift+Z)", "redo"],
 ];
 
 const $ = id => document.getElementById(id);
-let dictation = null;
 
 /** `onDue(id)`: runs after a due date was set from the menu. */
 export function initToolbar({ onDue }) {
@@ -48,10 +45,7 @@ export function initToolbar({ onDue }) {
     const b = e.target.closest("button");
     if (!b) return;
     if (b.id === "toolbarDone") return endEdit();
-    const cmd = b.dataset.cmd;
-    if (cmd === "due") return openDueMenu(b, state.editingId);
-    if (cmd === "mic") return toggleDictation(b);
-    currentEditor()?.run(cmd);
+    currentEditor()?.run(b.dataset.cmd);
   });
 
   $("dueInput").addEventListener("change", e => {
@@ -62,7 +56,6 @@ export function initToolbar({ onDue }) {
   onEditingChange(id => {
     bar.hidden = !id;
     document.getElementById("app").classList.toggle("is-editing", Boolean(id));
-    if (!id) stopDictation();
     place();
   });
 
@@ -110,30 +103,4 @@ export function openDueMenu(anchor, id) {
     { separator: true },
     { label: "Reminders…", icon: "bell", onSelect: () => openSettings("reminders") },
   ]);
-}
-
-function toggleDictation(button) {
-  if (dictation) return stopDictation();
-  if (!dictationAvailable()) {
-    showSnackbar(window.isSecureContext ? "Dictation isn't available in this browser" : "Dictation needs https or localhost");
-    return;
-  }
-  button.classList.add("active");
-  dictation = startDictation({
-    onInterim: t => currentEditor()?.setInterim(t),
-    onFinal: t => { const ed = currentEditor(); if (ed) { ed.setInterim(""); ed.insertDictation(t); } },
-    onLevel: v => button.style.setProperty("--level", v.toFixed(3)),
-    onError: code => { showSnackbar(code === "not-allowed" ? "Microphone access was denied" : "Dictation stopped: " + code); stopDictation(); },
-  });
-}
-
-function stopDictation() {
-  if (!dictation) return;
-  const d = dictation;
-  dictation = null;
-  d.stop();
-  const b = document.querySelector('.tool[data-cmd="mic"]');
-  b.classList.remove("active");
-  b.style.removeProperty("--level");
-  currentEditor()?.setInterim("");
 }

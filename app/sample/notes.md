@@ -59,6 +59,14 @@ The deadline was extended, but the accountant wants the papers this week.
 
 #home #garden
 
+<!-- note id=s20 status=open created=2026-10-01T07:30Z modified=2026-10-13T17:10Z -->
+## Hours in October
+- P-2041 Website relaunch: 23,5 [-4 -1 +1 +8]
+- P-2057 Annual report: 6 [-1 -0,5 +0,5 +1]
+- Running this month: 4 [-1 +1]
+
+#work
+
 <!-- note id=s07 status=open created=2026-10-09T12:40Z modified=2026-10-09T12:40Z due=2026-10-21 -->
 ## Call the dentist
 Six-month check-up is due. Ask whether Tuesday mornings are possible.

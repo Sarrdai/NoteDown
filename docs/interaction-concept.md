@@ -187,8 +187,7 @@ Current state, edited in place when a decision changes.
 - Editing looks like reading: the live preview uses the same type sizes
   and list layout as the rendered note, so entering edit mode doesn't
   make the note jump; only the line with the cursor shows its Markdown.
-- Recording is red (Catppuccin `red`): the + button, the blinking dot and
-  the active microphone in the toolbar.
+- Recording is red (Catppuccin `red`): the + button and the blinking dot.
 - Dates are shown relative where it helps ("Today 08:40", "Yesterday"),
   otherwise as "12 Oct"; the meta line under a note shows the date the
   list is sorted by.

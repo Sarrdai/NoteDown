@@ -4,6 +4,7 @@
 import { Marked } from "../../vendor/marked.esm.js";
 import { LABEL_AT } from "./labels.js";
 import { mediaSource, mediaKind } from "./external.js";
+import { COUNTER_AT, counterStart, parseSteps, counterHtml } from "./counter.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
 marked.use({
@@ -21,6 +22,21 @@ marked.use({
     },
     renderer({ name }) {
       return `<button type="button" class="label-chip" data-label="${escapeAttr(name)}">#${escapeHtml(name)}</button>`;
+    },
+  }, {
+    // Counters (core/counter.js) render with their step buttons; the view maps a tap to the counter's index.
+    name: "counter",
+    level: "inline",
+    start(src) {
+      const i = counterStart(src);
+      return i < 0 ? undefined : i;
+    },
+    tokenizer(src) {
+      const m = COUNTER_AT.exec(src);
+      if (m) return { type: "counter", raw: m[0], value: m[1], steps: parseSteps(m[2]) };
+    },
+    renderer({ value, steps }) {
+      return counterHtml(value, steps);
     },
   }],
   renderer: {
@@ -121,6 +137,7 @@ function plain(md) {
   return md
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/^\s*(?:[-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?/gm, "")
+    .replace(/(\d)[ \t]?\[[ \t]*[+-]\d[\d.,+\- \t]*\]/g, "$1")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*_~`]+/g, "")
     .replace(/<[^>]+>/g, "")

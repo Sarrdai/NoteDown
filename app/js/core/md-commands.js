@@ -108,13 +108,6 @@ export function insertMedia(text, from, to) {
   return { text: text.slice(0, from) + media + text.slice(to), from: urlFrom, to: urlFrom + 3 };
 }
 
-/** Joins dictated text onto what is before the cursor with one space. */
-export function joinDictation(before, spoken) {
-  const s = spoken.trim();
-  if (!s) return "";
-  return (before === "" || /\s$/.test(before) ? "" : " ") + s;
-}
-
 function stripList(line) {
   const p = listPrefix(line);
   return p ? line.slice(p.length) : line.replace(/^\s+/, "");

@@ -8,6 +8,8 @@
 import { Decoration, ViewPlugin, WidgetType, EditorView, StateField, syntaxTree, HighlightStyle, syntaxHighlighting, tags } from "../../vendor/codemirror.esm.js";
 import { mediaSource, mediaKind } from "../core/external.js";
 import { fillMedia } from "./external.js";
+import { counterStart, COUNTER_AT, parseSteps, addStep, counterHtml } from "../core/counter.js";
+import { counterClick } from "./counter.js";
 
 /** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
 export const mediaMode = StateField.define({ create: () => "click", update: v => v });
@@ -45,6 +47,27 @@ class CheckboxWidget extends WidgetType {
     });
     wrap.append(box);
     return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
+// A counter (core/counter.js) as its chip; the steps it pops up change the
+// number at `from` without moving the cursor onto the line.
+class CounterWidget extends WidgetType {
+  constructor(value, steps, from) { super(); this.value = value; this.steps = steps; this.from = from; }
+  eq(o) { return o.value === this.value && o.steps.join() === this.steps.join() && o.from === this.from; }
+  toDOM(view) {
+    const wrap = document.createElement("span");
+    wrap.innerHTML = counterHtml(this.value, this.steps);
+    const el = wrap.firstChild;
+    el.addEventListener("mousedown", e => e.preventDefault());
+    // The number is read anew on each step: the floating buttons (ui/counter.js) outlive this widget.
+    el.addEventListener("click", e => counterClick(e, step => {
+      const line = view.state.doc.lineAt(this.from);
+      const m = COUNTER_AT.exec(line.text.slice(this.from - line.from));
+      if (m) view.dispatch({ changes: { from: this.from, to: this.from + m[1].length, insert: addStep(m[1], step) }, userEvent: "input" });
+    }));
+    return el;
   }
   ignoreEvent() { return true; }
 }
@@ -133,7 +156,30 @@ function build(view) {
       },
     });
   }
+  for (const { from, to } of view.visibleRanges) {
+    for (let l = doc.lineAt(from).number; l <= doc.lineAt(to).number; l++) {
+      counterMarks(doc.line(l), state, deco, active.has(l));
+    }
+  }
   return Decoration.set(deco, true);
+}
+
+// The counters of a line outside code, each replaced by its widget; on a raw
+// line the steps' brackets just don't look like a link.
+const rawCounter = Decoration.mark({ class: "cm-lp-counter-raw" });
+function counterMarks(line, state, deco, raw) {
+  let at = 0;
+  for (let i; (i = counterStart(line.text.slice(at))) >= 0;) {
+    const start = at + i;
+    const m = COUNTER_AT.exec(line.text.slice(start));
+    at = start + m[0].length;
+    const pos = line.from + start;
+    let code = false;
+    for (let n = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) if (/Code/.test(n.name)) code = true;
+    if (code) continue;
+    if (raw) deco.push(rawCounter.range(pos, line.from + at));
+    else deco.push(Decoration.replace({ widget: new CounterWidget(m[1], parseSteps(m[2]), pos) }).range(pos, line.from + at));
+  }
 }
 
 function listMarker(node, doc, deco) {
