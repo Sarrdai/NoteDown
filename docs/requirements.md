@@ -784,10 +784,13 @@ this needs none of it.
   text. *Prototype: 2026-10-16.*
 - The rendered note and the live preview show the number as an accent
   chip; a tap pops its step buttons up around it, floating over the text
-  (− steps left, + steps right, the number between them counting along).
-  Each tap changes only the number in the text, without entering edit
-  mode; a tap beside them, `Esc` or the Android back key closes them
-  (only them: an edit around them goes on). Why: the note reads like
+  (− steps left, + steps right, the number between them). The taps add
+  up as a pending change shown next to the old number (`36 + 8` after
+  two taps on `+4`); only closing them writes the sum into the number in
+  the text, without entering edit mode. A tap beside them, `Esc` or the
+  Android back key closes them (only them: an edit around them goes on)
+  and every way of closing keeps the sum. Why: a double tap stays
+  visible before it counts (user request 2026-10-16). Why: the note reads like
   plain text, the buttons appear where the user tapped (decided
   2026-10-16 over always visible buttons, a menu and a centered card).
   Only the current value is kept, no history (the version history covers

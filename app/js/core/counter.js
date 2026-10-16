@@ -32,6 +32,18 @@ export function addStep(value, step) {
   return /,/.test(value + step) ? out.replace(".", ",") : out;
 }
 
+/** Two steps added into one, with its sign ("+4" and "+4" → "+8"): the pop-up's pending change. */
+export function sumSteps(a, b) {
+  const s = addStep(a, b);
+  return s.startsWith("-") ? s : "+" + s;
+}
+
+/** What the pop-up shows while its taps are pending: "36 + 8", "36 − 2", or just "36" without a change. */
+export function pendingText(value, delta) {
+  if (Number(delta.replace(",", ".")) === 0) return value;
+  return `${value} ${delta.startsWith("-") ? "−" : "+"} ${delta.slice(1)}`;
+}
+
 /**
  * The counters of a body in document order, outside code: [{ from, to (the
  * number's offsets in the body), value, steps }].
