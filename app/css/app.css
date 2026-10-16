@@ -569,6 +569,15 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .sheet-text { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
 .sheet-text.muted { color: var(--text-faint); }
 .sheet-text.center, .qr-name { text-align: center; }
+.legal-line { font-size: 0.85rem; line-height: 1.9; text-align: center; }
+.legal-line a, .license-url { color: var(--accent); }
+.license-item { border-top: 1px solid var(--border); }
+.license-item:first-child { border-top: 0; }
+.license-item > summary { display: flex; flex-direction: column; min-height: 56px; justify-content: center; padding: 6px 14px; cursor: pointer; }
+.license-item > summary:hover { background: var(--surface-hover); }
+.license-item[open] > summary { background: var(--surface-hover); }
+.license-text { margin: 0; padding: 10px 14px 14px; max-height: 50vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); }
+.license-url { display: inline-block; margin: 0 14px; padding: 6px 0; font-size: 0.85rem; }
 .sheet-notice { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--text); font-size: 0.95rem; }
 .sheet-section { margin: 8px 4px -6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
 .sheet-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
@@ -758,6 +767,7 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; align-self: stretch; margin: -6px 0 -6px -14px; padding: 6px 0 6px 14px;
   border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px;
 }
+a.row-open { text-decoration: none; }
 .row-open:hover { background: var(--surface-hover); }
 .row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .row-sub.unverified-sub { color: var(--warning); font-weight: 600; }

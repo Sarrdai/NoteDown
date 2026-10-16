@@ -36,6 +36,7 @@ import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
 import { openSettings, FLAVORS } from "./ui/settings.js";
+import { setAppInfo } from "./app-info.js";
 import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
@@ -636,6 +637,7 @@ async function start() {
   followOtherTabs();
   initSyncSim();
   const config = await loadConfig();
+  setAppInfo(config);
   initSync(readApi() || config.api, webAddress(config.web));
   render();
   initInviteLinks(openInvite);

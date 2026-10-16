@@ -22,6 +22,7 @@
   - [Import from Google Keep](#import-from-google-keep)
   - [Quick capture](#quick-capture)
   - [Settings](#settings)
+  - [Legal texts and license](#legal-texts-and-license)
   - [Look](#look)
   - [Not in scope (for now)](#not-in-scope-for-now)
 <!-- /toc -->
@@ -1069,9 +1070,48 @@ place instead of the top bar and ⋮.
   Mocha); **Notes** — Reminders, Links & media (each a page, its line
   saying what is set); **Sync** — Sync & sharing (the panel's own pages,
   its line the sync status; its top-bar icon stays for the status);
-  **Data** — Import from Google Keep (opens the import page).
+  **Data** — Import from Google Keep (opens the import page); **About**
+  — see below.
 - Every setting here is a **setting of this device**, never synced.
-- No "About" page while there is no version number to show.
+  *Prototype: 2026-10-16.*
+- **About** (decided 2026-10-16, user request, for the Play Store): the
+  last section shows the **Version** (web: build date and commit; Android:
+  the APK's version name before them; "Development build" without a
+  deploy), **Open-source licenses** (a page listing every third-party
+  component the app ships — web and Android libraries — with version and
+  license, its text expandable; required by their licenses), **Privacy
+  policy** and **Terms of use** (the pages below) and **Source code** (the
+  repository; the AGPL asks for it). *Prototype: 2026-10-16.*
+
+### Legal texts and license
+
+Decided 2026-10-16 (user request, for publishing in the Play Store).
+
+- **License:** NoteDown's own code (app and server) is under the **GNU
+  AGPL 3.0 or later** (`LICENSE`): the owner keeps the copyright, and
+  nobody can run a changed server as a closed service. Contributions come
+  after an issue and under the same license; whether a contributor
+  agreement is needed is decided before the first one from someone else
+  (`CONTRIBUTING.md`).
+- **Privacy policy** (`<web app>/privacy/`) and **terms of use**
+  (`<web app>/terms/`): pages of the web app, also inside the Android app,
+  German (binding) and English on one page. Their text is the same for
+  every copy; who runs it — name, email and an optional postal address —
+  comes from the deploy (`app/config.json`, `docs/operations.md`), so no
+  personal data sits in the repository and whoever runs another server
+  names themselves. Without an operator the pages say none is set.
+- The terms say use is **currently free**, paid extras may come later
+  and nothing free becomes paid without notice; no availability
+  guarantee, shutdown and changes announced four weeks ahead under News;
+  no unlawful content, no abuse; the operator may block or delete an
+  identity; sync is no backup; liability only for intent and gross
+  negligence (it is free).
+- **No consent checkbox:** the Sync & sharing page that turns sync on
+  says in one line that turning it on accepts the terms and the privacy
+  policy, with links. Using NoteDown without sync involves no server, so
+  nothing to accept.
+- **No imprint (Impressum)** while NoteDown is private and free of
+  charge; it becomes necessary with paid plans (backlog #33).
   *Prototype: 2026-10-16.*
 
 ### Look
