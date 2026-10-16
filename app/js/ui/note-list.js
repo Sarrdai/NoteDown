@@ -8,6 +8,8 @@
 // a new due date sorts its note in (reorderList). News posts are read-only
 // cards: no editing, no due date, a label while they are new or updated.
 import { renderMarkdown, toggleTask, sections, noteTitle } from "../core/markdown.js";
+import { stepCounter } from "../core/counter.js";
+import { counterClick } from "./counter.js";
 import { sectionKey } from "../core/query.js";
 import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
@@ -113,7 +115,7 @@ function noteElement(n, view = state.view) {
   applyExternal(body, circleKey(circleOf(n.id)));
   wrapSections(body, sections(n.body));
   markHits(body);
-  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
+  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter button").forEach(cb => (cb.disabled = true));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
   const meta = document.createElement("div");
@@ -199,6 +201,9 @@ function onBodyClick(e, id) {
     if (n.fresh) markNewsSeen([id]);
     return;
   }
+  const counter = e.target.closest(".counter");
+  const index = counter && [...e.currentTarget.querySelectorAll(".counter")].indexOf(counter);
+  if (counterClick(e, step => setBody(id, stepCounter(note(id).body, index, step)))) return;
   const cb = e.target.closest("input.task");
   if (cb) {
     e.preventDefault();

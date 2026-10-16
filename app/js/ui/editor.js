@@ -2,38 +2,18 @@
 // the commands the toolbar calls. One editor exists at a time, mounted in
 // place of the note's rendered body.
 import {
-  EditorState, EditorView, StateField, StateEffect, Decoration, WidgetType, keymap, drawSelection, Prec,
+  EditorState, EditorView, keymap, drawSelection, Prec,
   history, historyKeymap, defaultKeymap, undo, redo, indentLess, indentMore,
   Language, defineLanguageFacet, markdownParser, GFM,
 } from "../../vendor/codemirror.esm.js";
 import { livePreview, markdownHighlight, previewTheme, mediaMode } from "./live-preview.js";
 import {
   cycleHeading, toggleBullet, toggleTaskItem, toggleTaskChecked, indentLine, outdentLine,
-  continueList, toggleWrap, insertLink, insertMedia, joinDictation,
+  continueList, toggleWrap, insertLink, insertMedia,
 } from "../core/md-commands.js";
+import { appendCounter } from "../core/counter.js";
 
 const markdown = new Language(defineLanguageFacet(), markdownParser.configure([GFM]), [], "markdown");
-
-// Interim dictation text, shown greyed at the cursor until it is final.
-const setInterim = StateEffect.define();
-class InterimWidget extends WidgetType {
-  constructor(text) { super(); this.text = text; }
-  eq(o) { return o.text === this.text; }
-  toDOM() { const s = document.createElement("span"); s.className = "cm-interim"; s.textContent = this.text; return s; }
-}
-const interimField = StateField.define({
-  create: () => Decoration.none,
-  update(value, tr) {
-    value = value.map(tr.changes);
-    for (const e of tr.effects) {
-      if (e.is(setInterim)) {
-        value = e.value ? Decoration.set([Decoration.widget({ widget: new InterimWidget(e.value), side: 1 }).range(tr.state.selection.main.head)]) : Decoration.none;
-      }
-    }
-    return value;
-  },
-  provide: f => EditorView.decorations.from(f),
-});
 
 /** Replaces only the part of [from, from + old.length) that differs. */
 function minimalChange(from, oldText, newText) {
@@ -104,6 +84,7 @@ export const COMMANDS = {
   bold: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "**")),
   italic: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "*")),
   link: v => selectionEdit(v, insertLink),
+  counter: v => mapLines(v, appendCounter),
   media: v => {   // at the selection as it is, also inside a list item's text
     const { from, to } = v.state.selection.main;
     const doc = v.state.doc.toString();
@@ -179,7 +160,6 @@ export function createEditor({ parent, doc, onChange, onEscape, media = "click" 
         livePreview,
         markdownHighlight,
         previewTheme,
-        interimField,
         EditorView.updateListener.of(u => {
           if (u.docChanged) onChange(u.state.doc.toString());
           if (u.docChanged || u.selectionSet) revealCaret(u.view);
@@ -200,16 +180,6 @@ export function createEditor({ parent, doc, onChange, onEscape, media = "click" 
     run(name) { COMMANDS[name](view); view.focus(); },
     /** Scrolls the caret into the visible part, e.g. once the keyboard is up. */
     revealCaret: () => revealCaret(view),
-    setInterim(text) { view.dispatch({ effects: setInterim.of(text) }); },
-    insertDictation(text) {
-      const { head } = view.state.selection.main;
-      const before = view.state.doc.sliceString(Math.max(0, head - 1), head);
-      const after = view.state.doc.sliceString(head, head + 1);
-      let insert = joinDictation(before, text);
-      if (!insert) return;
-      if (/[^\s.,;:!?)]/.test(after)) insert += " ";
-      view.dispatch({ changes: { from: head, insert }, selection: { anchor: head + insert.length }, scrollIntoView: true, userEvent: "input" });
-    },
     text: () => view.state.doc.toString(),
     destroy: () => view.destroy(),
   };

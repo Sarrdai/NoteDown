@@ -1,7 +1,7 @@
 // Unit tests for the editor's Markdown commands (app/js/core/md-commands.js).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cycleHeading, toggleBullet, toggleTaskItem, toggleTaskChecked, indentLine, outdentLine, continueList, toggleWrap, insertLink, insertMedia, joinDictation, listPrefix } from "../app/js/core/md-commands.js";
+import { cycleHeading, toggleBullet, toggleTaskItem, toggleTaskChecked, indentLine, outdentLine, continueList, toggleWrap, insertLink, insertMedia, listPrefix } from "../app/js/core/md-commands.js";
 
 test("cycleHeading: none → # → ## → ### → #### → none, list markers dropped", () => {
   assert.equal(cycleHeading("Title"), "# Title");
@@ -56,13 +56,6 @@ test("insertLink selects the url placeholder", () => {
   const r = insertLink("see docs now", 4, 8);
   assert.equal(r.text, "see [docs](url) now");
   assert.equal(r.text.slice(r.from, r.to), "url");
-});
-
-test("joinDictation adds one space where needed", () => {
-  assert.equal(joinDictation("Hello", " world "), " world");
-  assert.equal(joinDictation("Hello ", "world"), "world");
-  assert.equal(joinDictation("", "world"), "world");
-  assert.equal(joinDictation("x", "  "), "");
 });
 
 test("insertMedia puts the image on its own line and selects the url placeholder", () => {

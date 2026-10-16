@@ -14,6 +14,7 @@
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
+  - [Counters](#counters)
   - [Links and media from the web](#links-and-media-from-the-web)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
@@ -759,9 +760,10 @@ this needs none of it.
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
   (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
-  indent, bold, italic, link, image or video (backlog #30), **due date** (today, tomorrow, in a week,
-  pick a date, remove), a **microphone** that dictates at the cursor,
-  undo / redo, and Done. On phone and tablet it sits above the on-screen
+  indent, bold, italic, link, image or video (backlog #30), **counter**,
+  undo / redo, and Done. No due-date and no microphone button (removed
+  2026-10-16): the due date has its chip on the note, dictation the
+  long-press on +. On phone and tablet it sits above the on-screen
   keyboard and scrolls sideways; on the desktop it floats at the bottom
   of the list. *Prototype: round 2.*
 - On the desktop the editor has shortcuts: Ctrl/Cmd+B bold, +I italic,
@@ -770,6 +772,28 @@ this needs none of it.
   opens the search (Enter / Shift+Enter there step through the hits) and
   `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
+
+### Counters
+
+- A **counter** is a number followed by its steps in square brackets,
+  e.g. `P-2041 Website relaunch: 23,5 [-4 -1 +1 +8]` — for hour trackers,
+  habits or anything counted. The steps are free per counter (each with a
+  sign); decimals are allowed and keep the separator as written (`0,5` or
+  `0.5`). Why: a counter stays plain Markdown that other apps show as
+  text. *Prototype: 2026-10-16.*
+- The rendered note and the live preview show the number with one
+  button per step; a tap changes only the number in the text, without
+  entering edit mode (like a task checkbox). Only the current value is
+  kept, no history (the version history covers that). Archived, deleted
+  and news notes show their counters read-only. Counters inside code are
+  plain text.
+- The toolbar's **counter** button adds `0 [-1 +1]` at the end of the
+  current line (a line that has a counter stays as it is); the line then
+  shows its Markdown to edit the steps.
+- *Open (prototype variants, ⋮ → "Prototype: Counter"):* A stepper with
+  the − steps left and the + steps right of the number; B number and
+  buttons at the line's right edge; C the number only, a tap opens a menu
+  of the steps.
 
 ### Links and media from the web
 
@@ -821,9 +845,6 @@ that host its IP address and the reading time.
   The finished transcript becomes its own note (no heading — its first
   sentence serves as title), shown at the top with "Dictated note added
   · Undo". *Prototype: round 2.*
-- The editor toolbar's microphone dictates at the cursor position: the
-  not yet final words appear greyed at the cursor, final ones are
-  inserted; tapping it again stops. *Prototype: round 2.*
 - Speech is recognized in the device language. The prototype uses the
   browser's speech recognition (Chrome, Edge, Safari; needs https or
   localhost) and replays a sample transcript with `?dictation=demo`;

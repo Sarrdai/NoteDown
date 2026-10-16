@@ -106,6 +106,7 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
+  app.dataset.counter = s.counterStyle;
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
@@ -431,6 +432,8 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    { section: "Prototype: Counter" },
+    ...COUNTER_STYLES.map(([key, label]) => ({ label, checked: s.counterStyle === key, onSelect: () => updateSettings({ counterStyle: key }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -592,10 +595,13 @@ function wire() {
 }
 
 // URL parameters set prototype options, e.g. ?flavor=mocha&view=closed
+const COUNTER_STYLES = [["stepper", "Stepper around the number (A)"], ["row", "Number and buttons on the right (B)"], ["menu", "Number opens the steps (C)"]];
+
 function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (COUNTER_STYLES.some(([key]) => key === p.get("counter"))) patch.counterStyle = p.get("counter");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

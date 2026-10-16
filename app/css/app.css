@@ -297,10 +297,10 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .cm-lp-codeblock { font-family: var(--mono); font-size: 0.88em; background: var(--code-bg); padding: 0 12px !important; }
 .cm-lp-bullet { display: inline-block; box-sizing: border-box; padding-right: 0.55em; text-align: right; text-indent: 0; color: var(--text-muted); }
 .cm-lp-task { display: inline-block; position: relative; height: 1.2em; vertical-align: top; text-indent: 0; }
+.cm-lp-counter-raw, .cm-lp-counter-raw * { color: var(--text) !important; text-decoration: none !important; }
 .cm-lp-task input.task { left: auto; right: 10px; top: 0.2em; }
 .cm-lp-done { color: var(--text-faint); text-decoration: line-through; }
 .cm-lp-hr { display: inline-block; width: 100%; height: 0; border-top: 1px solid var(--border); vertical-align: middle; }
-.cm-interim { color: var(--text-faint); font-style: italic; }
 .editor-host .cm-selectionBackground, .editor-host .cm-focused .cm-selectionBackground { background: var(--accent-soft) !important; }
 
 /* ---------- editing toolbar ---------- */
@@ -323,11 +323,6 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   background: transparent; color: var(--text-muted); cursor: pointer; isolation: isolate;
 }
 .tool:hover { background: var(--ctp-surface0); color: var(--text); }
-.tool.active { color: var(--on-accent); background: var(--danger); }
-.tool.active::before {
-  content: ""; position: absolute; inset: 0; border-radius: 12px; z-index: -1;
-  background: var(--danger); opacity: 0.35; transform: scale(calc(1 + var(--level, 0) * 0.6));
-}
 .toolbar-done {
   flex: none; height: 38px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer;
   background: var(--accent); color: var(--on-accent); font-weight: 650;
@@ -828,6 +823,27 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .md input.task:checked::after { content: ""; width: 9px; height: 5px; border: solid var(--on-accent); border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
 .md li:has(> input.task:checked, > p:first-child > input.task:checked) { color: var(--text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-faint) 60%, transparent); }
 .note.closed .md input.task { cursor: default; }
+/* Counters (core/counter.js): the number and its step buttons. Prototype variants
+   (data-counter on .app): stepper (A) − buttons, number, + buttons; row (B) number
+   and buttons at the line's right edge; menu (C) the number only, a tap opens the steps. */
+.counter { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; text-indent: 0; text-decoration: none; margin: 1px 0; }
+.counter button {
+  font: inherit; color: inherit; border: 0; margin: 0; cursor: pointer; position: relative;
+  min-height: 30px; border-radius: 8px; font-variant-numeric: tabular-nums;
+}
+.counter .counter-value { background: none; padding: 0 4px; min-width: 2.2em; font-weight: 700; cursor: default; }
+.counter .counter-step { background: var(--accent-soft); color: var(--accent); padding: 0 9px; min-width: 36px; font-size: 0.9em; font-weight: 600; }
+.counter .counter-step.minus { background: var(--code-bg); color: var(--text-muted); }
+.counter .counter-step::before { content: ""; position: absolute; inset: -7px -2px; } /* larger touch target */
+.counter button:disabled { cursor: default; opacity: 0.55; }
+.counter .counter-step:not(:disabled):hover { filter: brightness(0.95); }
+.app[data-counter="stepper"] .counter-step.minus { order: -1; }
+.app[data-counter="row"] .counter { float: right; margin-left: 12px; }
+.app[data-counter="row"] :is(.md li, .md p, .cm-line):has(.counter)::after { content: ""; display: block; clear: both; }
+.app[data-counter="row"] .counter-value { text-align: right; }
+.app[data-counter="menu"] .counter-step { display: none; }
+.app[data-counter="menu"] .counter .counter-value { cursor: pointer; border: 1.5px solid var(--accent); color: var(--accent); background: var(--accent-soft); min-height: 26px; padding: 0 10px; }
+.app[data-counter="menu"] .counter .counter-value:disabled { cursor: default; }
 .md a { color: var(--link); }
 /* External content (#30, ui/external.js): a link that isn't clickable, and
    embedded images and videos — loaded, behind a tile with their address, or a placeholder. */
