@@ -15,6 +15,7 @@ import { createApi } from "../js/sync/api.js";
 import { getSecret } from "../js/sync/keystore.js";
 import { serverUrl } from "../js/core/linking.js";
 import { renderMarkdown } from "../js/core/markdown.js";
+import { fillMedia } from "../js/ui/external.js";
 import { parseNotesFile } from "../js/core/notes-file.js";
 import {
   formatBytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope, sortIdentities, filterIdentities,
@@ -729,6 +730,7 @@ function postCard(post) {
   if (S.newsEdit && S.newsEdit.id === post.id) return S.newsEdit.el;
   const body = h("div", { class: "note-body md", html: renderMarkdown(post.body) });
   body.querySelectorAll("input.task").forEach(box => { box.disabled = true; });
+  body.querySelectorAll(".ext-media").forEach(el => fillMedia(el, "never"));   // the owner's preview loads nothing
   return h("article", { class: "note news-card" + (post.archived ? " archived" : ""), "data-key": "post-" + post.id },
     body,
     h("div", { class: "note-meta" }, newsDateText(post, relativeTime)),

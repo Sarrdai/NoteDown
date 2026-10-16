@@ -14,11 +14,13 @@
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
+  - [Links and media from the web](#links-and-media-from-the-web)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
   - [Export](#export)
   - [Import from Google Keep](#import-from-google-keep)
   - [Quick capture](#quick-capture)
+  - [Settings](#settings)
   - [Look](#look)
   - [Not in scope (for now)](#not-in-scope-for-now)
 <!-- /toc -->
@@ -501,17 +503,18 @@ paid features per user.
   open notes due that day ("2 notes due today" and their titles); tapping
   it shows the main list, unfiltered, with those notes highlighted. Closed
   notes and notes without a due date never remind; no per-note times.
-  Off until turned on with the top bar's **Reminders** bell (or ⋮ →
-  "Reminders…" when it doesn't fit; a dialog with a switch and
-  the time), which is when the platform asks for notification permission.
+  Off until turned on under **Settings → Reminders** (a switch and the
+  time), which is when the platform asks for notification permission;
+  the due-date menu ends with a **Reminders…** link to that page.
   A **setting of this device**, not synced, since the permission is per
   device. The Android app schedules local notifications on the device, so
   they come while the app is closed; the web app reminds only while it is
   open — the browser can't wake a closed web app without server push —
-  and the dialog says so. *Prototype: 2026-10-14 (⋮ → Prototype →
-  "Simulate reminder" shows the notification).* Why a dialog: it is
-  a device-wide setting that needs its one line of explanation; offered
-  only in the due-date menu it would read as per note.
+  and the page says so. *Prototype: 2026-10-14; in the settings
+  2026-10-16 (⋮ → Prototype → "Simulate reminder" shows the
+  notification).* Why in the settings: it is set once, a top-bar bell
+  took room for it all the time; offered only in the due-date menu it
+  would read as per note, so the menu only links there.
 
 ### Sorting and search
 
@@ -739,7 +742,7 @@ this needs none of it.
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
   (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
-  indent, bold, italic, link, **due date** (today, tomorrow, in a week,
+  indent, bold, italic, link, image or video (backlog #30), **due date** (today, tomorrow, in a week,
   pick a date, remove), a **microphone** that dictates at the cursor,
   undo / redo, and Done. On phone and tablet it sits above the on-screen
   keyboard and scrolls sideways; on the desktop it floats at the bottom
@@ -750,6 +753,46 @@ this needs none of it.
   opens the search (Enter / Shift+Enter there step through the hits) and
   `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
+
+### Links and media from the web
+
+Decided 2026-10-16 (backlog #30, user request): anyone in a circle — or
+someone who got hold of one of the user's devices — can put a link or an
+image from another host into a note, and every device that loads it tells
+that host its IP address and the reading time.
+
+- Notes can **embed images and videos** from the web with Markdown's
+  image syntax (`![Tram 28](https://…/tram.jpg)`); a file ending in
+  `.mp4`, `.webm`, `.ogv`, `.mov` or `.m4v` plays as a video. Only
+  http(s) addresses load. Players of video sites (YouTube, Vimeo) are not
+  embedded — they bring their provider's scripts and cookies; their
+  addresses stay links. The toolbar's **Image or video** button inserts
+  `![…](url)` on a line of its own with `url` selected for pasting.
+- **Images & videos** — *Load automatically*, *Tap to load* (default) or
+  *Never load*. Tap to load shows a tile with the kind, the description
+  and the full address, the host in bold; a tap loads only that one, and
+  it stays loaded until the app restarts. Never load leaves only a
+  placeholder ("Image embedded"), without address or tap target. A file
+  that fails to load says so. Loaded files go without a referrer.
+- **Links** — *Open directly*, *Ask first* (default) or *Not clickable*.
+  Ask first opens **"Open link?"** with the link's text, the real target
+  (host in bold, also behind a `user@` part) and Copy, Cancel, Open; it
+  asks for every link, also a bare address, so a stray tap opens nothing.
+  Not clickable shows the text dotted-underlined, a tap edits the note.
+- Both are a **setting of this device, never synced** (a synced setting
+  would let one device decide what the others load). A new device starts
+  with the defaults. There is one **default for all notes**, and every
+  circle — Private, each contact, each group — can have its **own choice
+  per kind**, else follows the default; news posts follow the default.
+  **Settings → Links & media** shows the default and below it every
+  circle with "Default" or its own choice — decided 2026-10-16 over a
+  long-press on the circle under People: exceptions are rare and matter
+  for safety, so they are seen at a glance.
+- It applies wherever a note is rendered: the list, the editor's
+  rendered lines, the version history (by that file's circle). The Keep
+  import page and the admin page's news preview load no media.
+  *Prototype: 2026-10-16; the sample's media addresses look external but
+  come from `app/sample/media/`.*
 
 ### Dictation
 
@@ -940,8 +983,9 @@ bring their notes along without copying them one by one.
 - **Source: a Google Takeout export** of Keep (one ZIP, one JSON file per
   note) — the only way open to everyone: Keep's API serves Workspace
   domains only, unofficial clients need the Google password token.
-- **An import page** at `<web app>/import/` (no link from the app, like
-  the admin page): a rare action stays out of the app. It needs no sign-in:
+- **An import page** at `<web app>/import/`, reached from **Settings →
+  Import from Google Keep** (decided 2026-10-16; before, it had no link
+  and nobody would find it). It needs no sign-in:
   it writes into the private file of NoteDown in the same browser; sync,
   if on, takes the notes to the other devices from there (Android users
   import in a browser). An app tab that is open meanwhile follows the
@@ -974,12 +1018,30 @@ bring their notes along without copying them one by one.
   prototype.*
 - A home-screen widget is not part of the scope yet (backlog #2).
 
+### Settings
+
+Decided 2026-10-16 (user request): the app's own settings sit in one
+place instead of the top bar and ⋮.
+
+- ⋮ → **Settings…** opens them in the panel container of Sync & sharing
+  (phone: full-screen sheet; tablet and desktop: centered dialog; back,
+  Esc and the Android back key go one page back). Under ⋮, as settings
+  are rarely needed and the phone's top bar is full.
+- Sections: **Appearance** — Theme (System, Latte, Frappé, Macchiato,
+  Mocha); **Notes** — Reminders, Links & media (each a page, its line
+  saying what is set); **Sync** — Sync & sharing (the panel's own pages,
+  its line the sync status; its top-bar icon stays for the status);
+  **Data** — Import from Google Keep (opens the import page).
+- Every setting here is a **setting of this device**, never synced.
+- No "About" page while there is no version number to show.
+  *Prototype: 2026-10-16.*
+
 ### Look
 
 - Themes from the **Catppuccin** palette: follows the system (light =
   Latte, dark = Mocha) by default; all four flavors (Latte, Frappé,
-  Macchiato, Mocha) can be chosen. Accent color: Mauve. *Prototype:
-  round 1, under ⋮.*
+  Macchiato, Mocha) can be chosen under Settings → Theme. Accent color:
+  Mauve. *Prototype: round 1; in the settings 2026-10-16.*
 - **App icon** (backlog #12, decided 2026-10-14 over an "N" with a down
   arrow and the round done button alone): a note card with the round
   done button on Mauve — it says "notes" and echoes the app's own cards;

@@ -3,7 +3,14 @@
 // which stay raw for editing. Inline styles (bold, code, links) come from
 // the highlight style; this plugin hides marks, draws list markers and
 // checkboxes, and adds the line classes for headings, quotes and code.
-import { Decoration, ViewPlugin, WidgetType, EditorView, syntaxTree, HighlightStyle, syntaxHighlighting, tags } from "../../vendor/codemirror.esm.js";
+// An embedded image or video shows as in the rendered note, by this
+// device's setting for the note's circle (`mediaMode`, ui/external.js).
+import { Decoration, ViewPlugin, WidgetType, EditorView, StateField, syntaxTree, HighlightStyle, syntaxHighlighting, tags } from "../../vendor/codemirror.esm.js";
+import { mediaSource, mediaKind } from "../core/external.js";
+import { fillMedia } from "./external.js";
+
+/** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
+export const mediaMode = StateField.define({ create: () => "click", update: v => v });
 
 const INDENT_EM = 1.5;
 
@@ -40,6 +47,21 @@ class CheckboxWidget extends WidgetType {
     return wrap;
   }
   ignoreEvent() { return true; }
+}
+
+class MediaWidget extends WidgetType {
+  constructor(src, alt, mode) { super(); this.src = src; this.alt = alt; this.mode = mode; }
+  eq(o) { return o.src === this.src && o.alt === this.alt && o.mode === this.mode; }
+  toDOM() {
+    const el = document.createElement("span");
+    el.className = "ext-media";
+    const src = mediaSource(this.src);
+    Object.assign(el.dataset, { kind: mediaKind(this.src), alt: this.alt }, src ? { src } : {});
+    fillMedia(el, this.mode);
+    return el;
+  }
+  // The tile loads and a video plays without moving the cursor onto the line.
+  ignoreEvent(e) { return !!e.target.closest?.(".ext-tile, video"); }
 }
 
 class RuleWidget extends WidgetType {
@@ -84,6 +106,11 @@ function build(view) {
           return;
         }
         if (lineActive(node.from)) return;
+        if (name === "Image") {
+          const m = /^!\[([^\]]*)\]\(\s*<?([^\s>)]+)/.exec(doc.sliceString(node.from, node.to));
+          if (m) deco.push(Decoration.replace({ widget: new MediaWidget(m[2], m[1], state.field(mediaMode)) }).range(node.from, node.to));
+          return false;
+        }
         if (name === "HeaderMark") {
           const line = doc.lineAt(node.from);
           const opening = node.from - line.from <= 3;

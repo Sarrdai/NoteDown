@@ -1,4 +1,4 @@
-// Due-date reminders (backlog #1): the "Reminders" dialog (⋮ → "Reminders…"),
+// Due-date reminders (backlog #1): the "Reminders" page of the settings,
 // turning them on (asks for notification permission) and delivering them —
 // in the Android app as local notifications scheduled on the device, so they
 // come while the app is closed; on the web by a timer while the app is open
@@ -10,6 +10,8 @@ import { state, allNotes, updateSettings, subscribe } from "../store.js";
 import { DEFAULT_REMINDERS, reminderSchedule, reminderText } from "../core/reminders.js";
 import { today } from "./format.js";
 import { showSnackbar } from "./snackbar.js";
+import { registerPage, refreshPage } from "./sync-panel.js";
+import { h } from "./dom.js";
 
 const $ = id => document.getElementById(id);
 const Native = Capacitor.isNativePlatform() ? registerPlugin("LocalNotifications") : null;
@@ -104,32 +106,31 @@ function hideNotice() {
   $("reminderNotice").hidden = true;
 }
 
-export function openReminderDialog() {
-  renderDialog();
-  $("reminderDialog").hidden = false;
-  $("reminderDone").focus({ preventScroll: true, focusVisible: false });
-}
+/** The settings overview's line for reminders: "Off" or "Daily at 09:00". */
+export const reminderSummary = () => reminders().on ? `Daily at ${reminders().time}` : "Off";
 
-function renderDialog() {
-  const r = reminders();
-  $("reminderOn").checked = r.on;
-  $("reminderTimeRow").classList.toggle("off", !r.on);
-  $("reminderTimeInput").value = r.time;
-  $("reminderTimeInput").disabled = !r.on;
-}
-
-const closeDialog = () => { $("reminderDialog").hidden = true; };
+// Settings → Reminders (ui/settings.js).
+registerPage("settingsReminders", {
+  title: "Reminders",
+  render: () => {
+    const r = reminders();
+    return [
+      h("p", { class: "sheet-text" }, "On the due day, one notification lists the open notes due that day."),
+      h("label", { class: "setting-row" }, h("span", { class: "setting-label" }, "Remind me of due notes"),
+        h("input", { type: "checkbox", class: "switch", role: "switch", checked: r.on,
+          onchange: async e => { await setRemindersOn(e.target.checked); refreshPage({ keepScroll: true }); } })),
+      h("label", { class: "setting-row" + (r.on ? "" : " off") }, h("span", { class: "setting-label" }, "Time of day"),
+        h("input", { type: "time", class: "time-input", value: r.time, disabled: !r.on,
+          onchange: e => { if (e.target.value) updateSettings({ reminders: { ...reminders(), time: e.target.value } }); } })),
+      h("p", { class: "sheet-text muted" }, Native ? "Reminders come even when NoteDown is closed."
+        : "In the browser, reminders only come while NoteDown is open. The Android app reminds you even when it's closed."),
+    ];
+  },
+});
 
 /** `open(ids)` shows the notes a tapped reminder lists. */
 export function initReminders({ open }) {
   onOpen = open;
-  $("reminderHint").textContent = Native ? "Reminders come even when NoteDown is closed."
-    : "In the browser, reminders only come while NoteDown is open. The Android app reminds you even when it's closed.";
-  $("reminderOn").addEventListener("change", async e => { await setRemindersOn(e.target.checked); renderDialog(); });
-  $("reminderTimeInput").addEventListener("change", e => { if (e.target.value) updateSettings({ reminders: { ...reminders(), time: e.target.value } }); });
-  $("reminderDone").addEventListener("click", closeDialog);
-  $("reminderDialog").addEventListener("click", e => { if (e.target === $("reminderDialog")) closeDialog(); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("reminderDialog").hidden) { e.stopPropagation(); closeDialog(); } }, true);
   Native?.addListener("localNotificationActionPerformed", e => onOpen(e.notification.extra?.ids || []));
   subscribe(kind => { if (kind !== "sync") schedule(); });
   schedule();

@@ -9,6 +9,13 @@ import { today, addDays } from "./ui/format.js";
 import { parseNotesFile, timestamp } from "./core/notes-file.js";
 import { splitIntoCircles, generateRecoveryKey, nextColor, circleKey } from "./core/sharing.js";
 
+/** The sample's embedded media: addresses that look external, served from
+ *  app/sample/media/ (the prototype requests no other host). */
+export const SAMPLE_MEDIA = {
+  "https://images.example.org/lisbon/tram-28.jpg": new URL("../sample/media/tram-28.jpg", import.meta.url).href,
+  "https://media.example.net/mia/treasure-hunt.webm": new URL("../sample/media/treasure-hunt.webm", import.meta.url).href,
+};
+
 export async function loadSample(name = "notes.md") {
   const text = await (await fetch(new URL("../sample/" + name, import.meta.url))).text();
   const markers = text.match(/^<!-- note .*-->$/gm) || [];

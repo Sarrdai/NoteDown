@@ -8,6 +8,7 @@ import { moveNote, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
+import { DEFAULT_EXTERNAL } from "./core/external.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
 
 const FILE_KEY = "notedown.file";
@@ -22,6 +23,7 @@ export const DEFAULT_SETTINGS = {
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
+  external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 
@@ -101,6 +103,7 @@ export function load() {
     state.settings = {
       ...structuredClone(DEFAULT_SETTINGS), ...s,
       sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
+      external: { ...structuredClone(DEFAULT_EXTERNAL), ...(s.external || {}) },
     };
   } catch { /* keep defaults */ }
   try {

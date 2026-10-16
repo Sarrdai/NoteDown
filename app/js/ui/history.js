@@ -16,6 +16,7 @@ import { circleName } from "./people-list.js";
 import { openConfirm } from "./confirm.js";
 import { showSnackbar } from "./snackbar.js";
 import { h, text, button } from "./dom.js";
+import { applyExternal } from "./external.js";
 
 const real = () => !state.sync.simulated;
 const fileOf = slot => (slot === "" ? state.file : sharedFiles().find(s => s.key === slot)?.file);
@@ -90,15 +91,17 @@ addOverviewSection(() => {
 
 // ---------- pages ----------
 
-const noteCard = (note, cls = "") => {
+// `slot`: the file's circle, whose setting decides on links and media (ui/external.js).
+const noteCard = (note, cls, slot) => {
   const { text: title } = noteTitle(note.body);
-  return h("li", { class: "history-note " + cls, "aria-label": title },
-    h("div", { class: "history-note-body md", html: renderMarkdown(note.body) }));
+  const body = h("div", { class: "history-note-body md", html: renderMarkdown(note.body) });
+  applyExternal(body, slot);
+  return h("li", { class: "history-note " + cls, "aria-label": title }, body);
 };
 
-function noteGroup(title, notes, cls) {
+function noteGroup(title, notes, cls, slot) {
   if (!notes.length) return null;
-  return [section(`${title} (${notes.length})`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n, cls)))];
+  return [section(`${title} (${notes.length})`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n, cls, slot)))];
 }
 
 const stateTitle = v => stateTime(v.replaced) + (v.pinned ? " · before a restore" : "");
@@ -169,10 +172,10 @@ registerPage("historyState", {
     return [
       ...head,
       text("What restoring this state changes:"),
-      noteGroup("Come back", diff.back, "back"),
-      noteGroup("Go, added since", diff.gone, "gone"),
+      noteGroup("Come back", diff.back, "back", data.slot),
+      noteGroup("Go, added since", diff.gone, "gone", data.slot),
       diff.changed.length ? [section(`Changed (${diff.changed.length})`), text("They go back to this text:", "sheet-text muted"),
-        h("ul", { class: "history-notes" }, diff.changed.map(c => noteCard(c.before, "changed")))] : null,
+        h("ul", { class: "history-notes" }, diff.changed.map(c => noteCard(c.before, "changed", data.slot)))] : null,
       diff.same ? text(`${diff.same} ${diff.same === 1 ? "note stays" : "notes stay"} as they are.`, "sheet-text muted") : null,
     ].flat();
   },
