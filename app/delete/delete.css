@@ -1,0 +1,27 @@
+/* The page that deletes an identity with its recovery key (delete.js). Colors only via the semantic
+ * tokens of ../css/app.css. */
+
+body { background: var(--bg); }
+.del { min-height: 100dvh; color: var(--text); }
+.del-wrap { width: 100%; max-width: 640px; margin: 0 auto; padding: 0 16px; }
+
+.del-top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--border); padding-top: var(--safe-top); }
+.del-top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 640px; min-height: var(--topbar-h); margin: 0 auto; padding: 0 8px 0 16px; }
+.del-top h1 { margin: 0; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.del-top a.btn { display: inline-flex; align-items: center; flex: none; text-decoration: none; }
+
+.del-card {
+  display: flex; flex-direction: column; gap: 14px; margin: 24px 0 0; padding: 20px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); line-height: 1.5;
+}
+.del-card p, .del-card h2 { margin: 0; }
+.del-card h2 { font-size: 1.1rem; }
+.del-card .field { display: flex; flex-direction: column; gap: 6px; }
+.del-card .field-label { font-weight: 600; font-size: 0.92rem; }
+.del-card .field-hint { color: var(--text-faint); font-size: 0.88rem; }
+.del-card .field-error { margin: 0; }
+.del-card .btn { align-self: flex-start; }
+.del-card a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+.del-hint { margin: 16px 4px 32px; color: var(--text-faint); font-size: 0.9rem; line-height: 1.45; }
+/* Phones: the button over the whole width, easy to reach. */
+@media (max-width: 599px) { .del-card .btn { align-self: stretch; } }

@@ -149,6 +149,22 @@ before the first live test).
   keys of every file it could read, so it can't read anything changed
   afterwards — without a new recovery key and without bothering contacts
   (decided 2026-10-13 over only blocking it or a new identity).
+- **When sync stops on a device, a card above the notes says so** (user
+  request 2026-10-16: nobody should type on a device and wonder why
+  nothing syncs), in the look of the "only in this browser" card, which
+  it replaces while it shows, in every view and tier:
+  - **Removed** from another device: at its next sync round the device
+    turns sync off by itself and keeps its notes, shared ones included,
+    all private then. "This device was removed from sync — Changes you
+    make here stay on this device only." with **Link again** (Sync &
+    sharing → Link this device) and ✕.
+  - **Sync data deleted** ("Deleting your sync data"): the same, "Your
+    sync data was deleted" with **Turn on sync** and ✕.
+  - **Blocked** by the server's owner: sync stays on and resumes when the
+    block ends; "Sync is blocked by the server's owner until 25 Oct
+    2026. — Changes you make here are kept and sync once the block
+    ends.", no ✕ (it goes by itself).
+  *Prototype: 2026-10-16 (⋮ → Prototype → "Simulate device removal").*
 - **Signing out this device** (backlog #15): Sync & sharing → "Sign out
   this device" takes the device off the device list by itself and erases
   everything NoteDown keeps on it (notes, settings, keys); the app then
@@ -158,6 +174,22 @@ before the first live test).
   until another one removes it. No new file key: a device that erases
   itself needs none, and one that may have been copied is removed from
   another device, which renews it. *Prototype: 2026-10-14.*
+- **Deleting your sync data** (backlog #34, decided 2026-10-16, user
+  request): Sync & sharing → "Delete sync data" (below "Your identity")
+  and a page of its own at `<web app>/delete/` (no link from the app,
+  no sign-in) delete the identity from the server. Both ask for the
+  **recovery key** as the confirmation: it proves the notes are yours,
+  and the page works without any device (all of them lost) — and app
+  stores ask for both ways. Deleted: the notes, the device list, contacts
+  and invitations; notes shared with others **stay with them**, the
+  person shows there as "Tom (deleted)", with "Deleted their sync data"
+  in the contact list, and can't be picked for new shares. Every device
+  of the identity stops syncing at its next round and **keeps its notes**,
+  shared ones included, all private then; a card above the notes and
+  Sync & sharing say so, and sync can be turned on again as a new
+  identity. Without the recovery key only the
+  server's owner can delete it on request (admin page). *Prototype:
+  2026-10-16 (`app/delete/?sample`).*
 - **Version history** (backlog #7, decided 2026-10-15, user request):
   the server keeps older states of a file — one per hour for the last
   day, then one per day, for 30 days — and the user brings one back.
@@ -280,7 +312,8 @@ before the first live test).
     before names existed stay "Device n"; renaming is not built.
   - **Stale devices** (decided 2026-10-15, user request): the device list
     shows for every other device when it last synced ("Last synced 3 days
-    ago"). One that hasn't synced for **90 days** gets a warning in its
+    ago"; "No sync reported yet" for one that hasn't reported a sync —
+    always shown, not only with the warning, user request 2026-10-16). One that hasn't synced for **90 days** gets a warning in its
     row — "No sync for 104 days — remove it if you don't use it any more"
     — next to its remove button. Why: a forgotten device still holds keys
     and gets every new file key, and while it is listed the trash has to
@@ -348,7 +381,19 @@ paid features per user.
   (`docs/operations.md`).
 - **News:** the owner writes posts for everyone using the server
   ("News from the server's owner").
-- Not built: deleting or blocking an identity (backlog #34).
+- **Blocking and deleting an identity** (backlog #34, decided 2026-10-16,
+  user request; for abuse, test data and deletion requests): the
+  identity's detail has an **Access** card. **Block…** asks "Until" a
+  day or "Until I lift it"; its devices then can't sync and show "Sync
+  is blocked by the server's owner until 25 Oct 2026." Nothing is
+  deleted, whoever shares notes with it keeps syncing, and the block ends
+  by itself on that day or with **Lift block**. The list marks it with a
+  "Blocked" chip, the overview counts it. **Delete identity…** asks to
+  type DELETE and deletes it like the user can ("Deleting your sync
+  data"). The owner's own identity can be neither. Only whole identities,
+  no single devices (user decision): a lost device is removed by its
+  owner, which also renews the keys; blocking a device on the server
+  alone would leave it what it has.
 
 ### Main view, archive and trash
 

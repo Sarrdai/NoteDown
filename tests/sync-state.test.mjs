@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince } from "../app/js/core/sync-state.js";
+import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince, blockedMessage, detachedFile, syncNotice } from "../app/js/core/sync-state.js";
 
 const welcomeText = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8");
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -168,4 +168,38 @@ test("dropSeenPurged: a purged marker goes once every active device synced after
 test("daysSince: whole days, undefined without a time", () => {
   assert.equal(daysSince("2026-10-01T12:00Z", Date.parse("2026-10-15T11:00Z")), 13);
   assert.equal(daysSince(undefined), undefined);
+});
+
+test("blockedMessage names the end of a block, if any", () => {
+  assert.equal(blockedMessage(null), "Sync is blocked by the server's owner.");
+  assert.equal(blockedMessage("2026-10-20T08:00:00+00:00", "UTC"), "Sync is blocked by the server's owner until 20 Oct 2026.");
+});
+
+test("detachedFile keeps every note as a private one and drops what belongs to the identity", () => {
+  const own = createNote("## Own", "2026-10-01T09:00", "a");
+  const trashed = { ...createNote("## Trashed", "2026-10-01T09:00", "b"), deleted: "2026-10-02T09:00", kept: "x" };
+  const shared = createNote("## Shared", "2026-10-01T09:00", "c");
+  const left = { ...createNote("## Left", "2026-10-01T09:00", "d"), left: ["me"] };
+  const other = { ...createNote("## Left by another", "2026-10-01T09:00", "e"), left: ["x"] };
+  const file = { preamble: "", notes: [own, trashed], moved: [{ id: "c", moved: "2026-10-01T10:00" }], purged: [{ id: "z", purged: "2026-10-01T10:00" }],
+    devices: [{ id: "d1", name: "Phone" }], contacts: [{ id: "x", name: "Lea", color: 1 }], members: [], news: [{ id: "n", seen: "2026-10-01T10:00" }],
+    order: { ids: ["a"], modified: "2026-10-01T10:00" } };
+  const out = detachedFile(file, [{ members: ["x"], file: { notes: [shared, left, other] } }], "me");
+  assert.deepEqual(out.notes.map(n => n.id), ["a", "b", "c", "e"]);
+  assert.ok(out.notes.every(n => !("kept" in n) && !("left" in n)));
+  assert.equal(out.notes[1].deleted, "2026-10-02T09:00");
+  assert.deepEqual([out.moved, out.purged, out.devices, out.contacts], [[], [], [], []]);
+  assert.deepEqual(out.news, file.news);
+  assert.deepEqual(out.order, file.order);
+});
+
+test("syncNotice: removed and deleted while sync is off, blocked while it is on", () => {
+  assert.equal(syncNotice({ enabled: true, ended: "", blocked: null }), null);
+  assert.equal(syncNotice({ enabled: false, ended: "" }), null);
+  assert.equal(syncNotice({ enabled: false, ended: "removed" }).kind, "removed");
+  assert.equal(syncNotice({ enabled: false, ended: "deleted" }).closable, true);
+  const blocked = syncNotice({ enabled: true, blocked: { until: "2026-10-25T00:00:00Z" } }, "UTC");
+  assert.deepEqual([blocked.kind, blocked.title, blocked.closable], ["blocked", "Sync is blocked by the server's owner until 25 Oct 2026.", false]);
+  assert.equal(syncNotice({ enabled: true, blocked: { until: null } }).title, "Sync is blocked by the server's owner.");
+  assert.equal(syncNotice({ enabled: true, ended: "removed" }), null, "sync on again: no notice");
 });

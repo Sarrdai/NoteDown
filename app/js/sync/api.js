@@ -3,11 +3,14 @@
 // is fetched by signing a challenge and kept until shortly before it expires.
 import { signChallenge } from "../core/crypto.js";
 import { backupFileName } from "../core/admin.js";
+import { blockedMessage } from "../core/sync-state.js";
 
 // The server's answers that get a sentence of their own in the sync status.
 function describe(status, body) {
   if (status === 429) return "Too many attempts. Try again later.";
   if (status === 413 && body && body.detail === "storage quota exceeded") return "Sync storage is full.";
+  if (status === 423) return blockedMessage(body?.until ?? null);
+  if (status === 410) return "Your sync data was deleted from the server.";
   return body && body.detail ? `${status}: ${body.detail}` : `HTTP ${status}`;
 }
 
@@ -59,11 +62,14 @@ export function createApi(baseUrl, who) {
 
   return {
     createIdentity: (identityKey, entries) => call("POST", "/v1/identities", { identity_key: identityKey, entries }),
+    challenge: () => call("GET", "/v1/auth/challenge"),   // → { challenge }
+    // Signed with the identity key (the recovery key), no token: works without a device and while blocked.
+    deleteIdentity: (id, challenge, sig) => call("POST", `/v1/identities/${id}/delete`, { challenge, sig }),
     // Authenticated; `invitation` names an open invitation of `id` (the way to read a stranger's list).
     getIdentity: (id, invitation) => call(
       "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
-    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch, news }) => ({ files, quota, epoch: epoch ?? null, news: news ?? null })),   // each file with its `size`; `epoch` changes when the server was restored, `news` with every change to the news posts
+    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch, news, deleted }) => ({ files, quota, epoch: epoch ?? null, news: news ?? null, deleted: deleted ?? [] })),   // each file with its `size`; `epoch` changes when the server was restored, `news` with every change to the news posts, `deleted`: the deleted identities among the members
     // The owner's news posts, unencrypted, the same for everybody: → { version, news: [{ id, created, modified, body }] }
     news: () => call("GET", "/v1/news", undefined, true),
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
@@ -90,6 +96,9 @@ export function createApi(baseUrl, who) {
     adminIdentity: id => call("GET", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
     adminSetQuota: (id, quota) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/quota`, { quota }, true),   // quota in bytes, null = default
     adminSetHistory: (id, on) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/history`, { history: on }, true),   // on: boolean
+    // until: an ISO time with zone, or null for a block without an end; blocked false lifts it.
+    adminBlock: (id, blocked, until = null) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/block`, { blocked, ...(until && { until }) }, true),
+    adminDeleteIdentity: id => call("DELETE", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
     adminNews: () => call("GET", "/v1/admin/news", undefined, true),   // → { news: [{ id, created, modified, body, archived }] }, newest first
     adminCreateNews: body => call("POST", "/v1/admin/news", { body }, true),   // → { id, created, modified }; 409 "too many news"
     adminUpdateNews: (id, patch) => call("PUT", `/v1/admin/news/${encodeURIComponent(id)}`, patch, true),   // patch: { body?, archived? }

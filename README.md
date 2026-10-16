@@ -48,12 +48,14 @@ owner.
 The server's owner has an admin page at `/admin/` (signed in with their
 own linked device): what the server stores, the identities (searchable
 by ID) with their devices and files, a storage limit and the version
-history per identity, news posts for everyone
+history per identity, blocking or deleting an identity, news posts for everyone
 using the server (they show as **News** at the top of the people
 overview), and backup / restore — `app/admin/?sample` shows it with
 sample data. Notes from Google Keep come in through `/import/`: choose
 the Google Takeout ZIP, check the preview of every note, import the ones
-you want (`app/import/?sample` shows it with sample data).
+you want (`app/import/?sample` shows it with sample data). Your sync
+data is deleted with the recovery key under Sync & sharing or on
+`/delete/` (`app/delete/?sample`).
 
 ## Try the prototype
 

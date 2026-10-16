@@ -100,16 +100,18 @@ async function openPanel(page) {
   await page.locator(".menu-item", { hasText: "Sync & sharing" }).click();
 }
 
-// Turns sync on through the panel, as a new user does; closes the panel.
+// Turns sync on through the panel, as a new user does; closes the panel. → the recovery key shown.
 async function turnOnSync(page, name) {
   await openPanel(page);
   await page.locator("#syncBody").getByRole("button", { name: "Turn on sync" }).click();
   await page.fill("#syncBody input", name);
   await page.getByRole("button", { name: "Continue" }).click();
+  const key = (await page.locator(".key-group").allTextContents()).join("-");
   await page.check("#keySaved");
   await page.getByRole("button", { name: "Done" }).click();
   await page.getByText("This device", { exact: true }).waitFor();
   await page.keyboard.press("Escape");
+  return key;
 }
 
 // "Add contact" → "Paste link" with `link`; leaves the page on "Name the contact".
@@ -367,10 +369,13 @@ async function main() {
       await a.getByRole("button", { name: "Remove", exact: true }).click();
       await a.getByText("Chrome on Windows removed").waitFor();
       await a.keyboard.press("Escape");
+      const kept = (await bodies(b)).sort();
       await sync(b);
       const s = await syncState(b);
-      assert.equal(s.status, "error");
-      assert.match(s.error, /removed/, JSON.stringify(s));
+      assert.deepEqual([s.enabled, s.ended], [false, "removed"], JSON.stringify(s));
+      assert.deepEqual((await bodies(b)).sort(), kept, "B keeps its notes");
+      await b.locator("#syncNotice", { hasText: "This device was removed from sync" }).waitFor();
+      await shot(b, "removed-desktop");
       await addNote(a, sample.s07);
       await converge(a, d);
       assert.doesNotMatch(await fileText(a), /name=Chrome%20on%20Windows/, "B's name is gone");
@@ -434,7 +439,7 @@ async function main() {
     let e, f, link;
     await step("E (Lea) turns on sync and pastes A's invitation link; the request is pending", async () => {
       e = await device(browser, "E", { width: 1440, height: 900 });
-      await turnOnSync(e, "Lea");
+      e.recoveryKey = await turnOnSync(e, "Lea");
       await openPanel(a);
       await a.getByRole("button", { name: "Add contact" }).click();
       await a.getByRole("tab", { name: "Invite by link" }).click();
@@ -635,7 +640,7 @@ async function main() {
       assert.notEqual(after[0], before[0], "the shared file has a new key");
       assert.notEqual(after[1], before[1], "the private file has a new key");
       await sync(g);
-      assert.match((await stateOf(g)).error, /removed/);
+      assert.equal((await stateOf(g)).ended, "removed");
       await sync(e);
       assert.equal(await fileKeyOf(e, await circleRecord(e, [a, e])), after[0], "Lea unwrapped the new key");
       await setBody(e, noteN, (await noteBody(e, noteN)) + "\n\nafter renewal");
@@ -877,6 +882,47 @@ async function main() {
       } finally {
         await stopAdminServer(admin);
       }
+    });
+
+    await step("the owner blocks Lea until a day and lifts it; Lea deletes her sync data with the recovery key and keeps her notes, Sam keeps the shared one", async () => {
+      await convergeShared([a, e], a, d, e);
+      const lea = await ident(e);
+      const admin = await startAdminServer(await ident(a));
+      try {
+        const until = new Date(Date.now() + 3 * 86400000).toISOString();
+        const blocked = await adminCall(a, "PUT", `/v1/admin/identities/${lea}/block`, JSON.stringify({ blocked: true, until }));
+        assert.equal(blocked.status, 204, blocked.body);
+        await sync(e);
+        assert.match((await syncState(e)).error, /^Sync is blocked by the server's owner until \d+ \w+ \d{4}\.$/);
+        await e.locator("#syncNotice", { hasText: "Sync is blocked by the server's owner until" }).waitFor();
+        await setBody(a, noteK, (await noteBody(a, noteK)) + "\n\nwhile Lea is blocked");
+        await sync(a);
+        assert.equal((await syncState(a)).status, "synced", "a block doesn't stop the others");
+        const lifted = await adminCall(a, "PUT", `/v1/admin/identities/${lea}/block`, JSON.stringify({ blocked: false }));
+        assert.equal(lifted.status, 204, lifted.body);
+        await convergeShared([a, e], a, d, e);
+        assert.equal(await e.locator("#syncNotice").isHidden(), true, "the card goes once the block is lifted");
+      } finally {
+        await stopAdminServer(admin);
+      }
+      const leaNotes = (await bodies(e)).sort();
+      await openPanel(e);
+      await e.getByRole("button", { name: "Delete sync data" }).click();
+      await e.fill('#syncBody input[aria-label="Recovery key"]', e.recoveryKey);
+      await e.getByRole("button", { name: "Delete for good" }).click();
+      await e.getByText("Your sync data was deleted from the server.", { exact: false }).waitFor();
+      await shot(e, "deleted-desktop");
+      assert.equal((await syncState(e)).enabled, false);
+      assert.deepEqual((await bodies(e)).sort(), leaNotes, "Lea keeps every note, the shared one as a private note");
+      await e.keyboard.press("Escape");
+      await sync(a);
+      assert.equal((await syncState(a)).status, "synced", (await syncState(a)).error);
+      assert.deepEqual((await syncState(a)).deleted, [lea], "Sam's device knows Lea is deleted");
+      assert.match(await noteBody(a, noteK), /while Lea is blocked$/, "Sam keeps the shared note");
+      await setBody(a, noteK, (await noteBody(a, noteK)) + "\n\nafter Lea deleted her data");
+      await converge(a, d);
+      assert.equal((await syncState(a)).status, "synced", (await syncState(a)).error);
+      assert.match(await noteBody(d, noteK), /after Lea deleted her data$/);
     });
 
     await step("without a server, sync can't be turned on", async () => {

@@ -1,13 +1,13 @@
 // How contacts and circles look: names, stable colors (`--person-N` tokens)
 // and the small avatars used by the share dialog and the shared markers.
-import { contacts, memberName } from "../store.js";
+import { state, contacts, memberName } from "../store.js";
 import { circleLabel, colorIndex, initials, visibleMembers } from "../core/sharing.js";
 
 const contact = id => contacts().find(c => c.id === id);
 
 /** A contact's name (the user's own); for someone in a shared file who isn't a contact the name that member
- *  wrote into the file, else "Unknown". */
-export const nameOf = id => contact(id)?.name ?? memberName(id) ?? "Unknown";
+ *  wrote into the file, else "Unknown". Someone who deleted their sync data gets " (deleted)" (backlog #34). */
+export const nameOf = id => (contact(id)?.name ?? memberName(id) ?? "Unknown") + (state.sync.deleted.includes(id) ? " (deleted)" : "");
 
 /** "Lea & Tom" */
 export const membersLabel = members => circleLabel(members.map(nameOf));

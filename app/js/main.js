@@ -4,11 +4,12 @@ import { state, load, followOtherTabs, subscribe, updateSettings, setUi, addNote
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile } from "./core/notes-file.js";
-import { welcomeNotes } from "./core/sync-state.js";
+import { welcomeNotes, detachedFile } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
-import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite } from "./ui/sync-panel.js";
+import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite, openLinkPage } from "./ui/sync-panel.js";
+import { initSyncNotice } from "./ui/sync-notice.js";
 import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
@@ -434,8 +435,15 @@ function moreMenu() {
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
+    sync.simulated && sync.enabled && { label: "Simulate device removal", onSelect: simulateRemoval },
     { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
+}
+
+// What a device sees once another one removed it: sync off, the notes kept as private ones, a card above them
+// (ui/sync-notice.js; the real case: sync/client.js → detach).
+function simulateRemoval() {
+  replaceFiles({ file: detachedFile(state.file, state.shared, ""), shared: [], sync: { ended: "removed" } });
 }
 
 // The + button: a new note in the main view; in the archive it moves to the
@@ -629,6 +637,7 @@ async function start() {
   initReminders({ open: showDue });
   initExport();
   initStorageHint({ onSync: openSyncPanel, onExport: exportDialog });
+  initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel });
   document.body.dataset.ready = "1";
 }
 

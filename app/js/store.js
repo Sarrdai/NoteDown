@@ -47,10 +47,15 @@ export const DEFAULT_SETTINGS = {
 // when the file list reports a new version (sync/files.js) or, in the sample, from app/sample/news.md.
 // `usage` ({ used, quota } in bytes) is the server storage, from each round's file list;
 // `storageFull`: the last upload was refused for the quota.
+// `deleted`: the deleted identities among the members of the shared files (shown as deleted, backlog #34);
+// `ended`: "removed" once this device was taken off the device list, "deleted" once its identity was deleted
+// from the server (sync is off, the notes stayed; ui/sync-notice.js); `blocked` ({ until } or null): the
+// server's owner blocks the identity (backlog #34).
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], history: [], restore: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
+  deleted: [], ended: "", blocked: null,
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });

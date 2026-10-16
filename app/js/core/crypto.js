@@ -243,6 +243,11 @@ export async function signChallenge(privateKey, challenge) {
   return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, privateKey, authMessage(challenge))));
 }
 
+/** The identity key's signature that deletes the identity (docs/server-api.md → "Blocked and deleted identities"). */
+export async function signDeletion(identityPrivateKey, challenge) {
+  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, identityPrivateKey, utf8(`notedown-delete-v1:${challenge}`))));
+}
+
 // ---------- files ----------
 
 const aesKey = (bytes, usage) => subtle().importKey("raw", bytes, "AES-GCM", false, [usage]);

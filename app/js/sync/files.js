@@ -99,9 +99,10 @@ function chainOf(identity, run) {
       if (identity === state.sync.identity) return (await ctx.chain()).devices;
       try {
         const server = contacts().find(x => x.id === identity)?.server || ctx.defaultServer();   // the member's home server
-        const { identity_key: identityKey, entries } = await ctx.api(server).getIdentity(identity);
+        const { identity_key: identityKey, entries, deleted } = await ctx.api(server).getIdentity(identity);
         const bytes = c.fromB64u(identityKey, 32);
         if (await c.keyId(bytes) !== identity) throw new c.ProtocolError("wrong identity key");
+        if (deleted) return new Map();   // a deleted member has no devices left to wrap keys for
         return await c.verifyChain(bytes, entries);
       } catch (e) {
         if (e instanceof c.ProtocolError) throw new Error("The device list of someone in a shared file doesn't check out");
@@ -136,7 +137,8 @@ export async function grantKeys(deviceId, enc) {
 const emptyFile = () => parseNotesFile("");
 
 // A problem with one file is kept until the others are synced; these end the round at once.
-const endsRound = e => e instanceof NetworkError || (e instanceof ApiError && e.status === 401);
+// 401: this device is off the list; 410 / 423: the identity is deleted / blocked (backlog #34).
+const endsRound = e => e instanceof NetworkError || (e instanceof ApiError && [401, 410, 423].includes(e.status));
 
 async function guarded(run, fn) {
   try {
@@ -157,7 +159,8 @@ export async function filesRound() {
   const api = ctx.api(server);
   const run = { done: true, again: false, problems: [], chains: new Map() };
   const started = timestamp();   // what this round downloads is at least as new as this
-  const { files, quota, epoch, news } = await api.listFiles();
+  const { files, quota, epoch, news, deleted } = await api.listFiles();
+  if (deleted.join("\n") !== state.sync.deleted.join("\n")) setSync({ deleted });
   const used = files.reduce((sum, f) => sum + f.size, 0);
   const { usage } = state.sync;
   if (!usage || usage.used !== used || usage.quota !== quota) setSync({ usage: { used, quota } });

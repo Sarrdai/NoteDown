@@ -34,6 +34,34 @@ def utc_iso(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat() if value else None
 
 
+# SQL on `identities` aliased `i`: a block that holds now (docs/server-api.md → "Blocked and deleted identities").
+BLOCKED = "(i.blocked AND (i.blocked_until IS NULL OR i.blocked_until > now()))"
+
+
+def erase_identity(conn: psycopg.Connection, identity: str) -> bool:
+    """Deletes an identity in the caller's transaction (backlog #34): its files no other remaining identity is a
+    member of, its devices' keys, device list, contacts and invitations. Shared files stay for the other
+    members, and so does a row with the ID and key, marked `deleted`, which keeps the files' member sets intact
+    and tells its other devices what happened. False for an unknown identity; deleting twice changes nothing."""
+    row = conn.execute("SELECT deleted FROM identities WHERE id = %s FOR UPDATE", (identity,)).fetchone()
+    if row is None:
+        return False
+    if row[0] is not None:
+        return True
+    conn.execute("DELETE FROM files f WHERE f.id IN (SELECT file_id FROM file_members WHERE identity_id = %(i)s) "
+                 "AND NOT EXISTS (SELECT 1 FROM file_members m JOIN identities o ON o.id = m.identity_id "
+                 "WHERE m.file_id = f.id AND m.identity_id <> %(i)s AND o.deleted IS NULL)", {"i": identity})
+    conn.execute("DELETE FROM file_keys k USING devices d WHERE d.identity_id = %(i)s AND k.device_id = d.id "
+                 "AND k.file_id IN (SELECT file_id FROM file_members WHERE identity_id = %(i)s)", {"i": identity})
+    conn.execute("DELETE FROM devices WHERE identity_id = %s", (identity,))
+    conn.execute("DELETE FROM device_entries WHERE identity_id = %s", (identity,))
+    conn.execute("DELETE FROM contacts WHERE a = %(i)s OR b = %(i)s", {"i": identity})
+    conn.execute("DELETE FROM invitations WHERE identity_id = %(i)s OR requester = %(i)s", {"i": identity})
+    conn.execute("UPDATE identities SET deleted = now(), quota = NULL, history = false, blocked = false, "
+                 "blocked_until = NULL WHERE id = %s", (identity,))
+    return True
+
+
 def renew_news_version(conn: psycopg.Connection) -> None:
     """A new opaque news version, in the transaction of the change it announces."""
     conn.execute("INSERT INTO server_state (key, value) VALUES ('news', %s) "
@@ -55,8 +83,10 @@ def read_backup(conn: psycopg.Connection) -> dict:
 
     tables = {
         "identities": [
-            {"id": r[0], "identity_key": b64u(r[1]), "created": utc_iso(r[2]), "quota": r[3], "history": r[4]}
-            for r in rows('SELECT id, identity_key, created, quota, history FROM identities ORDER BY id COLLATE "C"')],
+            {"id": r[0], "identity_key": b64u(r[1]), "created": utc_iso(r[2]), "quota": r[3], "history": r[4],
+             "blocked": r[5], "blocked_until": utc_iso(r[6]), "deleted": utc_iso(r[7])}
+            for r in rows('SELECT id, identity_key, created, quota, history, blocked, blocked_until, deleted '
+                          'FROM identities ORDER BY id COLLATE "C"')],
         "device_entries": [
             {"identity_id": r[0], "seq": r[1], "entry": r[2]}
             for r in rows('SELECT identity_id, seq, entry FROM device_entries '
@@ -183,16 +213,25 @@ def parse_backup(doc: Any) -> dict:
     out: dict[str, list] = {"identities": [], "device_entries": [], "devices": [], "files": [], "file_members": [],
                             "file_keys": [], "file_versions": [], "file_key_chain": [], "contacts": [],
                             "invitations": [], "news": []}
-    # history and key_gen, file_versions and file_key_chain are optional: older backups restore without history.
-    for r in _rows(tables, "identities", {"id", "identity_key", "created", "quota", "history"}, frozenset({"history"})):
+    # history and key_gen, file_versions and file_key_chain are optional: older backups restore without history;
+    # so are blocked, blocked_until and deleted (missing: neither blocked nor deleted).
+    deleted: set[str] = set()
+    for r in _rows(tables, "identities", {"id", "identity_key", "created", "quota", "history", "blocked",
+                                          "blocked_until", "deleted"},
+                   frozenset({"history", "blocked", "blocked_until", "deleted"})):
         key = _b64u(r, "identity_key", "identities", 32)
         identity = _id(r, "id", "identities")
         if key_id(key) != identity or identity in identities:
             raise _bad("identities.id does not match its key, or repeats")
         identities[identity] = key
+        gone = _time(r, "deleted", "identities", nullable=True) if "deleted" in r else None
+        if gone:
+            deleted.add(identity)
         out["identities"].append((identity, key, _time(r, "created", "identities"),
                                   _int(r, "quota", "identities", 1, MAX_QUOTA_OVERRIDE, nullable=True),
-                                  _bool(r, "history", "identities")))
+                                  _bool(r, "history", "identities"), _bool(r, "blocked", "identities"),
+                                  _time(r, "blocked_until", "identities", nullable=True) if "blocked_until" in r
+                                  else None, gone))
 
     chains: dict[str, dict[int, dict]] = {i: {} for i in identities}
     for r in _rows(tables, "device_entries", {"identity_id", "seq", "entry"}):
@@ -203,8 +242,11 @@ def parse_backup(doc: Any) -> dict:
         chains[identity][seq] = r["entry"]
     devices: dict[str, dict] = {}
     for identity, by_seq in chains.items():
-        if not by_seq or sorted(by_seq) != list(range(len(by_seq))):
-            raise _bad("a device list has gaps or is empty")
+        # A deleted identity has no device list left; every other one has one without gaps.
+        if (identity in deleted) != (not by_seq) or sorted(by_seq) != list(range(len(by_seq))):
+            raise _bad("a device list has gaps, is empty or belongs to a deleted identity")
+        if not by_seq:
+            continue
         entries = [by_seq[i] for i in range(len(by_seq))]
         devices[identity] = verify_chain(identities[identity], entries)   # ProtocolError → 400
         out["device_entries"] += [(identity, e["seq"], Jsonb(e)) for e in entries]
@@ -313,7 +355,8 @@ def parse_backup(doc: Any) -> dict:
 
 
 INSERTS = {
-    "identities": "INSERT INTO identities (id, identity_key, created, quota, history) VALUES (%s, %s, %s, %s, %s)",
+    "identities": ("INSERT INTO identities (id, identity_key, created, quota, history, blocked, blocked_until, deleted) "
+                   "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"),
     "device_entries": "INSERT INTO device_entries (identity_id, seq, entry) VALUES (%s, %s, %s)",
     "devices": "INSERT INTO devices (identity_id, id, kind, active) VALUES (%s, %s, %s, %s)",
     "files": ("INSERT INTO files (id, owner, version, ciphertext, updated, member_key, key_gen) "
@@ -356,7 +399,8 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
     def overview(who: Admin):
         with pool.connection() as conn:
             counts = {
-                "identities": count(conn, "SELECT count(*) FROM identities"),
+                "identities": count(conn, "SELECT count(*) FROM identities WHERE deleted IS NULL"),
+                "blocked": count(conn, f"SELECT count(*) FROM identities i WHERE {BLOCKED}"),
                 "devices": count(conn, "SELECT count(*) FROM devices WHERE kind = 'device' AND active"),
                 "files": count(conn, "SELECT count(*) FROM files"),
                 "shared_files": count(conn, "SELECT count(*) FROM (SELECT 1 FROM file_members GROUP BY file_id "
@@ -384,17 +428,19 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 " ON f.id = m.file_id WHERE m.identity_id = i.id), "
                 "(SELECT max(f.updated) FROM file_members m JOIN files f ON f.id = m.file_id "
                 " WHERE m.identity_id = i.id), "
-                "(SELECT count(*) FROM contacts c WHERE c.a = i.id), i.history "
-                'FROM identities i ORDER BY i.created DESC, i.id COLLATE "C"').fetchall()
+                f"(SELECT count(*) FROM contacts c WHERE c.a = i.id), i.history, {BLOCKED}, i.blocked_until "
+                'FROM identities i WHERE i.deleted IS NULL ORDER BY i.created DESC, i.id COLLATE "C"').fetchall()
         return {"identities": [{
             "id": r[0], "created": r[1].isoformat(), "devices": r[3], "files": r[4], "used": int(r[5]),
             "quota": r[2] or default_quota, "quota_override": r[2], "updated": r[6].isoformat() if r[6] else None,
-            "contacts": r[7], "history": r[8]} for r in rows]}
+            "contacts": r[7], "history": r[8], "blocked": r[9], "blocked_until": utc_iso(r[10]) if r[9] else None}
+            for r in rows]}
 
     @app.get("/v1/admin/identities/{identity}")
     def get_identity(identity: str, who: Admin):
         with pool.connection() as conn:
-            row = conn.execute("SELECT created, quota, history FROM identities WHERE id = %s", (identity,)).fetchone()
+            row = conn.execute(f"SELECT i.created, i.quota, i.history, {BLOCKED}, i.blocked_until FROM identities i "
+                               "WHERE i.id = %s AND i.deleted IS NULL", (identity,)).fetchone()
             if row is None:
                 raise HTTPException(404, "unknown identity")
             devices = conn.execute(
@@ -417,6 +463,7 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
         return {"id": identity, "created": row[0].isoformat(), "used": sum(f["size"] for f in listed),
                 "quota": row[1] or default_quota, "quota_override": row[1],
                 "history": row[2], "history_size": int(history_size),
+                "blocked": row[3], "blocked_until": utc_iso(row[4]) if row[3] else None,
                 "devices": [{"id": d[0], "kind": d[1], "active": d[2]} for d in devices],
                 "files": listed, "contacts": contacts, "invitations": invitations}
 
@@ -461,6 +508,48 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                         " WHERE m.file_id = v.file_id AND i.history)", (identity,))
 
         await run_in_threadpool(update)
+
+    def not_an_admin(identity: str) -> None:
+        # Blocking or deleting an admin identity would lock the owner out of this page.
+        if identity in settings.admin_identities:
+            raise HTTPException(409, "an admin identity can't be blocked or deleted")
+
+    @app.put("/v1/admin/identities/{identity}/block", status_code=204)
+    async def set_block(identity: str, request: Request, who: Admin):
+        body = await json_body(request)
+        on = body.get("blocked") if isinstance(body, dict) else None
+        until = body.get("until") if isinstance(body, dict) else None
+        if type(on) is not bool:
+            raise ProtocolError("blocked must be true or false")
+        if until is not None:
+            if not on:
+                raise ProtocolError("until needs blocked")
+            try:
+                until = datetime.fromisoformat(until)
+            except (TypeError, ValueError):
+                raise ProtocolError("until must be a time")
+            if until.tzinfo is None:
+                raise ProtocolError("until needs a time zone")
+            if until <= datetime.now(timezone.utc):
+                raise ProtocolError("until must lie ahead")
+        not_an_admin(identity)
+
+        def update() -> None:
+            with pool.connection() as conn:
+                if not conn.execute("UPDATE identities SET blocked = %s, blocked_until = %s "
+                                    "WHERE id = %s AND deleted IS NULL", (on, until, identity)).rowcount:
+                    raise HTTPException(404, "unknown identity")
+
+        await run_in_threadpool(update)
+
+    @app.delete("/v1/admin/identities/{identity}", status_code=204)
+    def delete_identity(identity: str, who: Admin):
+        not_an_admin(identity)
+        with pool.connection() as conn:
+            gone = conn.execute("SELECT deleted IS NOT NULL FROM identities WHERE id = %s", (identity,)).fetchone()
+            if gone is None or gone[0]:
+                raise HTTPException(404, "unknown identity")
+            erase_identity(conn, identity)
 
     # --- news posts ---
 

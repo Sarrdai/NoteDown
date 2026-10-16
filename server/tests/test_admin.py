@@ -49,6 +49,8 @@ ENDPOINTS = [
     ("GET", "/v1/admin/identities/{id}", None),
     ("PUT", "/v1/admin/identities/{id}/quota", {"quota": 1000}),
     ("PUT", "/v1/admin/identities/{id}/history", {"history": True}),
+    ("PUT", "/v1/admin/identities/{id}/block", {"blocked": True}),
+    ("DELETE", "/v1/admin/identities/{id}", None),
     ("GET", "/v1/admin/backup", None),
     ("POST", "/v1/admin/restore", {}),
     ("GET", "/v1/admin/news", None),
@@ -106,7 +108,7 @@ def test_overview_counts(client, people, admin):
     got = client.get("/v1/admin/overview", headers=admin.h).json()
     assert got["identity"] == admin.id
     assert got["counts"] == {"identities": 3, "devices": 4, "files": 2, "shared_files": 1, "contacts": 1,
-                             "invitations": 1, "news": 0}
+                             "invitations": 1, "news": 0, "blocked": 0}
     assert got["storage"]["files"] == 150
     assert 0 < got["storage"]["database"] < got["storage"]["database_limit"] == 512 * 1024 * 1024
     assert got["quota"] == MAX_STORAGE_BYTES
@@ -122,7 +124,8 @@ def test_identities_list(client, people, admin):
     assert set(rows) == {admin.id, alice.id, bob.id}
     assert rows[alice.id] | {"created": None, "updated": None} == {
         "id": alice.id, "created": None, "devices": 1, "files": 2, "used": 150, "quota": MAX_STORAGE_BYTES,
-        "quota_override": None, "updated": None, "contacts": 1, "history": False}
+        "quota_override": None, "updated": None, "contacts": 1, "history": False, "blocked": False,
+        "blocked_until": None}
     assert rows[alice.id]["updated"] and rows[alice.id]["created"]
     assert rows[bob.id]["used"] == 50 and rows[bob.id]["files"] == 1
     assert rows[bob.id]["quota"] == 5000 == rows[bob.id]["quota_override"]
@@ -230,7 +233,8 @@ def test_backup_format(client, people, admin):
     assert set(doc["tables"]) == {"identities", "device_entries", "files", "file_members", "file_keys", "contacts",
                                   "invitations", "news", "file_versions", "file_key_chain"}
     assert {r["id"] for r in doc["tables"]["identities"]} == {admin.id, alice.id, bob.id}
-    assert set(doc["tables"]["identities"][0]) == {"id", "identity_key", "created", "quota", "history"}
+    assert set(doc["tables"]["identities"][0]) == {"id", "identity_key", "created", "quota", "history", "blocked",
+                                                   "blocked_until", "deleted"}
     assert [f["id"] for f in doc["tables"]["files"]] == [private]
     assert doc["tables"]["files"][0]["ciphertext"] == b64u(b"secret")
     assert len(doc["tables"]["device_entries"]) == 6 and len(doc["tables"]["contacts"]) == 2

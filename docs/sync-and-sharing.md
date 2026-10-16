@@ -181,6 +181,18 @@ the first sync round.
   devices and the recovery key lost means the server copies can't be
   decrypted any more (the price of end-to-end encryption); members of
   shared files keep those notes.
+- **Deleting the identity** (`docs/requirements.md` → "Deleting your
+  sync data"): signed with the identity key from the recovery key, so it
+  needs no device. The server deletes everything of the identity except
+  the files it shares with others, which keep their member set; its ID
+  stays as a marker so its devices learn about it (410) and members see
+  it as deleted. Each device then keeps all its notes as private notes
+  and drops its keys. The server's owner can delete or block an
+  identity too (`docs/server-api.md` → "Blocked and deleted identities").
+- **A removed device notices:** its next sync round gets 401 even with a
+  fresh token; it then turns sync off, keeps its notes as private notes,
+  drops its keys and shows a card above the notes with "Link again"
+  (`docs/requirements.md` → "When sync stops on a device").
 - **Own name:** the user picks a display name; it only travels inside
   QR codes, links and encrypted files, never in plain text to the server.
 

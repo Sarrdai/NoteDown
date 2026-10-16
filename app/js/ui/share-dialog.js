@@ -76,7 +76,7 @@ function contactRow(c, data, onToggle) {
     },
   },
   h("span", { html: avatarHtml(c.id) }),
-  h("span", { class: "row-text" }, h("span", { class: "row-title" }, c.name)),
+  h("span", { class: "row-text" }, h("span", { class: "row-title" }, nameOf(c.id))),
   box);
   paint(box, data.states[c.id]);
   return row;
@@ -113,10 +113,12 @@ registerPage("share", {
     // A contact added from here comes back checked, unless the request is still open.
     data.onContactAdded = c => { if (!c.pending) data.states[c.id] = "all"; };
     const notice = notices(data);
+    // Someone who deleted their sync data can't be added any more, only taken off (backlog #34).
+    const listed = contacts().filter(c => !c.pending && !(state.sync.deleted.includes(c.id) && data.states[c.id] === "none"));
     return [
       text("Only the people you pick can read it. Everyone you share with can edit, close and share it too."),
-      contacts().some(c => !c.pending)
-        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, contacts().filter(c => !c.pending).map(c => contactRow(c, data, notice.update)))
+      listed.length
+        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, listed.map(c => contactRow(c, data, notice.update)))
         : null,
       notice.el,
       h("button", { class: "share-row add", type: "button", onclick: () => go("addContact", { mode: "scan" }) },
