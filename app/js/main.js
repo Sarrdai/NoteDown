@@ -21,10 +21,10 @@ import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } f
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderWatchBar, initWatchBar } from "./ui/watch-bar.js";
 import { initSearchHits } from "./ui/search-hits.js";
-import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from "./ui/people-list.js";
-import { renderLabels, initLabels } from "./ui/labels.js";
-import { hasLabel } from "./core/labels.js";
-import { avatarHtml, avatarStackHtml } from "./ui/people.js";
+import { renderPeople, initPeople, circleName, circleLeadHtml, pickCircle, toggleCircleFilter, newsBadgeHtml } from "./ui/people-list.js";
+import { renderLabels, initLabels, toggleLabelFilter } from "./ui/labels.js";
+import { setPicking } from "./ui/filter-pick.js";
+import { hasAnyLabel } from "./core/filters.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
@@ -61,17 +61,21 @@ function sortOf(view = state.view) {
 }
 const orderIds = (view = state.view) => sortOf(view).key === "shared" ? circleOrder(sharedCircle()) : customOrder();
 const inView = (notes, view = state.view, search = state.search) => viewNotes(notes, { status: view, search, sort: sortOf(view), order: orderIds(view) });
-// The notes the list shows before view and search: the circle filter, then the label filter.
-const withLabel = notes => state.label === null ? notes : notes.filter(n => hasLabel(n.body, state.label));
-const listed = () => withLabel(circleNotes(activeCircle()));
+// The notes the list shows before view and search: the picked circles, then the picked labels.
+const withLabel = notes => notes.filter(n => hasAnyLabel(n.body, state.labels));
+const inCircles = () => state.circles.length ? state.circles.flatMap(k => circleNotes(k)) : circleNotes(null);
+const listed = () => withLabel(inCircles());
 const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
 
-// The members a new note goes to: those of the circle the list is filtered to.
+// Where a new note goes: the circle the list is filtered to, else private.
 // From the news, which take no notes, the list goes back to all notes first.
-function newNoteMembers() {
-  if (activeCircle() === NEWS) setUi({ circle: null }, "silent");
-  return activeCircle() ? activeCircle().split("+") : [];
+// With several circles picked, + asks which of them (newNote) and dictation
+// is blocked (dictationBlocked).
+function newNoteMembers(key = activeCircle()) {
+  if (state.circles.includes(NEWS)) setUi({ circles: [] }, "silent");
+  return key && key !== NEWS ? key.split("+") : [];
 }
+const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one circle only" : null;
 
 function currentNotes() {
   const notes = inView(listed());
@@ -153,11 +157,12 @@ function tilesOf(view, notes) {
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
-    : state.label !== null ? `No notes labelled #${state.label} here.`
+    : state.labels.length ? `No notes labelled ${state.labels.map(l => "#" + l).join(" or ")} here.`
     : view === "trash" ? "The trash is empty."
     : circle === NEWS ? (view === "open" ? "No news right now." : "No archived news.")
     : circle && view === "open" ? `Nothing shared with ${circleName(circle)} yet. Tap + to start.`
     : circle === "" && view === "open" ? "No private notes. Tap + to add one."
+    : state.circles.length > 1 ? (view === "open" ? "No open notes in these circles." : "Nothing archived in these circles.")
     : view === "open" ? "No open notes. Tap + to add one." : "Nothing archived yet.";
 }
 
@@ -225,24 +230,43 @@ function previewView(view) {
   return nodes;
 }
 
+// Picking several in a tab ends once its last entry is taken out (e.g. by a chip's ×).
+function settlePicking() {
+  if ((state.picking === "people" && !state.circles.length) || (state.picking === "labels" && !state.labels.length)) setPicking(null);
+}
+
 // The people and label overviews and the chips of the active filters above the list.
 function renderCircleFilter() {
   const circle = activeCircle();
   app.dataset.tab = state.panelTab;
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   renderPeople(key => inView(withLabel(circleNotes(key))).length);
-  renderLabels(inView(circleNotes(circle)));
+  renderLabels(inView(inCircles()));
   // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
   const fresh = freshCount(newsNotes());
   document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
   $("tocHandle").innerHTML = newsBadgeHtml(fresh);
-  $("filterBar").hidden = circle === null && state.label === null;
-  $("filterChip").hidden = circle === null;
-  if (circle === null) return;
-  const members = circle && circle !== NEWS ? circle.split("+") : [];
-  const lead = circle === NEWS ? icon("news") : !members.length ? icon("lock") : members.length === 1 ? avatarHtml(members[0], "small") : avatarStackHtml(members);
-  $("filterChipLabel").innerHTML = lead + `<span></span>`;
-  $("filterChipLabel").lastChild.textContent = circleName(circle);
+  // One chip with × per picked circle and label.
+  const chip = (lead, name, clearLabel, onClear) => {
+    const el = document.createElement("span");
+    el.className = "filter-chip";
+    el.innerHTML = `<span>${lead}<span></span></span><button class="icon-btn small" type="button">${icon("close")}</button>`;
+    el.firstChild.lastChild.textContent = name;
+    el.lastChild.setAttribute("aria-label", clearLabel);
+    el.lastChild.addEventListener("click", onClear);
+    return el;
+  };
+  // With several chips, a × in front of them clears all filters.
+  const many = state.circles.length + state.labels.length > 1;
+  const clearAll = many && Object.assign(document.createElement("button"), { className: "icon-btn small filter-clear-all", type: "button", innerHTML: icon("close") });
+  if (clearAll) {
+    clearAll.setAttribute("aria-label", "Clear all filters");
+    clearAll.addEventListener("click", () => { setPicking(null); setUi({ circles: [], labels: [], topId: null }); });
+  }
+  $("filterBar").replaceChildren(...[clearAll].filter(Boolean),
+    ...state.circles.map(k => chip(circleLeadHtml(k, "small"), circleName(k), `Stop showing ${circleName(k)}`, () => { toggleCircleFilter(k); settlePicking(); })),
+    ...state.labels.map(l => chip("", "#" + l, `Stop showing #${l}`, () => { toggleLabelFilter(l); settlePicking(); })));
+  $("filterBar").hidden = !state.circles.length && !state.labels.length;
 }
 
 subscribe(kind => {
@@ -284,11 +308,21 @@ function setView(view, { fromHistory = false } = {}) {
   $("tocList").scrollTop = 0;
 }
 
+// With several circles picked, + first asks which of them the note goes to.
 function newNote() {
   endSelection();
+  const circles = state.circles;
+  if (circles.length > 1 && state.view === "open") return openMenu($("fab"), [
+    { section: "New note in" },
+    ...circles.map(k => ({ label: circleName(k), lead: circleLeadHtml(k, "small"), onSelect: () => createNote(k) })),
+  ]);
+  createNote();
+}
+
+function createNote(key) {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote("", newNoteMembers());
+  const n = addNote("", newNoteMembers(key));
   state.topId = n.id;
   render();
   window.scrollTo(0, 0);
@@ -499,7 +533,8 @@ function exportDialog() {
 function showDue(ids) {
   endSelection();
   if (state.view !== "open") setView("open");
-  setUi({ search: "", circle: null, label: null });
+  setPicking(null);
+  setUi({ search: "", circles: [], labels: [] });
   app.classList.remove("searching");
   const first = document.querySelector(`.note[data-id="${ids[0]}"]`);
   first?.scrollIntoView({ block: "center" });
@@ -507,7 +542,7 @@ function showDue(ids) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -527,7 +562,6 @@ function wire() {
   });
   $("sortBtn").addEventListener("click", () => sortMenu());
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
-  $("filterClear").addEventListener("click", () => pickCircle(null));
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => setUi({ search: e.target.value, topId: null }));
   $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
@@ -550,15 +584,17 @@ function wire() {
   initToc();
   initWatchBar();
   initSearchHits();
-  // Picking a circle on the phone closes the sheet; the chip above the list shows it.
-  initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); }, onAdd: openSyncPanel });
-  initLabels({ onPick: () => { if (phone.matches) setTocOpen(false); } });
+  // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.
+  // Adding one to the filter keeps it open (ui/filter-pick.js).
+  const picked = close => { if (close && phone.matches) setTocOpen(false); };
+  initPeople({ onPick: picked, onAdd: openSyncPanel });
+  initLabels({ onPick: picked });
   initMenu();
   initConfirm();
   initExternal();
   initArrange();
   initToolbar({ onDue: sortInByDue });
-  initRecorder({ onTap: fabTap, canHold: () => state.view === "open", onTranscript: addDictatedNote });
+  initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initSyncPanel();
   initContactRequests();

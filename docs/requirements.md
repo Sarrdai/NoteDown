@@ -645,16 +645,33 @@ paid features per user.
   person, also a contact nothing is shared with yet — then every group
   (a circle of several, named by its members, A–Z). Each entry shows how
   many of its notes the current view holds. *Prototype: 2026-10-14.*
-- Picking an entry **filters the list** to that circle's notes; archive,
-  search and sort apply on top, and the table of contents follows. The
-  active filter shows as a **chip with ×** above the list, which clears
-  it; the filter is not remembered across starts (it starts at All).
-- **+** (and dictation) in a filtered list creates the note **in that
-  circle** — for a contact without shared notes this starts the circle
-  (each circle is one file, `docs/sync-and-sharing.md`). Without a
-  filter, or under Private, a new note is private.
-- A **long-press** (desktop: right-click) on a contact lists the groups
-  they are in, to jump to one.
+- Tapping an entry **filters the list** to that circle's notes; archive,
+  search and sort apply on top, and the table of contents follows.
+- **Several circles** can be shown at once (user request 2026-10-16): a
+  **long-press** on an entry (desktop: right-click or Ctrl/Cmd+click)
+  starts picking several, as on notes — the tab shows a bar with **×**
+  and "2 selected", every entry a checkbox, and a tap then adds or
+  removes an entry (the phone sheet stays open). ×, the back key, `Esc`
+  or taking out the last entry end it; the picked circles stay. The list
+  shows the notes of all picked circles. News are only shown on their
+  own; All notes clears the filter. Chosen over a tap that always adds
+  (one more step for the common single pick) and a checkbox on every row
+  (clutter): the long-press is how multi-select starts everywhere else.
+- Each picked circle shows as a **chip with ×** above the list, which
+  takes it out; with more than one chip (circles and labels together) a
+  **×** in front of them clears all filters. The filter is not
+  remembered across starts (it starts at All).
+- **+** (and dictation) in a list filtered to one circle creates the note
+  **in that circle** — for a contact without shared notes this starts the
+  circle (each circle is one file, `docs/sync-and-sharing.md`). Without a
+  filter, or under Private, a new note is private. With **several
+  circles**, + first asks which of them the note goes to (a menu of the
+  picked circles), and holding + doesn't record but says "To dictate,
+  show one circle only" — a dictated note has no moment to ask.
+- A **contact's page** (Sync & sharing → the contact) lists the **groups**
+  they are in; tapping one shows that group's notes (user request
+  2026-10-16; it replaces the long-press menu on a contact, which now
+  starts picking several).
 - Placement: **tabs "Contents | People"** at the top of the sidebar
   (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
   over a second section below the contents (both lists get cramped) and a
@@ -679,13 +696,16 @@ whose labels need a place).
   them; there are no private labels on shared notes.
 - In a note a label shows as a small **chip**; tapping it **filters the
   list** to the notes with that label. Circle filter, archive, search
-  and sort apply on top; the table of contents follows. The active
-  label shows as a **chip with ×** above the list, next to the circle's
-  chip; it is not remembered across starts.
+  and sort apply on top; the table of contents follows. Each picked
+  label shows as a **chip with ×** above the list, next to the circles'
+  chips; the filter is not remembered across starts.
 - A third tab **"Contents | People | Labels"** lists every label of the
   current view (circle filter and search applied) A–Z with its count;
-  picking one filters, picking it again clears it. Without labels it
-  says how to add one. Chosen 2026-10-15 over a row of label chips above
+  tapping one filters, tapping it again clears it. Several labels are
+  picked like several circles (long-press, "People circles as a
+  filter"); a note then shows when it carries **any** of them (decided
+  2026-10-16: the same rule as for circles). Labels don't affect where
+  + puts a note. Without labels the tab says how to add one. Chosen 2026-10-15 over a row of label chips above
   the list: many labels (after an import) fit a list, and it works like
   the people filter. The three tabs take the head's full width.
 - While a note is edited its labels show as plain text. *Prototype:

@@ -12,8 +12,9 @@ Every note is a Markdown section and at the same time a to-do: open or
 done, with an optional due date that can remind you on the day. Open notes form the main list, done ones
 move to a read-only archive. Notes live in plain Markdown files: one
 private file, plus one per group of people notes are shared with;
-a People tab next to the table of contents filters the list by person or
-group, a Labels tab by the #labels written in the notes. Besides the usual sort options, notes can be put in a custom order.
+a People tab next to the table of contents filters the list by persons or
+groups, a Labels tab by the #labels written in the notes (several at once
+after a long-press). Besides the usual sort options, notes can be put in a custom order.
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a

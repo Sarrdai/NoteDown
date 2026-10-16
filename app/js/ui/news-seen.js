@@ -3,7 +3,7 @@
 // view — another filter, the other view, or the app went to the background —
 // so the "new" / "updated" label stays while it is being read. A tap on a
 // card counts at once (ui/note-list.js).
-import { state, activeCircle, markNewsSeen } from "../store.js";
+import { state, markNewsSeen } from "../store.js";
 
 let viewed = new Set();
 let context = null;
@@ -27,7 +27,7 @@ function flush(later = false) {
 /** After each render of the list: watches the labelled news cards; a changed view or filter
  *  marks what was seen in the one before (after this render, as it renders again). */
 export function trackNews() {
-  const now = `${activeCircle()}|${state.view}`;
+  const now = `${state.circles.join(",")}|${state.view}`;
   if (context !== null && now !== context) flush(true);
   context = now;
   if (!observer) return;
