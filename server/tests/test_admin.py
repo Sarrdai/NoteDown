@@ -97,20 +97,20 @@ def test_admin_identities_come_from_the_environment(monkeypatch):
     assert Settings.from_env().admin_identities == []
 
 
-def test_the_database_limit_comes_from_the_environment(monkeypatch):
+def test_the_database_limit_comes_from_the_environment(monkeypatch, caplog):
     monkeypatch.setenv("DATABASE_URL", "x")
     monkeypatch.setenv("SERVER_SECRET", "x")
-    monkeypatch.delenv("DATABASE_LIMIT_MB", raising=False)
-    assert Settings.from_env().database_limit == 1024 * 1024 * 1024
-    for empty in ("", " "):   # an unset GitHub variable deploys as an empty value
-        monkeypatch.setenv("DATABASE_LIMIT_MB", empty)
-        assert Settings.from_env().database_limit == 1024 * 1024 * 1024
     monkeypatch.setenv("DATABASE_LIMIT_MB", "3072")
     assert Settings.from_env().database_limit == 3072 * 1024 * 1024
-    for bad in ("0", "-5", "1.5", "1GB"):
-        monkeypatch.setenv("DATABASE_LIMIT_MB", bad)
-        with pytest.raises(ValueError):
-            Settings.from_env()
+    # Not set, empty (an unset GitHub variable deploys as an empty value) or invalid: the server starts, says so
+    # in its log, and the limit is None.
+    monkeypatch.delenv("DATABASE_LIMIT_MB")
+    for value in (None, "", " ", "0", "-5", "1.5", "1GB"):
+        if value is not None:
+            monkeypatch.setenv("DATABASE_LIMIT_MB", value)
+        caplog.clear()
+        assert Settings.from_env().database_limit is None, value
+        assert "DATABASE_LIMIT_MB" in caplog.text
 
 
 # --- overview and identities ---
@@ -128,7 +128,7 @@ def test_overview_counts(client, people, admin):
     assert got["counts"] == {"identities": 3, "devices": 4, "files": 2, "shared_files": 1, "contacts": 1,
                              "invitations": 1, "news": 0, "blocked": 0}
     assert got["storage"]["files"] == 150
-    assert 0 < got["storage"]["database"] < got["storage"]["database_limit"] == 1024 * 1024 * 1024
+    assert got["storage"]["database"] > 0 and got["storage"]["database_limit"] is None   # not set in the tests
     # The limit comes from the settings (DATABASE_LIMIT_MB).
     client.settings.database_limit = 2048 * 1024 * 1024
     assert client.get("/v1/admin/overview", headers=admin.h).json()["storage"]["database_limit"] == 2048 * 1024 * 1024

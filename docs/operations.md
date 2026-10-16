@@ -109,11 +109,12 @@ Namecheap the same way, then *Verify*.
    string (`postgresql://…neon.tech/neondb?sslmode=require…`). It is
    needed in section 3 and then never again — don't store it anywhere else.
 3. The admin page shows the database size against the plan's limit,
-   which the server can't ask Neon for: it reads it from
-   `DATABASE_LIMIT_MB` (default 1024, the free plan). On another plan or
-   host: GitHub → *Settings* → *Secrets and variables* → *Actions* →
-   *Variables* → New repository variable `DATABASE_LIMIT_MB` = the limit
-   in MB, then run the *Server* workflow.
+   which the server can't ask Neon for: GitHub → *Settings* → *Secrets
+   and variables* → *Actions* → *Variables* → New repository variable
+   `DATABASE_LIMIT_MB` = the limit in MB (`1024` on the free plan), then
+   run the *Server* workflow; change it with the plan or the host.
+   Without it the server runs as usual and the admin page shows "Limit
+   not set".
 
 ## 3. Google Cloud
 

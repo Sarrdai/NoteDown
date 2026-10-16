@@ -351,7 +351,9 @@ paid features per user.
   and shared files, contact pairs, open invitations, database size
   against the hosting limit — a server setting, `DATABASE_LIMIT_MB`,
   since the database can't report it; an (i) next to "Database" says so
-  on hover or tap), the identities with their storage use,
+  on hover or tap, and while it isn't set the page shows "Limit not set"
+  instead of the bar: the server still starts, user decision 2026-10-16),
+  the identities with their storage use,
   devices, files and contacts, and backup / restore. *Prototype:
   `app/admin/` (`?sample`).*
 - **Four sections, Overview / Identities / News / Backup** (decided 2026-10-15

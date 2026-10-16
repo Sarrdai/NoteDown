@@ -1,6 +1,7 @@
 """The sync server's HTTP API (docs/server-api.md)."""
 
 import ipaddress
+import logging
 import os
 import re
 from contextlib import asynccontextmanager
@@ -38,11 +39,11 @@ INVITATION_LIVE = ("((requester IS NULL AND expires > now()) OR "
 # per day, and nothing replaced longer ago than this many days.
 HISTORY_HOURLY_HOURS = 24
 HISTORY_DAYS = 30
-# The database size the admin page measures against, in MiB: Neon's free plan (1 GB per project since 2026-10).
-DEFAULT_DATABASE_LIMIT_MB = 1024
 # Per-IP limits on the unauthenticated endpoints that create something: (max requests, window seconds).
 LIMIT_IDENTITIES = (10, 24 * 3600)
 LIMIT_RELAY = (30, 3600)
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -52,8 +53,9 @@ class Settings:
     cors_origins: list[str]
     rate_limits: bool = True   # switched off only for tests and the local end-to-end run
     admin_identities: list[str] = field(default_factory=list)   # who may use /v1/admin; empty = nobody
-    # The database host's size limit, only shown on the admin page (env DATABASE_LIMIT_MB; Postgres doesn't know it).
-    database_limit: int = DEFAULT_DATABASE_LIMIT_MB * 1024 * 1024
+    # The database host's size limit in bytes, only shown on the admin page (env DATABASE_LIMIT_MB; Postgres doesn't
+    # know it). None: not set, and the admin page says so.
+    database_limit: int | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -64,17 +66,19 @@ class Settings:
             rate_limits=os.environ.get("RATE_LIMITS", "on").lower() != "off",
             # Exact identity IDs only: anything else (a typo, "*") never matches and is dropped here.
             admin_identities=[i for i in re.split(r"[,\s]+", os.environ.get("ADMIN_IDENTITIES", "")) if is_id(i)],
-            database_limit=database_limit_mb(os.environ.get("DATABASE_LIMIT_MB", "")) * 1024 * 1024,
+            database_limit=database_limit(os.environ.get("DATABASE_LIMIT_MB", "")),
         )
 
 
-def database_limit_mb(value: str) -> int:
-    """DATABASE_LIMIT_MB: a whole number of MiB above 0; empty (an unset deploy variable) is the default."""
-    if not value.strip():
-        return DEFAULT_DATABASE_LIMIT_MB
-    if not value.strip().isdigit() or int(value) < 1:
-        raise ValueError(f"DATABASE_LIMIT_MB must be a whole number of MB, not {value!r}")
-    return int(value)
+def database_limit(value: str) -> int | None:
+    """DATABASE_LIMIT_MB in bytes: a whole number of MiB above 0. Missing, empty (an unset deploy variable) or
+    invalid is None: the server starts anyway, logs it, and the admin page shows the limit as not set."""
+    value = value.strip()
+    if value.isdigit() and int(value) > 0:
+        return int(value) * 1024 * 1024
+    log.warning("DATABASE_LIMIT_MB is %s: the admin page shows the database limit as not set",
+                f"not a whole number of MB ({value!r})" if value else "not set")
+    return None
 
 
 class NewIdentity(BaseModel):

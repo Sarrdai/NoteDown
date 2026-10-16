@@ -253,6 +253,8 @@ function tile(label, value, sub) {
 
 function overviewSection() {
   const { counts, storage } = S.overview;
+  // The host's limit is a server setting (DATABASE_LIMIT_MB); null while it isn't set.
+  const limitSet = storage.database_limit != null;
   const db = usageLevel(storage.database, storage.database_limit);
   return h("section", { class: "adm-section", "aria-labelledby": "h-overview" },
     h("h2", { class: "adm-h", id: "h-overview" }, "Overview"),
@@ -263,14 +265,17 @@ function overviewSection() {
       tile("Contacts", counts.contacts),
       tile("Open invitations", counts.invitations),
       h("div", { class: "adm-tile adm-meter" },
-        h("div", { class: "tile-label" }, "Database", infoTip("db-limit", "About the database limit",
-          `The limit (${formatBytes(storage.database_limit)}) is set on the server with DATABASE_LIMIT_MB; the server can't ask the database host for it. ` +
-          "The default, 1024 MB, is Neon's free plan. Change it when the plan or the host changes.")),
-        h("div", { class: "tile-value small" }, meterText(storage.database, storage.database_limit)),
-        h("div", {
+        h("div", { class: "tile-label" }, "Database", infoTip("db-limit", "About the database limit", limitSet
+          ? `The limit (${formatBytes(storage.database_limit)}) is set on the server with DATABASE_LIMIT_MB; the server can't ask the database host for it. ` +
+            "Neon's free plan has 1024 MB. Change it when the plan or the host changes."
+          : "The server can't ask the database host for its size limit, so it reads it from DATABASE_LIMIT_MB, which isn't set. " +
+            "Set it to the plan's limit in MB (Neon's free plan: 1024) and deploy the server again.")),
+        h("div", { class: "tile-value small" }, limitSet ? meterText(storage.database, storage.database_limit) : formatBytes(storage.database)),
+        limitSet ? h("div", {
           class: "meter", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(db.percent),
           "aria-label": "Database size", "data-level": db.level,
-        }, h("div", { class: "meter-fill", style: `width: ${Math.max(db.percent, storage.database > 0 ? 1 : 0)}%` })),
+        }, h("div", { class: "meter-fill", style: `width: ${Math.max(db.percent, storage.database > 0 ? 1 : 0)}%` }))
+          : h("div", { class: "tile-sub tile-warn" }, "Limit not set (DATABASE_LIMIT_MB)"),
         h("div", { class: "tile-sub" }, `Encrypted notes: ${formatBytes(storage.files)}`),
         storage.history > 0 && h("div", { class: "tile-sub" }, `Version history: ${formatBytes(storage.history)}`))),
     h("div", { class: "d-card adm-limits" },
