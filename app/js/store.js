@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
   tocDepth: 2,
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
+  filterUi: "check",         // prototype variant: how several circles / labels are picked (ui/filter-pick.js) — toggle | check | hold
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
@@ -69,8 +70,8 @@ export const state = {
   view: "open",              // open | closed | trash
   search: "",
   panelTab: "toc",           // sidebar / sheet tab: toc | people | labels
-  label: null,               // label filter: null = all, else a label name (core/labels.js); not remembered
-  circle: null,              // people filter (#23): null = all, else a circleKey ("" = private); not remembered
+  labels: [],                // label filter: the picked label names, none = all (core/filters.js); not remembered
+  circles: [],               // people filter (#23): the picked circleKeys ("" = private), none = all; not remembered
   editingId: null,
   topId: null,               // a new note stays on top until its first edit ends or view, sort, search or circle change
   selected: new Set(),       // multi-select (ui/selection.js); empty = not selecting
@@ -299,9 +300,9 @@ function setNewsStatus(ids, status) {
   return () => setNewsMarks(before);
 }
 
-/** The people filter in effect: null for all notes. */
+/** The one circle the list is filtered to: null for all notes or several circles. */
 export function activeCircle() {
-  return state.circle;
+  return state.circles.length === 1 ? state.circles[0] : null;
 }
 
 /** The notes of one circle (circleKey, "" = private), its trash included (the views filter); every note for null. */

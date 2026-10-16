@@ -1016,6 +1016,16 @@ a.row-open { text-decoration: none; }
 .people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-count { font-size: 0.8rem; font-weight: 650; color: var(--text-faint); }
 .people-entry.none .people-name { color: var(--text-muted); }
+/* Variant B (ui/filter-pick.js): a checkbox at the row's end adds the entry to the filter. */
+.pick-check {
+  flex: none; width: 20px; height: 20px; margin: -10px -6px -10px 2px; padding: 10px; box-sizing: content-box;
+  background: radial-gradient(circle, transparent 0 8px, var(--text-faint) 8px 9.5px, transparent 9.5px) content-box;
+}
+.pick-check.on { background: radial-gradient(circle, var(--accent) 0 9.5px, transparent 9.5px) content-box; position: relative; }
+.pick-check.on::after {
+  content: ""; position: absolute; left: 17px; top: 13px; width: 5px; height: 10px;
+  border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
 .people-empty { margin: 12px 10px 0; color: var(--text-faint); font-size: 0.9rem; }
 .people-empty p { margin: 0 0 8px; }
 /* Thin gaps between everything / private, the contacts and the groups. */
@@ -1063,6 +1073,8 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .filter-chip > span > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-chip > span > .icon { width: 16px; height: 16px; color: var(--text-muted); }
 .filter-chip .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--accent-soft); }
+.menu-lead { display: inline-flex; min-width: 22px; justify-content: center; }
+.menu-lead .icon { width: 18px; height: 18px; color: var(--text-muted); }
 /* The running stopwatches (ui/watch-bar.js), one chip each above the filters. */
 .watch-bar + .filter-bar:not([hidden]) { padding-top: 6px; }
 .watch-chip {

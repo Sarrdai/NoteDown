@@ -13,7 +13,7 @@ const BARS = 36;
 
 const $ = id => document.getElementById(id);
 
-export function initRecorder({ onTap, canHold = () => true, onTranscript }) {
+export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => null, onTranscript }) {
   const fab = $("fab");
   const app = $("app");
   let press = null;      // { x, y, timer } while the finger is down
@@ -33,6 +33,13 @@ export function initRecorder({ onTap, canHold = () => true, onTranscript }) {
 
   function begin() {
     press.timer = null;
+    // A hold that can't record here says why (e.g. several circles shown: where would the note go?).
+    const blocked = holdBlocked();
+    if (blocked) {
+      showSnackbar(blocked);
+      press = null;
+      return;
+    }
     if (!dictationAvailable()) {
       showSnackbar(window.isSecureContext ? "Dictation isn't available in this browser" : "Dictation needs https or localhost");
       press = null;

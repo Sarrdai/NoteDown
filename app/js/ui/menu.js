@@ -14,7 +14,8 @@ export function openMenu(anchor, items) {
     b.className = "menu-item";
     b.setAttribute("role", item.checked === undefined ? "menuitem" : "menuitemradio");
     if (item.checked !== undefined) b.setAttribute("aria-checked", String(item.checked));
-    b.innerHTML = (item.checked !== undefined ? icon("check", "icon check") : item.icon ? icon(item.icon) : "") + `<span></span>`;
+    // `lead`: trusted HTML before the label, e.g. a circle's avatars.
+    b.innerHTML = (item.checked !== undefined ? icon("check", "icon check") : item.icon ? icon(item.icon) : item.lead ? `<span class="menu-lead">${item.lead}</span>` : "") + `<span></span>`;
     b.lastChild.textContent = item.label;
     b.disabled = !!item.disabled;
     // No focus change: a menu opened from the editor toolbar keeps the keyboard up.

@@ -1,23 +1,24 @@
 // The people overview (backlog #23): next to the contents, a list of the
 // circles the user shares with — everything, the private notes, each
-// contact on their own and each group. Picking one filters the note list to
-// that circle; a long-press (or right-click) on a contact lists the groups
-// they are in, to jump there. The server owner's news are pinned on top,
-// with a badge while posts are new or updated. Without contacts it still
-// shows, with a hint and Add contact, so the feature is there to be found.
+// contact on their own and each group. Picking entries filters the note
+// list to those circles (several at once: ui/filter-pick.js); a long-press
+// (or right-click) on a contact lists the groups they are in, to jump there
+// (in variant C the long-press picks instead; the groups also show on the
+// contact's page). The server owner's news are pinned on top, with a badge
+// while posts are new or updated, and are picked only on their own. Without
+// contacts it still shows, with a hint and Add contact, so the feature is
+// there to be found.
 import { circleEntries, groupsWith, circleKey } from "../core/sharing.js";
+import { toggleCircle } from "../core/filters.js";
 import { NEWS, freshCount } from "../core/news.js";
-import { state, setUi, sharedCircles, activeCircle, contacts, newsNotes } from "../store.js";
+import { state, setUi, sharedCircles, contacts, newsNotes } from "../store.js";
 import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people.js";
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
 import { h, button } from "./dom.js";
+import { wirePick, checkHtml } from "./filter-pick.js";
 
-const HOLD_MS = 450;
-const MOVE_TOLERANCE = 10;
 const $ = id => document.getElementById(id);
-let press = null;
-let swallowClick = false;
 let onPicked = () => {};
 let onAddContact = () => {};
 
@@ -26,10 +27,11 @@ export function circleName(key, members = key ? key.split("+") : []) {
   return key === null ? "All notes" : key === "" ? "Private" : key === NEWS ? "News" : membersLabel(members);
 }
 
-function leading(e) {
-  const inner = e.kind === "news" ? icon("news") : e.kind === "all" ? icon("notes") : e.kind === "private" ? icon("lock")
-    : e.kind === "contact" ? avatarHtml(e.members[0]) : avatarStackHtml(e.members);
-  return `<span class="people-lead">${inner}</span>`;
+/** The leading icon or avatar(s) of a circle key, as HTML. */
+export function circleLeadHtml(key, cls = "") {
+  const members = key && key !== NEWS ? key.split("+") : [];
+  return key === null ? icon("notes") : key === NEWS ? icon("news") : !members.length ? icon("lock")
+    : members.length === 1 ? avatarHtml(members[0], cls) : avatarStackHtml(members);
 }
 
 /** The badge with the number of new or updated news posts (none for 0). */
@@ -41,15 +43,17 @@ export function newsBadgeHtml(n) {
 export function renderPeople(count) {
   const news = newsNotes();
   const entries = [...(news.length ? [{ key: NEWS, kind: "news", members: [] }] : []), ...circleEntries(contacts(), sharedCircles(), nameOf)];
-  const active = activeCircle();
+  const picked = state.circles;
   $("peopleList").replaceChildren(...entries.map(e => {
     const b = document.createElement("button");
     const n = count(e.key);
-    b.className = `people-entry ${e.kind}` + (e.key === active ? " active" : "") + (n ? "" : " none");
+    const on = e.key === null ? !picked.length : picked.includes(e.key);
+    b.className = `people-entry ${e.kind}` + (on ? " active" : "") + (n ? "" : " none");
     b.dataset.key = e.key ?? "*";
     const badge = e.kind === "news" ? newsBadgeHtml(freshCount(news)) : "";
-    b.innerHTML = `${leading(e)}<span class="people-name">${esc(circleName(e.key, e.members))}</span>${badge}<span class="people-count">${n}</span>`;
-    if (e.key === active) b.setAttribute("aria-current", "true");
+    b.innerHTML = `<span class="people-lead">${circleLeadHtml(e.key)}</span><span class="people-name">${esc(circleName(e.key, e.members))}</span>${badge}<span class="people-count">${n}</span>`
+      + (e.kind === "all" ? "" : checkHtml(on));
+    if (on) b.setAttribute("aria-current", "true");
     return b;
   }), ...(contacts().length ? [] : [h("div", { class: "people-empty" },
     h("p", {}, "No contacts yet. Add one to share notes with them."),
@@ -58,10 +62,20 @@ export function renderPeople(count) {
 
 const keyOf = el => el.dataset.key === "*" ? null : el.dataset.key;
 
-export function pickCircle(key) {
-  setUi({ circle: key, topId: null });
+function setCircles(circles) {
+  setUi({ circles, topId: null });
   window.scrollTo(0, 0);
-  onPicked(key);
+}
+
+/** Shows only this circle's notes (null: all notes). */
+export function pickCircle(key) {
+  setCircles(key === null ? [] : [key]);
+  onPicked(true);
+}
+
+/** Adds the circle to the filter or takes it out (null: all notes). */
+export function toggleCircleFilter(key) {
+  setCircles(toggleCircle(state.circles, key, NEWS));
 }
 
 // The groups a contact is in, as a menu at the entry.
@@ -79,41 +93,12 @@ function groupsMenu(el) {
 export function initPeople({ onPick, onAdd }) {
   onPicked = onPick;
   onAddContact = onAdd;
-  const list = $("peopleList");
-  list.addEventListener("pointerdown", e => {
-    swallowClick = false;
-    const el = e.target.closest(".people-entry.contact");
-    if (!el || e.button !== 0) return;
-    press = { el, x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };
+  wirePick($("peopleList"), {
+    selector: ".people-entry",
+    isAll: el => keyOf(el) === null,
+    single: el => setCircles(keyOf(el) === null ? [] : [keyOf(el)]),
+    toggle: el => toggleCircleFilter(keyOf(el)),
+    menu: { accepts: el => el.classList.contains("contact"), open: groupsMenu },
+    closes: close => onPicked(close),
   });
-  list.addEventListener("pointermove", e => {
-    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > MOVE_TOLERANCE) cancelPress();
-  });
-  for (const type of ["pointerup", "pointercancel", "pointerleave"]) list.addEventListener(type, cancelPress);
-  list.addEventListener("contextmenu", e => {
-    const el = e.target.closest(".people-entry");
-    if (!el) return;
-    e.preventDefault();
-    if (el.classList.contains("contact") && !swallowClick) groupsMenu(el);
-  });
-  list.addEventListener("click", e => {
-    const el = e.target.closest(".people-entry");
-    if (!el) return;
-    if (swallowClick) { swallowClick = false; return; }
-    pickCircle(keyOf(el));
-  });
-}
-
-function cancelPress() {
-  if (!press) return;
-  clearTimeout(press.timer);
-  press = null;
-}
-
-function onHold() {
-  const { el } = press;
-  press = null;
-  swallowClick = true; // the click that follows the release
-  try { navigator.vibrate?.(15); } catch { /* not allowed */ }
-  groupsMenu(el);
 }

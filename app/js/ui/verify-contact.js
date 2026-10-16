@@ -4,14 +4,16 @@
 // by scanning the contact's code or by comparing the safety code both phones
 // compute from the two identities. The page lives in the Sync & sharing
 // panel's container and is reached from the contact list and the share dialog.
-import { state, setSync, contacts, updateContact } from "../store.js";
+import { state, setSync, contacts, updateContact, sharedCircles } from "../store.js";
 import { timestamp } from "../core/notes-file.js";
 import { safetyCode } from "../core/crypto.js";
 import { readInvite } from "../sync/contacts.js";
-import { registerPage, go, popPage, onLeave, panelPage, refreshPage, resetPanel } from "./sync-panel.js";
+import { registerPage, go, popPage, onLeave, panelPage, refreshPage, resetPanel, closePanel, section } from "./sync-panel.js";
+import { groupsWith, circleKey } from "../core/sharing.js";
+import { circleName, pickCircle } from "./people-list.js";
 import { h, text, button } from "./dom.js";
 import { scannerView, cameraScanner } from "./qr.js";
-import { avatarHtml } from "./people.js";
+import { avatarHtml, avatarStackHtml } from "./people.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 
@@ -50,6 +52,20 @@ function hero(c) {
     c.verified
       ? h("p", { class: "verify-state ok" }, h("span", { html: icon("check") }), "Verified")
       : h("p", { class: "verify-state" }, h("span", { html: icon("protect") }), "Not verified"));
+}
+
+// The groups the contact is in (user request 2026-10-16); a tap shows that group's notes.
+function groups(c) {
+  const keys = groupsWith(c.id, sharedCircles()).map(m => circleKey(m));
+  return [
+    section("Groups"),
+    keys.length
+      ? h("ul", { class: "sheet-card" }, keys.map(k => h("li", { class: "sheet-row" },
+          h("button", { class: "row-open", type: "button", onclick: () => { closePanel(); pickCircle(k); } },
+            h("span", { class: "row-icon", html: avatarStackHtml(k.split("+")) }),
+            h("span", { class: "row-text" }, h("span", { class: "row-title" }, circleName(k)))))))
+      : text(`${c.name} isn't in any group yet. A note shared with ${c.name} and others starts one.`, "sheet-text muted"),
+  ];
 }
 
 // Comparing the safety code: both phones show the same code for the pair.
@@ -109,7 +125,7 @@ registerPage("verifyContact", {
   render: data => {
     const c = contactOf(data.id);
     if (!c) return [text("This contact is no longer in your list.", "sheet-text muted")];
-    return [hero(c), ...layout(c, data)];
+    return [hero(c), ...groups(c), ...layout(c, data)];
   },
 });
 
