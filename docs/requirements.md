@@ -14,6 +14,7 @@
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
+  - [Links and media from the web](#links-and-media-from-the-web)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
   - [Export](#export)
@@ -711,7 +712,7 @@ this needs none of it.
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
   (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
-  indent, bold, italic, link, **due date** (today, tomorrow, in a week,
+  indent, bold, italic, link, image or video (backlog #30), **due date** (today, tomorrow, in a week,
   pick a date, remove), a **microphone** that dictates at the cursor,
   undo / redo, and Done. On phone and tablet it sits above the on-screen
   keyboard and scrolls sideways; on the desktop it floats at the bottom
@@ -722,6 +723,46 @@ this needs none of it.
   opens the search (Enter / Shift+Enter there step through the hits) and
   `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
+
+### Links and media from the web
+
+Decided 2026-10-16 (backlog #30, user request): anyone in a circle — or
+someone who got hold of one of the user's devices — can put a link or an
+image from another host into a note, and every device that loads it tells
+that host its IP address and the reading time.
+
+- Notes can **embed images and videos** from the web with Markdown's
+  image syntax (`![Tram 28](https://…/tram.jpg)`); a file ending in
+  `.mp4`, `.webm`, `.ogv`, `.mov` or `.m4v` plays as a video. Only
+  http(s) addresses load. Players of video sites (YouTube, Vimeo) are not
+  embedded — they bring their provider's scripts and cookies; their
+  addresses stay links. The toolbar's **Image or video** button inserts
+  `![…](url)` on a line of its own with `url` selected for pasting.
+- **Images & videos** — *Load automatically*, *Tap to load* (default) or
+  *Never load*. Tap to load shows a tile with the kind, the description
+  and the full address, the host in bold; a tap loads only that one, and
+  it stays loaded until the app restarts. Never load leaves only a
+  placeholder ("Image embedded"), without address or tap target. A file
+  that fails to load says so. Loaded files go without a referrer.
+- **Links** — *Open directly*, *Ask first* (default) or *Not clickable*.
+  Ask first opens **"Open link?"** with the link's text, the real target
+  (host in bold, also behind a `user@` part) and Copy, Cancel, Open; it
+  asks for every link, also a bare address, so a stray tap opens nothing.
+  Not clickable shows the text dotted-underlined, a tap edits the note.
+- Both are a **setting of this device, never synced** (a synced setting
+  would let one device decide what the others load). A new device starts
+  with the defaults. There is one **default for all notes**, and every
+  circle — Private, each contact, each group — can have its **own choice
+  per kind**, else follows the default; news posts follow the default.
+  ⋮ → **Links & media…** opens the setting. Where a circle's own choice is
+  made is open: *Prototype variants: A lists every circle in that dialog;
+  B keeps the dialog to the default and sets a circle from its long-press
+  menu under People (also on Private and groups).*
+- It applies wherever a note is rendered: the list, the editor's
+  rendered lines, the version history (by that file's circle). The Keep
+  import page and the admin page's news preview load no media.
+  *Prototype: 2026-10-16; the sample's media addresses look external but
+  come from `app/sample/media/`.*
 
 ### Dictation
 

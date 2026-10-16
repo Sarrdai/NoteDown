@@ -33,6 +33,8 @@ import { initArrange, openArrange } from "./ui/arrange.js";
 import { initReminders, openReminderDialog, simulateReminder } from "./ui/reminders.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
+import { initExternal } from "./ui/external.js";
+import { initExternalSettings, openExternalDialog } from "./ui/external-settings.js";
 import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
@@ -420,6 +422,9 @@ function fitTopbar() {
   title.textContent = text;
 }
 
+// Prototype variants (#30): where a circle's own links & media setting is made.
+const EXT_VARIANTS = { dialog: "In the dialog (A)", people: "Long-press under People (B)" };
+
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
@@ -429,9 +434,12 @@ function moreMenu() {
   openMenu($("moreBtn"), [
     ...hidden,
     trashEntry,
-    (hidden.length || trashEntry) && { separator: true },
+    { label: "Links & media…", icon: "link", onSelect: () => openExternalDialog() },
+    { separator: true },
     { section: "Theme" },
     ...Object.entries(FLAVORS).map(([id, label]) => ({ label, checked: s.flavor === id, onSelect: () => updateSettings({ flavor: id }) })),
+    { section: "Prototype: Links & media per circle" },
+    ...Object.entries(EXT_VARIANTS).map(([id, label]) => ({ label, checked: s.protoExtSettings === id, onSelect: () => updateSettings({ protoExtSettings: id }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -545,6 +553,8 @@ function wire() {
   initLabels({ onPick: () => { if (phone.matches) setTocOpen(false); } });
   initMenu();
   initConfirm();
+  initExternal();
+  initExternalSettings();
   initArrange();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", onTranscript: addDictatedNote });
@@ -590,6 +600,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (EXT_VARIANTS[p.get("extsettings")]) patch.protoExtSettings = p.get("extsettings");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

@@ -167,6 +167,29 @@
         </div>
       </div>
     </div>
+    <div class="dialog-scrim keep-editing" id="linkDialog" hidden>
+      <div class="dialog link" role="dialog" aria-modal="true" aria-labelledby="linkTitle">
+        <h2 class="dialog-title" id="linkTitle">Open link?</h2>
+        <p class="link-shown" id="linkText"></p>
+        <p class="dialog-hint">It leads to:</p>
+        <p class="link-address" id="linkAddress"></p>
+        <div class="dialog-actions">
+          <button class="btn link-copy" id="linkCopy">Copy</button>
+          <button class="btn" id="linkCancel">Cancel</button>
+          <button class="btn primary" id="linkOpen">Open</button>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-scrim keep-editing" id="extDialog" hidden>
+      <div class="dialog ext-settings" role="dialog" aria-modal="true" aria-labelledby="extTitle">
+        <h2 class="dialog-title" id="extTitle">Links &amp; media</h2>
+        <p class="dialog-hint" id="extHint"></p>
+        <div class="ext-body" id="extBody"></div>
+        <div class="dialog-actions">
+          <button class="btn primary" id="extDone">Done</button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-scrim keep-editing" id="exportDialog" hidden>
       <div class="dialog export" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
         <h2 class="dialog-title" id="exportTitle">Export</h2>

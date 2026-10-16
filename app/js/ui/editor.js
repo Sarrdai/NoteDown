@@ -6,10 +6,10 @@ import {
   history, historyKeymap, defaultKeymap, undo, redo, indentLess, indentMore,
   Language, defineLanguageFacet, markdownParser, GFM,
 } from "../../vendor/codemirror.esm.js";
-import { livePreview, markdownHighlight, previewTheme } from "./live-preview.js";
+import { livePreview, markdownHighlight, previewTheme, mediaMode } from "./live-preview.js";
 import {
   cycleHeading, toggleBullet, toggleTaskItem, toggleTaskChecked, indentLine, outdentLine,
-  continueList, toggleWrap, insertLink, joinDictation,
+  continueList, toggleWrap, insertLink, insertMedia, joinDictation,
 } from "../core/md-commands.js";
 
 const markdown = new Language(defineLanguageFacet(), markdownParser.configure([GFM]), [], "markdown");
@@ -104,6 +104,13 @@ export const COMMANDS = {
   bold: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "**")),
   italic: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "*")),
   link: v => selectionEdit(v, insertLink),
+  media: v => {   // at the selection as it is, also inside a list item's text
+    const { from, to } = v.state.selection.main;
+    const doc = v.state.doc.toString();
+    const r = insertMedia(doc, from, to);
+    v.dispatch({ changes: minimalChange(0, doc, r.text), selection: { anchor: r.from, head: r.to }, scrollIntoView: true, userEvent: "input" });
+    return true;
+  },
   undo: v => undo(v),
   redo: v => redo(v),
 };
@@ -145,7 +152,8 @@ function revealCaret(view) {
   });
 }
 
-export function createEditor({ parent, doc, onChange, onEscape }) {
+/** `media`: the circle's media setting for embedded images and videos (ui/external.js). */
+export function createEditor({ parent, doc, onChange, onEscape, media = "click" }) {
   const view = new EditorView({
     parent,
     state: EditorState.create({
@@ -167,6 +175,7 @@ export function createEditor({ parent, doc, onChange, onEscape }) {
           { key: "Escape", run: () => { onEscape(); return true; } },
         ])),
         keymap.of([...defaultKeymap, ...historyKeymap]),
+        mediaMode.init(() => media),
         livePreview,
         markdownHighlight,
         previewTheme,

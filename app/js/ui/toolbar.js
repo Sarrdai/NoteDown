@@ -18,6 +18,7 @@ const BUTTONS = [
   ["bold", "Bold (Ctrl+B)", "bold"],
   ["italic", "Italic (Ctrl+I)", "italic"],
   ["link", "Link (Ctrl+K)", "link"],
+  ["media", "Image or video from the web", "image"],
   ["due", "Due date", "calendar"],
   ["mic", "Dictate at cursor", "mic"],
   ["undo", "Undo (Ctrl+Z)", "undo"],

@@ -20,6 +20,9 @@ import { openShareDialog } from "./share-dialog.js";
 import { openDueMenu } from "./toolbar.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { markHits } from "./search-hits.js";
+import { applyExternal } from "./external.js";
+import { circleKey } from "../core/sharing.js";
+import { externalPolicy } from "../core/external.js";
 
 const list = () => document.getElementById("list");
 
@@ -107,6 +110,7 @@ function noteElement(n, view = state.view) {
   const body = document.createElement("div");
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
+  applyExternal(body, circleKey(circleOf(n.id)));
   wrapSections(body, sections(n.body));
   markHits(body);
   if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
@@ -203,7 +207,7 @@ function onBodyClick(e, id) {
     setBody(id, toggleTask(n.body, index));
     return;
   }
-  if (e.target.closest("a")) return;
+  if (e.target.closest("a, video")) return;
   if (n.deleted) return;   // read-only; the selection takes the tap
   if (n.status === "closed") return; // closed notes are read-only
   startEdit(id, { x: e.clientX, y: e.clientY });
@@ -235,7 +239,8 @@ export function startEdit(id, at = {}) {
   // page may be too short for it and the browser would clamp it.
   const scrolled = window.scrollY;
   el.querySelector(".note-body").replaceWith(host);
-  const editor = createEditor({ parent: host, doc: n.body, onChange: text => setBody(id, text), onEscape: () => endEdit() });
+  const media = externalPolicy(state.settings.external, circleKey(circleOf(id))).media;
+  const editor = createEditor({ parent: host, doc: n.body, media, onChange: text => setBody(id, text), onEscape: () => endEdit() });
   if (window.scrollY !== scrolled) window.scrollTo(0, scrolled);
   editing = { id, editor };
   editor.focusAt(at.x, at.y);

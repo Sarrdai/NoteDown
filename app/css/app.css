@@ -829,6 +829,43 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 .md li:has(> input.task:checked, > p:first-child > input.task:checked) { color: var(--text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-faint) 60%, transparent); }
 .note.closed .md input.task { cursor: default; }
 .md a { color: var(--link); }
+/* External content (#30, ui/external.js): a link that isn't clickable, and
+   embedded images and videos — loaded, behind a tile with their address, or a placeholder. */
+.md .link-off { color: var(--text-muted); text-decoration: underline dotted; text-underline-offset: 2px; }
+.ext-media { display: block; margin: 0.5em 0; max-width: 100%; }
+.ext-loaded img, .ext-loaded video { display: block; max-width: 100%; max-height: 60vh; height: auto; border-radius: 10px; background: var(--code-bg); }
+.ext-tile {
+  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px;
+  border: 1px dashed var(--text-faint); border-radius: 12px; background: var(--code-bg); cursor: pointer; text-indent: 0;
+}
+.ext-tile:hover { border-color: var(--accent); }
+.ext-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ext-icon { flex: none; display: inline-flex; color: var(--text-muted); }
+.ext-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.ext-title { font-weight: 600; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ext-url, .link-address { font: 0.8rem var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+.ext-url strong, .link-address strong { color: var(--text); font-weight: 700; }
+.ext-load { flex: none; padding: 6px 12px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 650; font-size: 0.85rem; }
+.ext-placeholder {
+  display: flex; align-items: center; gap: 8px; width: fit-content; padding: 6px 12px; text-indent: 0;
+  border-radius: 10px; background: var(--code-bg); color: var(--text-muted); font-size: 0.88rem;
+}
+.ext-placeholder .icon { width: 18px; height: 18px; }
+.dialog.link { width: min(420px, 100%); }
+.dialog.link .link-copy { margin-right: auto; }
+.link-shown { margin: 8px 8px 4px; font-weight: 600; overflow-wrap: anywhere; }
+.link-address { margin: 0 8px 8px; padding: 10px 12px; border-radius: 10px; background: var(--code-bg); font-size: 0.88rem; }
+.dialog.ext-settings { width: min(460px, 100%); }
+.ext-body { flex: 1; min-height: 0; overflow-y: auto; }
+.ext-select {
+  flex: none; width: 50%; min-height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: var(--text); font: inherit; font-size: 0.92rem; color-scheme: light dark;
+}
+.ext-section { margin: 14px 8px 6px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.ext-circle { padding: 8px; border-top: 1px solid var(--border); }
+.ext-circle-name { font-weight: 600; margin-bottom: 4px; }
+.ext-circle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 0.9rem; color: var(--text-muted); }
+.ext-all { margin: 10px 8px 0; border: 0; padding: 6px 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
 .md code { font: 0.88em var(--mono); background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 5px; }
 .md pre { background: var(--code-bg); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
 .md pre code { background: none; padding: 0; }

@@ -56,7 +56,9 @@ Current state, edited in place when a decision changes.
 
 - **Tap or click** is the main action on content: into a note's text =
   edit, on a task checkbox = toggle, on the round button (bottom right
-  of the card) = close / reopen, on a link = open.
+  of the card) = close / reopen, on a link = open (by default after
+  "Open link?" with its real target; requirements → "Links and media
+  from the web"), on a media tile = load it.
 - **Long-press** is reserved for secondary modes: on a note, a
   heading in a note or a contents entry it starts multi-select, on + it starts dictation. Nothing essential is
   long-press-only on the desktop (Ctrl/Shift+click, a click on a card's
