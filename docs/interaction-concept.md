@@ -61,8 +61,9 @@ Current state, edited in place when a decision changes.
   "Open link?" with its real target; requirements → "Links and media
   from the web"), on a media tile = load it.
 - **Long-press** is reserved for secondary modes: on a note, a
-  heading in a note or a contents entry it starts multi-select, on + it starts dictation. Nothing essential is
-  long-press-only on the desktop (Ctrl/Shift+click, a click on a card's
+  heading in a note or a contents entry it starts multi-select, on + it starts dictation, on a task
+  checkbox it picks the task's state. Nothing essential is
+  long-press-only on the desktop (right-click picks a task's state) (Ctrl/Shift+click, a click on a card's
   frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
   normal one and the primary action button is hidden; a tap anywhere on

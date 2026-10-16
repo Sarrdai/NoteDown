@@ -8,8 +8,9 @@
 import { Decoration, ViewPlugin, WidgetType, EditorView, StateField, syntaxTree, HighlightStyle, syntaxHighlighting, tags } from "../../vendor/codemirror.esm.js";
 import { mediaSource, mediaKind } from "../core/external.js";
 import { fillMedia } from "./external.js";
-import { counterStart, COUNTER_AT, parseSteps, addStep, counterHtml } from "../core/counter.js";
-import { counterClick } from "./counter.js";
+import { counterStart, counterAt, counters, changeCounter, counterHtml } from "../core/counter.js";
+import { counterClick, fillWatches } from "./counter.js";
+import { holdForStates } from "./task-menu.js";
 
 /** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
 export const mediaMode = StateField.define({ create: () => "click", update: v => v });
@@ -28,9 +29,13 @@ class BulletWidget extends WidgetType {
   }
 }
 
+// A task's box; a tap ticks it (in progress → done, cancelled → open), a
+// long-press or right-click picks its state (ui/task-menu.js). `pos` is the
+// state character's position in the doc.
+const MARKS = { open: " ", done: "x", doing: "/", cancelled: "-" };
 class CheckboxWidget extends WidgetType {
-  constructor(level, checked, pos) { super(); this.level = level; this.checked = checked; this.pos = pos; }
-  eq(o) { return o.level === this.level && o.checked === this.checked && o.pos === this.pos; }
+  constructor(level, state, pos) { super(); this.level = level; this.state = state; this.pos = pos; }
+  eq(o) { return o.level === this.level && o.state === this.state && o.pos === this.pos; }
   toDOM(view) {
     const wrap = document.createElement("span");
     wrap.className = "cm-lp-task";
@@ -38,34 +43,40 @@ class CheckboxWidget extends WidgetType {
     const box = document.createElement("input");
     box.type = "checkbox";
     box.className = "task";
-    box.checked = this.checked;
+    box.checked = this.state === "done";
+    if (this.state === "doing" || this.state === "cancelled") box.dataset.state = this.state;
+    const set = state => view.dispatch({ changes: { from: this.pos, to: this.pos + 1, insert: MARKS[state] }, userEvent: "input" });
     // Toggle without moving the cursor onto the line.
     box.addEventListener("mousedown", e => e.preventDefault());
     box.addEventListener("click", e => {
       e.preventDefault();
-      view.dispatch({ changes: { from: this.pos, to: this.pos + 1, insert: this.checked ? " " : "x" }, userEvent: "input" });
+      set(this.state === "open" || this.state === "doing" ? "done" : "open");
     });
+    holdForStates(box, set);
     wrap.append(box);
     return wrap;
   }
   ignoreEvent() { return true; }
 }
 
-// A counter (core/counter.js) as its chip; the steps it pops up change the
-// number at `from` without moving the cursor onto the line.
+// A counter (core/counter.js) as its chip; the steps it pops up and its
+// stopwatch change it at `from` without moving the cursor onto the line.
 class CounterWidget extends WidgetType {
-  constructor(value, steps, from) { super(); this.value = value; this.steps = steps; this.from = from; }
-  eq(o) { return o.value === this.value && o.steps.join() === this.steps.join() && o.from === this.from; }
+  constructor(counter, from) { super(); this.counter = counter; this.from = from; }
+  eq(o) { return o.counter.raw === this.counter.raw && o.from === this.from; }
   toDOM(view) {
     const wrap = document.createElement("span");
-    wrap.innerHTML = counterHtml(this.value, this.steps);
+    wrap.innerHTML = counterHtml(this.counter);
+    fillWatches(wrap);
     const el = wrap.firstChild;
     el.addEventListener("mousedown", e => e.preventDefault());
-    // The number is read anew on each step: the floating buttons (ui/counter.js) outlive this widget.
-    el.addEventListener("click", e => counterClick(e, step => {
+    // The counter is read anew on each change: the floating buttons (ui/counter.js) outlive this widget.
+    el.addEventListener("click", e => counterClick(e, change => {
       const line = view.state.doc.lineAt(this.from);
-      const m = COUNTER_AT.exec(line.text.slice(this.from - line.from));
-      if (m) view.dispatch({ changes: { from: this.from, to: this.from + m[1].length, insert: addStep(m[1], step) }, userEvent: "input" });
+      const index = counters(line.text).findIndex(c => c.from === this.from - line.from);
+      if (index < 0) return;
+      const text = changeCounter(line.text, index, change);
+      if (text !== line.text) view.dispatch({ changes: { from: line.from, to: line.to, insert: text }, userEvent: "input" });
     }));
     return el;
   }
@@ -171,14 +182,14 @@ function counterMarks(line, state, deco, raw) {
   let at = 0;
   for (let i; (i = counterStart(line.text.slice(at))) >= 0;) {
     const start = at + i;
-    const m = COUNTER_AT.exec(line.text.slice(start));
-    at = start + m[0].length;
+    const c = counterAt(line.text.slice(start));
+    at = start + c.raw.length;
     const pos = line.from + start;
     let code = false;
     for (let n = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) if (/Code/.test(n.name)) code = true;
     if (code) continue;
     if (raw) deco.push(rawCounter.range(pos, line.from + at));
-    else deco.push(Decoration.replace({ widget: new CounterWidget(m[1], parseSteps(m[2]), pos) }).range(pos, line.from + at));
+    else deco.push(Decoration.replace({ widget: new CounterWidget(c, pos) }).range(pos, line.from + at));
   }
 }
 
@@ -192,11 +203,15 @@ function listMarker(node, doc, deco) {
   const marker = task && task.getChild("TaskMarker");
   let end = Math.min(node.to + 1, line.to);
   let widget;
-  if (marker && marker.from >= node.to && marker.from - node.to <= 1) {
-    const checked = /x/i.test(doc.sliceString(marker.from, marker.to));
-    end = Math.min(marker.to + 1, line.to);
-    widget = new CheckboxWidget(level, checked, marker.from + 1);
-    if (checked) deco.push(Decoration.mark({ class: "cm-lp-done" }).range(end, line.to));
+  // GFM's parser knows `[ ]` and `[x]`; in progress `[/]` and cancelled `[-]` are found here.
+  const other = !marker && /^ \[([/-])\] +\S/.exec(doc.sliceString(node.to, line.to));
+  const box = marker && marker.from >= node.to && marker.from - node.to <= 1 ? marker.from
+    : other ? node.to + 1 : -1;
+  if (box >= 0) {
+    const state = { " ": "open", x: "done", X: "done", "/": "doing", "-": "cancelled" }[doc.sliceString(box + 1, box + 2)];
+    end = Math.min(box + 4, line.to);
+    widget = new CheckboxWidget(level, state, box + 1);
+    if (state === "done" || state === "cancelled") deco.push(Decoration.mark({ class: "cm-lp-done" }).range(end, line.to));
   } else {
     const text = doc.sliceString(node.from, node.to);
     widget = new BulletWidget(level, /^\d/.test(text) ? text : "•");

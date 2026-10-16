@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { headings, noteTitle, firstSentence, toggleTask } from "../app/js/core/markdown.js";
+import { headings, noteTitle, firstSentence, toggleTask, tasks, setTaskState, renderMarkdown } from "../app/js/core/markdown.js";
 import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, tableOfContents, closedOn, permanentFirst, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");

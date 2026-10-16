@@ -831,7 +831,20 @@ a.row-open { text-decoration: none; }
 .md input.task::before { content: ""; position: absolute; inset: -10px; } /* larger touch target */
 .md input.task:checked { background: var(--accent); border-color: var(--accent); }
 .md input.task:checked::after { content: ""; width: 9px; height: 5px; border: solid var(--on-accent); border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
-.md li:has(> input.task:checked, > p:first-child > input.task:checked) { color: var(--text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-faint) 60%, transparent); }
+/* Task states (core/markdown.js): in progress is a half-filled box, cancelled a
+   struck box with its text faded and struck through like a done one. */
+.md input.task[data-state="doing"] { border-color: var(--accent); background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
+.md input.task[data-state="cancelled"]::after { content: ""; width: 10px; height: 2px; border-radius: 1px; background: var(--text-faint); }
+.md li:has(> input.task:is(:checked, [data-state="cancelled"]), > p:first-child > input.task:is(:checked, [data-state="cancelled"])) { color: var(--text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-faint) 60%, transparent); }
+/* Task progress (ui/toc.js): "done/total" at a heading, in the meta line and in the contents. */
+.task-progress {
+  display: inline-block; margin-left: 4px; padding: 0 7px; border-radius: 999px; vertical-align: 0.1em;
+  font-size: 0.72rem; font-weight: 600; line-height: 1.6; font-variant-numeric: tabular-nums;
+  color: var(--text-muted); background: var(--surface-hover);
+}
+.task-progress.complete { color: var(--on-accent); background: var(--done); }
+.note-meta .chip.task-progress { margin-left: 0; padding: 0 9px; font-size: inherit; line-height: normal; vertical-align: baseline; }
+.toc-entry .task-progress { float: right; margin: 1px 0 0 8px; font-style: normal; }
 .note.closed .md input.task { cursor: default; }
 /* Counters (core/counter.js): the number as an accent chip; a tap pops its step
    buttons up around it, floating over the text (ui/counter.js). */
@@ -843,8 +856,16 @@ a.row-open { text-decoration: none; }
 .counter::before { content: ""; position: absolute; inset: -8px -4px; } /* larger touch target */
 .counter:disabled { cursor: default; opacity: 0.55; }
 .counter-scrim { position: fixed; inset: 0; z-index: 60; }
+/* A stopwatch (time and hours counters): an icon in the chip, while running
+   the time counting. */
+.counter-watch { position: relative; display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; vertical-align: -0.12em; font-weight: 600; }
+.counter-watch .icon { width: 15px; height: 15px; }
+.counter.running { background: var(--accent); color: var(--on-accent); }
+.counter.running .counter-watch .icon { animation: watch-pulse 1.6s ease-in-out infinite; }
+@keyframes watch-pulse { 50% { opacity: 0.35; } }
 .counter-pop {
-  position: fixed; z-index: 61; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
+  position: fixed; z-index: 61; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border-radius: 28px;
+  max-width: calc(100vw - 16px); box-sizing: border-box;
   background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-high); border: 1px solid var(--border);
   opacity: 0; transform: scale(0.85); transition: opacity 0.14s ease, transform 0.14s ease;
 }
@@ -856,6 +877,21 @@ a.row-open { text-decoration: none; }
   background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums;
 }
 .counter-pop .counter-step.minus { background: var(--code-bg); color: var(--text-muted); }
+/* A row too wide for the screen wraps (many steps and Start / Stop on the phone). */
+.counter-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.counter-pop-value { border: 0; background: transparent; font-family: inherit; height: var(--tap); border-radius: 999px; cursor: text; }
+.counter-input {
+  width: 8.5em; height: var(--tap); padding: 0 12px; border-radius: 999px; box-sizing: border-box;
+  border: 1.5px solid var(--accent); background: var(--bg); color: var(--text); font: inherit; text-align: center;
+}
+.counter-input:focus { outline: none; border-color: var(--accent); }
+.counter-input.invalid { border-color: var(--danger); background: var(--danger-soft); }
+.counter-watch-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--tap); padding: 0 14px 0 11px; border: 0; border-radius: 999px;
+  font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; cursor: pointer; background: var(--accent); color: var(--on-accent);
+}
+.counter-watch-btn .icon { width: 16px; height: 16px; fill: currentColor; }
+.counter-watch-btn.running { background: var(--danger); }
 .counter-pop .counter-step:active { filter: brightness(0.92); }
 .md a { color: var(--link); }
 /* External content (#30, ui/external.js): a link that isn't clickable, and
@@ -929,6 +965,8 @@ a.row-open { text-decoration: none; }
 .stepper { display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
 .stepper-value { min-width: 18px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); }
 .stepper .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.stepper-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--border); }
+.stepper .icon-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
 .toc-list { flex: 1; overflow-y: auto; touch-action: pan-y pinch-zoom; padding: 4px 8px 84px; overscroll-behavior: contain; }
 .toc-entry {
   display: block; width: 100%; padding: 6px 10px; border: 0; border-radius: 8px; text-align: left;
@@ -1025,6 +1063,19 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .filter-chip > span > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-chip > span > .icon { width: 16px; height: 16px; color: var(--text-muted); }
 .filter-chip .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--accent-soft); }
+/* The running stopwatches (ui/watch-bar.js), one chip each above the filters. */
+.watch-bar + .filter-bar:not([hidden]) { padding-top: 6px; }
+.watch-chip {
+  border: 0; font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; gap: 8px; padding: 4px 12px 4px 9px;
+  background: var(--accent); color: var(--on-accent);
+}
+.watch-chip > span > .icon, .filter-chip.watch-chip > span > .icon { color: inherit; animation: watch-pulse 1.6s ease-in-out infinite; }
+.watch-chip .counter-clock { flex: none; font-variant-numeric: tabular-nums; opacity: 0.9; }
+.counter-discard {
+  display: inline-grid; place-items: center; width: var(--tap); height: var(--tap); border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--code-bg); color: var(--text-muted);
+}
+.counter-discard .icon { width: 18px; height: 18px; }
 
 /* ---------- FAB, snackbar, menu ---------- */
 .fab {

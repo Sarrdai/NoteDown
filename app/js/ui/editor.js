@@ -49,7 +49,7 @@ function selectionEdit(view, fn) {
   const { state } = view;
   let { from, to } = state.selection.main;
   const line = state.doc.lineAt(from);
-  const prefix = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?|\s{0,3}#{1,6}\s+)/.exec(line.text);
+  const prefix = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/-]\]\s+)?|\s{0,3}#{1,6}\s+)/.exec(line.text);
   const start = line.from + (prefix ? prefix[0].length : 0);
   if (from < start) { from = start; to = Math.max(to, start); }
   const doc = view.state.doc.toString();
@@ -84,7 +84,8 @@ export const COMMANDS = {
   bold: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "**")),
   italic: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "*")),
   link: v => selectionEdit(v, insertLink),
-  counter: v => mapLines(v, appendCounter),
+  counter: v => mapLines(v, l => appendCounter(l)),
+  timeCounter: v => mapLines(v, l => appendCounter(l, true)),
   media: v => {   // at the selection as it is, also inside a list item's text
     const { from, to } = v.state.selection.main;
     const doc = v.state.doc.toString();

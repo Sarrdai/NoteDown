@@ -16,6 +16,7 @@ import { circleName } from "./people-list.js";
 import { openConfirm } from "./confirm.js";
 import { showSnackbar } from "./snackbar.js";
 import { h, text, button } from "./dom.js";
+import { fillWatches } from "./counter.js";
 import { applyExternal } from "./external.js";
 
 const real = () => !state.sync.simulated;
@@ -96,6 +97,7 @@ const noteCard = (note, cls, slot) => {
   const { text: title } = noteTitle(note.body);
   const body = h("div", { class: "history-note-body md", html: renderMarkdown(note.body) });
   applyExternal(body, slot);
+  fillWatches(body);
   return h("li", { class: "history-note " + cls, "aria-label": title }, body);
 };
 

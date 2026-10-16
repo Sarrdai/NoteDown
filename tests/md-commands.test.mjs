@@ -27,6 +27,10 @@ test("toggleTaskChecked ticks and unticks", () => {
   assert.equal(toggleTaskChecked("- [ ] Milk"), "- [x] Milk");
   assert.equal(toggleTaskChecked("  * [X] Milk"), "  * [ ] Milk");
   assert.equal(toggleTaskChecked("Milk"), "- [ ] Milk");
+  // In progress → done, cancelled → open (as a tap); Enter after either continues with an open task.
+  assert.equal(toggleTaskChecked("- [/] Collect the craftsman invoices"), "- [x] Collect the craftsman invoices");
+  assert.equal(toggleTaskChecked("- [-] Power adapter? (no, same plug type)"), "- [ ] Power adapter? (no, same plug type)");
+  assert.equal(continueList("- [/] Collect the craftsman invoices").prefix, "- [ ] ");
 });
 
 test("indent and outdent", () => {

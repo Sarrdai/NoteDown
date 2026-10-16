@@ -111,6 +111,7 @@ function onPointerDown(e) {
   down = el && { id: el.dataset.id, key: headingKey(e.target, el.dataset.id) };
   if (!el || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
   if (el.dataset.id === state.editingId) return; // long-press in the editor selects text
+  if (!isSelecting() && e.target.closest("input.task:not(:disabled)")) return; // a held task box opens its states (ui/task-menu.js)
   // While selecting, a long-press on another note selects its sections one by one (main view only).
   if (isSelecting() && state.view !== "open") return;
   press = { ...down, split: isSelecting(), x: e.clientX, y: e.clientY, timer: setTimeout(onHold, HOLD_MS) };

@@ -14,6 +14,7 @@
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Creating and editing](#creating-and-editing)
+  - [Task states and progress](#task-states-and-progress)
   - [Counters](#counters)
   - [Links and media from the web](#links-and-media-from-the-web)
   - [Dictation](#dictation)
@@ -606,6 +607,8 @@ paid features per user.
   − / + stepper floats at the contents' bottom right, at the height of the
   + button (decided 2026-10-15, user request: within the thumb's reach);
   on the phone it takes the + button's place while the sheet is open.
+  Beside − / + a switch shows the task progress ("Task states and
+  progress").
 - Text without a heading — a note without one, or the start of a note
   before its first heading — appears with its first sentence (shortened,
   italic) **one level below the last heading above it**, in whichever note
@@ -745,7 +748,8 @@ this needs none of it.
   its sorted place with the next view, sort, search or circle change.
   *Prototype: round 1.*
 - **Tapping into a note's text** starts editing it with the cursor where
-  the user tapped, except on task checkboxes (they toggle) and links
+  the user tapped, except on task checkboxes (they toggle; a long-press
+  picks their state) and links
   (they open). Closed notes don't enter edit mode. *Prototype: round 2.*
 - The editor renders Markdown live like Obsidian's mobile app: only the
   lines the cursor or selection touch stay raw; headings, emphasis,
@@ -774,6 +778,33 @@ this needs none of it.
   `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
 
+### Task states and progress
+
+Decided 2026-10-16 (user request).
+
+- A task has four states, plain Markdown as Obsidian themes write them:
+  **open** `[ ]`, **done** `[x]`, **in progress** `[/]` (a half-filled
+  box) and **cancelled** `[-]` (a struck box; its text faded and struck
+  through like a done one). Why: in progress and cancelled are the two
+  that are not just open or done; "deferred" stayed out, it reads like
+  open.
+- A **tap** on the box ticks it as before: open and in progress become
+  done, done and cancelled become open. A **long-press** (desktop:
+  right-click) opens a small menu with the four states, in the rendered
+  note and in the editor; on the box it doesn't start multi-select.
+  Ctrl/Cmd+Enter in the editor ticks like a tap; Enter after any task
+  continues with an open one.
+- **Task progress** ("done/total") is shown when the switch next to the
+  contents' − / + is on, and then both in the contents and at the
+  notes' headings — nowhere else (user request). A heading counts its
+  section's tasks with those under its subheadings; tasks before the
+  first heading show in the note's meta line. Subtasks count, cancelled
+  tasks don't count at all, in progress counts as open; a complete list
+  shows green. The switch is a setting of this device, off by default,
+  and remembered like the level count.
+- **Clear done tasks** takes cancelled tasks along with the done ones;
+  tasks in progress stay.
+
 ### Counters
 
 - A **counter** is a number followed by its steps in square brackets,
@@ -793,12 +824,43 @@ this needs none of it.
   visible before it counts (user request 2026-10-16). Why: the note reads like
   plain text, the buttons appear where the user tapped (decided
   2026-10-16 over always visible buttons, a menu and a centered card).
+  A tap on the number in the pop-up types an amount of one's own
+  (without sign it adds, `-2` subtracts); it joins the pending change.
   Only the current value is kept, no history (the version history covers
   that). Archived, deleted and news notes show their counters read-only.
   Counters inside code are plain text.
 - The toolbar's **counter** button adds `0 [-1 +1]` at the end of the
   current line (a line that has a counter stays as it is); the line then
-  shows its Markdown to edit the steps.
+  shows its Markdown to edit the steps. A long-press (desktop:
+  right-click) on it adds a time counter with a stopwatch,
+  `0:00 [-0:15 +0:15 ⏱15]`.
+- **Times** (decided 2026-10-16, user request): a counter counts time in
+  either of two forms — **hours and minutes** `3:45 [-0:15 +0:15]`
+  (steps in h:mm too) or **decimal hours** with the unit `h`
+  `23,5 h [-1 +1]`. Why: a plain `+1` doesn't say whether it means an
+  hour or a minute. Typed into a time, a plain number is minutes (`40` →
+  `+0:40`).
+- A time counter can carry a **stopwatch** `⏱` in its brackets, a plain
+  number can't (no unit). The number after it is the rounding in minutes
+  (`⏱15`: quarter hours; `⏱` alone: to the minute); a run is always
+  rounded **up**, at least one unit (usual for billed hours). Start and
+  Stop are written at once (with any pending taps); while it runs, its
+  start stands in the brackets, UTC to the second
+  (`⏱15 2026-10-16T08:05:12Z`), so it runs on across devices and sync,
+  and the chip shows the running time live. Start / Stop sits at the end
+  of the pop-up's steps (decided 2026-10-16 over a second row and a
+  Start / Stop part on the chip: a start or stop writes at once and rounds
+  up, so it takes a deliberate second tap). Stopping adds the rounded
+  run to the value. Several stopwatches may run at once. A running one
+  can be **discarded** (✕ next to Stop): it stops without adding the run,
+  e.g. when it was forgotten (user request) — the real time can then be
+  typed in.
+- **Running stopwatches show above the list** (user request), one chip
+  each like an active filter, with the text before the counter on its
+  line (else the note's title) and the running time — in every view and
+  whatever the filters, so a forgotten one is seen. A tap opens the
+  counter's pop-up right at the chip, with Stop and Discard.
+  *Prototype: 2026-10-16.*
 
 ### Links and media from the web
 
@@ -953,8 +1015,8 @@ that host its IP address and the reading time.
   which keep them for their members (the dialog says so) — like a private
   copy. *Prototype: 2026-10-15.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
-  without losing what was done: the ticked task items (`- [x]`, with the
-  indented lines below them) of the selection leave their note — of the
+  without losing what was done: the ticked and the cancelled task items
+  (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the
   whole note when it is selected whole, only of the selected sections
   when they were picked in the contents. After a confirmation that says
   how many go and from where (asked although nothing is lost:
@@ -962,7 +1024,7 @@ that host its IP address and the reading time.
   own** per source note, with Undo. That note starts with the source's
   title heading and keeps each task under the heading of its section; its
   meta line reads "From <source title>" and it stays in the source's
-  circle. Disabled when the selection holds no ticked task; a note left
+  circle. Disabled when the selection holds no ticked or cancelled task; a note left
   empty disappears. *Prototype: 2026-10-15.*
 - **Back to note** (archive, whole notes) puts such archived tasks back
   into their source note — each at the end of the section with the same

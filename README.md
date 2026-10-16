@@ -17,9 +17,13 @@ group, a Labels tab by the #labels written in the notes. Besides the usual sort 
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a
-formatting toolbar; holding the + button dictates a new note. A counter
+formatting toolbar; holding the + button dictates a new note. Tasks can
+also be in progress (`[/]`) or cancelled (`[-]`), picked by a long-press
+on their box; a switch in the contents shows how many tasks of each
+section are done. A counter
 (`23,5 [-4 -1 +1 +8]`) shows its number; a tap on it pops up buttons that count up and down, e.g. for
-an hour tracker. Images and
+an hour tracker; counters of time (`3:45 [-0:15 +0:15]` or `23,5 h [-1 +1]`)
+can carry a stopwatch (`⏱15`) that adds the time it ran. Images and
 videos from the web can be embedded; whether they load by themselves,
 after a tap or never, and whether links open, ask first or stay text, is
 set per device — for all notes and per circle — so no one else's note

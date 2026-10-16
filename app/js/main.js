@@ -19,6 +19,7 @@ import { initViewSwipe } from "./ui/view-swipe.js";
 import { pushEntry, leaveEntry, afterLeave } from "./ui/dom.js";
 import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
+import { renderWatchBar, initWatchBar } from "./ui/watch-bar.js";
 import { initSearchHits } from "./ui/search-hits.js";
 import { renderPeople, initPeople, circleName, pickCircle, newsBadgeHtml } from "./ui/people-list.js";
 import { renderLabels, initLabels } from "./ui/labels.js";
@@ -114,6 +115,7 @@ function render() {
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
   $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label;
+  renderWatchBar();
   const count = closedOn(allNotes(), today());
   $("archiveCount").textContent = count;
   $("archiveCount").classList.toggle("has", count > 0);
@@ -248,6 +250,7 @@ subscribe(kind => {
   if (kind.startsWith("note:")) {
     patchNote(kind.slice(5));
     renderToc(currentNotes());
+    renderWatchBar();
   } else if (!state.editingId) {
     render();
   }
@@ -504,7 +507,7 @@ function showDue(ids) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ["filterClear", "close"], ["labelClear", "close"]]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
@@ -545,6 +548,7 @@ function wire() {
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
   initToc();
+  initWatchBar();
   initSearchHits();
   // Picking a circle on the phone closes the sheet; the chip above the list shows it.
   initPeople({ onPick: () => { if (phone.matches) setTocOpen(false); }, onAdd: openSyncPanel });

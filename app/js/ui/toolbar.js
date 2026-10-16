@@ -19,12 +19,13 @@ const BUTTONS = [
   ["italic", "Italic (Ctrl+I)", "italic"],
   ["link", "Link (Ctrl+K)", "link"],
   ["media", "Image or video from the web", "image"],
-  ["counter", "Counter", "counter"],
+  ["counter", "Counter (hold: time counter with stopwatch)", "counter"],
   ["undo", "Undo (Ctrl+Z)", "undo"],
   ["redo", "Redo (Ctrl+Shift+Z)", "redo"],
 ];
 
 const $ = id => document.getElementById(id);
+const HOLD_MS = 450;
 
 /** `onDue(id)`: runs after a due date was set from the menu. */
 export function initToolbar({ onDue }) {
@@ -40,10 +41,26 @@ export function initToolbar({ onDue }) {
     return b;
   }));
   // Buttons must not take focus, or the editor (and the keyboard) would close.
-  bar.addEventListener("pointerdown", e => { if (e.target.closest("button")) e.preventDefault(); });
+  // A long-press (desktop: right-click) on Counter adds a time counter with a stopwatch.
+  let hold = null, held = false;
+  const timeCounter = () => { held = true; currentEditor()?.run("timeCounter"); };
+  bar.addEventListener("pointerdown", e => {
+    const b = e.target.closest("button");
+    if (b) e.preventDefault();
+    held = false;
+    if (b?.dataset.cmd === "counter" && e.button === 0) hold = setTimeout(timeCounter, HOLD_MS);
+  });
+  for (const type of ["pointerup", "pointercancel", "pointerleave"]) bar.addEventListener(type, () => clearTimeout(hold));
+  bar.addEventListener("contextmenu", e => {
+    if (e.target.closest("button")?.dataset.cmd !== "counter") return;
+    e.preventDefault();
+    clearTimeout(hold);
+    if (!held) timeCounter();
+  });
   bar.addEventListener("click", e => {
     const b = e.target.closest("button");
     if (!b) return;
+    if (held) { held = false; return; }
     if (b.id === "toolbarDone") return endEdit();
     currentEditor()?.run(b.dataset.cmd);
   });
