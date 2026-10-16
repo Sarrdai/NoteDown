@@ -11,6 +11,10 @@ export const BACKUP_VERSION = 1;
 export const BACKUP_TABLES = ["identities", "device_entries", "files", "file_members", "file_keys", "contacts", "invitations"];
 // Tables a backup may lack: the server restores one from before they existed with none of their rows.
 export const OPTIONAL_BACKUP_TABLES = ["news"];
+// Members per group (docs/server-api.md → "Limits"): what the admin may set, and the server's default.
+export const MIN_MEMBERS = 2;
+export const MAX_MEMBERS = 50;
+export const DEFAULT_MEMBERS = 20;
 export const MAX_NEWS_BODY = 16 * 1024;   // bytes, UTF-8
 export const MAX_NEWS_PUBLISHED = 20;
 export const MAX_NEWS = 200;
@@ -150,6 +154,21 @@ export function parseQuotaInput(text) {
 
 /** The bytes as the field's text: 10485760 → "10", 524288 → "0.5", null → "". */
 export const quotaInputText = quota => (quota == null ? "" : String(Math.round(quota / MB * 1e6) / 1e6));
+
+// ---------- the group size input ----------
+
+/**
+ * Reads a group-size field (people per group, the creator included): `{ max }` (null = empty = the
+ * default) or `{ error }`. The server accepts MIN_MEMBERS .. MAX_MEMBERS.
+ */
+export function parseMembersInput(text) {
+  const t = String(text ?? "").trim();
+  if (t === "") return { max: null };
+  if (!/^\d+$/.test(t)) return { error: "Enter a whole number of people, for example 10." };
+  const max = Number(t);
+  if (max < MIN_MEMBERS || max > MAX_MEMBERS) return { error: `A group can have ${MIN_MEMBERS} to ${MAX_MEMBERS} people.` };
+  return { max };
+}
 
 // ---------- backups ----------
 
@@ -292,8 +311,8 @@ export function createSampleAdmin(data, news = []) {
     adminIdentity: async id => {
       const i = row(id);
       if (!i) throw fail(404, "not found");
-      const { created, used, quota, quota_override, history, blocked, blocked_until } = i;
-      return structuredClone({ ...server.details[id], created, used, quota, quota_override, history, blocked, blocked_until });
+      const { created, used, quota, quota_override, history, blocked, blocked_until, max_members, max_members_override } = i;
+      return structuredClone({ ...server.details[id], created, used, quota, quota_override, history, blocked, blocked_until, max_members, max_members_override });
     },
     adminSetQuota: async (id, quota) => {
       const i = row(id);
@@ -301,6 +320,21 @@ export function createSampleAdmin(data, news = []) {
       if (quota !== null && !(Number.isInteger(quota) && quota >= 1 && quota <= MAX_QUOTA)) throw fail(400, "invalid quota");
       i.quota_override = quota;
       i.quota = quota ?? server.overview.quota;
+      return null;
+    },
+    adminSetMaxMembers: async max => {
+      if (max !== null && !(Number.isInteger(max) && max >= MIN_MEMBERS && max <= MAX_MEMBERS)) throw fail(400, "invalid max_members");
+      server.overview.max_members_override = max;
+      server.overview.max_members = max ?? DEFAULT_MEMBERS;
+      for (const i of server.identities) i.max_members = i.max_members_override ?? server.overview.max_members;
+      return null;
+    },
+    adminSetIdentityMaxMembers: async (id, max) => {
+      const i = row(id);
+      if (!i) throw fail(404, "not found");
+      if (max !== null && !(Number.isInteger(max) && max >= MIN_MEMBERS && max <= MAX_MEMBERS)) throw fail(400, "invalid max_members");
+      i.max_members_override = max;
+      i.max_members = max ?? server.overview.max_members;
       return null;
     },
     adminSetHistory: async (id, on) => {

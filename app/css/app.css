@@ -704,6 +704,9 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .share-row.add { border: 1px solid var(--border); border-radius: 12px; color: var(--accent); font-weight: 650; }
 .share-row.add .row-icon { color: var(--accent); }
 .share-row .row-title { flex: 1; }
+.share-row.disabled { opacity: .45; cursor: default; }
+.share-row.disabled:hover { background: none; }
+.share-limit { margin: 0; }
 .check-box {
   flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
   border: 2px solid var(--text-faint); border-radius: 7px; color: var(--on-accent);

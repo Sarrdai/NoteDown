@@ -307,6 +307,9 @@ history").
   and uploads it; the server pins the state it replaces, so the restore
   can be undone, and the other devices merge it like any edit. For a
   shared file it changes the notes for every member.
+- **Back up now** asks the server to copy each file's current encrypted
+  state into its history at once; the device first finishes a sync round,
+  so the copy holds what it has.
 - Costs storage on the server (whole encrypted copies, no deltas are
   possible), not counted against the quota; compression keeps a state at
   about a third of its text.

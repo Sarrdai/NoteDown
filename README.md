@@ -56,11 +56,12 @@ code (or with the recovery key), add contacts by their code or an
 invitation link (verify the latter later by a safety code), and share notes with them from multi-select → Share.
 Where the server's owner has switched on version history for an
 identity, Sync & sharing → Version history brings back an older state
-of the notes (kept for 30 days); "Your identity" shows the ID to tell the
-owner.
+of the notes (kept for 30 days) and "Back up now" keeps the current state;
+"Your identity" shows the ID to tell the owner.
 The server's owner has an admin page at `/admin/` (signed in with their
 own linked device): what the server stores, the identities (searchable
-by ID) with their devices and files, a storage limit and the version
+by ID) with their devices and files, the most people a group can have
+(for the server and per identity), a storage limit and the version
 history per identity, blocking or deleting an identity, news posts for everyone
 using the server (they show as **News** at the top of the people
 overview), and backup / restore — `app/admin/?sample` shows it with

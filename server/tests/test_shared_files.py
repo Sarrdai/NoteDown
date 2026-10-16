@@ -64,7 +64,7 @@ def test_every_other_member_must_be_a_contact(people):
     assert create_shared(alice, bob).status_code == 403
 
 
-def test_at_most_twenty_members(people):
+def test_at_most_twenty_members_by_default(people):
     alice = people()
     others = [people() for _ in range(20)]
     for o in others:

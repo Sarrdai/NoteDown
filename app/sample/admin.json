@@ -13,10 +13,12 @@
   "storage": {
    "files": 6778591,
    "database": 9856614,
-   "database_limit": 536870912,
+   "database_limit": 1073741824,
    "history": 508000
   },
-  "quota": 2097152
+  "quota": 2097152,
+  "max_members": 20,
+  "max_members_override": null
  },
  "identities": [
   {
@@ -31,7 +33,9 @@
    "contacts": 0,
    "history": false,
    "blocked": false,
-   "blocked_until": null
+   "blocked_until": null,
+   "max_members": 20,
+   "max_members_override": null
   },
   {
    "id": "VoAp6GGNxmJMm4Tl8mWD-f",
@@ -45,7 +49,9 @@
    "contacts": 0,
    "history": false,
    "blocked": false,
-   "blocked_until": null
+   "blocked_until": null,
+   "max_members": 20,
+   "max_members_override": null
   },
   {
    "id": "Nw5kXu_P3OvApgpykp0s_0",
@@ -59,7 +65,9 @@
    "contacts": 1,
    "history": false,
    "blocked": true,
-   "blocked_until": "2026-10-25T00:00:00Z"
+   "blocked_until": "2026-10-25T00:00:00Z",
+   "max_members": 20,
+   "max_members_override": null
   },
   {
    "id": "9uOPy_KV2CsyCMzrvmiqDL",
@@ -73,7 +81,9 @@
    "contacts": 2,
    "history": false,
    "blocked": false,
-   "blocked_until": null
+   "blocked_until": null,
+   "max_members": 30,
+   "max_members_override": 30
   },
   {
    "id": "gTJenhuklXInO6uthC2Adp",
@@ -87,7 +97,9 @@
    "contacts": 2,
    "history": true,
    "blocked": false,
-   "blocked_until": null
+   "blocked_until": null,
+   "max_members": 20,
+   "max_members_override": null
   },
   {
    "id": "SHJp3Uwrq1jG4IEXjnNNkg",
@@ -101,7 +113,9 @@
    "contacts": 3,
    "history": true,
    "blocked": false,
-   "blocked_until": null
+   "blocked_until": null,
+   "max_members": 20,
+   "max_members_override": null
   }
  ],
  "details": {

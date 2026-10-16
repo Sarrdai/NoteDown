@@ -201,11 +201,12 @@ recovery key (below).
 | `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`, for a deleted identity also `"deleted": true` with no entries; 404 unless the caller may read it ("Contacts and invitations") |
 | `POST /v1/identities/{id}/delete` | identity key | `{"challenge", "sig"}` → 204: deletes the identity ("Blocked and deleted identities") |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members", "history"}], "quota", "epoch", "news", "deleted"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `history` whether the file keeps older states ("Version history"), `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News"), `deleted` the sorted IDs of the deleted identities among the members of these files ("Blocked and deleted identities") |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members", "history"}], "quota", "max_members", "epoch", "news", "deleted"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `history` whether the file keeps older states ("Version history"), `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News"), `deleted` the sorted IDs of the deleted identities among the members of these files ("Blocked and deleted identities"), `max_members` the most members a file the caller creates may have ("Limits") |
 | `GET /v1/news` | yes | → `{"version", "news": [{"id", "created", "modified", "body"}]}`: the owner's published posts, unencrypted and the same for everybody ("Admin" → "News"); any identity may read it |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?, "previous_key"?, "restore"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
-| `GET /v1/files/{fid}/versions` | yes | → `{"key_gen", "versions": [{"version", "updated", "replaced", "size", "key_gen", "pinned"}], "chain": [{"gen", "sealed"}]}`: the stored older states, newest first, and the key chain ("Version history"); 404 unless the caller is a member |
+| `GET /v1/files/{fid}/versions` | yes | → `{"key_gen", "versions": [{"version", "updated", "replaced", "size", "key_gen", "pinned", "saved"}], "chain": [{"gen", "sealed"}]}`: the stored older states, newest first, and the key chain ("Version history"); 404 unless the caller is a member |
+| `POST /v1/files/{fid}/versions` | yes | → `{"version", "saved"}`: "Back up now", stores the current state as a state of the history ("Version history"); `saved` false when it is stored already; 404 unless the caller is a member, 409 `{"detail": "no version history"}` when the file keeps none |
 | `GET /v1/files/{fid}/versions/{v}` | yes | → `{"id", "version", "ciphertext", "key_gen"}`; 404 for a state that isn't stored (the current version included) or a non-member |
 | `POST /v1/files/{fid}/keys` | yes | `{"keys": {device id: wrapped key}}` → 204; adds or replaces keys without a new version (linking a device) |
 | `POST /v1/invitations` | yes | `{"id", "kind", "sig"}` (`kind` `code` or `link`) → 201 `{"expires"}`; 400 for an invalid ID, kind or a `sig` that isn't the calling device's signature, 409 if the ID exists, 413 with 20 open |
@@ -225,9 +226,9 @@ recovery key (below).
   → "Files"); the private file is the file of the set of one.
 - **Upload** (`PUT /v1/files/{fid}`): `base_version` 0 creates the file
   and needs `keys`, and may name `members` (the caller plus contacts of
-  the caller, at most 20, no duplicates; default: the caller alone; 400
-  if malformed or without the caller, 403 if one is no contact of the
-  caller). On later uploads `members` may be left out or must be the
+  the caller, at most the caller's member limit ("Limits"), no
+  duplicates; default: the caller alone; 400 if malformed, without the
+  caller or too many, 403 if one is no contact of the caller). On later uploads `members` may be left out or must be the
   file's set (400 otherwise). Each member set has at most one
   file: creating a second answers 409 with the existing file's `id` and
   `version`, so two devices sharing at the same time don't split it.
@@ -280,12 +281,14 @@ comparing and restoring happen on the device.
 
 - **Stored:** each upload of an existing file stores the state it
   replaces (table `file_versions`: `version`, `ciphertext`, `updated` =
-  when that state was uploaded, `replaced` = now, `key_gen`, `pinned`).
+  when that state was uploaded, `replaced` = now, `key_gen`, `pinned`,
+  `saved`).
   Not counted against the storage quota; the admin page shows its size.
 - **Thinning** on every such upload: for states replaced in the last
   24 hours one per hour, before that one per UTC day — in each hour or
   day the first state replaced in it, i.e. the one from before that
-  hour's or day's changes. Pinned states stay. Nothing stays longer than
+  hour's or day's changes. Pinned states stay; states saved by hand
+  don't count as the first of their hour or day. Nothing stays longer than
   30 days after it was replaced (listing and reading leave out what is
   older even before the next upload deletes it).
 - **Key chain:** a file's key has a generation, `key_gen`, 1 at creation
@@ -301,6 +304,13 @@ comparing and restoring happen on the device.
   state it replaces, so the restore can be undone; the other devices
   merge it as any change (`docs/sync-and-sharing.md` → "Version
   history").
+- **Back up now** (`POST /v1/files/{fid}/versions`) copies the current
+  version into the history at once, pinned and `saved`, with
+  `replaced` = now (so it is kept 30 days from then); its `version` is
+  the file's current one until the next upload, which keeps that copy
+  instead of storing the state again. Calling it again without a change
+  stores nothing (`"saved": false`). The app calls it for every file
+  with a history.
 - **Switching it off** for an identity deletes the stored states of the
   files of which no member has it any more; later uploads store none.
 
@@ -319,10 +329,12 @@ no request logs).
 
 | Method and path | Request → response |
 |---|---|
-| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news", "blocked"}, "storage": {"files", "history", "database", "database_limit"}, "quota"}`; `storage.history` is the decoded ciphertext of all stored older states; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts, `blocked` the identities blocked now; `identities` leaves deleted ones out; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
-| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts", "history", "blocked", "blocked_until"}]}`, newest first, deleted identities left out; `blocked` whether a block holds now, `blocked_until` its end (`null`: none, or not blocked); `history` whether version history is switched on; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
-| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "history", "history_size", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations", "blocked", "blocked_until"}`; devices in the order they were added to the list, files newest first; `history_size` is the decoded ciphertext of the stored states of its files; 404 for an unknown or deleted identity |
+| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news", "blocked"}, "storage": {"files", "history", "database", "database_limit"}, "quota"}`; `storage.history` is the decoded ciphertext of all stored older states; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts, `blocked` the identities blocked now; `identities` leaves deleted ones out; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` the host's size limit in bytes from the server's configuration (`DATABASE_LIMIT_MB`; Postgres can't report it), `null` when that isn't set or isn't a whole number above 0 (the server starts anyway and logs a warning); `quota` the default quota; `max_members` the server-wide member limit, `max_members_override` the stored one or `null` (= the default, 20) |
+| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts", "history", "blocked", "blocked_until", "max_members", "max_members_override"}]}`, newest first, deleted identities left out; `blocked` whether a block holds now, `blocked_until` its end (`null`: none, or not blocked); `history` whether version history is switched on; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files), `max_members` the effective member limit of the files it creates, `max_members_override` its own or `null` (= the server-wide one) |
+| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "history", "history_size", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations", "blocked", "blocked_until", "max_members", "max_members_override"}`; devices in the order they were added to the list, files newest first; `history_size` is the decoded ciphertext of the stored states of its files; 404 for an unknown or deleted identity |
 | `PUT /v1/admin/identities/{id}/quota` | `{"quota": <bytes> \| null}` → 204; `null` resets to the default; 400 unless `1 <= quota <= 1 GiB`; 404 for an unknown identity |
+| `PUT /v1/admin/max-members` | `{"max_members": <2..50> \| null}` → 204: the server-wide member limit ("Limits"); `null` resets to the default 20; 400 otherwise |
+| `PUT /v1/admin/identities/{id}/max-members` | `{"max_members": <2..50> \| null}` → 204: the member limit of the files this identity creates; `null` = the server-wide one; 400 otherwise; 404 for an unknown or deleted identity |
 | `PUT /v1/admin/identities/{id}/history` | `{"history": true \| false}` → 204: switches version history on or off ("Version history"); 400 for anything but a boolean; 404 for an unknown identity |
 | `PUT /v1/admin/identities/{id}/block` | `{"blocked": true \| false, "until"?: "<iso>"}` → 204: blocks the identity, until `until` (a time with zone, ahead) or without an end, or lifts the block ("Blocked and deleted identities"); 400 for a non-boolean `blocked`, a bad or past `until`, or `until` without `blocked`; 404 for an unknown or deleted identity; 409 for an admin identity |
 | `DELETE /v1/admin/identities/{id}` | → 204: deletes the identity as described in "Blocked and deleted identities"; 404 for an unknown or already deleted identity; 409 for an admin identity |
@@ -341,10 +353,10 @@ read-only transaction), a JSON document
 
 | Table | Columns |
 |---|---|
-| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`), `history` (optional: missing = off), `blocked`, `blocked_until`, `deleted` (optional: missing = not blocked, not deleted; a deleted identity has no device list, every other one has one) |
+| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`), `history` (optional: missing = off), `blocked`, `blocked_until`, `deleted` (optional: missing = not blocked, not deleted; a deleted identity has no device list, every other one has one), `max_members` (optional: missing = `null`) |
 | `device_entries` | `identity_id`, `seq`, `entry` (the signed entry as in "Device list") |
 | `files` | `id`, `owner`, `version`, `ciphertext`, `updated`, `member_key`, `key_gen` (optional: missing = 1) |
-| `file_versions` | `file_id`, `version` (below the file's), `ciphertext`, `updated`, `replaced`, `key_gen` (at most the file's), `pinned`; optional table |
+| `file_versions` | `file_id`, `version` (below the file's; equal for a `saved` one), `ciphertext`, `updated`, `replaced`, `key_gen` (at most the file's), `pinned`, `saved` (optional: missing = false); optional table |
 | `file_key_chain` | `file_id`, `gen` (below the file's `key_gen`), `sealed`; optional table |
 | `file_members` | `file_id`, `identity_id` |
 | `file_keys` | `file_id`, `device_id`, `wrapped` |
@@ -353,7 +365,8 @@ read-only transaction), a JSON document
 | `news` | `id`, `body`, `created`, `modified`, `archived`; optional: a backup without it (older ones) restores with no news |
 
 Not in it: `devices` (derived from the device lists), relay slots, rate
-limit counters and the server state (the epoch and the news version). The file is as sensitive
+limit counters and the server state (the epoch, the news version and
+the server-wide member limit, which a restore leaves as it is). The file is as sensitive
 as the database: it holds the encrypted files and the public device lists.
 
 **Restore** replaces everything in one transaction, so a failed restore
@@ -412,7 +425,7 @@ feed for everyone.
 | Storage per identity (decoded ciphertext of all files it is a member of, shared ones in full) | 2 MB, or the admin's override per identity (1 byte to 1 GiB) |
 | Files per identity (it is a member of) | 50 |
 | Open invitations per identity | 20 |
-| Members per file | 20 |
+| Members per file | 20, or what the admin sets for the server or the creating identity (2 to 50) |
 | Sealed card | 512 characters each |
 | Devices on a list (active) | 20 |
 | Relay payload | 8 KB |
@@ -432,6 +445,13 @@ storage is full. The default quota is one constant; the admin can set a
 different quota per identity ("Admin"), the basis for a paid option later.
 Each member is checked against its own quota, and `GET /v1/files` returns
 the caller's.
+
+The member limit is checked only when a file is created, against the
+creating identity's limit: its own override, else the server-wide one
+(`server_state` key `max_members`), else 20; over it the upload answers
+400 `{"detail": "too many members"}`. A file's members never change, so
+a lower limit later leaves existing files as they are. `GET /v1/files`
+returns the caller's limit, which the app's share dialog applies.
 
 A news post over its size or an empty one is a 400; publishing one that
 would make 21 published or 201 in total (`POST`, or `PUT` with

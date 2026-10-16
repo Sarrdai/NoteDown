@@ -218,6 +218,14 @@ before the first live test).
     — and a "Restore this state" button (decided 2026-10-15 over showing
     the state's notes as they were: it answers which state is the right
     one and what a restore would lose). *Prototype: 2026-10-15.*
+  - **Back up now** (decided 2026-10-16, user request): a second row
+    under "Version history" in Sync & sharing, next to "Older states of
+    your notes", saves the current state of every file with a history
+    at once. Such a state is never thinned out, stays 30 days like the
+    others and is marked "backed up" in the list; a file unchanged since
+    its last backup adds none ("Already backed up: nothing changed since
+    the last backup"). Why: a known-good state before a big change,
+    without waiting for the hourly state. *Prototype: 2026-10-16.*
   - Older states stay readable after a device was removed (the renewed
     file key carries the previous one, `docs/sync-and-sharing.md` →
     "Version history").
@@ -240,7 +248,15 @@ before the first live test).
     several notes are shared at once; the share dialog lists the contacts
     with a checkbox each (a dash when only some of the selected notes are
     shared with that person), adds a contact on the spot, and offers
-    **Leave** for notes of one shared file. Undo in the snackbar. Chosen
+    **Leave** for notes of one shared file. Undo in the snackbar.
+    **Group size:** a new group can have at most as many people as the
+    server allows this identity (default 20, the user included; set by
+    the server's owner, "Server maintenance (admin)"); once a note's
+    group would grow past it, the unchecked contacts are greyed out and
+    a line under the list says "A group can have at most N people, you
+    included" (decided 2026-10-16, user request: the dialog prevents it
+    instead of a server error). *Prototype: 2026-10-16 (the sample's
+    limit is 3).* Chosen
     over a toolbar or a per-card button: it follows the existing
     long-press pattern and keeps the cards calm.
   - **Shared notes show their members as initials avatars** in the meta
@@ -333,7 +349,11 @@ paid features per user.
 - **An admin page** at `<web app>/admin/` (no link from the app): an
   overview of what the server stores (identities, active devices, files
   and shared files, contact pairs, open invitations, database size
-  against the hosting limit), the identities with their storage use,
+  against the hosting limit — a server setting, `DATABASE_LIMIT_MB`,
+  since the database can't report it; an (i) next to "Database" says so
+  on hover or tap, and while it isn't set the page shows "Limit not set"
+  instead of the bar: the server still starts, user decision 2026-10-16),
+  the identities with their storage use,
   devices, files and contacts, and backup / restore. *Prototype:
   `app/admin/` (`?sample`).*
 - **Four sections, Overview / Identities / News / Backup** (decided 2026-10-15
@@ -364,6 +384,16 @@ paid features per user.
   storage bar shows the identity's own limit. Why: the first lever for a
   paid option, useful for testers right away; real payments are backlog
   #33.
+- **Group size** (decided 2026-10-16, user request): the most people a
+  new group (a shared file) can have, its creator included. The
+  Overview has a "Group size" card for the whole server (default 20,
+  2–50; 50 because every member's devices get the file key), and an
+  identity's detail has one for the groups that identity creates, with
+  "Reset to server-wide". The creator's limit counts when a group is
+  created; a lower limit leaves existing groups as they are. Why per
+  identity and not per group: a group's members are fixed, so a larger
+  group is always a new group, created by someone. The app's share
+  dialog knows the limit ("Sync and sharing"). *Prototype: 2026-10-16.*
 - **Version history per identity** (decided 2026-10-15): a switch in the
   identity's detail turns it on or off ("Sync and sharing" → "Version
   history"); the list marks identities that have it with a "History"

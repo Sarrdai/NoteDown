@@ -93,7 +93,7 @@ def test_member_sets_are_checked():
     me, other = b64u(b"\x01" * 16), b64u(b"\x02" * 16)
     assert check_members([other, me], me) == sorted([me, other])
     assert check_members([me], me) == [me]
-    for bad in (None, "x", [], [other], [me, me], [me, "short"], [me, 5], [me] + [b64u(bytes([i]) * 16) for i in range(2, 22)]):
+    for bad in (None, "x", [], [other], [me, me], [me, "short"], [me, 5], [me] + [b64u(bytes([i]) * 16) for i in range(2, 52)]):
         with pytest.raises(ProtocolError):
             check_members(bad, me)
     assert len(check_members([me] + [b64u(bytes([i]) * 16) for i in range(2, 21)], me)) == 20
