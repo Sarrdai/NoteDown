@@ -848,7 +848,15 @@ Decided 2026-10-16 (user request).
   start stands in the brackets, UTC to the second
   (`⏱15 2026-10-16T08:05:12Z`), so it runs on across devices and sync,
   and the chip shows the running time live. Stopping adds the rounded
-  run to the value. Several stopwatches may run at once.
+  run to the value. Several stopwatches may run at once. A running one
+  can be **discarded** (✕ next to Stop): it stops without adding the run,
+  e.g. when it was forgotten (user request) — the real time can then be
+  typed in.
+- **Running stopwatches show above the list** (user request), one chip
+  each like an active filter, with the text before the counter on its
+  line (else the note's title) and the running time — in every view and
+  whatever the filters, so a forgotten one is seen. A tap opens the
+  counter's pop-up right at the chip, with Stop and Discard.
   *Prototype: 2026-10-16; where Start / Stop and the amount input sit is
   still open (three variants, ⋮ → Prototype).*
 

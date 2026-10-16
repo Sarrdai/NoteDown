@@ -883,12 +883,12 @@ a.row-open { text-decoration: none; }
 /* A row too wide for the screen wraps (many steps and Start / Stop on the phone). */
 .counter-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
 .counter-pop-value { border: 0; background: transparent; font-family: inherit; height: var(--tap); border-radius: 999px; cursor: text; }
-.counter-pop.watch-rows .counter-pop-value { cursor: default; }
+.counter-pop.pop-rows .counter-pop-value { cursor: default; }
 .counter-input {
   width: 8.5em; height: var(--tap); padding: 0 12px; border-radius: 999px; box-sizing: border-box;
   border: 1.5px solid var(--accent); background: var(--bg); color: var(--text); font: inherit; text-align: center;
 }
-.counter-pop.watch-rows .counter-input { flex: 1; border-color: var(--border); }
+.counter-pop.pop-rows .counter-input { flex: 1; border-color: var(--border); }
 .counter-input:focus { outline: none; border-color: var(--accent); }
 .counter-input.invalid { border-color: var(--danger); background: var(--danger-soft); }
 .counter-watch-btn {
@@ -1068,6 +1068,19 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .filter-chip > span > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-chip > span > .icon { width: 16px; height: 16px; color: var(--text-muted); }
 .filter-chip .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--accent-soft); }
+/* The running stopwatches (ui/watch-bar.js), one chip each above the filters. */
+.watch-bar + .filter-bar:not([hidden]) { padding-top: 6px; }
+.watch-chip {
+  border: 0; font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; gap: 8px; padding: 4px 12px 4px 9px;
+  background: var(--accent); color: var(--on-accent);
+}
+.watch-chip > span > .icon, .filter-chip.watch-chip > span > .icon { color: inherit; animation: watch-pulse 1.6s ease-in-out infinite; }
+.watch-chip .counter-clock { flex: none; font-variant-numeric: tabular-nums; opacity: 0.9; }
+.counter-discard {
+  display: inline-grid; place-items: center; width: var(--tap); height: var(--tap); border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--code-bg); color: var(--text-muted);
+}
+.counter-discard .icon { width: 18px; height: 18px; }
 
 /* ---------- FAB, snackbar, menu ---------- */
 .fab {

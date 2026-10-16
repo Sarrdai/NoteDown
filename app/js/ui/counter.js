@@ -5,7 +5,9 @@
 // the back key (they sit on their own history entry). A tap on the number in
 // the pop-up types an amount of one's own. A time or hours counter with a
 // stopwatch starts and stops it (written at once); while it runs, the chip
-// counts the time live.
+// counts the time live. A running stopwatch can also be discarded: it stops
+// without adding the run (forgotten to stop). The running ones show above
+// the list as well (ui/watch-bar.js), whose chips open the same pop-up.
 //
 // Prototype variants (settings.watchUi, ?watch=): where Start / Stop and the
 // amount input sit — "row" (A): a Start / Stop pill at the end of the steps,
@@ -38,21 +40,28 @@ export function counterClick(e, change) {
   return true;
 }
 
-function openPop(chip, change) {
+/** Opens the pop-up for another element that carries a counter's data (the running stopwatches above the list), with Start / Stop in every variant. */
+export function openCounterPop(chip, change) {
+  openPop(chip, change, true);
+}
+
+function openPop(chip, change, withWatch = false) {
   closePop();
   const steps = chip.dataset.steps ? chip.dataset.steps.split(" ") : [];
   const watch = watchOf(chip);
   const scrim = document.createElement("div");
   scrim.className = "counter-scrim keep-editing";
   const pop = document.createElement("div");
-  pop.className = `counter-pop keep-editing watch-${variant()}`;
+  pop.className = `counter-pop keep-editing pop-${variant()}`;
   pop.setAttribute("role", "dialog");
   pop.setAttribute("aria-label", "Counter");
   const button = s => `<button type="button" class="counter-step${s.startsWith("-") ? " minus" : ""}" data-step="${s}" aria-label="${s.startsWith("-") ? "Minus" : "Plus"} ${s.slice(1)}">${s.replace("-", "−")}</button>`;
-  const watchBtn = watch && variant() !== "chip"
+  const watchBtn = (watch && (variant() !== "chip" || withWatch)
     ? `<button type="button" class="counter-watch-btn${watch.since ? " running" : ""}" data-watch="${watch.since ? "stop" : "start"}">`
       + `${icon(watch.since ? "stop" : "play")}<span>${watch.since ? clock(elapsedMs(watch, Date.now())) : "Start"}</span></button>`
-    : "";
+    : "") + (watch && watch.since
+    ? `<button type="button" class="counter-discard" data-watch="discard" aria-label="Discard the run" title="Discard the run (adds nothing)">${icon("close")}</button>`
+    : "");
   const row = steps.filter(s => s.startsWith("-")).map(button).join("")
     + `<button type="button" class="counter-pop-value" aria-label="Type an amount"></button>`
     + steps.filter(s => !s.startsWith("-")).map(button).join("");
@@ -61,7 +70,7 @@ function openPop(chip, change) {
   pop.innerHTML = variant() === "rows"
     ? `<div class="counter-row">${row}</div><div class="counter-row second">${watchBtn}${input}</div>`
     : `<div class="counter-row">${row}${watchBtn}</div>`;
-  const value = chip.querySelector(".counter-value")?.textContent || chip.textContent;
+  const value = chip.dataset.value || chip.querySelector(".counter-value")?.textContent || chip.textContent;
   open = { scrim, pop, chip, value, delta: "+0", change, kind };
   showValue();
   // Buttons must not take focus, or the editor (and the keyboard) would close.
@@ -150,9 +159,9 @@ export function closePop({ fromHistory = false, apply = true } = {}) {
 // The running stopwatches count on screen, every second.
 function tick() {
   const now = Date.now();
-  for (const chip of document.querySelectorAll(".counter[data-since]")) {
-    const w = chip.querySelector(".counter-watch");
-    if (w) w.querySelector(".counter-clock").textContent = clock(elapsedMs(watchOf(chip), now));
+  for (const el of document.querySelectorAll("[data-since]")) {
+    const text = clock(elapsedMs(watchOf(el), now));
+    for (const c of el.querySelectorAll(".counter-clock")) c.textContent = text;
   }
   const pill = open && open.pop.querySelector(".counter-watch-btn.running span");
   if (pill) pill.textContent = clock(elapsedMs(watchOf(open.chip), now));

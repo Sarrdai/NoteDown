@@ -185,8 +185,9 @@ function rebuild(c, value, since) {
 
 /**
  * The body with the n-th counter (0-based, document order) changed: `step`
- * added to its value, then its stopwatch started or stopped (`watch`:
- * "start" | "stop", at `now`; stopping adds the run).
+ * added to its value, then its stopwatch started, stopped or its run
+ * discarded (`watch`: "start" | "stop" | "discard", at `now`; stopping adds
+ * the run, discarding drops it).
  */
 export function changeCounter(body, index, { step = null, watch = null, now = Date.now() } = {}) {
   const c = counters(body)[index];
@@ -194,16 +195,29 @@ export function changeCounter(body, index, { step = null, watch = null, now = Da
   let value = step && !isZero(step) ? addStep(c.value, step) : c.value;
   let since = c.watch && c.watch.since;
   if (watch === "start" && c.watch && !since) since = isoSecond(new Date(now));
-  if (watch === "stop" && since) {
-    value = addStep(value, watchStep(c, now));
-    since = null;
-  }
+  if (watch === "stop" && since) value = addStep(value, watchStep(c, now));
+  if (watch === "stop" || watch === "discard") since = null;
   // Only the value changes while the brackets stay as written.
   if (since === (c.watch && c.watch.since)) {
     const at = c.raw.indexOf(c.value);
     return body.slice(0, c.from + at) + value + body.slice(c.from + at + c.value.length);
   }
   return body.slice(0, c.from) + rebuild(c, value, since) + body.slice(c.to);
+}
+
+/**
+ * The running stopwatches of a body: [{ index (of the counter), since,
+ * label (the text before the counter on its line, without list marker and
+ * a trailing colon; "" when there is none) }].
+ */
+export function runningWatches(body) {
+  return counters(body).flatMap((c, index) => {
+    if (!c.watch || !c.watch.since) return [];
+    const label = body.slice(body.lastIndexOf("\n", c.from - 1) + 1, c.from)
+      .replace(/^\s*(?:#{1,6}\s+|(?:[-*+]|\d+[.)])\s+(?:\[[ xX/-]\]\s+)?)/, "")
+      .replace(/[*_`~]/g, "").replace(/[\s:–-]+$/, "").trim();
+    return [{ index, since: c.watch.since, label }];
+  });
 }
 
 /** The body with the n-th counter changed by `step` (the pop-up's sum). */

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { counters, stepCounter, changeCounter, addStep, sumSteps, pendingText, appendCounter, counterStart, counterAt, parseAmount, watchStep, isZero } from "../app/js/core/counter.js";
+import { runningWatches, counters, stepCounter, changeCounter, addStep, sumSteps, pendingText, appendCounter, counterStart, counterAt, parseAmount, watchStep, isZero } from "../app/js/core/counter.js";
 import { renderMarkdown, noteTitle } from "../app/js/core/markdown.js";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
 
@@ -132,7 +132,18 @@ test("the stopwatch: start writes the time, stop adds the run rounded up", () =>
   // To the minute, h:mm; a pending step goes in with it.
   const t = changeCounter(changeCounter(body, 1, { watch: "start", now: t0 }), 1, { step: "+0:15", watch: "stop", now: t0 + 61 * 60000 + 5000 });
   assert.ok(t.endsWith("P-2063 Support hotline: 5:02 [-0:15 +0:15 ⏱]"), t);
+  // Discarding ends the run without adding it.
+  assert.equal(changeCounter(started, 0, { watch: "discard", now: t0 + 20 * 60000 }), body);
   // Stopping a stopwatch that doesn't run changes nothing.
   assert.equal(changeCounter(body, 1, { watch: "stop", now: t0 }), body);
   assert.equal(watchStep({ kind: "hours", value: "1.5", watch: { round: 0, since: "2026-10-16T08:05Z" } }, t0 + 10 * 60000), "+0.17");
+});
+
+test("runningWatches lists the running stopwatches with the text before them", () => {
+  const body = "## Hours in October\n- P-2041 Website relaunch: 23,5 h [-4 -1 +1 +8 ⏱15 2026-10-16T08:05:12Z]\n- P-2057 Annual report: 6 [-1 -0,5 +0,5 +1]\n- [ ] **P-2063 Support hotline**: 3:45 [-0:15 +0:15 ⏱ 2026-10-16T09:00:00Z]\n3:45 [⏱ 2026-10-16T09:00:00Z]";
+  assert.deepEqual(runningWatches(body), [
+    { index: 0, since: "2026-10-16T08:05:12Z", label: "P-2041 Website relaunch" },
+    { index: 2, since: "2026-10-16T09:00:00Z", label: "P-2063 Support hotline" },
+    { index: 3, since: "2026-10-16T09:00:00Z", label: "" },
+  ]);
 });
