@@ -53,7 +53,7 @@ test("appendCounter adds a counter at the line's end", () => {
 
 test("the renderer shows the counters in the order counters() finds them", () => {
   const html = renderMarkdown(tracker.body);
-  const values = [...html.matchAll(/class="counter-value"[^>]*>([^<]*)</g)].map(m => m[1]);
+  const values = [...html.matchAll(/class="counter"[^>]*>([^<]*)</g)].map(m => m[1]);
   assert.deepEqual(values, counters(tracker.body).map(c => c.value));
   assert.match(renderMarkdown("x `3 [+1]`"), /<code>3 \[\+1\]<\/code>/);
 });

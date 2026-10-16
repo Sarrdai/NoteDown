@@ -1,7 +1,7 @@
 // Counters in a note's body (docs/requirements.md → "Counters"): a number
 // followed by its steps in brackets, e.g. "12 [-4 -1 +1 +8]". The view shows
-// the number with one button per step; a tap changes only the number in the
-// source. Decimals are kept as written ("0,5" stays with a comma).
+// the number; a tap pops up one button per step, which changes only the
+// number in the source. Decimals are kept as written ("0,5" stays with a comma).
 
 const NUM = String.raw`-?\d+(?:[.,]\d+)?`;
 const STEP = String.raw`[+-]\d+(?:[.,]\d+)?`;
@@ -70,9 +70,7 @@ export function appendCounter(line) {
   return (/\S/.test(text) ? text + " " : text) + "0 [-1 +1]";
 }
 
-/** The counter's markup, shared by the rendered note and the editor's live preview. */
-export function counterHtml(value, steps, disabled = false) {
-  const off = disabled ? " disabled" : "";
-  const button = s => `<button type="button" class="counter-step${s.startsWith("-") ? " minus" : ""}" data-step="${s}"${off} aria-label="${s.startsWith("-") ? "Minus" : "Plus"} ${s.slice(1)}">${s.startsWith("-") ? "−" + s.slice(1) : s}</button>`;
-  return `<span class="counter" data-steps="${steps.join(" ")}"><button type="button" class="counter-value"${off} aria-label="Counter ${value}">${value}</button>${steps.map(button).join("")}</span>`;
+/** The counter's markup, shared by the rendered note and the editor's live preview: the number, its steps for the pop-up. */
+export function counterHtml(value, steps) {
+  return `<button type="button" class="counter" data-steps="${steps.join(" ")}" aria-label="Counter ${value}">${value}</button>`;
 }

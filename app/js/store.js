@@ -24,7 +24,6 @@ export const DEFAULT_SETTINGS = {
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
-  counterStyle: "stepper",   // prototype variant (counters): stepper (A) | row (B) | pop (D) | card (E)
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 

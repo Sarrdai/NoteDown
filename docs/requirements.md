@@ -782,22 +782,19 @@ this needs none of it.
   sign); decimals are allowed and keep the separator as written (`0,5` or
   `0.5`). Why: a counter stays plain Markdown that other apps show as
   text. *Prototype: 2026-10-16.*
-- The rendered note and the live preview show the number with one
-  button per step; a tap changes only the number in the text, without
-  entering edit mode (like a task checkbox). Only the current value is
-  kept, no history (the version history covers that). Archived, deleted
-  and news notes show their counters read-only. Counters inside code are
-  plain text.
+- The rendered note and the live preview show the number as an accent
+  chip; a tap pops its step buttons up around it, floating over the text
+  (− steps left, + steps right, the number between them counting along).
+  Each tap changes only the number in the text, without entering edit
+  mode; a tap beside them or `Esc` closes them. Why: the note reads like
+  plain text, the buttons appear where the user tapped (decided
+  2026-10-16 over always visible buttons, a menu and a centered card).
+  Only the current value is kept, no history (the version history covers
+  that). Archived, deleted and news notes show their counters read-only.
+  Counters inside code are plain text.
 - The toolbar's **counter** button adds `0 [-1 +1]` at the end of the
   current line (a line that has a counter stays as it is); the line then
   shows its Markdown to edit the steps.
-- *Open (prototype variants, ⋮ → "Prototype: Counter"):* A stepper with
-  the − steps left and the + steps right of the number; B number and
-  buttons at the line's right edge; D the number only (an accent chip), a
-  tap pops the buttons up around it, floating over the text; E the same
-  chip, a tap opens a card in the middle with the line's text, the number
-  and the buttons. D and E stay open for several taps; a tap beside them
-  or `Esc` closes them.
 
 ### Links and media from the web
 

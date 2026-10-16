@@ -51,8 +51,8 @@ class CheckboxWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
-// A counter (core/counter.js) with its step buttons; a tap changes the number
-// at `from` without moving the cursor onto the line.
+// A counter (core/counter.js) as its chip; the steps it pops up change the
+// number at `from` without moving the cursor onto the line.
 class CounterWidget extends WidgetType {
   constructor(value, steps, from) { super(); this.value = value; this.steps = steps; this.from = from; }
   eq(o) { return o.value === this.value && o.steps.join() === this.steps.join() && o.from === this.from; }

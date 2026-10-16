@@ -115,7 +115,7 @@ function noteElement(n, view = state.view) {
   applyExternal(body, circleKey(circleOf(n.id)));
   wrapSections(body, sections(n.body));
   markHits(body);
-  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter button").forEach(cb => (cb.disabled = true));
+  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter").forEach(cb => (cb.disabled = true));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
   const meta = document.createElement("div");
