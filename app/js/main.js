@@ -436,9 +436,6 @@ function moreMenu() {
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
-    ...[["row", "Stopwatch: in the row (A)"], ["rows", "Stopwatch: second row (B)"], ["chip", "Stopwatch: on the chip (C)"]]
-      .map(([v, label]) => ({ label, checked: s.watchUi === v, onSelect: () => updateSettings({ watchUi: v }) })),
-    { separator: true },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -604,7 +601,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["row", "rows", "chip"].includes(p.get("watch"))) patch.watchUi = p.get("watch");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

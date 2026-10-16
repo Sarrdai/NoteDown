@@ -8,55 +8,42 @@
 // counts the time live. A running stopwatch can also be discarded: it stops
 // without adding the run (forgotten to stop). The running ones show above
 // the list as well (ui/watch-bar.js), whose chips open the same pop-up.
-//
-// Prototype variants (settings.watchUi, ?watch=): where Start / Stop and the
-// amount input sit — "row" (A): a Start / Stop pill at the end of the steps,
-// the number turns into the input; "rows" (B): a second row with Start / Stop
-// and an input that is always there; "chip" (C): Start / Stop is a part of the
-// chip itself, one tap without the pop-up.
+// Start / Stop sits at the end of the steps (decided 2026-10-16 over a second
+// row and a Start / Stop part on the chip).
 import { sumSteps, pendingText, parseAmount, isZero, elapsedMs, clock } from "../core/counter.js";
-import { state } from "../store.js";
 import { icon } from "./icons.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 
 let open = null;   // { scrim, pop, chip, value, delta, change }
 
-const variant = () => state.settings.watchUi;
 const watchOf = chip => (chip.dataset.watch === undefined ? null : { round: Number(chip.dataset.watch), since: chip.dataset.since || null });
 
 /**
  * Handles a tap on a counter; `change({ step, watch })` changes it in the
  * source: `step` added to the value (once, the sum, when the pop-up closes),
- * `watch` "start" | "stop". → true when the tap was a counter's.
+ * `watch` "start" | "stop" | "discard". → true when the tap was a counter's.
  */
 export function counterClick(e, change) {
   const c = e.target.closest(".counter");
   if (!c) return false;
   e.preventDefault();
-  if (c.disabled) return true;
-  const w = watchOf(c);
-  if (w && variant() === "chip" && e.target.closest(".counter-watch")) change({ watch: w.since ? "stop" : "start" });
-  else openPop(c, change);
+  if (!c.disabled) openCounterPop(c, change);
   return true;
 }
 
-/** Opens the pop-up for another element that carries a counter's data (the running stopwatches above the list), with Start / Stop in every variant. */
+/** Opens the pop-up over `chip`: a counter, or another element that carries a counter's data (the running stopwatches above the list). */
 export function openCounterPop(chip, change) {
-  openPop(chip, change, true);
-}
-
-function openPop(chip, change, withWatch = false) {
   closePop();
   const steps = chip.dataset.steps ? chip.dataset.steps.split(" ") : [];
   const watch = watchOf(chip);
   const scrim = document.createElement("div");
   scrim.className = "counter-scrim keep-editing";
   const pop = document.createElement("div");
-  pop.className = `counter-pop keep-editing pop-${variant()}`;
+  pop.className = "counter-pop keep-editing";
   pop.setAttribute("role", "dialog");
   pop.setAttribute("aria-label", "Counter");
   const button = s => `<button type="button" class="counter-step${s.startsWith("-") ? " minus" : ""}" data-step="${s}" aria-label="${s.startsWith("-") ? "Minus" : "Plus"} ${s.slice(1)}">${s.replace("-", "−")}</button>`;
-  const watchBtn = (watch && (variant() !== "chip" || withWatch)
+  const watchBtn = (watch
     ? `<button type="button" class="counter-watch-btn${watch.since ? " running" : ""}" data-watch="${watch.since ? "stop" : "start"}">`
       + `${icon(watch.since ? "stop" : "play")}<span>${watch.since ? clock(elapsedMs(watch, Date.now())) : "Start"}</span></button>`
     : "") + (watch && watch.since
@@ -66,10 +53,7 @@ function openPop(chip, change, withWatch = false) {
     + `<button type="button" class="counter-pop-value" aria-label="Type an amount"></button>`
     + steps.filter(s => !s.startsWith("-")).map(button).join("");
   const kind = chip.dataset.kind;
-  const input = `<input class="counter-input" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="${kind === "time" ? "+0:40" : "+1,5"}" aria-label="Amount to add${kind === "time" ? " (h:mm or minutes)" : ""}">`;
-  pop.innerHTML = variant() === "rows"
-    ? `<div class="counter-row">${row}</div><div class="counter-row second">${watchBtn}${input}</div>`
-    : `<div class="counter-row">${row}${watchBtn}</div>`;
+  pop.innerHTML = `<div class="counter-row">${row}${watchBtn}</div>`;
   const value = chip.dataset.value || chip.querySelector(".counter-value")?.textContent || chip.textContent;
   open = { scrim, pop, chip, value, delta: "+0", change, kind };
   showValue();
@@ -86,7 +70,7 @@ function openPop(chip, change, withWatch = false) {
       const { delta, change: apply } = open;
       closePop({ apply: false });
       apply({ step: isZero(delta) ? null : delta, watch: b.dataset.watch });
-    } else if (b.classList.contains("counter-pop-value") && variant() !== "rows") {
+    } else if (b.classList.contains("counter-pop-value")) {
       typeAmount(b);
     }
   });
@@ -107,7 +91,7 @@ function showValue() {
   place();
 }
 
-// A or C: the number turns into the input; Enter adds the amount and turns it back.
+// The number turns into the input; Enter adds the amount and turns it back.
 function typeAmount(valueBtn) {
   const field = Object.assign(document.createElement("input"), {
     className: "counter-input", inputMode: "decimal", enterKeyHint: "done", autocomplete: "off",
@@ -126,14 +110,15 @@ function addTyped(field) {
   open.delta = sumSteps(open.delta, step);
   field.value = "";
   field.classList.remove("invalid");
-  if (variant() === "rows") showValue();
-  else field.blur();
+  field.blur();
 }
 
 // The floating number lies exactly over the tapped one, the steps to its sides.
 function place() {
   const { pop, chip } = open;
   const r = chip.getBoundingClientRect();
+  // Measured at the left edge: a fixed box placed further right would shrink and wrap.
+  pop.style.left = "0px";
   // Layout sizes, not the bounding box: the pop starts scaled down.
   const v = pop.querySelector(".counter-pop-value, .counter-row .counter-input");
   const row = v.parentElement;
@@ -168,13 +153,12 @@ function tick() {
 }
 setInterval(tick, 1000);
 
-/** Fills the chips' stopwatch parts (after rendering): an icon, while running the time; in variant C Start / Stop. */
+/** Fills the chips' stopwatch parts (after rendering): an icon, while running with the time. */
 export function fillWatches(root) {
   for (const w of root.querySelectorAll(".counter-watch")) {
     const chip = w.closest(".counter");
-    chip.classList.toggle("watch-zone", variant() === "chip");
     const running = chip.dataset.since !== undefined;
-    w.innerHTML = (running ? icon(variant() === "chip" ? "stop" : "stopwatch") : icon(variant() === "chip" ? "play" : "stopwatch"))
+    w.innerHTML = icon("stopwatch")
       + (running ? `<span class="counter-clock">${clock(elapsedMs(watchOf(chip), Date.now()))}</span>` : "");
   }
 }

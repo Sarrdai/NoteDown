@@ -126,12 +126,11 @@ with a unit test.
 Where a decision is still open, the prototype carries the variants side
 by side: ⋮ → "Prototype: …" switches them, and URL parameters preset
 them for screenshots and links. Once the user decides, the losing variant
-is deleted from code, menu and this table.
+is deleted from code, menu and this table. No variant is open right now.
 
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
-| `watch` | `row` (A) · `rows` (B) · `chip` (C) | Where a counter's stopwatch and the amount input sit (`docs/requirements.md` → "Counters"): Start / Stop at the end of the steps and the number turns into the input (A); a second row with Start / Stop and an input that is always there (B); Start / Stop as a part of the chip, one tap without the pop-up (C) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
