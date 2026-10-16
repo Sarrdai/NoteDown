@@ -212,13 +212,15 @@ function segmented(options, current, onPick) {
     h("button", { class: "segment", role: "tab", type: "button", "aria-selected": String(id === current), onclick: () => onPick(id) }, label)));
 }
 
-export function row({ icon: ic, avatar, title, sub, remove, open, unverified }) {
+/** `href` makes the row a link (`newTab`: opens in a new tab); without `open` or `href` it is plain text. */
+export function row({ icon: ic, avatar, title, sub, remove, open, href, newTab, unverified }) {
   const lead = [
     avatar ? h("span", { class: "avatar", "aria-hidden": "true" }, avatar) : h("span", { class: "row-icon", html: icon(ic) }),
     h("span", { class: "row-text" }, h("span", { class: "row-title" }, title), sub && h("span", { class: "row-sub" + (unverified ? " unverified-sub" : "") }, sub)),
   ];
   return h("li", { class: "sheet-row" },
-    open ? h("button", { class: "row-open", type: "button", onclick: open }, lead) : lead,
+    href ? h("a", { class: "row-open", href, target: newTab ? "_blank" : null, rel: newTab ? "noopener" : null }, lead)
+      : open ? h("button", { class: "row-open", type: "button", onclick: open }, lead) : lead,
     remove && h("button", { class: "icon-btn", type: "button", "aria-label": `Remove ${title}`, html: icon("close"), onclick: remove }));
 }
 
@@ -444,6 +446,15 @@ function linkCodeContent(data) {
 
 // ---------- pages ----------
 
+/** The address of one of the app's static pages ("privacy", "terms"), relative to the app root. */
+export const legalUrl = page => new URL(`../../${page}/`, import.meta.url).href;
+
+/** "By turning on sync you accept …": under the buttons that turn sync on (no checkbox). */
+function legalLine() {
+  return h("p", { class: "sheet-text muted legal-line" }, "By turning on sync you accept the ",
+    h("a", { href: legalUrl("terms") }, "Terms of use"), " and the ", h("a", { href: legalUrl("privacy") }, "Privacy policy"), ".");
+}
+
 const PAGES = {
   off: {
     title: "Sync & sharing",
@@ -457,6 +468,7 @@ const PAGES = {
         : h("div", { class: "sheet-actions" },
           button("Turn on sync", "primary", () => go("name")),
           button("Link to an existing device", "", () => go("link", { seed: "link-" + Math.random() }))),
+      !(real() && !syncAvailable()) && legalLine(),
     ],
   },
 
