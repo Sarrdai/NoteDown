@@ -17,7 +17,7 @@ from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 from . import auth
-from .admin import BLOCKED, MAX_QUOTA_OVERRIDE, erase_identity, register_admin, utc_iso
+from .admin import BLOCKED, MAX_QUOTA_OVERRIDE, MEMBER_LIMIT, erase_identity, register_admin, utc_iso
 from .protocol import (LimitError, ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
 
@@ -253,12 +253,12 @@ def create_app(settings: Settings) -> FastAPI:
     def thin_versions(conn: psycopg.Connection, file_id: str) -> None:
         """Keeps, per hour (the last HISTORY_HOURLY_HOURS) or per UTC day (before), the first state replaced
         in it: the one from before that hour's or day's changes. Pinned states stay; nothing stays longer
-        than HISTORY_DAYS after it was replaced."""
+        than HISTORY_DAYS after it was replaced. States saved by hand don't count as the first of their hour or day."""
         bucket = ("CASE WHEN v.replaced >= now() - make_interval(hours => %(hours)s) THEN 'hour' ELSE 'day' END")
         conn.execute(
             "DELETE FROM file_versions v WHERE v.file_id = %(file)s AND "
             "(v.replaced < now() - make_interval(days => %(days)s) OR (NOT v.pinned AND EXISTS ("
-            "SELECT 1 FROM file_versions w WHERE w.file_id = v.file_id AND w.replaced < v.replaced "
+            "SELECT 1 FROM file_versions w WHERE w.file_id = v.file_id AND NOT w.saved AND w.replaced < v.replaced "
             f"AND date_trunc({bucket}, w.replaced, 'UTC') = date_trunc({bucket}, v.replaced, 'UTC'))))",
             {"file": file_id, "hours": HISTORY_HOURLY_HOURS, "days": HISTORY_DAYS})
 
@@ -424,8 +424,8 @@ def create_app(settings: Settings) -> FastAPI:
                 " WHERE m.file_id = f.id) "
                 "FROM files f JOIN file_members me ON me.file_id = f.id AND me.identity_id = %s "
                 'ORDER BY f.id COLLATE "C"', (who.identity,)).fetchall()
-            quota = conn.execute("SELECT coalesce(quota, %s) FROM identities WHERE id = %s",
-                                 (MAX_STORAGE_BYTES, who.identity)).fetchone()[0]
+            quota, max_members = conn.execute(f"SELECT coalesce(i.quota, %s), {MEMBER_LIMIT} FROM identities i "
+                                              "WHERE i.id = %s", (MAX_STORAGE_BYTES, who.identity)).fetchone()
             epoch = conn.execute("SELECT value FROM server_state WHERE key = 'epoch'").fetchone()
             news = conn.execute("SELECT value FROM server_state WHERE key = 'news'").fetchone()
             deleted = conn.execute(
@@ -436,6 +436,7 @@ def create_app(settings: Settings) -> FastAPI:
             "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3],
                        "members": sorted(r[4]), "history": bool(r[5])} for r in rows],
             "quota": quota,
+            "max_members": max_members,
             "epoch": epoch[0] if epoch else None,
             "news": news[0] if news else None,
             "deleted": sorted(r[0] for r in deleted),
@@ -495,6 +496,10 @@ def create_app(settings: Settings) -> FastAPI:
                 return JSONResponse(status_code=409, content={
                     "detail": "version conflict", "version": current})
             if row is None:
+                # The creator's limit counts; a lower limit later leaves existing files as they are.
+                if len(members) > conn.execute(f"SELECT {MEMBER_LIMIT} FROM identities i WHERE i.id = %s",
+                                               (who.identity,)).fetchone()[0]:
+                    raise ProtocolError("too many members")
                 others = [m for m in members if m != who.identity]
                 if others and conn.execute(
                         "SELECT count(*) FROM contacts WHERE a = %s AND b = ANY(%s)",
@@ -547,7 +552,8 @@ def create_app(settings: Settings) -> FastAPI:
                 if keeps_history(conn, members):
                     conn.execute(
                         "INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned) "
-                        "SELECT id, version, ciphertext, updated, now(), key_gen, %s FROM files WHERE id = %s",
+                        "SELECT id, version, ciphertext, updated, now(), key_gen, %s FROM files WHERE id = %s "
+                        "ON CONFLICT (file_id, version) DO NOTHING",   # saved by hand already: that copy stays
                         (body.restore, file_id))
                     thin_versions(conn, file_id)
                 renewed = body.keys is not None
@@ -573,14 +579,31 @@ def create_app(settings: Settings) -> FastAPI:
             if row is None:
                 raise HTTPException(404, "unknown file")
             versions = conn.execute(
-                "SELECT version, updated, replaced, length(ciphertext), key_gen, pinned FROM file_versions "
+                "SELECT version, updated, replaced, length(ciphertext), key_gen, pinned, saved FROM file_versions "
                 f"WHERE file_id = %s AND {LISTED} ORDER BY version DESC", (file_id,)).fetchall()
             chain = conn.execute("SELECT gen, sealed FROM file_key_chain WHERE file_id = %s ORDER BY gen",
                                  (file_id,)).fetchall()
         return {"key_gen": row[0],
                 "versions": [{"version": v[0], "updated": utc_iso(v[1]), "replaced": utc_iso(v[2]), "size": v[3],
-                              "key_gen": v[4], "pinned": v[5]} for v in versions],
+                              "key_gen": v[4], "pinned": v[5], "saved": v[6]} for v in versions],
                 "chain": [{"gen": c[0], "sealed": c[1]} for c in chain]}
+
+    @app.post("/v1/files/{file_id}/versions")
+    def save_version(file_id: str, who: Authed):
+        """"Back up now": stores the current state as a pinned state of the history, unless it is stored already."""
+        with pool.connection() as conn:
+            row = conn.execute(
+                "SELECT f.version FROM files f JOIN file_members m ON m.file_id = f.id AND m.identity_id = %s "
+                "WHERE f.id = %s FOR UPDATE OF f", (who.identity, file_id)).fetchone()
+            if row is None:
+                raise HTTPException(404, "unknown file")
+            if not keeps_history(conn, file_members(conn, file_id)):
+                raise HTTPException(409, "no version history")
+            saved = conn.execute(
+                "INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned, saved) "
+                "SELECT id, version, ciphertext, updated, now(), key_gen, true, true FROM files WHERE id = %s "
+                "ON CONFLICT (file_id, version) DO NOTHING", (file_id,)).rowcount
+        return {"version": row[0], "saved": bool(saved)}
 
     @app.get("/v1/files/{file_id}/versions/{version}")
     def get_version(file_id: str, version: int, who: Authed):

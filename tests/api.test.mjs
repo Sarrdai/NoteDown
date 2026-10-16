@@ -26,7 +26,7 @@ test("createApis: one client per server, the same one for the same address", asy
   apis.forgetTokens();
 });
 
-test("news methods map to the news endpoints and listFiles passes the news version through", async () => {
+test("news methods map to the news endpoints and listFiles passes the news version and the member limit through", async () => {
   const { createApi } = await import("../app/js/sync/api.js");
   const { generateDeviceKeys } = await import("../app/js/core/crypto.js");
   const keys = await generateDeviceKeys();
@@ -34,7 +34,7 @@ test("news methods map to the news endpoints and listFiles passes the news versi
   const answers = {
     "GET /v1/auth/challenge": { challenge: "abc" },
     "POST /v1/auth/token": { token: "t", expires: Math.floor(Date.now() / 1000) + 3600 },
-    "GET /v1/files": { files: [], quota: 5, news: "v1" },
+    "GET /v1/files": { files: [], quota: 5, max_members: 7, news: "v1" },
     "GET /v1/news": { version: "v1", news: [] },
     "GET /v1/admin/news": { news: [] },
     "POST /v1/admin/news": { id: "i", created: "c", modified: "m" },
@@ -50,7 +50,7 @@ test("news methods map to the news endpoints and listFiles passes the news versi
   };
   try {
     const api = createApi("https://s.test", () => ({ identity: "id", device: "dev", sign: keys.sign.privateKey }));
-    assert.deepEqual(await api.listFiles(), { files: [], quota: 5, epoch: null, news: "v1", deleted: [] });
+    assert.deepEqual(await api.listFiles(), { files: [], quota: 5, maxMembers: 7, epoch: null, news: "v1", deleted: [] });
     assert.deepEqual(await api.news(), { version: "v1", news: [] });
     await api.adminNews();
     assert.equal((await api.adminCreateNews("## A")).id, "i");

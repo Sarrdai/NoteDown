@@ -10,7 +10,11 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 MAX_DEVICES = 20
-MAX_MEMBERS = 20
+# Members per file (docs/server-api.md → "Limits"): the admin sets the limit for everyone and per identity between
+# MIN_MEMBERS and MAX_MEMBERS; DEFAULT_MEMBERS until they do. MAX_MEMBERS is the hard cap of any request.
+DEFAULT_MEMBERS = 20
+MIN_MEMBERS = 2
+MAX_MEMBERS = 50
 # News posts (docs/server-api.md → "News"): body size in UTF-8 bytes, published posts, posts in total.
 MAX_NEWS_BODY = 16 * 1024
 MAX_NEWS_PUBLISHED = 20
@@ -84,7 +88,7 @@ def member_key(members: list[str]) -> str:
 
 
 def check_members(members: object, caller: str) -> list[str]:
-    """A file's requested member set, sorted: valid IDs, no duplicates, the caller included, at most 20."""
+    """A file's requested member set, sorted: valid IDs, no duplicates, the caller included, at most MAX_MEMBERS."""
     if not isinstance(members, list) or not all(is_id(m) for m in members):
         raise ProtocolError("invalid members")
     if len(set(members)) != len(members):

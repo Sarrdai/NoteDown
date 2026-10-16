@@ -18,7 +18,7 @@ import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, 
 import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
 import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored,
-  listVersions, readVersion, restoreVersion } from "./files.js";
+  listVersions, readVersion, restoreVersion, saveVersion } from "./files.js";
 import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
@@ -181,7 +181,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   forgetKeys();
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "", ended: "", blocked: null,
+    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, maxMembers: null, recoveryKey: "", status: "syncing", error: "", ended: "", blocked: null,
   });
 }
 
@@ -395,6 +395,18 @@ export async function fileVersions(slot) {
 export async function fileVersionText(slot, version) {
   await loadKeys();
   return readVersion(slot, version);
+}
+
+/**
+ * "Back up now": after a sync round, the server keeps the current state of every file with a version history
+ * (`state.sync.history`). → how many states were new (a file unchanged since its last backup adds none).
+ */
+export async function backUpNow() {
+  await syncNow();
+  if (state.sync.status === "error") throw new Error(state.sync.error || "Sync failed");
+  let saved = 0;
+  for (const slot of state.sync.history) if (await saveVersion(slot)) saved++;
+  return saved;
 }
 
 /** Brings back an older state of a file for everyone in it; the state it replaces stays in the history. */

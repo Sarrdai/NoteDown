@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
-  circleKey, circleLabel, circleEntries, groupsWith, shareState, initials, splitIntoCircles, generateRecoveryKey,
+  circleKey, circleLabel, circleEntries, groupsWith, shareState, groupFull, initials, splitIntoCircles, generateRecoveryKey,
   normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo,
   colorIndex, nextColor, visibleMembers, mergeCircle, keepsPart,
 } from "../app/js/core/sharing.js";
@@ -170,4 +170,14 @@ test("keepsPart: merging into a note, only a source shared in another circle kee
   assert.equal(keepsPart(["lea", "tom"], ["tom", "lea"]), false, "same circle");
   assert.equal(keepsPart(["lea"], []), true, "shared into a private target: a private copy");
   assert.equal(keepsPart(["lea"], ["tom"]), true);
+});
+
+test("groupFull: a contact can't be added once a note's group would grow past the limit", () => {
+  // Limit 3: the user and two contacts.
+  assert.equal(groupFull([["lea"]], "tom", 3), false);
+  assert.equal(groupFull([["lea", "tom"]], "sam", 3), true);
+  assert.equal(groupFull([["lea", "tom"]], "lea", 3), false);            // already in: nothing grows
+  assert.equal(groupFull([["lea"], ["lea", "tom"]], "sam", 3), true);   // one note is enough
+  assert.equal(groupFull([["lea", "tom", "sam"]], "mia", 20), false);
+  assert.equal(groupFull([["lea", "tom"]], "sam", null), false);         // no limit known yet
 });

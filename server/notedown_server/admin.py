@@ -2,8 +2,8 @@
 
 Every one of them answers 404 unless the caller's identity is listed in `Settings.admin_identities`
 (env ADMIN_IDENTITIES): to everybody else the endpoints don't exist. Nothing here records anything new
-about identities or devices; it only reads what the tables hold, stores the quota override and the history
-switch and replaces the data on a restore.
+about identities or devices; it only reads what the tables hold, stores the quota and member-limit overrides
+and the history switch and replaces the data on a restore.
 """
 
 import json
@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from psycopg import IsolationLevel
 from psycopg.types.json import Jsonb
 
-from .protocol import (MAX_NEWS, MAX_NEWS_PUBLISHED, ProtocolError, b64u, check_news_body, from_b64u, is_id, key_id,
+from .protocol import (DEFAULT_MEMBERS, MAX_MEMBERS, MIN_MEMBERS, MAX_NEWS, MAX_NEWS_PUBLISHED, ProtocolError, b64u, check_news_body, from_b64u, is_id, key_id,
                        member_key, verify_chain)
 
 MAX_QUOTA_OVERRIDE = 1024 ** 3
@@ -36,6 +36,9 @@ def utc_iso(value: datetime | None) -> str | None:
 
 # SQL on `identities` aliased `i`: a block that holds now (docs/server-api.md → "Blocked and deleted identities").
 BLOCKED = "(i.blocked AND (i.blocked_until IS NULL OR i.blocked_until > now()))"
+# SQL: the server-wide limit of members per file (docs/server-api.md → "Limits"), and the one of identity `i`.
+SERVER_MEMBERS = f"coalesce((SELECT value::int FROM server_state WHERE key = 'max_members'), {DEFAULT_MEMBERS})"
+MEMBER_LIMIT = f"coalesce(i.max_members, {SERVER_MEMBERS})"
 
 
 def erase_identity(conn: psycopg.Connection, identity: str) -> bool:
@@ -57,7 +60,7 @@ def erase_identity(conn: psycopg.Connection, identity: str) -> bool:
     conn.execute("DELETE FROM device_entries WHERE identity_id = %s", (identity,))
     conn.execute("DELETE FROM contacts WHERE a = %(i)s OR b = %(i)s", {"i": identity})
     conn.execute("DELETE FROM invitations WHERE identity_id = %(i)s OR requester = %(i)s", {"i": identity})
-    conn.execute("UPDATE identities SET deleted = now(), quota = NULL, history = false, blocked = false, "
+    conn.execute("UPDATE identities SET deleted = now(), quota = NULL, max_members = NULL, history = false, blocked = false, "
                  "blocked_until = NULL WHERE id = %s", (identity,))
     return True
 
@@ -84,8 +87,8 @@ def read_backup(conn: psycopg.Connection) -> dict:
     tables = {
         "identities": [
             {"id": r[0], "identity_key": b64u(r[1]), "created": utc_iso(r[2]), "quota": r[3], "history": r[4],
-             "blocked": r[5], "blocked_until": utc_iso(r[6]), "deleted": utc_iso(r[7])}
-            for r in rows('SELECT id, identity_key, created, quota, history, blocked, blocked_until, deleted '
+             "blocked": r[5], "blocked_until": utc_iso(r[6]), "deleted": utc_iso(r[7]), "max_members": r[8]}
+            for r in rows('SELECT id, identity_key, created, quota, history, blocked, blocked_until, deleted, max_members '
                           'FROM identities ORDER BY id COLLATE "C"')],
         "device_entries": [
             {"identity_id": r[0], "seq": r[1], "entry": r[2]}
@@ -98,8 +101,8 @@ def read_backup(conn: psycopg.Connection) -> dict:
                           'ORDER BY id COLLATE "C"')],
         "file_versions": [
             {"file_id": r[0], "version": r[1], "ciphertext": b64u(r[2]), "updated": utc_iso(r[3]),
-             "replaced": utc_iso(r[4]), "key_gen": r[5], "pinned": r[6]}
-            for r in rows('SELECT file_id, version, ciphertext, updated, replaced, key_gen, pinned FROM file_versions '
+             "replaced": utc_iso(r[4]), "key_gen": r[5], "pinned": r[6], "saved": r[7]}
+            for r in rows('SELECT file_id, version, ciphertext, updated, replaced, key_gen, pinned, saved FROM file_versions '
                           'ORDER BY file_id COLLATE "C", version')],
         "file_key_chain": [
             {"file_id": r[0], "gen": r[1], "sealed": r[2]}
@@ -217,8 +220,8 @@ def parse_backup(doc: Any) -> dict:
     # so are blocked, blocked_until and deleted (missing: neither blocked nor deleted).
     deleted: set[str] = set()
     for r in _rows(tables, "identities", {"id", "identity_key", "created", "quota", "history", "blocked",
-                                          "blocked_until", "deleted"},
-                   frozenset({"history", "blocked", "blocked_until", "deleted"})):
+                                          "blocked_until", "deleted", "max_members"},
+                   frozenset({"history", "blocked", "blocked_until", "deleted", "max_members"})):
         key = _b64u(r, "identity_key", "identities", 32)
         identity = _id(r, "id", "identities")
         if key_id(key) != identity or identity in identities:
@@ -231,7 +234,9 @@ def parse_backup(doc: Any) -> dict:
                                   _int(r, "quota", "identities", 1, MAX_QUOTA_OVERRIDE, nullable=True),
                                   _bool(r, "history", "identities"), _bool(r, "blocked", "identities"),
                                   _time(r, "blocked_until", "identities", nullable=True) if "blocked_until" in r
-                                  else None, gone))
+                                  else None, gone,
+                                  _int(r, "max_members", "identities", MIN_MEMBERS, MAX_MEMBERS, nullable=True)
+                                  if "max_members" in r else None))
 
     chains: dict[str, dict[int, dict]] = {i: {} for i in identities}
     for r in _rows(tables, "device_entries", {"identity_id", "seq", "entry"}):
@@ -287,18 +292,20 @@ def parse_backup(doc: Any) -> dict:
         out["file_keys"].append((fid, device, wrapped))
     seen_versions: set[tuple] = set()
     for r in _rows(tables, "file_versions", {"file_id", "version", "ciphertext", "updated", "replaced", "key_gen",
-                                             "pinned"}) if "file_versions" in tables else []:
+                                             "pinned", "saved"}, frozenset({"saved"})) if "file_versions" in tables else []:
         fid = _id(r, "file_id", "file_versions")
         if fid not in files:
             raise _bad("file_versions row does not fit")
-        version = _int(r, "version", "file_versions", 1, current[fid][0] - 1)
+        saved = _bool(r, "saved", "file_versions")
+        # A state saved by hand may be the current one; any other was replaced.
+        version = _int(r, "version", "file_versions", 1, current[fid][0] - (not saved))
         if (fid, version) in seen_versions:
             raise _bad("file_versions row does not fit")
         seen_versions.add((fid, version))
         out["file_versions"].append((fid, version, _b64u(r, "ciphertext", "file_versions"),
                                      _time(r, "updated", "file_versions"), _time(r, "replaced", "file_versions"),
                                      _int(r, "key_gen", "file_versions", 1, current[fid][1]),
-                                     _bool(r, "pinned", "file_versions")))
+                                     _bool(r, "pinned", "file_versions"), saved))
     seen_chain: set[tuple] = set()
     for r in _rows(tables, "file_key_chain", {"file_id", "gen", "sealed"}) if "file_key_chain" in tables else []:
         fid = _id(r, "file_id", "file_key_chain")
@@ -355,14 +362,14 @@ def parse_backup(doc: Any) -> dict:
 
 
 INSERTS = {
-    "identities": ("INSERT INTO identities (id, identity_key, created, quota, history, blocked, blocked_until, deleted) "
-                   "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"),
+    "identities": ("INSERT INTO identities (id, identity_key, created, quota, history, blocked, blocked_until, deleted, "
+                   "max_members) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"),
     "device_entries": "INSERT INTO device_entries (identity_id, seq, entry) VALUES (%s, %s, %s)",
     "devices": "INSERT INTO devices (identity_id, id, kind, active) VALUES (%s, %s, %s, %s)",
     "files": ("INSERT INTO files (id, owner, version, ciphertext, updated, member_key, key_gen) "
               "VALUES (%s, %s, %s, %s, %s, %s, %s)"),
-    "file_versions": ("INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned) "
-                      "VALUES (%s, %s, %s, %s, %s, %s, %s)"),
+    "file_versions": ("INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned, "
+                      "saved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"),
     "file_key_chain": "INSERT INTO file_key_chain (file_id, gen, sealed) VALUES (%s, %s, %s)",
     "file_members": "INSERT INTO file_members (file_id, identity_id) VALUES (%s, %s)",
     "file_keys": "INSERT INTO file_keys (file_id, device_id, wrapped) VALUES (%s, %s, %s)",
@@ -415,7 +422,10 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 "database": count(conn, "SELECT pg_database_size(current_database())"),
                 "database_limit": DATABASE_LIMIT_BYTES,
             }
-        return {"identity": who.identity, "counts": counts, "storage": storage, "quota": default_quota}
+            override = conn.execute("SELECT value::int FROM server_state WHERE key = 'max_members'").fetchone()
+        return {"identity": who.identity, "counts": counts, "storage": storage, "quota": default_quota,
+                "max_members": override[0] if override else DEFAULT_MEMBERS,
+                "max_members_override": override[0] if override else None}
 
     @app.get("/v1/admin/identities")
     def list_identities(who: Admin):
@@ -428,18 +438,21 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 " ON f.id = m.file_id WHERE m.identity_id = i.id), "
                 "(SELECT max(f.updated) FROM file_members m JOIN files f ON f.id = m.file_id "
                 " WHERE m.identity_id = i.id), "
-                f"(SELECT count(*) FROM contacts c WHERE c.a = i.id), i.history, {BLOCKED}, i.blocked_until "
+                f"(SELECT count(*) FROM contacts c WHERE c.a = i.id), i.history, {BLOCKED}, i.blocked_until, "
+                f"{MEMBER_LIMIT}, i.max_members "
                 'FROM identities i WHERE i.deleted IS NULL ORDER BY i.created DESC, i.id COLLATE "C"').fetchall()
         return {"identities": [{
             "id": r[0], "created": r[1].isoformat(), "devices": r[3], "files": r[4], "used": int(r[5]),
             "quota": r[2] or default_quota, "quota_override": r[2], "updated": r[6].isoformat() if r[6] else None,
-            "contacts": r[7], "history": r[8], "blocked": r[9], "blocked_until": utc_iso(r[10]) if r[9] else None}
+            "contacts": r[7], "history": r[8], "blocked": r[9], "blocked_until": utc_iso(r[10]) if r[9] else None,
+            "max_members": r[11], "max_members_override": r[12]}
             for r in rows]}
 
     @app.get("/v1/admin/identities/{identity}")
     def get_identity(identity: str, who: Admin):
         with pool.connection() as conn:
-            row = conn.execute(f"SELECT i.created, i.quota, i.history, {BLOCKED}, i.blocked_until FROM identities i "
+            row = conn.execute(f"SELECT i.created, i.quota, i.history, {BLOCKED}, i.blocked_until, {MEMBER_LIMIT}, "
+                               "i.max_members FROM identities i "
                                "WHERE i.id = %s AND i.deleted IS NULL", (identity,)).fetchone()
             if row is None:
                 raise HTTPException(404, "unknown identity")
@@ -464,6 +477,7 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
                 "quota": row[1] or default_quota, "quota_override": row[1],
                 "history": row[2], "history_size": int(history_size),
                 "blocked": row[3], "blocked_until": utc_iso(row[4]) if row[3] else None,
+                "max_members": row[5], "max_members_override": row[6],
                 "devices": [{"id": d[0], "kind": d[1], "active": d[2]} for d in devices],
                 "files": listed, "contacts": contacts, "invitations": invitations}
 
@@ -484,6 +498,38 @@ def register_admin(app: FastAPI, pool, settings, caller: Callable, *, default_qu
         def update() -> None:
             with pool.connection() as conn:
                 if not conn.execute("UPDATE identities SET quota = %s WHERE id = %s", (quota, identity)).rowcount:
+                    raise HTTPException(404, "unknown identity")
+
+        await run_in_threadpool(update)
+
+    def member_limit(body: Any) -> int | None:
+        value = body.get("max_members", "missing") if isinstance(body, dict) else "missing"
+        if value is not None and (type(value) is not int or not MIN_MEMBERS <= value <= MAX_MEMBERS):
+            raise ProtocolError(f"max_members must be null or between {MIN_MEMBERS} and {MAX_MEMBERS}")
+        return value
+
+    @app.put("/v1/admin/max-members", status_code=204)
+    async def set_server_members(request: Request, who: Admin):
+        value = member_limit(await json_body(request))
+
+        def update() -> None:
+            with pool.connection() as conn:
+                if value is None:
+                    conn.execute("DELETE FROM server_state WHERE key = 'max_members'")
+                else:
+                    conn.execute("INSERT INTO server_state (key, value) VALUES ('max_members', %s) "
+                                 "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (str(value),))
+
+        await run_in_threadpool(update)
+
+    @app.put("/v1/admin/identities/{identity}/max-members", status_code=204)
+    async def set_identity_members(identity: str, request: Request, who: Admin):
+        value = member_limit(await json_body(request))
+
+        def update() -> None:
+            with pool.connection() as conn:
+                if not conn.execute("UPDATE identities SET max_members = %s WHERE id = %s AND deleted IS NULL",
+                                    (value, identity)).rowcount:
                     raise HTTPException(404, "unknown identity")
 
         await run_in_threadpool(update)

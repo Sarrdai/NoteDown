@@ -3,12 +3,13 @@
 // (a member has it switched on by the server's owner). A state is opened, compared with now and restored for
 // everyone in the file. The sample (`?sample`) derives its states from the sample notes (sample/sharing.json →
 // `history`). A state shows what restoring it changes (decided 2026-10-15 over showing its notes as they were:
-// it answers which state is the right one and what a restore would lose).
+// it answers which state is the right one and what a restore would lose). "Back up now" saves the current state of
+// every such file at once, kept like the others for 30 days but never thinned out.
 import { state, sharedFiles, setPrivateFile, setSharedFile } from "../store.js";
 import { parseNotesFile } from "../core/notes-file.js";
 import { renderMarkdown, noteTitle } from "../core/markdown.js";
 import { restoredFile, compareStates, changeSummary, stateTime } from "../core/history.js";
-import { fileVersions, fileVersionText, restoreFileVersion } from "../sync/client.js";
+import { fileVersions, fileVersionText, restoreFileVersion, backUpNow } from "../sync/client.js";
 import { syncNow as simulatedSync } from "../sync-sim.js";
 import { loadSharingSample } from "../sample.js";
 import { registerPage, addOverviewSection, go, popPage, refreshPage, isPanelOpen, panelData, row, section } from "./sync-panel.js";
@@ -26,7 +27,7 @@ const nameOf = slot => (slot === "" ? "Private" : circleName(slot));
 // ---------- where the states come from ----------
 
 let sampleSpec = null;            // sample/sharing.json → history: { [slot]: [{ hoursAgo, without, restore, shorter, pinned }] }
-const sampleStates = new Map();   // slot → [{ version, replaced, pinned, file }], newest first, made on first use
+const sampleStates = new Map();   // slot → [{ version, replaced, pinned, saved, file }], newest first, made on first use
 const texts = new Map();          // "<slot>/<version>" → parsed file (real mode)
 
 /** The files with a version history: real, the ones the server lists so; the sample, the ones its data names. */
@@ -53,7 +54,7 @@ async function versionsOf(slot) {
     const now = Date.now();
     sampleStates.set(slot, (sampleSpec[slot] || []).map((spec, i, all) => ({
       version: all.length - i, replaced: new Date(now - spec.hoursAgo * 3600000).toISOString(), pinned: Boolean(spec.pinned),
-      file: sampleState(fileOf(slot), spec),
+      saved: false, file: sampleState(fileOf(slot), spec),
     })));
   }
   return sampleStates.get(slot);
@@ -70,10 +71,39 @@ async function restore(slot, version) {
   if (real()) return restoreFileVersion(slot, version);
   const list = sampleStates.get(slot), current = fileOf(slot);
   const file = restoredFile(current, list.find(v => v.version === version).file);
-  list.unshift({ version: list[0] ? list[0].version + 1 : 1, replaced: new Date().toISOString(), pinned: true, file: current });
+  list.unshift({ version: list[0] ? list[0].version + 1 : 1, replaced: new Date().toISOString(), pinned: true, saved: false, file: current });
   if (slot === "") setPrivateFile(file);
   else setSharedFile(slot.split("+"), file);
   await simulatedSync();
+}
+
+// "Back up now" → how many files got a new state. The sample saves a state unless the newest one is a backup of
+// the same notes.
+async function backUp() {
+  if (real()) return backUpNow();
+  let saved = 0;
+  for (const slot of historySlots()) {
+    const list = await versionsOf(slot), current = fileOf(slot);
+    if (list[0]?.saved && JSON.stringify(list[0].file) === JSON.stringify(current)) continue;
+    list.unshift({ version: list[0] ? list[0].version + 1 : 1, replaced: new Date().toISOString(), pinned: true, saved: true, file: structuredClone(current) });
+    saved++;
+  }
+  return saved;
+}
+
+let backingUp = false;
+async function backUpClicked() {
+  if (backingUp) return;
+  backingUp = true;
+  showSnackbar("Backing up…");
+  try {
+    const saved = await backUp();
+    showSnackbar(saved ? "Backed up. The state stays in the version history for 30 days." : "Already backed up: nothing changed since the last backup.");
+  } catch (e) {
+    showSnackbar(`Couldn't back up: ${e.message}`);
+  } finally {
+    backingUp = false;
+  }
 }
 
 // ---------- the overview's section ----------
@@ -86,6 +116,8 @@ addOverviewSection(() => {
     section("Version history"),
     h("ul", { class: "sheet-card" }, row({
       icon: "restore", title: "Older states of your notes", sub: "Kept on the server for 30 days", open: () => go("history"),
+    }), row({
+      icon: "cloudCheck", title: "Back up now", sub: "Keeps the current state of all your notes", open: backUpClicked,
     })),
   ];
 });
@@ -106,7 +138,7 @@ function noteGroup(title, notes, cls, slot) {
   return [section(`${title} (${notes.length})`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n, cls, slot)))];
 }
 
-const stateTitle = v => stateTime(v.replaced) + (v.pinned ? " · before a restore" : "");
+const stateTitle = v => stateTime(v.replaced) + (v.saved ? " · backed up" : v.pinned ? " · before a restore" : "");
 
 registerPage("history", {
   title: "Version history",
@@ -168,7 +200,8 @@ registerPage("historyState", {
       return [text("Loading…", "sheet-text muted")];
     }
     if (data.failed) return [text(`Couldn't read this state: ${data.failed}`, "field-error")];
-    const head = data.version.pinned ? [text("This is how the notes were right before a restore.", "sheet-text muted")] : [];
+    const head = data.version.saved ? [text("You backed up this state by hand.", "sheet-text muted")]
+      : data.version.pinned ? [text("This is how the notes were right before a restore.", "sheet-text muted")] : [];
     const diff = compareStates(fileOf(data.slot), data.old);
     if (!diff.back.length && !diff.gone.length && !diff.changed.length) return [...head, text("Same notes as now: restoring changes nothing.")];
     return [

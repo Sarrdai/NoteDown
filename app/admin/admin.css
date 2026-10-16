@@ -153,6 +153,9 @@ button.adm-sort[data-active="true"] { color: var(--accent); }
 .adm-unit .input { text-align: right; font-variant-numeric: tabular-nums; }
 .d-quota .field-hint, .d-quota .field-error { margin: 0; }
 .d-quota .field-error[hidden] { display: none; }
+.d-note { margin: 0; font-size: 0.875rem; }
+.d-members { margin-top: 10px; padding-top: 0; border-top: 0; }
+.adm-limits { margin-top: 12px; }
 
 .d-switchrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .d-switchtext { display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; }

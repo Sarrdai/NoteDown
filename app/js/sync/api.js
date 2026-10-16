@@ -69,14 +69,15 @@ export function createApi(baseUrl, who) {
     getIdentity: (id, invitation) => call(
       "GET", `/v1/identities/${id}` + (invitation ? `?invitation=${encodeURIComponent(invitation)}` : ""), undefined, true),
     appendEntry: (id, entry) => call("POST", `/v1/identities/${id}/entries`, { entry }, true),
-    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, epoch, news, deleted }) => ({ files, quota, epoch: epoch ?? null, news: news ?? null, deleted: deleted ?? [] })),   // each file with its `size`; `epoch` changes when the server was restored, `news` with every change to the news posts, `deleted`: the deleted identities among the members
+    listFiles: () => call("GET", "/v1/files", undefined, true).then(({ files, quota, max_members, epoch, news, deleted }) => ({ files, quota, maxMembers: max_members ?? null, epoch: epoch ?? null, news: news ?? null, deleted: deleted ?? [] })),   // each file with its `size`; `maxMembers` the most members a file this identity creates may have; `epoch` changes when the server was restored, `news` with every change to the news posts, `deleted`: the deleted identities among the members
     // The owner's news posts, unencrypted, the same for everybody: → { version, news: [{ id, created, modified, body }] }
     news: () => call("GET", "/v1/news", undefined, true),
     getFile: id => call("GET", `/v1/files/${id}`, undefined, true),
     putFile: (id, body) => call("PUT", `/v1/files/${id}`, body, true),
     addKeys: (id, keys) => call("POST", `/v1/files/${id}/keys`, { keys }, true),
-    // Version history (docs/server-api.md → "Version history"): → { key_gen, versions: [{ version, updated, replaced, size, key_gen, pinned }], chain: [{ gen, sealed }] }
+    // Version history (docs/server-api.md → "Version history"): → { key_gen, versions: [{ version, updated, replaced, size, key_gen, pinned, saved }], chain: [{ gen, sealed }] }
     fileVersions: id => call("GET", `/v1/files/${id}/versions`, undefined, true),
+    saveVersion: id => call("POST", `/v1/files/${id}/versions`, undefined, true),   // "Back up now" → { version, saved: false when stored already }
     fileVersion: (id, version) => call("GET", `/v1/files/${id}/versions/${version}`, undefined, true),   // → { id, version, ciphertext, key_gen }
     // Contacts and invitations (docs/server-api.md → "Contacts and invitations").
     createInvitation: (id, kind, sig) => call("POST", "/v1/invitations", { id, kind, sig }, true),   // → { expires }
@@ -95,6 +96,8 @@ export function createApi(baseUrl, who) {
     adminIdentities: () => call("GET", "/v1/admin/identities", undefined, true),
     adminIdentity: id => call("GET", `/v1/admin/identities/${encodeURIComponent(id)}`, undefined, true),
     adminSetQuota: (id, quota) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/quota`, { quota }, true),   // quota in bytes, null = default
+    adminSetMaxMembers: max => call("PUT", "/v1/admin/max-members", { max_members: max }, true),   // the server-wide limit, null = default
+    adminSetIdentityMaxMembers: (id, max) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/max-members`, { max_members: max }, true),   // null = the server-wide limit
     adminSetHistory: (id, on) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/history`, { history: on }, true),   // on: boolean
     // until: an ISO time with zone, or null for a block without an end; blocked false lifts it.
     adminBlock: (id, blocked, until = null) => call("PUT", `/v1/admin/identities/${encodeURIComponent(id)}/block`, { blocked, ...(until && { until }) }, true),

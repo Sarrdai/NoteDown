@@ -49,6 +49,8 @@ ENDPOINTS = [
     ("GET", "/v1/admin/identities/{id}", None),
     ("PUT", "/v1/admin/identities/{id}/quota", {"quota": 1000}),
     ("PUT", "/v1/admin/identities/{id}/history", {"history": True}),
+    ("PUT", "/v1/admin/identities/{id}/max-members", {"max_members": 5}),
+    ("PUT", "/v1/admin/max-members", {"max_members": 5}),
     ("PUT", "/v1/admin/identities/{id}/block", {"blocked": True}),
     ("DELETE", "/v1/admin/identities/{id}", None),
     ("GET", "/v1/admin/backup", None),
@@ -111,7 +113,7 @@ def test_overview_counts(client, people, admin):
                              "invitations": 1, "news": 0, "blocked": 0}
     assert got["storage"]["files"] == 150
     assert 0 < got["storage"]["database"] < got["storage"]["database_limit"] == 512 * 1024 * 1024
-    assert got["quota"] == MAX_STORAGE_BYTES
+    assert got["quota"] == MAX_STORAGE_BYTES and got["max_members"] == 20
 
 
 def test_identities_list(client, people, admin):
@@ -125,7 +127,7 @@ def test_identities_list(client, people, admin):
     assert rows[alice.id] | {"created": None, "updated": None} == {
         "id": alice.id, "created": None, "devices": 1, "files": 2, "used": 150, "quota": MAX_STORAGE_BYTES,
         "quota_override": None, "updated": None, "contacts": 1, "history": False, "blocked": False,
-        "blocked_until": None}
+        "blocked_until": None, "max_members": 20, "max_members_override": None}
     assert rows[alice.id]["updated"] and rows[alice.id]["created"]
     assert rows[bob.id]["used"] == 50 and rows[bob.id]["files"] == 1
     assert rows[bob.id]["quota"] == 5000 == rows[bob.id]["quota_override"]
@@ -234,7 +236,7 @@ def test_backup_format(client, people, admin):
                                   "invitations", "news", "file_versions", "file_key_chain"}
     assert {r["id"] for r in doc["tables"]["identities"]} == {admin.id, alice.id, bob.id}
     assert set(doc["tables"]["identities"][0]) == {"id", "identity_key", "created", "quota", "history", "blocked",
-                                                   "blocked_until", "deleted"}
+                                                   "blocked_until", "deleted", "max_members"}
     assert [f["id"] for f in doc["tables"]["files"]] == [private]
     assert doc["tables"]["files"][0]["ciphertext"] == b64u(b"secret")
     assert len(doc["tables"]["device_entries"]) == 6 and len(doc["tables"]["contacts"]) == 2

@@ -19,7 +19,7 @@ import { fillMedia } from "../js/ui/external.js";
 import { parseNotesFile } from "../js/core/notes-file.js";
 import {
   formatBytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope, sortIdentities, filterIdentities,
-  defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText, createSampleAdmin,
+  defaultDirection, parseQuotaInput, quotaInputText, parseMembersInput, DEFAULT_MEMBERS, readBackup, backupSummaryText, restoreErrorText, createSampleAdmin,
   NEW_POST_TEXT, checkNewsBody, newsErrorText, newsDateText, splitNews, newsFromNotes, blockText, parseBlockUntil,
 } from "../js/core/admin.js";
 
@@ -270,7 +270,17 @@ function overviewSection() {
           "aria-label": "Database size", "data-level": db.level,
         }, h("div", { class: "meter-fill", style: `width: ${Math.max(db.percent, storage.database > 0 ? 1 : 0)}%` })),
         h("div", { class: "tile-sub" }, `Encrypted notes: ${formatBytes(storage.files)}`),
-        storage.history > 0 && h("div", { class: "tile-sub" }, `Version history: ${formatBytes(storage.history)}`))));
+        storage.history > 0 && h("div", { class: "tile-sub" }, `Version history: ${formatBytes(storage.history)}`))),
+    h("div", { class: "d-card adm-limits" },
+      h("h3", { class: "d-title" }, "Group size"),
+      h("p", { class: "adm-muted d-note" }, "The most people a new group can have, its creator included. Existing groups keep their members."),
+      membersForm({
+        id: "members-all", override: S.overview.max_members_override, fallback: DEFAULT_MEMBERS,
+        hint: `Leave empty for the default (${DEFAULT_MEMBERS}).`, resetLabel: `Reset to default (${DEFAULT_MEMBERS})`,
+        save: max => api.adminSetMaxMembers(max),
+        // Every identity without an override of its own follows it.
+        done: () => { S.details.clear(); return reloadIdentity(null); },
+      })));
 }
 
 // ---------- identities ----------
@@ -406,6 +416,14 @@ function detailView(id) {
       h("h4", { class: "d-title" }, "Storage"),
       storageBlock(d),
       quotaForm(d, defaultQuota)),
+    h("div", { class: "d-card" },
+      h("h4", { class: "d-title" }, "Group size"),
+      h("p", { class: "d-note" }, `New groups this identity creates can have up to ${d.max_members} people.`),
+      membersForm({
+        id: "members-input", override: d.max_members_override, fallback: S.overview.max_members,
+        hint: `Leave empty for the server-wide limit (${S.overview.max_members}).`, resetLabel: `Reset to server-wide (${S.overview.max_members})`,
+        save: max => api.adminSetIdentityMaxMembers(d.id, max), done: () => reloadIdentity(d.id),
+      })),
     historyCard(d),
     accessCard(d),
     h("div", { class: "d-grid" },
@@ -607,6 +625,52 @@ function quotaForm(d, defaultQuota) {
     h("div", { class: "adm-unit" }, input, h("span", {}, "MB")),
     save, reset),
   h("p", { class: "field-hint" }, `Leave empty for the default (${formatBytes(defaultQuota)}).`),
+  error);
+}
+
+/**
+ * A group-size field (docs/requirements.md → "Server maintenance (admin)"): `override` the stored limit or null,
+ * `fallback` what holds without it; `save(max)` stores it (null = reset), `done()` reloads what it changed.
+ */
+function membersForm({ id, override, fallback, hint, resetLabel, save: store, done }) {
+  const input = h("input", {
+    class: "input", type: "number", step: "1", min: "2", max: "50", inputmode: "numeric", id, "data-key": id,
+    placeholder: String(fallback), value: override == null ? "" : String(override),
+  });
+  const error = h("p", { class: "field-error", hidden: true });
+  const save = h("button", { class: "btn primary", type: "submit" }, "Save");
+  const reset = override != null && h("button", { class: "btn outline", type: "button" }, resetLabel);
+
+  async function apply(max) {
+    save.disabled = true;
+    if (reset) reset.disabled = true;
+    try {
+      await store(max);
+      showSnackbar(max === null ? "Group size reset." : "Group size saved.");
+      await done();
+    } catch (e) {
+      error.textContent = e.message || "Could not save the group size.";
+      error.hidden = false;
+      save.disabled = false;
+      if (reset) reset.disabled = false;
+    }
+  }
+  if (reset) reset.addEventListener("click", () => apply(null));
+  return h("form", {
+    class: "d-quota d-members", novalidate: true,
+    onsubmit: e => {
+      e.preventDefault();
+      const r = parseMembersInput(input.value);
+      error.hidden = !r.error;
+      error.textContent = r.error || "";
+      if (!r.error) apply(r.max);
+    },
+  },
+  h("label", { class: "field-label", for: id }, "Max. people per group"),
+  h("div", { class: "d-qrow" },
+    h("div", { class: "adm-unit" }, input, h("span", {}, "people")),
+    save, reset),
+  h("p", { class: "field-hint" }, hint),
   error);
 }
 

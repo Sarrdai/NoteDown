@@ -5,7 +5,7 @@
 // each note into the file of its new set of people (docs/sync-and-sharing.md
 // → "Files").
 import { state, circleOf, shareNotes, removeNotes, leaveNotes, contacts } from "../store.js";
-import { circleKey, circleLabel, shareState } from "../core/sharing.js";
+import { circleKey, circleLabel, shareState, groupFull } from "../core/sharing.js";
 import { h, text, button } from "./dom.js";
 import { openPanel, registerPage, closePanel, go, setStack } from "./sync-panel.js";
 import { showSnackbar } from "./snackbar.js";
@@ -61,15 +61,21 @@ function leave(data) {
   showSnackbar(data.ids.length === 1 ? "You left the note" : "You left the notes", undo);
 }
 
+// The most members a new group may have: the server's limit for this identity (docs/server-api.md → "Limits").
+const maxMembers = () => state.sync.maxMembers ?? null;
+// A contact that can't be checked because a note's group would get too big (it can still be unchecked).
+const full = (data, contactId) => data.states[contactId] !== "all" && groupFull(resultingSets(data.ids, data.states), contactId, maxMembers());
+
 // Tri-state checkbox: a tap on "mixed" or unchecked checks it, on checked clears it.
 const MARK = { all: icon("check", "icon box-mark"), some: icon("minus", "icon box-mark"), none: "" };
 
-// A contact row: tapping anywhere toggles the checkbox.
+// A contact row: tapping anywhere toggles the checkbox; a full group lets it be unchecked only.
 function contactRow(c, data, onToggle) {
   const box = h("button", { class: "check-box", type: "button", role: "checkbox", "aria-label": `Share with ${c.name}` });
   const row = h("div", {
     class: "share-row",
     onclick: () => {
+      if (full(data, c.id)) return;
       data.states[c.id] = data.states[c.id] === "all" ? "none" : "all";
       paint(box, data.states[c.id]);
       onToggle();
@@ -86,6 +92,23 @@ function paint(box, s) {
   box.setAttribute("aria-checked", s === "some" ? "mixed" : String(s === "all"));
   box.dataset.state = s;
   box.innerHTML = MARK[s];
+}
+
+// Greys out the rows that can't be checked and says why, under the list (once, not per row).
+function limit(data, rows) {
+  const el = h("p", { class: "sheet-text muted share-limit" });
+  const update = () => {
+    let any = false;
+    for (const [id, row] of rows) {
+      const off = full(data, id);
+      any ||= off;
+      row.classList.toggle("disabled", off);
+      row.querySelector(".check-box").disabled = off;
+    }
+    el.textContent = any ? `A group can have at most ${maxMembers()} people, you included.` : "";
+    el.hidden = !any;
+  };
+  return { el, update };
 }
 
 // A notice under the list for each checked contact who isn't verified (backlog #4): the hint shows where
@@ -115,11 +138,17 @@ registerPage("share", {
     const notice = notices(data);
     // Someone who deleted their sync data can't be added any more, only taken off (backlog #34).
     const listed = contacts().filter(c => !c.pending && !(state.sync.deleted.includes(c.id) && data.states[c.id] === "none"));
+    const rows = new Map();
+    const size = limit(data, rows);
+    const toggled = () => { notice.update(); size.update(); };
+    listed.forEach(c => rows.set(c.id, contactRow(c, data, toggled)));
+    size.update();
     return [
       text("Only the people you pick can read it. Everyone you share with can edit, close and share it too."),
       listed.length
-        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, listed.map(c => contactRow(c, data, notice.update)))
+        ? h("div", { class: "sheet-card share-list", role: "group", "aria-label": "Contacts" }, [...rows.values()])
         : null,
+      size.el,
       notice.el,
       h("button", { class: "share-row add", type: "button", onclick: () => go("addContact", { mode: "scan" }) },
         h("span", { class: "row-icon", html: icon("plus") }), h("span", { class: "row-title" }, "Add contact")),

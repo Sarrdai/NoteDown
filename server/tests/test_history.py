@@ -45,7 +45,7 @@ def test_switched_on_every_upload_keeps_the_state_it_replaces(client, people, ad
     # Both states fall into the current hour: thinning keeps the first one replaced in it.
     assert [v["version"] for v in listed["versions"]] == [1]
     v = listed["versions"][0]
-    assert set(v) == {"version", "updated", "replaced", "size", "key_gen", "pinned"}
+    assert set(v) == {"version", "updated", "replaced", "size", "key_gen", "pinned", "saved"}
     assert v["size"] == 3 and v["key_gen"] == 1 and v["pinned"] is False
     got = client.get(f"/v1/files/{f}/versions/1", headers=alice.h).json()
     assert got == {"id": f, "version": 1, "ciphertext": b64u(b"one"), "key_gen": 1}
@@ -192,3 +192,40 @@ def test_backup_carries_the_history_and_older_backups_restore_without(client, pe
         doc = {**backup, "tables": {k: [dict(r) for r in v] for k, v in tables.items()}}
         edit(doc["tables"])
         assert client.post("/v1/admin/restore", json=doc, headers=admin.h).status_code == 400, edit
+
+
+def test_back_up_now_saves_the_current_state_once(client, people, admin):
+    alice, stranger = people(), people()
+    f = put_private(alice, b"one")
+    # Without a history there is nothing to save into.
+    assert client.post(f"/v1/files/{f}/versions", headers=alice.h).status_code == 409
+    switch(client, admin, alice)
+    assert client.post(f"/v1/files/{f}/versions", headers=stranger.h).status_code == 404
+    r = client.post(f"/v1/files/{f}/versions", headers=alice.h)
+    assert r.status_code == 200 and r.json() == {"version": 1, "saved": True}
+    # Unchanged since: nothing new.
+    assert client.post(f"/v1/files/{f}/versions", headers=alice.h).json() == {"version": 1, "saved": False}
+    listed = versions(alice, f)["versions"]
+    assert [(v["version"], v["pinned"], v["saved"]) for v in listed] == [(1, True, True)]
+    assert client.get(f"/v1/files/{f}/versions/1", headers=alice.h).json()["ciphertext"] == b64u(b"one")
+    # The next uploads keep the saved copy and thin as before: the saved state doesn't count as the first
+    # of its hour, so the state replaced after it stays too.
+    upload(client, alice.h, 1, b"two", file_id=f)
+    upload(client, alice.h, 2, b"three", file_id=f)
+    upload(client, alice.h, 3, b"four", file_id=f)
+    listed = versions(alice, f)["versions"]
+    assert [(v["version"], v["saved"]) for v in listed] == [(2, False), (1, True)]
+
+
+def test_a_backup_carries_saved_states(client, people, admin):
+    alice = people()
+    switch(client, admin, alice)
+    f = put_private(alice, b"one")
+    client.post(f"/v1/files/{f}/versions", headers=alice.h)
+    backup = client.get("/v1/admin/backup", headers=admin.h).json()
+    assert [(v["version"], v["saved"]) for v in backup["tables"]["file_versions"]] == [(1, True)]
+    assert client.post("/v1/admin/restore", json=backup, headers=admin.h).status_code == 200
+    assert [(v["version"], v["saved"]) for v in versions(alice, f)["versions"]] == [(1, True)]
+    # Only a saved state may be the current one.
+    backup["tables"]["file_versions"][0]["saved"] = False
+    assert client.post("/v1/admin/restore", json=backup, headers=admin.h).status_code == 400

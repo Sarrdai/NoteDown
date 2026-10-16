@@ -14,7 +14,7 @@
 // identity, made admin on a second server process on the same database) publishes a news post that reaches both of
 // Sam's devices (seen on one, seen on both; archived, gone with its marker), takes a backup, both of Sam's devices edit on,
 // the backup is restored, and no note is lost; with version history switched on, Sam's private file keeps its
-// older states through a key renewal and a restore (and its undo) reaches both devices. Every step checks that the devices end up
+// older states through a key renewal, a restore (and its undo) reaches both devices and "Back up now" keeps the current state. Every step checks that the devices end up
 // with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
@@ -839,7 +839,7 @@ async function main() {
       }
     });
 
-    await step("version history: kept once the owner switches it on, readable after a key renewal, a restore brings a state back on every device", async () => {
+    await step("version history: kept once the owner switches it on, readable after a key renewal, a restore brings a state back on every device, \"Back up now\" keeps the current one", async () => {
       await converge(a, d);
       const admin = await startAdminServer(await ident(a));
       try {
@@ -874,6 +874,13 @@ async function main() {
         await d.evaluate(v => window.__sync.restoreFileVersion("", v), pinned.version);
         await converge(a, d);
         assert.ok((await bodies(a)).includes(sample.s17), "undone");
+        // "Back up now" keeps the current state of every file with a history, once until the next change.
+        const saved = await a.evaluate(() => window.__sync.backUpNow());
+        assert.equal(saved, (await syncState(a)).history.length, "one new state per file");
+        assert.equal(await a.evaluate(() => window.__sync.backUpNow()), 0, "unchanged: nothing new");
+        const backup = (await versions(d)).find(v => v.saved);
+        assert.ok(backup && backup.pinned, "D lists the backup, pinned");
+        assert.ok((await textOf(d, backup.version)).includes(sample.s17), "it holds the notes as they are now");
         const off = await adminCall(a, "PUT", `/v1/admin/identities/${await ident(a)}/history`, JSON.stringify({ history: false }));
         assert.equal(off.status, 204, off.body);
         await sync(a);

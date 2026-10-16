@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   formatBytes, megabytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope,
-  sortIdentities, filterIdentities, defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText,
+  sortIdentities, filterIdentities, defaultDirection, parseQuotaInput, quotaInputText, parseMembersInput, readBackup, backupSummaryText, restoreErrorText,
   backupFileName, sampleBackup, createSampleAdmin, MB, BACKUP_TABLES, OPTIONAL_BACKUP_TABLES, MAX_NEWS_BODY,
   MAX_NEWS_PUBLISHED, NEW_POST_TEXT, checkNewsBody, newsErrorText, newsTime, newsDateText, splitNews, newsFromNotes, blockText, parseBlockUntil,
 } from "../app/js/core/admin.js";
@@ -416,4 +416,37 @@ test("the sample server blocks, lifts and deletes like the real one", async () =
   assert.equal(after.counts.identities, before.counts.identities - 1);
   assert.ok((await admin.adminIdentities()).identities.every(i => i.id !== victim));
   if (keeper) assert.ok((await admin.adminIdentity(keeper)).files.some(f => f.id === shared.id));   // shared files stay
+});
+
+test("parseMembersInput: whole people, empty = default, bounds 2 .. 50", () => {
+  assert.deepEqual(parseMembersInput(""), { max: null });
+  assert.deepEqual(parseMembersInput(" 10 "), { max: 10 });
+  assert.deepEqual(parseMembersInput("2"), { max: 2 });
+  assert.deepEqual(parseMembersInput("50"), { max: 50 });
+  for (const bad of ["1", "51", "2.5", "-3", "ten"]) assert.ok(parseMembersInput(bad).error, bad);
+});
+
+test("the sample server sets the group size for everyone and per identity", async () => {
+  const api = createSampleAdmin(sample);
+  const plain = sample.identities.find(i => i.max_members_override === null).id;
+  const custom = sample.identities.find(i => i.max_members_override !== null);
+  await api.adminSetMaxMembers(8);
+  let o = await api.adminOverview();
+  assert.equal(o.max_members, 8);
+  assert.equal(o.max_members_override, 8);
+  assert.equal((await api.adminIdentity(plain)).max_members, 8);
+  assert.equal((await api.adminIdentity(custom.id)).max_members, custom.max_members_override, "an override stays");
+  await api.adminSetIdentityMaxMembers(plain, 40);
+  let d = await api.adminIdentity(plain);
+  assert.equal(d.max_members, 40);
+  assert.equal(d.max_members_override, 40);
+  await api.adminSetIdentityMaxMembers(plain, null);
+  assert.equal((await api.adminIdentity(plain)).max_members, 8);
+  await api.adminSetMaxMembers(null);
+  o = await api.adminOverview();
+  assert.equal(o.max_members, 20);
+  assert.equal(o.max_members_override, null);
+  await assert.rejects(() => api.adminSetMaxMembers(1), { status: 400 });
+  await assert.rejects(() => api.adminSetIdentityMaxMembers(plain, 51), { status: 400 });
+  await assert.rejects(() => api.adminSetIdentityMaxMembers("nobody", 5), { status: 404 });
 });

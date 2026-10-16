@@ -153,3 +153,9 @@ CREATE TABLE IF NOT EXISTS file_key_chain (
 ALTER TABLE identities ADD COLUMN IF NOT EXISTS blocked boolean NOT NULL DEFAULT false;
 ALTER TABLE identities ADD COLUMN IF NOT EXISTS blocked_until timestamptz;
 ALTER TABLE identities ADD COLUMN IF NOT EXISTS deleted timestamptz;
+
+-- Members per file (docs/server-api.md → "Limits"): the admin's limit for the files an identity creates, NULL =
+-- the server-wide limit (server_state key "max_members", missing = the default).
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS max_members integer;
+-- A state a member saved by hand ("Back up now"): pinned, and left out when thinning compares states.
+ALTER TABLE file_versions ADD COLUMN IF NOT EXISTS saved boolean NOT NULL DEFAULT false;

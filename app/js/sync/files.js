@@ -159,7 +159,8 @@ export async function filesRound() {
   const api = ctx.api(server);
   const run = { done: true, again: false, problems: [], chains: new Map() };
   const started = timestamp();   // what this round downloads is at least as new as this
-  const { files, quota, epoch, news, deleted } = await api.listFiles();
+  const { files, quota, maxMembers, epoch, news, deleted } = await api.listFiles();
+  if (maxMembers !== state.sync.maxMembers) setSync({ maxMembers });
   if (deleted.join("\n") !== state.sync.deleted.join("\n")) setSync({ deleted });
   const used = files.reduce((sum, f) => sum + f.size, 0);
   const { usage } = state.sync;
@@ -444,12 +445,18 @@ function synced(slot) {
   return r;
 }
 
-/** The stored older states of a slot's file, newest first: [{ version, updated, replaced, size, pinned }]. */
+/** The stored older states of a slot's file, newest first: [{ version, updated, replaced, size, pinned, saved }]. */
 export async function listVersions(slot) {
   const r = synced(slot);
   const listing = await ctx.api(r.server).fileVersions(r.id);
   listings.set(keyName(r.server, r.id), listing);
-  return listing.versions.map(({ version, updated, replaced, size, pinned }) => ({ version, updated, replaced, size, pinned }));
+  return listing.versions.map(({ version, updated, replaced, size, pinned, saved }) => ({ version, updated, replaced, size, pinned, saved: Boolean(saved) }));
+}
+
+/** "Back up now": the server keeps the current state of a slot's file in its history. → false when it had it already. */
+export async function saveVersion(slot) {
+  const r = synced(slot);
+  return (await ctx.api(r.server).saveVersion(r.id)).saved;
 }
 
 // The key of generation `gen`: this device's key (the current generation), opened down the chain.

@@ -71,6 +71,15 @@ export function shareState(memberSets, contactId) {
   return n === 0 ? "none" : n === memberSets.length ? "all" : "some";
 }
 
+/**
+ * Whether checking `contactId` would give a note more members than `max`, the most a new file of this identity may
+ * have (docs/server-api.md → "Limits"; the user counts too). `memberSets` are the notes' contact ids as the
+ * dialog would save them; a set the contact is in already doesn't grow. `max` null: no limit known.
+ */
+export function groupFull(memberSets, contactId, max) {
+  return max != null && memberSets.some(m => !m.includes(contactId) && m.length + 2 > max);
+}
+
 /** First letters of the first two words, upper-case: "Uncle Bob" → "UB". */
 export function initials(name) {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => [...w][0].toUpperCase()).join("");
