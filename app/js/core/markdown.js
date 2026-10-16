@@ -3,6 +3,7 @@
 // the source.
 import { Marked } from "../../vendor/marked.esm.js";
 import { LABEL_AT } from "./labels.js";
+import { mediaSource, mediaKind } from "./external.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
 marked.use({
@@ -32,6 +33,12 @@ marked.use({
       // Browsers drop tabs, newlines and leading controls from a URL, so "java\tscript:" must count too.
       if (/^(javascript|data|vbscript):/i.test(href.replace(/[\u0000-\u0020]/g, ""))) href = "#";
       return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener"${title ? ` title="${escapeAttr(title)}"` : ""}>${text}</a>`;
+    },
+    // An embedded image or video is never an <img> here: the view decides
+    // per this device's setting whether it loads (core/external.js, ui/external.js).
+    image({ href, text }) {
+      const src = mediaSource(href);
+      return `<span class="ext-media" data-kind="${mediaKind(href)}"${src ? ` data-src="${escapeAttr(src)}"` : ""} data-alt="${escapeAttr(text || "")}"></span>`;
     },
     // Raw HTML in a note is shown as text, never executed.
     html({ text }) {

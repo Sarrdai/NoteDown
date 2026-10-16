@@ -57,7 +57,6 @@
           <span class="view-face to-notes"><span class="btn-icon"></span></span>
         </button>
         <button class="icon-btn" id="syncBtn"></button>
-        <button class="icon-btn" id="remindersBtn" aria-label="Reminders" title="Reminders"></button>
         <button class="icon-btn" id="exportBtn" aria-label="Export" title="Export"></button>
         <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More" title="More"></button>
       </header>
@@ -149,21 +148,16 @@
         </div>
       </div>
     </div>
-    <div class="dialog-scrim keep-editing" id="reminderDialog" hidden>
-      <div class="dialog reminder" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
-        <h2 class="dialog-title" id="reminderTitle">Reminders</h2>
-        <p class="dialog-hint">On the due day, one notification lists the open notes due that day.</p>
-        <label class="setting-row">
-          <span class="setting-label">Remind me of due notes</span>
-          <input type="checkbox" class="switch" id="reminderOn" role="switch">
-        </label>
-        <label class="setting-row" id="reminderTimeRow">
-          <span class="setting-label">Time of day</span>
-          <input type="time" class="time-input" id="reminderTimeInput">
-        </label>
-        <p class="dialog-hint setting-note" id="reminderHint"></p>
+    <div class="dialog-scrim keep-editing" id="linkDialog" hidden>
+      <div class="dialog link" role="dialog" aria-modal="true" aria-labelledby="linkTitle">
+        <h2 class="dialog-title" id="linkTitle">Open link?</h2>
+        <p class="link-shown" id="linkText"></p>
+        <p class="dialog-hint">It leads to:</p>
+        <p class="link-address" id="linkAddress"></p>
         <div class="dialog-actions">
-          <button class="btn primary" id="reminderDone">Done</button>
+          <button class="btn link-copy" id="linkCopy">Copy</button>
+          <button class="btn" id="linkCancel">Cancel</button>
+          <button class="btn primary" id="linkOpen">Open</button>
         </div>
       </div>
     </div>

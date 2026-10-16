@@ -97,6 +97,17 @@ export function insertLink(text, from, to) {
   return { text: text.slice(0, from) + link + text.slice(to), from: urlFrom, to: urlFrom + 3 };
 }
 
+/** Embeds an image or video (backlog #30): `![label](url)` on a line of its
+ *  own, with the url placeholder selected for pasting the address. */
+export function insertMedia(text, from, to) {
+  const label = text.slice(from, to);
+  const before = from === 0 || text[from - 1] === "\n" ? "" : "\n";
+  const after = to === text.length || text[to] === "\n" ? "" : "\n";
+  const media = `${before}![${label}](url)${after}`;
+  const urlFrom = from + before.length + label.length + 4;
+  return { text: text.slice(0, from) + media + text.slice(to), from: urlFrom, to: urlFrom + 3 };
+}
+
 /** Joins dictated text onto what is before the cursor with one space. */
 export function joinDictation(before, spoken) {
   const s = spoken.trim();

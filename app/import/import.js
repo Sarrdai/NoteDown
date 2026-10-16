@@ -7,6 +7,7 @@
 // `?sample` previews app/sample/keep.json instead of a file.
 import { readKeepZip, keepNotes, toNoteDown, droppedText } from "../js/core/keep-import.js";
 import { renderMarkdown } from "../js/core/markdown.js";
+import { fillMedia } from "../js/ui/external.js";
 import { state, load, importNotes } from "../js/store.js";
 import { initConfirm, openConfirm } from "../js/ui/confirm.js";
 import { relativeTime } from "../js/ui/format.js";
@@ -66,6 +67,7 @@ function card(item, i) {
     body.innerHTML = renderMarkdown(n.body);
     body.querySelectorAll("input.task").forEach(cb => (cb.disabled = true));
     body.querySelectorAll("a").forEach(a => a.setAttribute("tabindex", "-1"));
+    body.querySelectorAll(".ext-media").forEach(el => fillMedia(el, "never"));   // a preview loads nothing
   } else {
     body.innerHTML = `<p class="imp-nothing">Only ${esc(droppedText(n.dropped))} — nothing to import.</p>`;
   }

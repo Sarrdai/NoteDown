@@ -21,6 +21,9 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 #### Lisbon
 - Tram 28 early in the morning
 - LX Factory on Sunday
+
+![Tram 28 in Alfama](https://images.example.org/lisbon/tram-28.jpg)
+
 #### Sintra
 - Day trip by train, buy the palace tickets online
 - Pena Palace first, it gets crowded after 11
@@ -75,12 +78,16 @@ Idea for the team meeting: start with the open questions from last week instead 
 - Treasure hunt in the garden
 - [Ideas from last year](https://example.com/party-games)
 
+![Treasure hunt last year](https://media.example.net/mia/treasure-hunt.webm)
+
 <!-- note id=s10 status=permanent created=2026-10-04T11:00Z modified=2026-10-06T19:30Z -->
 ## Recipe: lentil soup
 1. Sweat onion, carrot and celery in olive oil
 2. Add red lentils, tomato paste and stock
 3. Simmer for 20 minutes, blend half of it
 4. Lemon juice and cumin at the end
+
+From [Grandma's recipe box](https://recipes.example.com/lentil-soup)
 
 #recipes
 

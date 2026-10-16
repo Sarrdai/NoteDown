@@ -11,7 +11,11 @@ group, a Labels tab by the #labels written in the notes. Besides the usual sort 
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a
-formatting toolbar; holding the + button dictates a new note. A
+formatting toolbar; holding the + button dictates a new note. Images and
+videos from the web can be embedded; whether they load by themselves,
+after a tap or never, and whether links open, ask first or stay text, is
+set per device — for all notes and per circle — so no one else's note
+makes a device contact another host. A
 long-press on a note starts multi-select to close, copy, share, merge,
 make permanent (notes of lasting value that can't be closed) or delete
 several notes at once, or to clear ticked tasks out of a list into the
@@ -61,7 +65,7 @@ python3 scripts/serve.py
 
 It prints the addresses: <http://localhost:8000/app/> on this computer,
 and `http://<computer-ip>:8000/app/` for a phone in the same network. Resize the window to see the tablet
-and phone layouts; ⋮ switches the theme. The prototype keeps real notes
+and phone layouts; ⋮ → Settings switches the theme. The prototype keeps real notes
 and starts with a few welcome notes; add `?sample` to the address to replace
 them with the sample notes. Dictation needs `localhost` or https; add
 `?dictation=demo` to try it without a microphone.
