@@ -6,6 +6,7 @@
 - [Device list](#device-list)
 - [Contacts and invitations](#contacts-and-invitations)
 - [Authentication](#authentication)
+  - [Blocked and deleted identities](#blocked-and-deleted-identities)
 - [Endpoints](#endpoints)
 - [Version history](#version-history)
 - [Admin](#admin)
@@ -158,6 +159,38 @@ No accounts and no passwords: a device signs a challenge.
    The server also checks on each request that the device is still on
    the list, so a removed device is locked out at once.
 
+### Blocked and deleted identities
+
+Backlog #34: the admin can block an identity, with or without an end,
+and delete it ("Admin"); the user deletes their own identity with the
+recovery key (below).
+
+- **Blocked:** the token endpoint and every authenticated request of the
+  identity's devices answer **423 `{"detail": "identity is blocked",
+  "until": "<iso>" | null}`** (`null`: no end) until the block is lifted
+  or its end has passed. Nothing is deleted, and the other identities go
+  on syncing the files they share with it.
+- **Deleted:** its files that no other remaining identity is a member of
+  (with their stored states), its devices' wrapped keys, its device list,
+  contacts and invitations are deleted. Files it shares with others stay
+  for them with the same members, so their notes and circles don't
+  change. Only a row with its ID and identity key stays, marked deleted:
+  it keeps those member sets intact, and the token endpoint and every
+  request of its devices answer **410 `{"detail": "identity deleted"}`**,
+  so its other devices learn what happened. A member reading its device
+  list (`GET /v1/identities/{id}`) gets `{"identity_key", "entries": [],
+  "deleted": true}`: no devices to wrap keys for. A deleted member counts
+  against no limit. The ID can't be registered again.
+- **Deleting it yourself:** `POST /v1/identities/{id}/delete` with
+  `{"challenge", "sig"}`, where `challenge` comes from `GET
+  /v1/auth/challenge` and `sig` is the **identity key's** Ed25519
+  signature over the UTF-8 bytes of `notedown-delete-v1:<challenge>`.
+  So only whoever holds the recovery key can delete, also without a
+  device and while blocked. → 204 (also when already deleted); 403 for a
+  signature that doesn't match the identity key (a device key is not
+  enough); 404 for an unknown identity; 400 for an invalid or expired
+  challenge.
+
 ## Endpoints
 
 | Method and path | Auth | Request → response |
@@ -165,9 +198,10 @@ No accounts and no passwords: a device signs a challenge.
 | `GET /health` | — | → `{"ok": true}` when the database answers |
 | `GET /health/live` | — | → `{"ok": true}` without touching the database (the uptime check, so Neon can sleep) |
 | `POST /v1/identities` | — | `{"identity_key", "entries": [genesis…]}` → 201 `{"id"}`; 409 if it exists |
-| `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`; 404 unless the caller may read it ("Contacts and invitations") |
+| `GET /v1/identities/{id}` | yes | `?invitation=<invitation id>` optional → `{"identity_key", "entries"}`, for a deleted identity also `"deleted": true` with no entries; 404 unless the caller may read it ("Contacts and invitations") |
+| `POST /v1/identities/{id}/delete` | identity key | `{"challenge", "sig"}` → 204: deletes the identity ("Blocked and deleted identities") |
 | `POST /v1/identities/{id}/entries` | device of `{id}` | `{"entry"}` → 201 `{"seq"}`; 409 `{"detail", "seq"}` when `seq`/`prev` is not the current end |
-| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members", "history"}], "quota", "epoch", "news"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `history` whether the file keeps older states ("Version history"), `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News") |
+| `GET /v1/files` | yes | → `{"files": [{"id", "version", "updated", "size", "members", "history"}], "quota", "epoch", "news", "deleted"}`: every file the identity is a member of, in code point order of the ID; `size` is the decoded ciphertext in bytes, `members` the sorted identity IDs, `history` whether the file keeps older states ("Version history"), `quota` the caller's storage limit (so the app can show the usage; "Limits"), `epoch` the restore epoch or `null` until the first restore ("Admin"), `news` the news version or `null` until the first change ("Admin" → "News"), `deleted` the sorted IDs of the deleted identities among the members of these files ("Blocked and deleted identities") |
 | `GET /v1/news` | yes | → `{"version", "news": [{"id", "created", "modified", "body"}]}`: the owner's published posts, unencrypted and the same for everybody ("Admin" → "News"); any identity may read it |
 | `GET /v1/files/{fid}` | yes | → `{"id", "version", "ciphertext", "key"}`, `key` wrapped for the calling device (or `null`) |
 | `PUT /v1/files/{fid}` | yes | `{"base_version", "ciphertext", "keys"?, "members"?, "previous_key"?, "restore"?}` → `{"version"}`; 409 `{"detail", "version"}` if `base_version` is not the server's version, 409 `{"detail": "file exists", "id", "version"}` if a new file's member set already has a file |
@@ -285,11 +319,13 @@ no request logs).
 
 | Method and path | Request → response |
 |---|---|
-| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news"}, "storage": {"files", "history", "database", "database_limit"}, "quota"}`; `storage.history` is the decoded ciphertext of all stored older states; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
-| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts", "history"}]}`, newest first; `history` whether version history is switched on; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
-| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "history", "history_size", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations"}`; devices in the order they were added to the list, files newest first; `history_size` is the decoded ciphertext of the stored states of its files; 404 for an unknown identity |
+| `GET /v1/admin/overview` | → `{"identity", "counts": {"identities", "devices", "files", "shared_files", "contacts", "invitations", "news", "blocked"}, "storage": {"files", "history", "database", "database_limit"}, "quota"}`; `storage.history` is the decoded ciphertext of all stored older states; `devices` counts active devices of kind `device` (no recovery devices), `shared_files` the files with more than one member, `contacts` each pair once, `invitations` the open ones, `news` the published (not archived) posts, `blocked` the identities blocked now; `identities` leaves deleted ones out; `storage.files` is the decoded ciphertext of all files in bytes, `database` the database size, `database_limit` 512 MiB (Neon's free plan); `quota` the default quota |
+| `GET /v1/admin/identities` | → `{"identities": [{"id", "created", "devices", "files", "used", "quota", "quota_override", "updated", "contacts", "history", "blocked", "blocked_until"}]}`, newest first, deleted identities left out; `blocked` whether a block holds now, `blocked_until` its end (`null`: none, or not blocked); `history` whether version history is switched on; `used` is what the quota counts (the decoded ciphertext of the files it is a member of), `quota` the effective quota, `quota_override` the stored one or `null`, `updated` the newest `updated` of its files (`null` without files) |
+| `GET /v1/admin/identities/{id}` | → `{"id", "created", "used", "quota", "quota_override", "history", "history_size", "devices": [{"id", "kind", "active"}], "files": [{"id", "version", "updated", "size", "members"}], "contacts": [id], "invitations", "blocked", "blocked_until"}`; devices in the order they were added to the list, files newest first; `history_size` is the decoded ciphertext of the stored states of its files; 404 for an unknown or deleted identity |
 | `PUT /v1/admin/identities/{id}/quota` | `{"quota": <bytes> \| null}` → 204; `null` resets to the default; 400 unless `1 <= quota <= 1 GiB`; 404 for an unknown identity |
 | `PUT /v1/admin/identities/{id}/history` | `{"history": true \| false}` → 204: switches version history on or off ("Version history"); 400 for anything but a boolean; 404 for an unknown identity |
+| `PUT /v1/admin/identities/{id}/block` | `{"blocked": true \| false, "until"?: "<iso>"}` → 204: blocks the identity, until `until` (a time with zone, ahead) or without an end, or lifts the block ("Blocked and deleted identities"); 400 for a non-boolean `blocked`, a bad or past `until`, or `until` without `blocked`; 404 for an unknown or deleted identity; 409 for an admin identity |
+| `DELETE /v1/admin/identities/{id}` | → 204: deletes the identity as described in "Blocked and deleted identities"; 404 for an unknown or already deleted identity; 409 for an admin identity |
 | `GET /v1/admin/news` | → `{"news": [{"id", "created", "modified", "body", "archived"}]}`, newest `created` first, archived posts included |
 | `POST /v1/admin/news` | `{"body"}` → 201 `{"id", "created", "modified"}`: a new, published post; 400 for a bad body, 409 `{"detail": "too many news"}` ("Limits") |
 | `PUT /v1/admin/news/{id}` | `{"body"?, "archived"?}` → 204; `modified` is set to now only when `body` differs from the stored one, `archived` hides a post from the feed or publishes it again; 400 for neither field, a bad body or a non-boolean `archived`; 404 for an unknown ID; 409 `too many news` when publishing it again would exceed 20 published posts |
@@ -305,7 +341,7 @@ read-only transaction), a JSON document
 
 | Table | Columns |
 |---|---|
-| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`), `history` (optional: missing = off) |
+| `identities` | `id`, `identity_key`, `created`, `quota` (override or `null`), `history` (optional: missing = off), `blocked`, `blocked_until`, `deleted` (optional: missing = not blocked, not deleted; a deleted identity has no device list, every other one has one) |
 | `device_entries` | `identity_id`, `seq`, `entry` (the signed entry as in "Device list") |
 | `files` | `id`, `owner`, `version`, `ciphertext`, `updated`, `member_key`, `key_gen` (optional: missing = 1) |
 | `file_versions` | `file_id`, `version` (below the file's), `ciphertext`, `updated`, `replaced`, `key_gen` (at most the file's), `pinned`; optional table |

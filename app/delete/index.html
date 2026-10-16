@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-flavor="latte">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Delete NoteDown sync data</title>
+  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/catppuccin.css">
+  <link rel="stylesheet" href="../css/app.css">
+  <link rel="stylesheet" href="delete.css">
+  <script type="module" src="delete.js"></script>
+</head>
+<body>
+  <div class="del">
+    <header class="del-top">
+      <div class="del-top-row">
+        <h1>Delete sync data</h1>
+        <a class="btn" href="../">Open NoteDown</a>
+      </div>
+    </header>
+
+    <main class="del-wrap" id="formStep">
+      <form class="del-card" id="form" novalidate>
+        <p>This deletes everything the NoteDown sync server <b id="host"></b> keeps for you: your notes, your device list and your contacts. Notes you share with others stay with them.</p>
+        <p>Devices that still sync stop syncing and keep the notes they have, all of them private then. This can't be undone.</p>
+        <label class="field">
+          <span class="field-label">Your recovery key</span>
+          <input class="input mono" id="key" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EFGH-…">
+          <span class="field-hint">The key you stored when you turned on sync. It proves the notes are yours; it isn't stored.</span>
+        </label>
+        <p class="field-error" id="error" role="alert" hidden></p>
+        <button class="btn primary danger" id="submit" type="submit">Delete for good</button>
+      </form>
+      <p class="del-hint">Lost your recovery key? Open NoteDown on a device that still syncs and delete your sync data under Sync &amp; sharing — it asks for the key too. Without it, only the server's owner can delete it on request.</p>
+    </main>
+
+    <main class="del-wrap" id="noServer" hidden>
+      <section class="del-card">
+        <p>This copy of NoteDown has no sync server, so there is nothing to delete here.</p>
+      </section>
+    </main>
+
+    <main class="del-wrap" id="doneStep" hidden>
+      <section class="del-card">
+        <h2>Your sync data is deleted.</h2>
+        <p>Devices that still had sync on stop syncing the next time they try and keep their notes.</p>
+        <a class="btn primary" href="../">Open NoteDown</a>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -6,7 +6,7 @@ import {
   formatBytes, megabytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope,
   sortIdentities, filterIdentities, defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText,
   backupFileName, sampleBackup, createSampleAdmin, MB, BACKUP_TABLES, OPTIONAL_BACKUP_TABLES, MAX_NEWS_BODY,
-  MAX_NEWS_PUBLISHED, NEW_POST_TEXT, checkNewsBody, newsErrorText, newsTime, newsDateText, splitNews, newsFromNotes,
+  MAX_NEWS_PUBLISHED, NEW_POST_TEXT, checkNewsBody, newsErrorText, newsTime, newsDateText, splitNews, newsFromNotes, blockText, parseBlockUntil,
 } from "../app/js/core/admin.js";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
 
@@ -378,4 +378,42 @@ test("the sample data carries the history fields", () => {
     assert.equal(sample.details[i.id].history, i.history);
   }
   assert.equal(sample.overview.storage.history, on.reduce((n, i) => n + sample.details[i.id].history_size, 0));
+});
+
+test("blockText and parseBlockUntil", () => {
+  assert.equal(blockText(null), "Blocked");
+  assert.equal(blockText("2026-10-25T00:00:00Z", d => formatDate(d, { timeZone: "UTC" })), "Blocked until 25 Oct 2026");
+  const now = new Date(2026, 9, 16, 15, 0);
+  const r = parseBlockUntil("2026-10-25", now);
+  assert.equal(new Date(r.until).getTime(), new Date(2026, 9, 25).getTime());   // the start of that day, local time
+  assert.match(parseBlockUntil("", now).error, /Pick the day/);
+  assert.match(parseBlockUntil("2026-10-16", now).error, /after today/);
+  assert.match(parseBlockUntil("25.10.2026", now).error, /Pick the day/);
+});
+
+test("the sample data carries the block fields, one identity blocked", () => {
+  for (const i of sample.identities) assert.ok("blocked" in i && "blocked_until" in i);
+  assert.equal(sample.overview.counts.blocked, sample.identities.filter(i => i.blocked).length);
+  assert.ok(sample.identities.some(i => i.blocked && i.blocked_until));
+});
+
+test("the sample server blocks, lifts and deletes like the real one", async () => {
+  const admin = createSampleAdmin(sample);
+  const own = sample.overview.identity;
+  const shared = Object.values(sample.details).flatMap(d => d.files).find(f => f.members.length > 1);
+  const [victim, keeper] = shared.members.filter(m => m !== own);
+  await admin.adminBlock(victim, true, null);
+  assert.equal((await admin.adminIdentity(victim)).blocked, true);
+  assert.equal((await admin.adminOverview()).counts.blocked, sample.identities.filter(i => i.blocked).length + (sample.identities.find(i => i.id === victim).blocked ? 0 : 1));
+  await admin.adminBlock(victim, false);
+  assert.equal((await admin.adminIdentity(victim)).blocked_until, null);
+  await assert.rejects(admin.adminBlock(own, true), e => e.status === 409);
+  await assert.rejects(admin.adminDeleteIdentity(own), e => e.status === 409);
+  const before = await admin.adminOverview();
+  await admin.adminDeleteIdentity(victim);
+  await assert.rejects(admin.adminIdentity(victim), e => e.status === 404);
+  const after = await admin.adminOverview();
+  assert.equal(after.counts.identities, before.counts.identities - 1);
+  assert.ok((await admin.adminIdentities()).identities.every(i => i.id !== victim));
+  if (keeper) assert.ok((await admin.adminIdentity(keeper)).files.some(f => f.id === shared.id));   // shared files stay
 });

@@ -10,9 +10,10 @@
 // sharing, pull to refresh); each round also brings contact requests and
 // confirmations (contacts.js). The sample
 // (`state.sync.simulated`) never reaches this module.
-import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState, contacts, sharedFiles } from "../store.js";
+import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState, contacts, sharedFiles, replaceFiles } from "../store.js";
 import * as c from "../core/crypto.js";
-import { withoutUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal } from "../core/sync-state.js";
+import { withoutUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal, detachedFile } from "../core/sync-state.js";
+import { deleteWithRecoveryKey } from "./delete-identity.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, serverUrl } from "../core/linking.js";
 import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
@@ -142,6 +143,7 @@ function fail(e) {
   if (state.sync.storageFull !== storageFull) setSync({ storageFull });
   if (limit && !limit.own) return setSync({ status: "error", error: limit.message });
   if (e instanceof NetworkError) return setSync({ status: "offline", error: "" });
+  if (e instanceof ApiError && e.status === 410) return detach();
   // The server refuses a device that is no longer on the list (401 after a fresh token).
   const removed = e instanceof ApiError && (e.status === 401 || e.status === 403);
   setSync({ status: "error", error: removed ? "This device was removed from sync" : e.message || e.name });
@@ -178,7 +180,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   forgetKeys();
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
-    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "",
+    device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, recoveryKey: "", status: "syncing", error: "", ended: "",
   });
 }
 
@@ -401,6 +403,29 @@ export async function restoreFileVersion(slot, version) {
   await restoreVersion(slot, version);
   await syncNow();
   if (state.sync.restore.includes(slot)) throw new Error(state.sync.error || "The restored state isn't synced yet; sync will try again");
+}
+
+// ---------- deleting the identity (backlog #34) ----------
+
+/**
+ * Deletes this identity from the server with its recovery key: every device stops syncing and keeps its notes
+ * as private notes; what others share with this user stays with them.
+ */
+export async function deleteIdentity(recoveryKey) {
+  await deleteWithRecoveryKey(serverApi(), recoveryKey, state.sync.identity);
+  await detach();
+}
+
+// The identity is gone from the server (deleted here, on another device or by the server's owner): sync ends
+// on this device, the notes stay as private notes (core/sync-state.js → detachedFile), the keys are erased.
+async function detach() {
+  if (!state.sync.enabled) return;
+  const file = detachedFile(state.file, state.shared, state.sync.identity);
+  keys = null;
+  forgetKeys();
+  apis.forgetTokens();
+  replaceFiles({ file, shared: [], sync: { ended: "deleted" } });
+  await clearSecrets();
 }
 
 /**

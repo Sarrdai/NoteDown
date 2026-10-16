@@ -208,3 +208,12 @@ button.adm-sort[data-active="true"] { color: var(--accent); }
 .news-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 10px 0 6px; }
 .news-actions .field-error { flex: 1; margin: 0; }
 .news-actions .field-error[hidden] { display: none; }
+
+/* Access: blocking and deleting an identity (backlog #34) */
+.adm-chip.blocked { background: var(--danger-soft); color: var(--danger); }
+.d-accesstext { margin: 0 0 12px; font-size: 0.9rem; color: var(--text-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.d-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-choices { display: flex; flex-direction: column; gap: 10px; margin: 4px 8px; }
+.adm-choice { display: flex; align-items: center; gap: 10px; min-height: var(--tap); }
+.adm-choice .input { flex: 1; min-width: 0; max-width: 220px; }
+.adm-choice input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }

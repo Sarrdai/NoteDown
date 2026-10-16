@@ -19,7 +19,7 @@ import { parseNotesFile } from "../js/core/notes-file.js";
 import {
   formatBytes, usageText, meterText, shortId, usageLevel, plural, formatDate, cardMeta, fileScope, sortIdentities, filterIdentities,
   defaultDirection, parseQuotaInput, quotaInputText, readBackup, backupSummaryText, restoreErrorText, createSampleAdmin,
-  NEW_POST_TEXT, checkNewsBody, newsErrorText, newsDateText, splitNews, newsFromNotes,
+  NEW_POST_TEXT, checkNewsBody, newsErrorText, newsDateText, splitNews, newsFromNotes, blockText, parseBlockUntil,
 } from "../js/core/admin.js";
 
 const FLAVORS = ["latte", "frappe", "macchiato", "mocha"];
@@ -130,11 +130,13 @@ function loadOpenDetail() {
   if (id && !S.details.has(id)) loadDetail(id);
 }
 
-/** After a changed limit or history switch: the list (storage bar, markers) and the open detail. */
+/** After a changed limit, history switch or block: the overview, the list (storage bar, markers) and the open detail. */
 async function reloadIdentity(id) {
   S.details.delete(id);
   try {
-    S.identities = (await api.adminIdentities()).identities;
+    const [overview, list] = await Promise.all([api.adminOverview(), api.adminIdentities()]);
+    S.overview = overview;
+    S.identities = list.identities;
   } catch (e) {
     showSnackbar(e.message);
   }
@@ -160,6 +162,7 @@ function youChip() {
 }
 
 const historyChip = () => h("span", { class: "adm-chip history" }, "History");
+const blockedChip = () => h("span", { class: "adm-chip blocked" }, "Blocked");
 
 function meter(used, quota) {
   const u = usageLevel(used, quota);
@@ -253,7 +256,7 @@ function overviewSection() {
   return h("section", { class: "adm-section", "aria-labelledby": "h-overview" },
     h("h2", { class: "adm-h", id: "h-overview" }, "Overview"),
     h("div", { class: "adm-tiles" },
-      tile("Identities", counts.identities),
+      tile("Identities", counts.identities, counts.blocked ? `${counts.blocked} blocked` : null),
       tile("Devices", counts.devices),
       tile("Files", counts.files, `${counts.shared_files} shared`),
       tile("Contacts", counts.contacts),
@@ -309,7 +312,7 @@ function openIdentity(id) {
 
 function row(i, style, selected) {
   const key = "row-" + i.id;
-  const id = h("span", { class: "c-id" }, ico("down", "icon chevron"), mono(shortId(i.id)), i.id === S.identity && youChip(), i.history && historyChip());
+  const id = h("span", { class: "c-id" }, ico("down", "icon chevron"), mono(shortId(i.id)), i.id === S.identity && youChip(), i.history && historyChip(), i.blocked && blockedChip());
   const cells = style === "cards"
     ? [id, storageBlock(i), h("span", { class: "c-meta" }, cardMeta(i))]
     : [id,
@@ -403,6 +406,7 @@ function detailView(id) {
       storageBlock(d),
       quotaForm(d, defaultQuota)),
     historyCard(d),
+    accessCard(d),
     h("div", { class: "d-grid" },
       h("div", { class: "d-card" },
         h("h4", { class: "d-title" }, "Devices"),
@@ -454,6 +458,113 @@ function historyCard(d) {
       input),
     d.history && h("p", { class: "d-historysize" }, `History uses ${formatBytes(d.history_size)}`),
     error);
+}
+
+/** Blocking and deleting the identity (backlog #34). The owner's own identity can be neither. */
+function accessCard(d) {
+  const title = h("h4", { class: "d-title" }, "Access");
+  if (d.id === S.identity) return h("div", { class: "d-card d-access" }, title, h("p", { class: "adm-muted" }, "Your own identity can't be blocked or deleted."));
+  const lift = async btn => {
+    btn.disabled = true;
+    try {
+      await api.adminBlock(d.id, false);
+      showSnackbar("Block lifted.");
+      await reloadIdentity(d.id);
+    } catch (e) {
+      btn.disabled = false;
+      showSnackbar(e.message || "Could not lift the block.");
+    }
+  };
+  const blockButton = d.blocked
+    ? h("button", { class: "btn outline", type: "button", "data-key": "lift", onclick: e => lift(e.currentTarget) }, "Lift block")
+    : h("button", { class: "btn outline", type: "button", "data-key": "block", onclick: () => openBlockDialog(d) }, "Block\u2026");
+  return h("div", { class: "d-card d-access" },
+    title,
+    d.blocked
+      ? h("p", { class: "d-accesstext" }, h("span", { class: "adm-chip blocked" }, blockText(d.blocked_until)), " Its devices can't sync. Nothing is deleted.")
+      : h("p", { class: "d-accesstext" }, "Its devices sync normally."),
+    h("div", { class: "d-actions" }, blockButton,
+      h("button", { class: "btn outline danger", type: "button", "data-key": "delete-identity", onclick: () => openDeleteDialog(d) }, "Delete identity\u2026")));
+}
+
+/** "Block identity": until a day, or until the owner lifts it. */
+function openBlockDialog(d) {
+  closeDialog();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const day = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const until = h("input", { class: "input", type: "date", id: "block-until", min: day(tomorrow), "aria-label": "Last day of the block" });
+  const choice = value => h("input", { type: "radio", name: "block-end", value, checked: value === "date" });
+  const byDate = choice("date"), open = choice("open");
+  const error = h("p", { class: "field-error", hidden: true });
+  const cancel = h("button", { class: "btn", type: "button", onclick: closeDialog }, "Cancel");
+  const block = h("button", { class: "btn primary danger", type: "button" }, "Block");
+  open.addEventListener("change", () => { until.disabled = open.checked; });
+  byDate.addEventListener("change", () => { until.disabled = !byDate.checked; });
+  block.addEventListener("click", async () => {
+    let end = null;
+    if (byDate.checked) {
+      const r = parseBlockUntil(until.value);
+      if (r.error) { error.textContent = r.error; error.hidden = false; until.focus(); return; }
+      end = r.until;
+    }
+    block.disabled = cancel.disabled = true;
+    try {
+      await api.adminBlock(d.id, true, end);
+    } catch (e) {
+      error.textContent = e.message || "Could not block the identity.";
+      error.hidden = false;
+      block.disabled = cancel.disabled = false;
+      return;
+    }
+    closeDialog();
+    showSnackbar("Identity blocked.");
+    await reloadIdentity(d.id);
+  });
+  showDialog(h("div", { class: "dialog adm-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "block-title" },
+    h("h2", { class: "dialog-title", id: "block-title" }, "Block identity ", mono(shortId(d.id))),
+    h("p", { class: "dialog-hint" }, "Its devices can't sync while it is blocked and show that the server's owner blocked it. Nothing is deleted; whoever shares notes with it keeps syncing."),
+    h("div", { class: "adm-choices", role: "radiogroup", "aria-label": "How long" },
+      h("label", { class: "adm-choice" }, byDate, h("span", {}, "Until"), until),
+      h("label", { class: "adm-choice" }, open, h("span", {}, "Until I lift it"))),
+    error,
+    h("div", { class: "dialog-actions" }, cancel, block)),
+  { focus: until, canClose: () => !cancel.disabled });
+}
+
+/** "Delete identity": typed confirmation, like a restore. */
+function openDeleteDialog(d) {
+  closeDialog();
+  const input = h("input", { class: "input mono", id: "delete-confirm", autocomplete: "off", autocapitalize: "off", spellcheck: "false", "aria-describedby": "delete-warning" });
+  const error = h("p", { class: "field-error", hidden: true });
+  const cancel = h("button", { class: "btn", type: "button", onclick: closeDialog }, "Cancel");
+  const remove = h("button", { class: "btn primary danger", type: "button", disabled: true }, "Delete");
+  input.addEventListener("input", () => { remove.disabled = input.value.trim() !== "DELETE"; });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !remove.disabled) remove.click(); });
+  remove.addEventListener("click", async () => {
+    remove.disabled = cancel.disabled = input.disabled = true;
+    try {
+      await api.adminDeleteIdentity(d.id);
+    } catch (e) {
+      error.textContent = e.message || "Could not delete the identity.";
+      error.hidden = false;
+      cancel.disabled = input.disabled = false;
+      remove.disabled = input.value.trim() !== "DELETE";
+      return;
+    }
+    closeDialog();
+    showSnackbar("Identity deleted.");
+    S.open = null;
+    loadAll();
+  });
+  showDialog(h("div", { class: "dialog adm-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "delete-title" },
+    h("h2", { class: "dialog-title", id: "delete-title" }, "Delete identity ", mono(shortId(d.id))),
+    h("p", { class: "adm-warning", id: "delete-warning" },
+      "Deletes its notes, device list, contacts and invitations from the server. Notes it shares with others stay with them. Its devices stop syncing and keep the notes they have. This can't be undone."),
+    h("label", { class: "field adm-confirm" }, h("span", { class: "field-label" }, "Type DELETE to confirm"), input),
+    error,
+    h("div", { class: "dialog-actions" }, cancel, remove)),
+  { focus: input, canClose: () => !cancel.disabled });
 }
 
 function quotaForm(d, defaultQuota) {

@@ -76,6 +76,23 @@ export function cardMeta(identity, fmt = formatDate) {
   return `${plural(identity.devices, "device")} · ${plural(identity.files, "file")} · last change ${fmt(identity.updated)}`;
 }
 
+// ---------- blocking (backlog #34) ----------
+
+/** "Blocked until 25 Oct 2026", or "Blocked" for a block without an end. */
+export const blockText = (until, fmt = formatDate) => (until ? `Blocked until ${fmt(until)}` : "Blocked");
+
+/**
+ * The end of a block from the date field ("2026-10-25"): the start of that day in the device's time zone,
+ * as an ISO time → `{ until }`, or `{ error }` for no date or a day that isn't after `now`.
+ */
+export function parseBlockUntil(value, now = new Date()) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value ?? ""))) return { error: "Pick the day the block ends." };
+  const [y, m, d] = value.split("-").map(Number);
+  const at = new Date(y, m - 1, d);
+  if (Number.isNaN(at.getTime()) || at <= now) return { error: "The block has to end after today." };
+  return { until: at.toISOString() };
+}
+
 /** "Private" for a file only its owner is a member of, else "Shared · 3 people". */
 export const fileScope = members => (members.length <= 1 ? "Private" : `Shared · ${members.length} people`);
 
@@ -275,8 +292,8 @@ export function createSampleAdmin(data, news = []) {
     adminIdentity: async id => {
       const i = row(id);
       if (!i) throw fail(404, "not found");
-      const { created, used, quota, quota_override, history } = i;
-      return structuredClone({ ...server.details[id], created, used, quota, quota_override, history });
+      const { created, used, quota, quota_override, history, blocked, blocked_until } = i;
+      return structuredClone({ ...server.details[id], created, used, quota, quota_override, history, blocked, blocked_until });
     },
     adminSetQuota: async (id, quota) => {
       const i = row(id);
@@ -298,6 +315,33 @@ export function createSampleAdmin(data, news = []) {
         d.history_size = on ? before || Math.round(sum(d.files.map(f => f.size)) * 0.6) : 0;
         server.overview.storage.history = Math.max(0, (server.overview.storage.history || 0) - before + d.history_size);
       }
+      return null;
+    },
+    adminBlock: async (id, blocked, until = null) => {
+      const i = row(id);
+      if (!i) throw fail(404, "unknown identity");
+      if (id === server.overview.identity) throw fail(409, "an admin identity can't be blocked or deleted");
+      i.blocked = blocked;
+      i.blocked_until = blocked ? until : null;
+      server.overview.counts.blocked = server.identities.filter(x => x.blocked).length;
+      return null;
+    },
+    adminDeleteIdentity: async id => {
+      const i = row(id);
+      if (!i) throw fail(404, "unknown identity");
+      if (id === server.overview.identity) throw fail(409, "an admin identity can't be blocked or deleted");
+      // Its files with no other member go; the shared ones stay for the others.
+      const gone = (server.details[id]?.files || []).filter(f => f.members.length <= 1);
+      server.identities = server.identities.filter(x => x.id !== id);
+      delete server.details[id];
+      for (const d of Object.values(server.details)) d.contacts = d.contacts.filter(c => c !== id);
+      const { counts, storage } = server.overview;
+      counts.identities = server.identities.length;
+      counts.devices -= i.devices;
+      counts.files -= gone.length;
+      counts.contacts -= i.contacts;
+      counts.blocked = server.identities.filter(x => x.blocked).length;
+      storage.files -= sum(gone.map(f => f.size));
       return null;
     },
     adminNews: async () => ({ news: structuredClone([...server.news].sort(newestFirst)) }),

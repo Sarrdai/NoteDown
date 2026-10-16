@@ -7,7 +7,8 @@
    "files": 8,
    "shared_files": 3,
    "contacts": 4,
-   "invitations": 2
+   "invitations": 2,
+   "blocked": 1
   },
   "storage": {
    "files": 6778591,
@@ -28,7 +29,9 @@
    "quota_override": null,
    "updated": null,
    "contacts": 0,
-   "history": false
+   "history": false,
+   "blocked": false,
+   "blocked_until": null
   },
   {
    "id": "VoAp6GGNxmJMm4Tl8mWD-f",
@@ -40,7 +43,9 @@
    "quota_override": 10485760,
    "updated": "2026-10-01T19:45:00Z",
    "contacts": 0,
-   "history": false
+   "history": false,
+   "blocked": false,
+   "blocked_until": null
   },
   {
    "id": "Nw5kXu_P3OvApgpykp0s_0",
@@ -52,7 +57,9 @@
    "quota_override": null,
    "updated": "2026-10-14T09:30:00Z",
    "contacts": 1,
-   "history": false
+   "history": false,
+   "blocked": true,
+   "blocked_until": "2026-10-25T00:00:00Z"
   },
   {
    "id": "9uOPy_KV2CsyCMzrvmiqDL",
@@ -64,7 +71,9 @@
    "quota_override": null,
    "updated": "2026-10-12T18:20:00Z",
    "contacts": 2,
-   "history": false
+   "history": false,
+   "blocked": false,
+   "blocked_until": null
   },
   {
    "id": "gTJenhuklXInO6uthC2Adp",
@@ -76,7 +85,9 @@
    "quota_override": null,
    "updated": "2026-10-14T21:05:00Z",
    "contacts": 2,
-   "history": true
+   "history": true,
+   "blocked": false,
+   "blocked_until": null
   },
   {
    "id": "SHJp3Uwrq1jG4IEXjnNNkg",
@@ -88,7 +99,9 @@
    "quota_override": null,
    "updated": "2026-10-15T07:42:00Z",
    "contacts": 3,
-   "history": true
+   "history": true,
+   "blocked": false,
+   "blocked_until": null
   }
  ],
  "details": {

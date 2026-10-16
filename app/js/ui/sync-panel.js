@@ -12,10 +12,11 @@ import { timestamp } from "../core/notes-file.js";
 import { syncNow } from "../sync-sim.js";
 import {
   syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
+  deleteIdentity,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
 import { createInvitation, myCode, readInvite, sendRequest, removeContact, onContactConfirmed } from "../sync/contacts.js";
-import { deviceRows, storageUsage, daysSince, STALE_DAYS } from "../core/sync-state.js";
+import { deviceRows, storageUsage, daysSince, STALE_DAYS, detachedFile } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
   generateRecoveryKey, normalizeRecoveryKey, inviteLink, initials, syncedAgo, contactId, uniqueName, nextColor,
@@ -265,7 +266,7 @@ function restart() {
 // (docs/requirements.md → "Sync and sharing"). → { sub, stale }
 function lastSynced(synced) {
   const days = daysSince(synced);
-  if (days === undefined) return { sub: null, stale: false };
+  if (days === undefined) return { sub: "No sync reported yet", stale: false };
   if (days >= STALE_DAYS) return { sub: `No sync for ${days} days — remove it if you don't use it any more`, stale: true };
   return { sub: "Last synced " + (days < 1 ? "today" : days < 2 ? "yesterday" : `${days} days ago`), stale: false };
 }
@@ -441,6 +442,7 @@ const PAGES = {
     title: "Sync & sharing",
     render: () => [
       h("div", { class: "hero", html: icon("sync") }),
+      state.sync.ended === "deleted" && text("Your sync data was deleted from the server. Your notes stay on this device, all of them private now.", "sheet-notice"),
       text("Keep your notes in step on all your devices and share single notes with others. End-to-end encrypted — no account, no email."),
       real() && !syncAvailable()
         ? text("This copy of the app has no sync server.", "sheet-text muted")
@@ -586,6 +588,32 @@ const PAGES = {
     },
   },
 
+  deleteIdentity: {
+    title: "Delete sync data",
+    render: () => {
+      const input = h("input", {
+        type: "text", class: "input mono", autocomplete: "off", autocapitalize: "characters", spellcheck: "false",
+        placeholder: "ABCD-EFGH-…", "aria-label": "Recovery key",
+      });
+      const { btn, error: failed } = action("Delete for good", async () => {
+        const key = normalizeRecoveryKey(input.value);
+        if (!key) { input.focus(); throw new Error("That doesn't look like a recovery key. It has 26 letters and digits."); }
+        if (real()) await deleteIdentity(key);
+        else replaceFiles({ file: detachedFile(state.file, state.shared, "me"), shared: [], sync: { ended: "deleted" } });
+        reset("off");
+        showSnackbar("Sync data deleted");
+      }, "primary danger");
+      input.addEventListener("keydown", e => { if (e.key === "Enter") btn.click(); });
+      return [
+        text("Everything the sync server keeps for you is deleted: your notes, your device list and your contacts. Notes you share with others stay with them."),
+        text("All your devices stop syncing. Each keeps the notes it has, all of them private then. This can't be undone.", "sheet-text"),
+        field("Enter your recovery key to confirm", input),
+        h("div", { class: "sheet-actions" }, btn, button("Cancel", "", back)),
+        failed,
+      ];
+    },
+  },
+
   signOut: {
     title: "Sign out this device",
     render: data => {
@@ -625,6 +653,7 @@ function identitySection() {
   return [
     section("Your identity"),
     h("ul", { class: "sheet-card" }, row({ icon: "user", title: "Identity ID", sub: id.slice(0, 8) + "…", open: () => go("identity") })),
+    h("div", { class: "button-row" }, button("Delete sync data", "outline danger", () => go("deleteIdentity"))),
   ];
 }
 
@@ -665,8 +694,8 @@ function contactsSections(removeRow) {
       ? h("ul", { class: "sheet-card" }, list.map((c, i) =>
           row({
             avatar: initials(c.name), title: c.name, remove: () => removeRow(c, i),
-            sub: c.pending ? "Waiting for confirmation" : c.verified ? null : "Not verified",
-            unverified: !c.pending && !c.verified,
+            sub: gone(c.id) ? "Deleted their sync data" : c.pending ? "Waiting for confirmation" : c.verified ? null : "Not verified",
+            unverified: !gone(c.id) && !c.pending && !c.verified,
             open: !c.pending && (() => go("verifyContact", { id: c.id, tab: "code" })),
           })))
       : text("No contacts yet. Add one to share notes with them.", "sheet-text muted"),
@@ -676,8 +705,11 @@ function contactsSections(removeRow) {
   ].flat();
 }
 
+// A contact whose identity was deleted from the server (backlog #34).
+const gone = id => state.sync.deleted.includes(id);
+
 // What the overview was drawn from, to redraw it when a round changes the requests or contacts.
-const contactsKey = () => JSON.stringify([state.sync.requests, contacts()]);
+const contactsKey = () => JSON.stringify([state.sync.requests, contacts(), state.sync.deleted]);
 
 // Real sync: this identity's devices, loaded from the server, and the contacts.
 function realOverview(data) {

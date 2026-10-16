@@ -175,3 +175,26 @@ export function limitRefusal(status, body, me, nameOf) {
     : `${who[0].toUpperCase() + who.slice(1)} ${names.length > 1 ? "have" : "has"} too many synced files, so this shared note can't sync.` };
 }
 
+
+/** The sync status while the server's owner blocks this identity (backlog #34); `until` is the block's end
+ *  (ISO) or null for none. Dates in the user's time zone unless `timeZone` is given (tests). */
+export function blockedMessage(until, timeZone) {
+  if (!until) return "Sync is blocked by the server's owner.";
+  const date = new Intl.DateTimeFormat("en-GB", { timeZone, day: "numeric", month: "short", year: "numeric" }).format(new Date(until));
+  return `Sync is blocked by the server's owner until ${date}.`;
+}
+
+/**
+ * The private file a device keeps once its identity is deleted from the server (backlog #34): its own
+ * notes and trash plus every note of the shared files it hasn't left (`me`: the identity ID), all
+ * private now; nothing tied to the identity — devices, contacts, moved and purged markers, which circle
+ * a trashed note came from. The news state and the custom order stay.
+ */
+export function detachedFile(file, shared, me) {
+  const plain = ({ kept, left, ...n }) => n;
+  const fromShared = shared.flatMap(s => s.file.notes.filter(n => !(n.left || []).includes(me)));
+  return {
+    preamble: file.preamble || "", notes: [...file.notes, ...fromShared].map(plain), moved: [], purged: [],
+    devices: [], contacts: [], members: [], news: file.news || [], order: file.order || null,
+  };
+}

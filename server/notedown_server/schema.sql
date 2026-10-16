@@ -146,3 +146,10 @@ CREATE TABLE IF NOT EXISTS file_key_chain (
     sealed  text NOT NULL,
     PRIMARY KEY (file_id, gen)
 );
+
+-- Blocking and deleting identities (backlog #34, docs/server-api.md → "Blocked and deleted identities").
+-- A block holds while `blocked` and `blocked_until` is NULL (no end) or still ahead. `deleted` marks the
+-- row that stays of a deleted identity: its ID and key, nothing else.
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS blocked boolean NOT NULL DEFAULT false;
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS blocked_until timestamptz;
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS deleted timestamptz;

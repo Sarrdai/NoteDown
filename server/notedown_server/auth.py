@@ -35,6 +35,11 @@ def auth_message(challenge: str) -> bytes:
     return f"notedown-auth-v1:{challenge}".encode()
 
 
+def delete_message(challenge: str) -> bytes:
+    """What the identity key signs to delete its identity (never the same bytes as a sign-in)."""
+    return f"notedown-delete-v1:{challenge}".encode()
+
+
 def new_token(secret: bytes, identity: str, device: str, now: float | None = None) -> tuple[str, int]:
     expires = int(now or time.time()) + TOKEN_SECONDS
     payload = canonical({"d": device, "exp": expires, "i": identity})

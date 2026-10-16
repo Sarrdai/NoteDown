@@ -17,7 +17,7 @@ from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 from . import auth
-from .admin import MAX_QUOTA_OVERRIDE, register_admin, utc_iso
+from .admin import BLOCKED, MAX_QUOTA_OVERRIDE, erase_identity, register_admin, utc_iso
 from .protocol import (LimitError, ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
 
@@ -79,6 +79,11 @@ class TokenRequest(BaseModel):
     sig: str
 
 
+class DeleteRequest(BaseModel):
+    challenge: str
+    sig: str
+
+
 class Upload(BaseModel):
     base_version: int
     ciphertext: str
@@ -127,6 +132,13 @@ def client_ip(request: Request) -> str:
     return str(address)
 
 
+class ClosedError(Exception):
+    """The identity is blocked by the admin; `until` is the block's end (ISO) or None."""
+
+    def __init__(self, until: str | None):
+        self.until = until
+
+
 @dataclass
 class Caller:
     identity: str
@@ -160,9 +172,22 @@ def create_app(settings: Settings) -> FastAPI:
     async def limit_error(_: Request, exc: LimitError):
         return JSONResponse(status_code=413, content={"detail": exc.detail, "members": exc.members})
 
+    @app.exception_handler(ClosedError)
+    async def closed_error(_: Request, exc: ClosedError):
+        return JSONResponse(status_code=423, content={"detail": "identity is blocked", "until": exc.until})
+
     @app.exception_handler(ProtocolError)
     async def protocol_error(_: Request, exc: ProtocolError):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    def refuse_closed(conn: psycopg.Connection, identity: str) -> None:
+        """410 for a deleted identity, 423 with the block's end for a blocked one (backlog #34)."""
+        row = conn.execute(f"SELECT i.deleted IS NOT NULL, {BLOCKED}, i.blocked_until FROM identities i "
+                           "WHERE i.id = %s", (identity,)).fetchone()
+        if row and row[0]:
+            raise HTTPException(410, "identity deleted")
+        if row and row[1]:
+            raise ClosedError(utc_iso(row[2]))
 
     def caller(authorization: Annotated[str | None, Header()] = None) -> Caller:
         token = authorization.removeprefix("Bearer ") if authorization else ""
@@ -170,6 +195,7 @@ def create_app(settings: Settings) -> FastAPI:
         if claims is None:
             raise HTTPException(401, "missing or invalid token")
         with pool.connection() as conn:
+            refuse_closed(conn, claims[0])
             row = conn.execute(
                 "SELECT active FROM devices WHERE identity_id = %s AND id = %s", claims
             ).fetchone()
@@ -257,6 +283,7 @@ def create_app(settings: Settings) -> FastAPI:
     def token(body: TokenRequest):
         auth.check_challenge(settings.secret, body.challenge)
         with pool.connection() as conn:
+            refuse_closed(conn, body.identity)
             row = conn.execute("SELECT identity_key FROM identities WHERE id = %s",
                                (body.identity,)).fetchone()
             entries = load_entries(conn, body.identity)
@@ -312,6 +339,20 @@ def create_app(settings: Settings) -> FastAPI:
             raise HTTPException(409, "identity exists")
         return {"id": identity}
 
+    @app.post("/v1/identities/{identity}/delete", status_code=204)
+    def delete_identity(identity: str, body: DeleteRequest):
+        """The user deletes their identity: signed with the identity key, i.e. by whoever holds the recovery
+        key, so it works without a device and while blocked (backlog #34)."""
+        auth.check_challenge(settings.secret, body.challenge)
+        sig = from_b64u(body.sig, 64)
+        with pool.connection() as conn:
+            row = conn.execute("SELECT identity_key FROM identities WHERE id = %s", (identity,)).fetchone()
+            if row is None:
+                raise HTTPException(404, "unknown identity")
+            if not verify_signature(row[0], sig, auth.delete_message(body.challenge)):
+                raise HTTPException(403, "signature does not match the identity key")
+            erase_identity(conn, identity)
+
     def may_read_identity(conn: psycopg.Connection, who: Caller, identity: str,
                           invitation: str | None) -> bool:
         """Who may read a device list (backlog #18): the identity itself, its contacts, identities
@@ -332,11 +373,14 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/v1/identities/{identity}")
     def get_identity(identity: str, who: Authed, invitation: str | None = None):
         with pool.connection() as conn:
-            row = conn.execute("SELECT identity_key FROM identities WHERE id = %s",
+            row = conn.execute("SELECT identity_key, deleted IS NOT NULL FROM identities WHERE id = %s",
                                (identity,)).fetchone()
             # Not allowed looks like unknown.
             if row is None or not may_read_identity(conn, who, identity, invitation):
                 raise HTTPException(404, "unknown identity")
+            if row[1]:
+                # Still a member of a file the caller shares: no devices to wrap keys for any more.
+                return {"identity_key": b64u(row[0]), "entries": [], "deleted": True}
             return {"identity_key": b64u(row[0]), "entries": load_entries(conn, identity)}
 
     @app.post("/v1/identities/{identity}/entries", status_code=201)
@@ -384,12 +428,17 @@ def create_app(settings: Settings) -> FastAPI:
                                  (MAX_STORAGE_BYTES, who.identity)).fetchone()[0]
             epoch = conn.execute("SELECT value FROM server_state WHERE key = 'epoch'").fetchone()
             news = conn.execute("SELECT value FROM server_state WHERE key = 'news'").fetchone()
+            deleted = conn.execute(
+                "SELECT DISTINCT m.identity_id FROM file_members me JOIN file_members m ON m.file_id = me.file_id "
+                "JOIN identities i ON i.id = m.identity_id WHERE me.identity_id = %s AND i.deleted IS NOT NULL",
+                (who.identity,)).fetchall()
         return {
             "files": [{"id": r[0], "version": r[1], "updated": r[2].isoformat(), "size": r[3],
                        "members": sorted(r[4]), "history": bool(r[5])} for r in rows],
             "quota": quota,
             "epoch": epoch[0] if epoch else None,
             "news": news[0] if news else None,
+            "deleted": sorted(r[0] for r in deleted),
         }
 
     @app.get("/v1/news")
@@ -458,21 +507,24 @@ def create_app(settings: Settings) -> FastAPI:
             # A file counts in full for every member (backlog #27), so the limits are checked
             # for each of them. Uploads touching a member queue up here (locked in ID order,
             # after the file row), so the checks below can't be raced.
-            quotas = {r[0]: r[1] or MAX_STORAGE_BYTES for r in conn.execute(
-                "SELECT id, quota FROM identities WHERE id = ANY(%s) ORDER BY id FOR UPDATE", (members,))}
+            # A deleted member has no limits any more (it counts nothing): None.
+            quotas = {r[0]: None if r[2] else r[1] or MAX_STORAGE_BYTES for r in conn.execute(
+                "SELECT id, quota, deleted IS NOT NULL FROM identities WHERE id = ANY(%s) ORDER BY id FOR UPDATE",
+                (members,))}
             usage = conn.execute(
                 "SELECT m.identity_id, coalesce(sum(length(f.ciphertext)) FILTER (WHERE f.id <> %s), 0), "
                 "count(*) FILTER (WHERE f.id <> %s) FROM file_members m JOIN files f ON f.id = m.file_id "
                 "WHERE m.identity_id = ANY(%s) GROUP BY m.identity_id",
                 (file_id, file_id, members)).fetchall()
             used = {m: (0, 0) for m in members} | {r[0]: (r[1], r[2]) for r in usage}
-            over = sorted(m for m, (size, _) in used.items() if size + len(ciphertext) > quotas[m])
+            over = sorted(m for m, (size, _) in used.items()
+                          if quotas[m] is not None and size + len(ciphertext) > quotas[m])
             if over:
                 raise LimitError("storage quota exceeded", over)
             if row is None:
                 if not body.keys:
                     raise ProtocolError("a new file needs keys")
-                over = sorted(m for m, (_, count) in used.items() if count >= MAX_FILES)
+                over = sorted(m for m, (_, count) in used.items() if quotas[m] is not None and count >= MAX_FILES)
                 if over:
                     raise LimitError("too many files", over)
                 try:

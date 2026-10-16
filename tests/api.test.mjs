@@ -50,7 +50,7 @@ test("news methods map to the news endpoints and listFiles passes the news versi
   };
   try {
     const api = createApi("https://s.test", () => ({ identity: "id", device: "dev", sign: keys.sign.privateKey }));
-    assert.deepEqual(await api.listFiles(), { files: [], quota: 5, epoch: null, news: "v1" });
+    assert.deepEqual(await api.listFiles(), { files: [], quota: 5, epoch: null, news: "v1", deleted: [] });
     assert.deepEqual(await api.news(), { version: "v1", news: [] });
     await api.adminNews();
     assert.equal((await api.adminCreateNews("## A")).id, "i");
@@ -67,4 +67,30 @@ test("news methods map to the news endpoints and listFiles passes the news versi
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test("a block and a deletion get readable messages", () => {
+  assert.equal(new ApiError(423, { detail: "identity is blocked", until: null }).message, "Sync is blocked by the server's owner.");
+  assert.match(new ApiError(423, { detail: "identity is blocked", until: "2026-10-20T08:00:00+00:00" }).message, /^Sync is blocked by the server's owner until \d+ Oct 2026\.$/);
+  assert.equal(new ApiError(410, { detail: "identity deleted" }).message, "Your sync data was deleted from the server.");
+});
+
+test("deleteWithRecoveryKey signs a challenge with the identity key", async () => {
+  const { deleteWithRecoveryKey } = await import("../app/js/sync/delete-identity.js");
+  const c = await import("../app/js/core/crypto.js");
+  const { generateRecoveryKey } = await import("../app/js/core/sharing.js");
+  const key = generateRecoveryKey();
+  const { identity } = await c.deriveRecovery(c.recoveryKeyBytes(key));
+  const id = await c.keyId(identity.publicKey);
+  const sent = [];
+  const api = { challenge: async () => ({ challenge: "abc" }), deleteIdentity: async (...args) => { sent.push(args); } };
+  assert.equal(await deleteWithRecoveryKey(api, key.toLowerCase()), id);
+  const [[to, challenge, sig]] = sent;
+  assert.deepEqual([to, challenge], [id, "abc"]);
+  const publicKey = await crypto.subtle.importKey("raw", identity.publicKey, { name: "Ed25519" }, false, ["verify"]);
+  assert.ok(await crypto.subtle.verify({ name: "Ed25519" }, publicKey, c.fromB64u(sig, 64), new TextEncoder().encode("notedown-delete-v1:abc")));
+  await assert.rejects(deleteWithRecoveryKey(api, key, "someone-else"), /not the recovery key/);
+  await assert.rejects(deleteWithRecoveryKey(api, "nonsense"), /doesn't look like a recovery key/);
+  const missing = { ...api, deleteIdentity: async () => { throw Object.assign(new Error("404"), { status: 404 }); } };
+  await assert.rejects(deleteWithRecoveryKey(missing, key), /No notes are synced/);
 });
