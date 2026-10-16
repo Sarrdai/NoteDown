@@ -596,7 +596,7 @@ function wire() {
 }
 
 // URL parameters set prototype options, e.g. ?flavor=mocha&view=closed
-const COUNTER_STYLES = [["stepper", "Stepper around the number (A)"], ["row", "Number and buttons on the right (B)"], ["menu", "Number opens the steps (C)"]];
+const COUNTER_STYLES = [["stepper", "Stepper around the number (A)"], ["row", "Number and buttons on the right (B)"], ["pop", "Number, buttons pop up around it (D)"], ["card", "Number, buttons in a card in the middle (E)"]];
 
 function applyUrlOptions() {
   const p = new URLSearchParams(location.search);

@@ -52,17 +52,20 @@ class CheckboxWidget extends WidgetType {
 }
 
 // A counter (core/counter.js) with its step buttons; a tap changes the number
-// [from, to) without moving the cursor onto the line.
+// at `from` without moving the cursor onto the line.
 class CounterWidget extends WidgetType {
-  constructor(value, steps, from, to) { super(); this.value = value; this.steps = steps; this.from = from; this.to = to; }
+  constructor(value, steps, from) { super(); this.value = value; this.steps = steps; this.from = from; }
   eq(o) { return o.value === this.value && o.steps.join() === this.steps.join() && o.from === this.from; }
   toDOM(view) {
     const wrap = document.createElement("span");
     wrap.innerHTML = counterHtml(this.value, this.steps);
     const el = wrap.firstChild;
     el.addEventListener("mousedown", e => e.preventDefault());
+    // The number is read anew on each step: the floating buttons (ui/counter.js) outlive this widget.
     el.addEventListener("click", e => counterClick(e, step => {
-      view.dispatch({ changes: { from: this.from, to: this.to, insert: addStep(this.value, step) }, userEvent: "input" });
+      const line = view.state.doc.lineAt(this.from);
+      const m = COUNTER_AT.exec(line.text.slice(this.from - line.from));
+      if (m) view.dispatch({ changes: { from: this.from, to: this.from + m[1].length, insert: addStep(m[1], step) }, userEvent: "input" });
     }));
     return el;
   }
@@ -175,7 +178,7 @@ function counterMarks(line, state, deco, raw) {
     for (let n = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) if (/Code/.test(n.name)) code = true;
     if (code) continue;
     if (raw) deco.push(rawCounter.range(pos, line.from + at));
-    else deco.push(Decoration.replace({ widget: new CounterWidget(m[1], parseSteps(m[2]), pos, pos + m[1].length) }).range(pos, line.from + at));
+    else deco.push(Decoration.replace({ widget: new CounterWidget(m[1], parseSteps(m[2]), pos) }).range(pos, line.from + at));
   }
 }
 

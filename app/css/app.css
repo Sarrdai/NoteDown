@@ -851,9 +851,34 @@ a.row-open { text-decoration: none; }
 .app[data-counter="row"] .counter { float: right; margin-left: 12px; }
 .app[data-counter="row"] :is(.md li, .md p, .cm-line):has(.counter)::after { content: ""; display: block; clear: both; }
 .app[data-counter="row"] .counter-value { text-align: right; }
-.app[data-counter="menu"] .counter-step { display: none; }
-.app[data-counter="menu"] .counter .counter-value { cursor: pointer; border: 1.5px solid var(--accent); color: var(--accent); background: var(--accent-soft); min-height: 26px; padding: 0 10px; }
-.app[data-counter="menu"] .counter .counter-value:disabled { cursor: default; }
+.app:is([data-counter="pop"], [data-counter="card"]) .counter-step { display: none; }
+.app:is([data-counter="pop"], [data-counter="card"]) .counter .counter-value { cursor: pointer; border: 1.5px solid var(--accent); color: var(--accent); background: var(--accent-soft); min-height: 26px; padding: 0 10px; }
+.app:is([data-counter="pop"], [data-counter="card"]) .counter .counter-value:disabled { cursor: default; }
+/* The floating buttons of D (around the number) and E (a card in the middle; ui/counter.js). */
+.counter-scrim { position: fixed; inset: 0; z-index: 60; }
+.counter-scrim.card { background: rgb(0 0 0 / 0.32); }
+.counter-pop {
+  position: fixed; z-index: 61; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-high);
+  border: 1px solid var(--border); opacity: 0; transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.counter-pop.shown { opacity: 1; transform: none; }
+.counter-pop.pop { padding: 6px; border-radius: 999px; transform: scale(0.85); }
+.counter-pop.card {
+  left: 50%; top: 50%; translate: -50% -50%; transform: scale(0.94);
+  padding: 18px 18px 20px; border-radius: 20px; max-width: calc(100vw - 32px);
+}
+.counter-pop-label { font-size: 0.95rem; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+.counter-pop-row { display: flex; align-items: center; gap: 6px; }
+.counter-pop-value { min-width: 2.6em; padding: 0 6px; text-align: center; font-weight: 700; font-size: 1.25rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.counter-pop.card .counter-pop-value { font-size: 2rem; min-width: 3em; }
+.counter-pop .counter-step {
+  font: inherit; font-weight: 650; border: 0; cursor: pointer; border-radius: 999px;
+  min-width: var(--tap); height: var(--tap); padding: 0 12px;
+  background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.counter-pop .counter-step.minus { background: var(--code-bg); color: var(--text-muted); }
+.counter-pop .counter-step:active { filter: brightness(0.92); }
 .md a { color: var(--link); }
 /* External content (#30, ui/external.js): a link that isn't clickable, and
    embedded images and videos — loaded, behind a tile with their address, or a placeholder. */

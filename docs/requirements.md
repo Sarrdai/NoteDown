@@ -793,8 +793,11 @@ this needs none of it.
   shows its Markdown to edit the steps.
 - *Open (prototype variants, ⋮ → "Prototype: Counter"):* A stepper with
   the − steps left and the + steps right of the number; B number and
-  buttons at the line's right edge; C the number only, a tap opens a menu
-  of the steps.
+  buttons at the line's right edge; D the number only (an accent chip), a
+  tap pops the buttons up around it, floating over the text; E the same
+  chip, a tap opens a card in the middle with the line's text, the number
+  and the buttons. D and E stay open for several taps; a tap beside them
+  or `Esc` closes them.
 
 ### Links and media from the web
 

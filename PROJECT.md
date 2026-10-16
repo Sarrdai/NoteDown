@@ -131,7 +131,7 @@ is deleted from code, menu and this table. Open: how a counter shows its buttons
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
-| `counter` | `stepper` · `row` · `menu` | Counters: A − steps, number, + steps (default) · B number and buttons at the line's right edge · C number only, a tap opens the steps |
+| `counter` | `stepper` · `row` · `pop` · `card` | Counters: A − steps, number, + steps (default) · B number and buttons at the line's right edge · D number chip, a tap pops the buttons up around it · E number chip, a tap opens a card in the middle |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
