@@ -5,6 +5,8 @@
 - [Platforms](#platforms)
 - [Functional areas](#functional-areas)
   - [Notes and storage](#notes-and-storage)
+  - [Privacy on the device](#privacy-on-the-device)
+  - [Encrypted backup](#encrypted-backup)
   - [Sync and sharing](#sync-and-sharing)
   - [Server maintenance (admin)](#server-maintenance-admin)
   - [Main view, archive and trash](#main-view-archive-and-trash)
@@ -95,8 +97,14 @@ apart from existing apps beyond the points above.
   leave in plain text only by a step of the user: Copy, Share, Export,
   or an automatic export they switch on (backlog #55). Why: other apps,
   a lost unlocked file system or a cloud backup shouldn't read the
-  notes. *App phase (backlog #19); the prototype still keeps them in
-  plain browser storage.*
+  notes. How (backlog #19, `docs/sync-and-sharing.md` → "Where the files
+  live"): one random data key per device encrypts everything NoteDown
+  keeps — the notes files, the sync state, the settings and the file
+  keys. **Updating keeps the notes:** the first start of a version with
+  this moves what an older version kept in plain text into the encrypted
+  storage, reads it back, and only then deletes the plain copy; an
+  interrupted move is finished at the next start. *Prototype and app:
+  2026-10-17.*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left
@@ -104,7 +112,8 @@ apart from existing apps beyond the points above.
 - **Local first:** every device keeps the complete notes on the device
   and works offline; in the app the files sit in the app's private
   storage, in the web app in browser storage, encrypted in both
-  (`docs/sync-and-sharing.md` → "Where the files live"). *App phase.*
+  (`docs/sync-and-sharing.md` → "Where the files live"). *Prototype and
+  app: 2026-10-17.*
 - **Web app: notes only in this browser.** At start the web app asks the
   browser to keep its storage (`navigator.storage.persist()`), so it isn't
   evicted under storage pressure or, in Safari, after 7 days without a
@@ -114,8 +123,83 @@ apart from existing apps beyond the points above.
   list's end: it risks data loss, so it should be seen). Hidden by the user
   (×, with Undo), it comes back after 14 days (a lasting risk that
   shouldn't nag). Not in the Android/iOS app, which keeps its data as app
-  data (backup there: backlog #39).
+  data, outside the system backup ("Privacy on the device"); a backup
+  there is the encrypted backup ("Encrypted backup").
   *Prototype: round 1.*
+
+### Privacy on the device
+
+Decided 2026-10-17 (user decision, as Signal's apps; security goal in
+`docs/sync-and-sharing.md` → "Principles"). In the Android app; the web
+app has none of these but the reminder setting — a stated exception: a
+web app can't keep its window out of screenshots or steer the keyboard,
+and a lock in front of a key that sits in the same browser profile would
+only look safe.
+
+- **Not in the system backup** (backlog #39): NoteDown keeps itself out
+  of Android's cloud backup and of the device-to-device transfer of a new
+  phone. Why: the local data is encrypted with a key that never leaves
+  the device, so a copy is useless, and restoring the device keys would
+  clone this device. Changing phones goes through sync (linking, the
+  recovery key) or an encrypted backup ("Encrypted backup").
+- **Screen lock** (backlog #6): Settings → Privacy → Screen lock, off by
+  default. On, NoteDown asks for the phone's own screen lock — PIN,
+  pattern, password or fingerprint — when it starts and when it comes
+  back after being away for the chosen time: **Immediately** (the
+  default), after 1, 5, 15 or 30 minutes or 1 hour. A share sheet or file
+  picker NoteDown opened itself doesn't count as away. Turning it on asks
+  for the screen lock once; without a screen lock on the phone it can't
+  be turned on. Locked, a full-screen layer shows only "NoteDown is
+  locked" and **Unlock**. It is a lock of the app, not of the data (as
+  Signal's): the data key doesn't wait for the unlock, so due-date
+  reminders still come.
+- **Screen security** (backlog #59): on by default, a switch under
+  Privacy. NoteDown doesn't show in the recent-apps preview and can't be
+  screenshotted or recorded (`FLAG_SECURE`, from the first frame). Off,
+  for a screenshot to share.
+- **Incognito keyboard** (backlog #59): on by default, a switch under
+  Privacy. Text fields ask the keyboard not to learn from what is typed
+  (`IME_FLAG_NO_PERSONALIZED_LEARNING`; keyboards honour it, it can't be
+  enforced). Dictation is not affected.
+- **Reminders without note text** (backlog #57): Settings → Reminders →
+  **Show in reminders**: **Only the number** ("2 notes due today", the
+  default) or **Note titles**, which says that titles show on the lock
+  screen and that Android keeps a scheduled reminder's text unencrypted
+  until it is due. Web and app alike.
+
+*Prototype and app: 2026-10-17 (`?platform=android` shows the Android
+settings and the lock screen in a browser, simulated).*
+
+### Encrypted backup
+
+Decided 2026-10-17 (backlog #56, user decision, as Signal's local
+backups): with the local data encrypted and NoteDown out of the system
+backup, a user without sync needs a way to a new device.
+
+- Settings → Data → **Backup** → **Create backup** saves one file
+  (`notedown-backup-2026-10-17.ndbackup`) with every note — private and
+  shared, not the trash — and the settings, encrypted; on Android through
+  the share sheet (Files, Drive, …), on the web as a download. By hand;
+  the line under the row says when the last one was made on this device.
+- **The backup key** opens it: 30 digits, created with the first backup
+  and shown once (with "I have stored the backup key", like the recovery
+  key), kept on the device for later backups. **New backup key** makes a
+  new one; older backups still need the old key. Its own key rather than
+  the recovery key: a user without sync has none, and the recovery key
+  hands over the whole identity.
+- **No keys inside:** no identity, device or file keys and no sync state,
+  so restoring never links or clones a device.
+- **Restore from a backup** (the same page, any device, sync on or off):
+  pick the file, type the key; it adds the backup's notes this device
+  doesn't have — as private notes, since sharing belongs to an identity —
+  and takes over the backup's settings (not the screen lock or the
+  privacy switches). Nothing here is overwritten; with sync on, the
+  restored notes go to the other devices like any new note.
+- The file is PBKDF2-SHA256 (200,000 rounds, a random salt) from the key
+  and AES-256-GCM over the compressed contents (`app/js/core/backup.js`).
+- Not yet: an automatic backup into a folder (backlog #60).
+
+*Prototype and app: 2026-10-17.*
 
 ### Sync and sharing
 
@@ -1246,8 +1330,10 @@ place instead of the top bar and ⋮.
   Mocha); **Notes** — Reminders, Links & media (each a page, its line
   saying what is set); **Sync** — Sync & sharing (the panel's own pages,
   its line the sync status; its top-bar icon stays for the status);
-  **Data** — Import from Google Keep (opens the import page); **About**
-  — see below.
+  **Privacy** (Android app only) — Screen lock, Screen security,
+  Incognito keyboard ("Privacy on the device"); **Data** — Backup
+  ("Encrypted backup"), Import from Google Keep (opens the import page);
+  **About** — see below.
 - Every setting here is a **setting of this device**, never synced.
   *Prototype: 2026-10-16.*
 - **About** (decided 2026-10-16, user request, for the Play Store): the

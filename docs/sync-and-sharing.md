@@ -38,10 +38,6 @@ and the sample simulates everything without a server.
   - **No desktop client yet** (backlog #58), which needs signed,
     verifiable updates like Signal Desktop's.
   - **No post-quantum key wrapping** (backlog #20; Signal uses PQXDH).
-  - **The device-side protections of Signal's apps** — local data
-    encrypted with a key from the platform's key store, no system
-    backup, encrypted own backup, app lock, hidden notification text,
-    screen security (backlog #19, #39, #56, #6, #57, #59).
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
@@ -124,18 +120,38 @@ and the sample simulates everything without a server.
 
 | Platform | Location |
 |---|---|
-| Android, iOS | The app's private storage, not visible in the Files app: `notes.md` plus one file per shared set, each encrypted with a key from the platform's key store (Android Keystore, iOS Keychain), which never leaves the device |
-| Web | Browser storage (IndexedDB), encrypted with a non-extractable WebCrypto key |
+| Android | The app's private storage (`files/vault/`), not visible in the Files app and not in any system backup: one record each for the private file, the shared files, the sync state, the settings and every file key, encrypted with the device's **data key**; the data key is sealed with an AES key of the **Android Keystore** (StrongBox where the device has it, else the TEE), which can't be read out of the device (as Signal's database secret) |
+| Web | Browser storage (IndexedDB `notedown-vault`), the same records, the data key a non-extractable WebCrypto key in the same database |
+| iOS (later) | The same records, the data key in the Keychain |
 
 Decided 2026-10-17 (user decision, as Signal does): only NoteDown reads
 the notes on the device; plain text leaves only by a step of the user —
 Copy, Share, Export, or an automatic export into a folder they choose
 (backlog #55, e.g. an Obsidian vault). The local key is not in the
 system backup and not synced: a new device gets the notes through sync
-(linking, recovery key) or an encrypted backup (backlog #56). In the web
-app the key sits next to the data in the browser profile, so there it
-only keeps the notes from being read as copied files. *App phase
-(backlog #19, #39).*
+(linking, recovery key) or an encrypted backup (`docs/requirements.md` →
+"Encrypted backup"). In the web app the key sits next to the data in the
+browser profile, so there it only keeps the notes from being read as
+copied files.
+
+- **Records:** AES-256-GCM with a fresh nonce, the record's name as
+  additional data (a record can't pass for another); one byte of version
+  in front (`app/js/core/vault.js`). The app reads them once at start
+  into memory and writes a record back after each change; another tab of
+  the same browser hears of a write through a `BroadcastChannel`.
+- **Device keys** stay non-extractable WebCrypto keys in IndexedDB
+  `notedown` (the vault can only hold bytes); in the web app that is the
+  same protection as the vault's own key.
+- **Moving plain data in** (backlog #19): the first start of a version
+  with the vault copies what an older one kept in plain text — the
+  `notedown.*` keys of `localStorage` and the file keys of IndexedDB
+  `notedown` — into the vault, reads every item back and compares it,
+  and only then deletes the plain copy; an item the vault already has is
+  newer and stays. `notedown.api` (a test server address, no note data)
+  stays in `localStorage`. Tested in `tests/vault.test.mjs` and, against a
+  real server, in `scripts/e2e-sync.js`.
+- **Signing out** erases the vault together with its key (and on Android
+  the Keystore key).
 
 ## Servers
 
@@ -269,8 +285,10 @@ the first sync round.
 |---|---|---|
 | Recovery key | Seed of the identity key and of the recovery "device" key | Only with the user; never sent anywhere |
 | Identity key (Ed25519) | Who the user is: contacts remember it; signs the start of the device list | Derived from the recovery key when needed, stored on no device |
-| Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device, non-exportable (WebCrypto, IndexedDB) |
-| File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; renewed when a device is removed, the previous key sealed with the new one so the version history stays readable |
+| Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device, non-exportable (WebCrypto, IndexedDB; "Where the files live") |
+| File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; on the device in the encrypted vault; renewed when a device is removed, the previous key sealed with the new one so the version history stays readable |
+| Data key (AES-256-GCM), one per device | Encrypts what NoteDown keeps on the device ("Where the files live") | Only on that device: sealed by the Android Keystore, in the web app a non-extractable WebCrypto key; never synced, never in a backup |
+| Backup key (30 digits) | Opens the user's encrypted backups (`docs/requirements.md` → "Encrypted backup") | With the user; a copy in the vault of the device that made the backups |
 
 - **Sharing a note in a new set of people:** the device creates a random
   file key, wraps it for every device on each member's device list,
