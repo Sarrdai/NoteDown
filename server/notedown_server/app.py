@@ -17,9 +17,9 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
-from . import auth
+from . import auth, protocol
 from .admin import BLOCKED, MAX_QUOTA_OVERRIDE, MEMBER_LIMIT, erase_identity, register_admin, utc_iso
-from .protocol import (LimitError, ProtocolError, b64u, check_members, entry_hash, from_b64u, invitation_message, is_id,
+from .protocol import (LimitError, ProtocolError, b64u, check_members, client_level, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
 
 # Total decoded ciphertext per identity; a constant for now (a paid option may raise it later).
@@ -178,11 +178,21 @@ def create_app(settings: Settings) -> FastAPI:
         pool.close()
 
     app = FastAPI(title="NoteDown sync", lifespan=lifespan)
+
+    # Added before the CORS middleware, so CORS wraps it and the app can read the 426.
+    @app.middleware("http")
+    async def refuse_outdated(request: Request, call_next):
+        """426 for an app older than MIN_CLIENT (docs/server-api.md → "App versions", backlog #51)."""
+        if request.url.path.startswith("/v1/") and request.method != "OPTIONS":
+            if client_level(request.headers.get("NoteDown-Client")) < protocol.MIN_CLIENT:
+                return JSONResponse(status_code=426, content={"detail": "app outdated", "min_client": protocol.MIN_CLIENT})
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "NoteDown-Client"],
         expose_headers=["Content-Disposition"],   # the admin page names a downloaded backup after it
     )
 

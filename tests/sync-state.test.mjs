@@ -203,3 +203,12 @@ test("syncNotice: removed and deleted while sync is off, blocked while it is on"
   assert.equal(syncNotice({ enabled: true, blocked: { until: null } }).title, "Sync is blocked by the server's owner.");
   assert.equal(syncNotice({ enabled: true, ended: "removed" }), null, "sync on again: no notice");
 });
+
+test("syncNotice: an outdated app is told to reload (web) or install the current app (Android)", () => {
+  const web = syncNotice({ enabled: true, outdated: true, blocked: null });
+  assert.deepEqual([web.kind, web.closable], ["outdated", false]);
+  assert.match(web.sub, /Reload the page/);
+  assert.match(syncNotice({ enabled: true, outdated: true }, undefined, true).sub, /Install the current app/);
+  assert.equal(syncNotice({ enabled: true, outdated: true, blocked: { until: null } }).kind, "outdated", "updating comes first");
+  assert.equal(syncNotice({ enabled: false, outdated: true }), null, "sync off: no notice");
+});

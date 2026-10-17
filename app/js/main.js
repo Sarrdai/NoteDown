@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
-import { state, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { state, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile } from "./core/notes-file.js";
@@ -482,6 +482,8 @@ function moreMenu() {
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     sync.simulated && sync.enabled && { label: "Simulate device removal", onSelect: simulateRemoval },
+    // What a device sees once the server no longer serves its app version (backlog #51; real case: sync/client.js → fail).
+    sync.simulated && sync.enabled && { label: sync.outdated ? "End outdated app" : "Simulate outdated app", onSelect: () => setSync({ outdated: !sync.outdated }) },
   ].filter(Boolean));
 }
 

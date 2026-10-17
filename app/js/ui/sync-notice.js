@@ -1,12 +1,13 @@
 // A card above the notes when sync stopped working on this device (user request 2026-10-16): removed from the
 // device list or its sync data deleted (sync is off there, the notes stayed), or blocked by the server's owner
-// (sync resumes once the block ends). So nobody types on here and wonders why nothing syncs. It looks like the
+// (sync resumes once the block ends), or too old for the server (backlog #51: reload, or install the current app). So nobody types on here and wonders why nothing syncs. It looks like the
 // "only in this browser" card (storage-hint.js) and takes its place while it shows; the text comes from
 // core/sync-state.js → syncNotice. Shown in every view: notes are edited in the archive too.
 import { state, subscribe, setSync } from "../store.js";
 import { syncNotice } from "../core/sync-state.js";
 import { h, button } from "./dom.js";
 import { icon } from "./icons.js";
+import { Capacitor } from "../../vendor/capacitor-core.esm.js";
 
 const $ = id => document.getElementById(id);
 
@@ -16,14 +17,15 @@ export function initSyncNotice({ onLink, onSync }) {
   $("viewHint").before(card);
   let shown = "";
   const render = () => {
-    const n = syncNotice(state.sync);
+    const n = syncNotice(state.sync, undefined, Capacitor.isNativePlatform());
     const key = n ? JSON.stringify(n) : "";
     card.hidden = !n;
     if (key === shown) return;
     shown = key;
     if (!n) return card.replaceChildren();
     const action = n.kind === "removed" ? button("Link again", "primary", onLink)
-      : n.kind === "deleted" ? button("Turn on sync", "primary", onSync) : null;
+      : n.kind === "deleted" ? button("Turn on sync", "primary", onSync)
+      : n.kind === "outdated" && !Capacitor.isNativePlatform() ? button("Reload", "primary", () => location.reload()) : null;
     card.dataset.kind = n.kind;
     card.replaceChildren(...[
       h("span", { class: "storage-hint-icon", html: icon("sync") }),

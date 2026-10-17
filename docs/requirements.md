@@ -168,7 +168,16 @@ before the first live test).
     block ends; "Sync is blocked by the server's owner until 25 Oct
     2026. — Changes you make here are kept and sync once the block
     ends.", no ✕ (it goes by itself).
-  *Prototype: 2026-10-16 (⋮ → Prototype → "Simulate device removal").*
+  - **Outdated app** (backlog #51): the server no longer serves this app
+    version (a later format or key change needs a current app,
+    `docs/server-api.md` → "App versions"). Sync stays on, the notes and
+    changes are kept; "Update NoteDown to keep syncing — This version is
+    too old for the sync server. …" with **Reload** in the web app (which
+    loads the current one) and "Install the current app" on Android, no
+    ✕. It goes by itself with the first round after the update. Before,
+    an outdated app just failed on data it couldn't read.
+  *Prototype: 2026-10-16 (⋮ → Prototype → "Simulate device removal",
+  "Simulate outdated app").*
 - **Signing out this device** (backlog #15): Sync & sharing → "Sign out
   this device" takes the device off the device list by itself and erases
   everything NoteDown keeps on it (notes, settings, keys); the app then
@@ -1015,10 +1024,11 @@ that host its IP address and the reading time.
   "n selected" (n = parts: whole notes, and each selected section with the
   selected deeper ones right below it — 2026-10-15, so sections picked one
   by one also count and reorder one by one) and
-  the actions as icons (with labels on the desktop); the rarer ones —
-  Export, Share, Make permanent, Promote / Demote headings — sit under ⋮
-  in every tier (2026-10-15: the labels overran the desktop bar; backlog
-  #36 revisits which actions are the frequent ones); the + button is
+  the actions as icons (with labels on the desktop): the frequent ones —
+  Close, Clear done tasks, Copy, Share, Merge, Delete — in the bar, the
+  rarer ones — Export, Make permanent, Promote / Demote headings — under
+  ⋮, the same in every tier (decided 2026-10-17 by the user's own use,
+  backlog #36; all of them overran the desktop bar); the + button is
   hidden. On the phone the contents sheet's handle stays at the bottom,
   so the selection can be refined in the contents and back; the bar shows
   only the number there. Decided
