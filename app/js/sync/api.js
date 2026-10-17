@@ -9,7 +9,7 @@ import { blockedMessage } from "../core/sync-state.js";
  * This app's compatibility level, sent with every request (docs/server-api.md → "App versions", backlog #51).
  * Raised together with the server's MIN_CLIENT when a change ships that older apps can't read or would break.
  */
-export const CLIENT_LEVEL = 1;
+export const CLIENT_LEVEL = 2;
 
 // The server's answers that get a sentence of their own in the sync status.
 function describe(status, body) {
@@ -95,7 +95,8 @@ export function createApi(baseUrl, who) {
     listContacts: () => call("GET", "/v1/contacts", undefined, true).then(r => r.contacts),
     confirmContact: invitation => call("POST", "/v1/contacts", { invitation }, true),   // → { identity }
     removeContact: id => call("DELETE", `/v1/contacts/${id}`, undefined, true),
-    createSlot: () => call("POST", "/v1/relay"),
+    createSlot: kem => call("POST", "/v1/relay", { kem }),   // kem: the new device's ML-KEM key (b64u)
+    slotKem: slot => call("GET", `/v1/relay/${slot}/kem`).then(r => r.kem),
     fillSlot: (slot, payload) => call("PUT", `/v1/relay/${slot}`, { payload }, true),
     readSlot: slot => call("GET", `/v1/relay/${slot}`).then(r => r && r.payload),   // null while empty
     forgetToken: () => { token = null; },

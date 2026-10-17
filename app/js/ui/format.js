@@ -33,6 +33,13 @@ export function relativeTime(ts, now = new Date()) {
   return shortDate(day, now);
 }
 
+/** "17 Oct 2026, 14:05": a UTC timestamp in the device's local time, with the year. */
+export function fullDate(ts) {
+  const t = localTime(ts);
+  const [y, m, d] = t.slice(0, 10).split("-").map(Number);
+  return `${d} ${MONTHS[m - 1]} ${y}, ${t.slice(11, 16)}`;
+}
+
 /** Due chip: { text, kind: "overdue" | "today" | "future" }. */
 export function dueLabel(due, now = new Date()) {
   const t = today(now);

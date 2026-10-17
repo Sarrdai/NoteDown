@@ -21,6 +21,14 @@ import java.io.FileOutputStream;
 @CapacitorPlugin(name = "ShareFile")
 public class ShareFilePlugin extends Plugin {
 
+    // An export is plain text the user chose to hand out; its copy in the cache goes at the next start
+    // (only NoteDown reads the notes on the device, backlog #19).
+    @Override
+    public void load() {
+        File[] old = new File(getContext().getCacheDir(), "export").listFiles();
+        if (old != null) for (File f : old) f.delete();
+    }
+
     @PluginMethod
     public void share(PluginCall call) {
         String name = call.getString("name");

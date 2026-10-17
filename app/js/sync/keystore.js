@@ -1,6 +1,12 @@
-// This device's secrets in IndexedDB: the device keys (non-extractable
-// CryptoKeys, which only IndexedDB can hold) and the file keys
-// (docs/sync-and-sharing.md → "Identity and devices").
+// This device's secrets (docs/sync-and-sharing.md → "Identity and devices"):
+// the file keys and every other secret that is plain data live in the
+// encrypted vault (app/js/vault.js, backlog #19) as `secret:<key>`; the device
+// keys of devices linked before the vault are non-extractable CryptoKeys, which
+// only IndexedDB can hold and the vault can't encrypt, so they stay in IndexedDB
+// `notedown`.
+import { openVault } from "../vault.js";
+import { secretName, isVaultable } from "../core/vault.js";
+
 const DB = "notedown";
 const STORE = "keys";
 
@@ -28,15 +34,36 @@ async function run(mode, fn) {
 }
 
 /** The stored value for `key`, or undefined. */
-export const getSecret = key => run("readonly", s => s.get(key));
+export async function getSecret(key) {
+  const value = await (await openVault()).get(secretName(key));
+  return value !== undefined ? value : run("readonly", s => s.get(key));
+}
 
-export const setSecret = (key, value) => run("readwrite", s => s.put(value, key));
+/** Stores a secret: plain data encrypted in the vault, CryptoKey objects in IndexedDB. */
+export async function setSecret(key, value) {
+  const vault = await openVault();
+  if (isVaultable(value)) {
+    await vault.put(secretName(key), value);
+    await run("readwrite", s => s.delete(key));
+  } else {
+    await run("readwrite", s => s.put(value, key));
+    await vault.remove(secretName(key));
+  }
+}
 
-export const deleteSecret = key => run("readwrite", s => s.delete(key));
+export async function deleteSecret(key) {
+  await (await openVault()).remove(secretName(key));
+  await run("readwrite", s => s.delete(key));
+}
 
-export const clearSecrets = () => run("readwrite", s => s.clear());
+/** Removes every secret (device and file keys), keeping the vault's other records (the notes). */
+export async function clearSecrets() {
+  const vault = await openVault();
+  await vault.removePrefix(secretName(""));
+  await run("readwrite", s => s.clear());
+}
 
-/** Deletes the whole database, device keys included (signing out). */
+/** Deletes the IndexedDB key store, device keys included (signing out; the vault is erased by the store). */
 export function deleteDatabase() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.deleteDatabase(DB);

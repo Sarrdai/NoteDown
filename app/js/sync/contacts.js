@@ -116,7 +116,7 @@ export async function sendRequest(text, name, { verified = false } = {}) {
   }
   if (!targets.length) throw new Error(GONE);
   const card = contactCard(state.sync.identity, state.sync.name, invite.secret);
-  const cards = Object.fromEntries(await Promise.all(targets.map(async d => [d.id, await c.sealContactCard(card, d.enc)])));
+  const cards = Object.fromEntries(await Promise.all(targets.map(async d => [d.id, await c.sealContactCard(card, d)])));
   try {
     await api.sendRequest(id, cards);
   } catch (e) {
@@ -209,7 +209,7 @@ async function verify(inv, devices) {
   const signer = devices.get(inv.device);
   if (!signer || !signer.active || !await c.verifyInvitation(signer.sign, inv.sig, inv.id)) return null;
   try {
-    const card = parseContactCard(await c.openContactCard(inv.request.card, ctx.keys().enc));
+    const card = parseContactCard(await c.openContactCard(inv.request.card, ctx.keys()));
     if (!card || card.identity !== inv.request.identity || card.identity === state.sync.identity) return null;
     if (await c.invitationId(c.fromB64u(card.secret, 16)) !== inv.id) return null;
     return { id: inv.id, identity: card.identity, name: card.name || "New contact", via: inv.kind === "link" ? "link" : "scan", inPerson: codes.has(inv.id) };

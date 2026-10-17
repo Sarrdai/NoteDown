@@ -9,9 +9,15 @@ test("reminderAt is the local time of day on that date", () => {
   assert.deepEqual([at.getFullYear(), at.getMonth(), at.getDate(), at.getHours(), at.getMinutes()], [2026, 9, 14, 9, 5]);
 });
 
-test("reminderText counts the notes and lists their titles", () => {
-  assert.deepEqual(reminderText([note("a", "open", "x")]), { title: "1 note due today", body: "Note a" });
-  const t = reminderText([note("a", "open", "x"), note("b", "open", "x", "First line. Second.")]);
+test("reminderText shows only the number by default, no note text (backlog #57)", () => {
+  assert.deepEqual(reminderText([note("a", "open", "x")]), { title: "1 note due today", body: "Tap to open NoteDown." });
+  const s = reminderSchedule([note("a", "open", "2026-10-20")], "09:00", new Date(2026, 9, 14, 8, 0));
+  assert.ok(!JSON.stringify(s).includes("Note a"), "no title in the scheduled notification");
+});
+
+test("reminderText with titles counts the notes and lists their titles", () => {
+  assert.deepEqual(reminderText([note("a", "open", "x")], "titles"), { title: "1 note due today", body: "Note a" });
+  const t = reminderText([note("a", "open", "x"), note("b", "open", "x", "First line. Second.")], "titles");
   assert.equal(t.title, "2 notes due today");
   assert.equal(t.body, "Note a\nFirst line.");
 });

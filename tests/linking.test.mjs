@@ -12,38 +12,39 @@ import * as c from "../app/js/core/crypto.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const slot = "AAAAAAAAAAAAAAAAAAAAAA";
-const sign = "S".repeat(43), enc = "E".repeat(43);
+const sign = "S".repeat(43), enc = "E".repeat(43), kem = "K".repeat(43);
 
 test("link code: round-trips slot, keys and name; stays short enough for a phone camera", () => {
-  const text = linkCode({ slot, sign, enc, name: "Chrome on Windows", server: "" });
+  const text = linkCode({ slot, sign, enc, kem, name: "Chrome on Windows", server: "" });
   assert.ok(text.startsWith("notedown:link?"));
-  assert.ok(text.length < 200, text.length);
-  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, name: "Chrome on Windows", server: "" });
+  assert.ok(text.length < 250, text.length);   // the ML-KEM key itself waits at the slot, only its hash is here
+  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, kem, name: "Chrome on Windows", server: "" });
 });
 
 test("link code: anything else is rejected", () => {
-  const good = linkCode({ slot, sign, enc, name: "x" });
+  const good = linkCode({ slot, sign, enc, kem, name: "x" });
   assert.equal(parseLinkCode("https://example.org"), null);
   assert.equal(parseLinkCode(good.replace("v=1", "v=2")), null);
   assert.equal(parseLinkCode(good.replace(slot, "short")), null);
   assert.equal(parseLinkCode(good.replace(sign, "S".repeat(42))), null);
+  assert.equal(parseLinkCode(good.replace("&kem=" + kem, "")), null);   // from before post-quantum keys
   assert.equal(parseLinkCode(null), null);
 });
 
 test("link code: the name is trimmed and capped", () => {
-  const parsed = parseLinkCode(linkCode({ slot, sign, enc, name: "  a\n b " + "x".repeat(60) }));
+  const parsed = parseLinkCode(linkCode({ slot, sign, enc, kem, name: "  a\n b " + "x".repeat(60) }));
   assert.equal(parsed.name.length, MAX_NAME);
   assert.ok(parsed.name.startsWith("a b x"));
 });
 
-test("relay message: sealed for the new device's enc key, unreadable for another", async () => {
+test("relay message: sealed for the new device's keys, unreadable for another", async () => {
   const newDevice = await c.generateDeviceKeys(), other = await c.generateDeviceKeys();
   const identity = "I".repeat(22);
-  const payload = await c.sealRelayMessage(relayMessage(identity, "Sam"), newDevice.enc.publicKey);
-  assert.deepEqual(parseRelayMessage(await c.openRelayMessage(payload, newDevice.enc)), { identity, name: "Sam", server: "" });
-  await assert.rejects(c.openRelayMessage(payload, other.enc));
+  const payload = await c.sealRelayMessage(relayMessage(identity, "Sam"), c.recipientOf(newDevice));
+  assert.deepEqual(parseRelayMessage(await c.openRelayMessage(payload, newDevice)), { identity, name: "Sam", server: "" });
+  await assert.rejects(c.openRelayMessage(payload, other));
   // A wrapped file key is no relay message (separate HKDF labels).
-  await assert.rejects(c.openRelayMessage(await c.wrapFileKey(c.generateFileKey(), newDevice.enc.publicKey), newDevice.enc));
+  await assert.rejects(c.openRelayMessage(await c.wrapFileKey(c.generateFileKey(), c.recipientOf(newDevice)), newDevice));
   assert.equal(parseRelayMessage({ v: 1, identity: "bad" }), null);
 });
 
@@ -129,9 +130,9 @@ test("serverUrl: one written form, empty for none, null for anything but http(s)
 });
 
 test("link code: carries the server the slot is on; missing reads as the default server", () => {
-  const text = linkCode({ slot, sign, enc, name: "x", server: S + "/" });
-  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, name: "x", server: S });
-  assert.equal(parseLinkCode(linkCode({ slot, sign, enc, name: "x" })).server, "");
+  const text = linkCode({ slot, sign, enc, kem, name: "x", server: S + "/" });
+  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, kem, name: "x", server: S });
+  assert.equal(parseLinkCode(linkCode({ slot, sign, enc, kem, name: "x" })).server, "");
   assert.equal(parseLinkCode(text.replace(encodeURIComponent(S), "ftp%3A%2F%2Fx")), null);
 });
 

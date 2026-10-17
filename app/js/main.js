@@ -10,6 +10,7 @@ import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite, openLinkPage } from "./ui/sync-panel.js";
 import { initSyncNotice } from "./ui/sync-notice.js";
+import { openRecoveryKem } from "./ui/recovery-kem.js";   // TEMPORARY (backlog #20 transition)
 import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
@@ -33,6 +34,8 @@ import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
 import { initReminders } from "./ui/reminders.js";
+import { initAppLock } from "./ui/app-lock.js";
+import { isNativeApp, privacyPlugin } from "./platform.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
@@ -671,7 +674,10 @@ function writeApi(url) {
 
 async function start() {
   wire();
-  const hadFile = load();
+  const hadFile = await load();
+  // The native side applies these before the web code loads; keep it in step with the stored choice.
+  if (isNativeApp()) privacyPlugin().set(state.settings.privacy).catch(() => {});
+  initAppLock();
   const sample = applyUrlOptions();
   if (state.view === "trash") enterTrash();
   if (sample) replaceFiles(await loadSampleState(sample));
@@ -688,7 +694,7 @@ async function start() {
   initReminders({ open: showDue });
   initExport();
   initStorageHint({ onSync: openSyncPanel, onExport: exportDialog });
-  initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel });
+  initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel, onRecoveryKem: openRecoveryKem });
   document.body.dataset.ready = "1";
 }
 

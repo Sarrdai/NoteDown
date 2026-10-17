@@ -1,7 +1,8 @@
-// App state: the notes files and the viewer's settings. In the prototype the
-// files live in localStorage (the app phase swaps this for real .md files);
-// every change is written through serializeNotesFile, so the stored text is
-// always a valid NoteDown file. `state.file` is the private file, each entry
+// App state: the notes files and the viewer's settings. The files, the sync
+// state and the settings are kept in the encrypted vault (vault.js, backlog #19):
+// read once at start into memory, every change written back; each file is
+// written through serializeNotesFile, so the stored text is always a valid
+// NoteDown file. `state.file` is the private file, each entry
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote, hasLeft } from "./core/merge.js";
@@ -9,7 +10,9 @@ import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
 import { DEFAULT_EXTERNAL } from "./core/external.js";
+import { DEFAULT_LOCK } from "./core/app-lock.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
+import { openVault, onVaultChange } from "./vault.js";
 
 const FILE_KEY = "notedown.file";
 const SHARED_KEY = "notedown.shared";
@@ -22,7 +25,10 @@ export const DEFAULT_SETTINGS = {
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
-  reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
+  reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
+  lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
+  privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only
+  lastBackup: null,          // ISO time of the last backup made on this device (#56)
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
@@ -59,6 +65,7 @@ export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], history: [], restore: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, maxMembers: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
   deleted: [], ended: "", blocked: null, outdated: false,
+  recoveryKem: false,   // TEMPORARY (backlog #20 transition): the recovery device has no ML-KEM key yet (sync/client.js)
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
@@ -83,33 +90,56 @@ const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); }
 function emit(kind) { listeners.forEach(fn => fn(kind)); }
 
+// The stored records, as read at start (and when another tab changed them); `vault` once open.
+const records = new Map();
+let vault = null;
 function read(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
+  return records.has(key) ? records.get(key) : null;
 }
 let erased = false;
 function write(key, value) {
   if (erased) return;
-  try { localStorage.setItem(key, value); } catch { /* storage unavailable: keep in memory */ }
+  records.set(key, value);
+  vault?.put(key, value).catch(() => { /* storage unavailable: keep in memory */ });
 }
 
-/** Removes everything NoteDown stored in localStorage (every `notedown.` key)
- *  and stops writing for the rest of this page's life, so a late change can't
- *  bring a key back before the page reloads (signing out). */
-export function eraseStoredState() {
+/** Erases everything NoteDown stored (the vault with its key, and plain data an older version may have left)
+ *  and stops writing for the rest of this page's life, so a late change can't bring a record back before the
+ *  page reloads (signing out). */
+export async function eraseStoredState() {
   erased = true;
+  records.clear();
   try {
     for (const key of Object.keys(localStorage)) if (key.startsWith("notedown.")) localStorage.removeItem(key);
   } catch { /* storage unavailable: nothing stored */ }
+  await (vault || await openVault().catch(() => null))?.clear();
+  vault = null;
 }
 
-/** Loads stored state; returns false when there is no stored file yet. */
-export function load() {
+const RECORDS = [FILE_KEY, SHARED_KEY, SYNC_KEY, SETTINGS_KEY];
+
+async function readRecords(names = RECORDS) {
+  for (const name of names) {
+    const value = await vault.get(name);
+    if (value === undefined) records.delete(name); else records.set(name, value);
+  }
+}
+
+/** Waits until every change is stored (before a reload or leaving the page on purpose). */
+export const flushStored = () => vault?.flush() ?? Promise.resolve();
+
+/** Opens the vault and loads the stored state; resolves to false when there is no stored file yet. */
+export async function load() {
+  vault = await openVault();
+  await readRecords();
   try {
     const s = JSON.parse(read(SETTINGS_KEY) || "{}");
     state.settings = {
       ...structuredClone(DEFAULT_SETTINGS), ...s,
       sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
       external: { ...structuredClone(DEFAULT_EXTERNAL), ...(s.external || {}) },
+      lock: { ...DEFAULT_LOCK, ...(s.lock || {}) },
+      privacy: { ...DEFAULT_SETTINGS.privacy, ...(s.privacy || {}) },
     };
   } catch { /* keep defaults */ }
   try {
@@ -137,13 +167,24 @@ function readFiles() {
 /** Follows the files another tab of this browser changed (the import page,
  *  a second app tab): reads them again, re-renders and lets sync upload. */
 export function followOtherTabs() {
-  window.addEventListener("storage", e => {
-    if (e.key !== FILE_KEY && e.key !== SHARED_KEY) return;
+  onVaultChange(async name => {
+    if (name !== FILE_KEY && name !== SHARED_KEY) return;
+    await readRecords([name]);
     readFiles();
     emit("structure");
     fileListeners.forEach(fn => fn());
   });
 }
+
+/** Adds notes restored from a backup to the private file, on top. */
+export function addRestoredNotes(notes) {
+  state.file.notes.unshift(...notes);
+  saveFiles();
+  emit("structure");
+}
+
+/** The ids of every note on this device: private (trash included) and shared. */
+export const noteIds = () => allFiles().flatMap(f => f.notes.map(n => n.id));
 
 /** Adds imported notes (the Google Keep import) to the private file, on top. */
 export function importNotes(notes) {

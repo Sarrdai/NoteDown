@@ -4,7 +4,7 @@ import psycopg
 
 from notedown_server.protocol import b64u
 
-from conftest import DATABASE_URL, Identity, Keys, token
+from conftest import DATABASE_URL, Identity, Keys, new_slot, token
 
 FILE = b64u(os.urandom(16))
 
@@ -102,14 +102,17 @@ def test_linking_and_removing_a_device(client, setup):
 
     # The new laptop opens a relay slot; the phone adds it and answers in the slot.
     laptop = Keys()
-    slot = client.post("/v1/relay").json()["slot"]
+    slot = client.post("/v1/relay", json={"kem": b64u(laptop.kem)}).json()["slot"]
     assert client.get(f"/v1/relay/{slot}").status_code == 204
+    # The phone reads the laptop's ML-KEM key, which the link code names only by hash.
+    assert client.get(f"/v1/relay/{slot}/kem").json() == {"kem": b64u(laptop.kem)}
     entry = identity.entry("add", laptop.device(), signer=phone)
     assert client.post(f"/v1/identities/{identity.id}/entries", json={"entry": entry}, headers=h).status_code == 201
     assert client.post(f"/v1/files/{FILE}/keys", json={"keys": {laptop.id: b64u(b"k-laptop")}},
                        headers=h).status_code == 204
     assert client.put(f"/v1/relay/{slot}", json={"payload": "sealed"}, headers=h).status_code == 204
     assert client.put(f"/v1/relay/{slot}", json={"payload": "again"}, headers=h).status_code == 409
+    assert client.get(f"/v1/relay/{slot}/kem").status_code == 404   # filled: nothing to link any more
     assert client.get(f"/v1/relay/{slot}").json() == {"payload": "sealed"}
     assert client.get(f"/v1/relay/{slot}").status_code == 404
 
@@ -150,3 +153,19 @@ def test_cors_allows_the_app_origin(client):
     r = client.options("/v1/contacts/x", headers={
         "Origin": "https://localhost", "Access-Control-Request-Method": "DELETE"})
     assert r.status_code == 200 and "DELETE" in r.headers["access-control-allow-methods"]
+
+
+def test_a_relay_slot_needs_a_valid_ml_kem_key(client):
+    assert client.post("/v1/relay", json={}).status_code == 422
+    assert client.post("/v1/relay", json={"kem": b64u(b"short")}).status_code == 400
+    assert client.post("/v1/relay", json={"kem": b64u(b"\xff" * 1184)}).status_code == 400   # coefficients >= q
+    assert client.get("/v1/relay/unknown/kem").status_code == 404
+
+
+def test_wrapped_keys_and_cards_may_be_hybrid_sized(client, setup):
+    identity, phone, recovery = setup
+    h = token(client, identity, phone)
+    hybrid = b64u(bytes(1181))   # 0x01 ‖ X25519 ‖ ML-KEM-768 ciphertext ‖ nonce ‖ AES-GCM of a file key
+    assert len(hybrid) == 1575
+    assert upload(client, h, 0, keys={phone.id: hybrid, recovery.id: hybrid}).status_code == 200
+    assert upload(client, h, 1, keys={phone.id: b64u(bytes(1537))}).status_code == 400   # over 2048 characters

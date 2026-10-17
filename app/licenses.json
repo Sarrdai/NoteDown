@@ -65,6 +65,14 @@
    "text": "mit-catppuccin"
   },
   {
+   "name": "libcrux-ml-kem",
+   "version": "0.0.11",
+   "license": "Apache-2.0",
+   "url": "https://github.com/cryspen/libcrux",
+   "platform": "web+android",
+   "text": "apache-2.0"
+  },
+  {
    "name": "Capacitor Android",
    "version": "8.5.3",
    "license": "MIT",
@@ -141,6 +149,14 @@
    "version": "1.14.0",
    "license": "Apache-2.0",
    "url": "https://developer.android.com/jetpack/androidx/releases/webkit",
+   "platform": "android",
+   "text": "apache-2.0"
+  },
+  {
+   "name": "AndroidX Biometric",
+   "version": "1.1.0",
+   "license": "Apache-2.0",
+   "url": "https://developer.android.com/jetpack/androidx/releases/biometric",
    "platform": "android",
    "text": "apache-2.0"
   },

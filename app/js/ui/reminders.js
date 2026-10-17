@@ -4,8 +4,9 @@
 // come while the app is closed; on the web by a timer while the app is open
 // (the browser can't wake a closed web app without push).
 import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
+import { pickButton } from "./menu.js";
 import { state, allNotes, updateSettings, subscribe } from "../store.js";
-import { DEFAULT_REMINDERS, reminderSchedule } from "../core/reminders.js";
+import { DEFAULT_REMINDERS, REMINDER_SHOW, reminderSchedule } from "../core/reminders.js";
 import { showSnackbar } from "./snackbar.js";
 import { registerPage, refreshPage } from "./sync-panel.js";
 import { h } from "./dom.js";
@@ -49,7 +50,7 @@ async function scheduleNative() {
   if (notifications.length) await Native.cancel({ notifications: notifications.map(n => ({ id: n.id })) });
   const r = reminders();
   if (!r.on) return;
-  const list = reminderSchedule(allNotes(), r.time).slice(0, NATIVE_MAX);
+  const list = reminderSchedule(allNotes(), r.time, new Date(), r.show).slice(0, NATIVE_MAX);
   if (!list.length) return;
   await Native.schedule({
     notifications: list.map(x => ({
@@ -65,7 +66,7 @@ async function scheduleNative() {
 function scheduleWeb() {
   const r = reminders();
   if (!r.on) return;
-  const next = reminderSchedule(allNotes(), r.time)[0];
+  const next = reminderSchedule(allNotes(), r.time, new Date(), r.show)[0];
   if (!next) return;
   // setTimeout can't wait longer than ~24 days; it re-plans when it wakes early.
   const wait = Math.min(next.at - Date.now(), 2 ** 31 - 1);
@@ -112,6 +113,9 @@ registerPage("settingsReminders", {
       h("label", { class: "setting-row" + (r.on ? "" : " off") }, h("span", { class: "setting-label" }, "Time of day"),
         h("input", { type: "time", class: "time-input", value: r.time, disabled: !r.on,
           onchange: e => { if (e.target.value) updateSettings({ reminders: { ...reminders(), time: e.target.value } }); } })),
+      h("div", { class: "setting-row" + (r.on ? "" : " off") }, h("span", { class: "setting-label" }, "Show in reminders"),
+        Object.assign(pickButton(r.show, REMINDER_SHOW, v => { updateSettings({ reminders: { ...reminders(), show: v } }); refreshPage({ keepScroll: true }); }, { cls: "ext-select", label: "Show in reminders" }), { disabled: !r.on })),
+      r.show === "titles" && h("p", { class: "sheet-text muted" }, "Titles show on the lock screen, and Android keeps them unencrypted until the reminder is due."),
       h("p", { class: "sheet-text muted" }, Native ? "Reminders come even when NoteDown is closed."
         : "In the browser, reminders only come while NoteDown is open. The Android app reminds you even when it's closed."),
     ];

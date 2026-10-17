@@ -120,15 +120,15 @@ async function holdersFor(key, run) {
 }
 
 async function wrapFor(devices, key) {
-  return Object.fromEntries(await Promise.all(devices.map(async d => [d.id, await c.wrapFileKey(key, d.enc)])));
+  return Object.fromEntries(await Promise.all(devices.map(async d => [d.id, await c.wrapFileKey(key, d)])));
 }
 
-/** Wraps the key of every file this device can read for a new device of this identity (linking). */
-export async function grantKeys(deviceId, enc) {
+/** Wraps the key of every file this device can read for a new device of this identity (linking); `recipient`: its `{ enc, kem }`. */
+export async function grantKeys(deviceId, recipient) {
   for (const slot of slotKeys()) {
     const r = rec(slot);
     const key = r && await keyOf(r.server, r.id);
-    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await c.wrapFileKey(key, enc) });
+    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await c.wrapFileKey(key, recipient) });
   }
 }
 
@@ -335,7 +335,7 @@ async function download(server, id) {
   ctx.moved();
   const r = await ctx.api(server).getFile(id);
   if (!r.key) throw new Error("No key for this device on the server");
-  const key = await c.unwrapFileKey(r.key, ctx.keys().enc);
+  const key = await c.unwrapFileKey(r.key, ctx.keys());
   const have = await keyOf(server, id);
   if (!have || c.b64u(key) !== c.b64u(have)) await rememberKey(server, id, key);   // renewed after a device was removed
   return { version: r.version, text: await c.decryptFile(key, r.ciphertext) };
@@ -500,14 +500,14 @@ export async function restoreVersion(slot, version) {
  * Restoring with the recovery key, as the recovery device: for every file of the identity reads
  * the key, wraps it for the new device and reads the text. → [{ id, members, version, key, text }]
  */
-export async function readForRestore(list, recoveryEnc, deviceId, deviceEnc) {
+export async function readForRestore(list, recoveryKeys, deviceId, deviceRecipient) {
   const api = ctx.api(ctx.home());
   const out = [];
   for (const f of list) {
     const got = await api.getFile(f.id);
     if (!got.key) continue;
-    const key = await c.unwrapFileKey(got.key, recoveryEnc);
-    await api.addKeys(f.id, { [deviceId]: await c.wrapFileKey(key, deviceEnc) });
+    const key = await c.unwrapFileKey(got.key, recoveryKeys);
+    await api.addKeys(f.id, { [deviceId]: await c.wrapFileKey(key, deviceRecipient) });
     out.push({ id: f.id, members: f.members, version: got.version, key, text: await c.decryptFile(key, got.ciphertext) });
   }
   return out;

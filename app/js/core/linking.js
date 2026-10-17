@@ -30,20 +30,23 @@ const cleanName = name => (typeof name === "string" ? name.replace(/\s+/g, " ").
 
 const withServer = (params, server) => (server ? { ...params, srv: serverUrl(server) } : params);
 
-/** The text of the new device's QR code: relay slot, public device keys (b64u), its suggested name and the server the slot is on (`server`). */
-export function linkCode({ slot, sign, enc, name, server }) {
-  return PREFIX + new URLSearchParams(withServer({ v: "1", slot, sign, enc, name: cleanName(name) }, server));
+/**
+ * The text of the new device's QR code: relay slot, public device keys (b64u; `kem` the SHA-256 of its ML-KEM key,
+ * which waits at the slot), its suggested name and the server the slot is on (`server`).
+ */
+export function linkCode({ slot, sign, enc, kem, name, server }) {
+  return PREFIX + new URLSearchParams(withServer({ v: "1", slot, sign, enc, kem, name: cleanName(name) }, server));
 }
 
-/** `{ slot, sign, enc, name, server }` of a scanned link code (`server` "" = the default server), or null when the text is not one. */
+/** `{ slot, sign, enc, kem, name, server }` of a scanned link code (`server` "" = the default server), or null when the text is not one. */
 export function parseLinkCode(text) {
   if (typeof text !== "string" || !text.startsWith(PREFIX)) return null;
   const p = new URLSearchParams(text.slice(PREFIX.length));
-  const [slot, sign, enc] = ["slot", "sign", "enc"].map(k => p.get(k) || "");
-  if (p.get("v") !== "1" || !SLOT.test(slot) || !KEY.test(sign) || !KEY.test(enc)) return null;
+  const [slot, sign, enc, kem] = ["slot", "sign", "enc", "kem"].map(k => p.get(k) || "");
+  if (p.get("v") !== "1" || !SLOT.test(slot) || ![sign, enc, kem].every(k => KEY.test(k))) return null;
   const server = serverUrl(p.get("srv") || "");
   if (server === null) return null;
-  return { slot, sign, enc, name: cleanName(p.get("name")), server };
+  return { slot, sign, enc, kem, name: cleanName(p.get("name")), server };
 }
 
 /** What the linked device seals into the slot: the identity's ID, the user's display name and the identity's home server. */
