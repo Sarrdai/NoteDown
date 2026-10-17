@@ -16,9 +16,11 @@
 
 NoteDown keeps all notes — open and closed — in one Markdown file, plus
 one file of the same format per set of people notes are shared with
-(`docs/sync-and-sharing.md`). The file must stay pleasant to read and edit in any other Markdown editor
-(Obsidian, a plain text editor), so the metadata is hidden in one HTML
-comment per note, which Markdown renderers don't show.
+(`docs/sync-and-sharing.md`). On the device the files are encrypted and
+only NoteDown reads them; an exported file must stay pleasant to read and
+edit in any other Markdown editor (Obsidian, a plain text editor), so the
+metadata is hidden in one HTML comment per note, which Markdown renderers
+don't show.
 
 Implemented in `app/js/core/notes-file.js`, tested in `tests/core.test.mjs`;
 `app/sample/notes.md` is a complete example.

@@ -27,8 +27,9 @@ and the sample simulates everything without a server.
 
 ## Principles
 
-- **Local first.** Every device holds a complete, readable copy of the
-  user's notes and works fully offline. The server is a relay and backup
+- **Local first.** Every device holds a complete copy of the user's
+  notes and works fully offline; on the device only NoteDown reads it
+  (encrypted at rest, "Where the files live"). The server is a relay and backup
   of encrypted files, never the primary copy.
 - **End-to-end encrypted.** The server stores only ciphertext. It never
   sees a note's text, title or status, nor a key that could decrypt one.
@@ -38,7 +39,7 @@ and the sample simulates everything without a server.
   from the server's owner").
 - **Plain Markdown stays the format.** Each file is a normal NoteDown file
   (`docs/file-format.md`); encryption wraps the whole file for transport
-  and storage on the server.
+  and storage on the server, and on the device.
 - **No accounts.** An identity is a key pair; devices and contacts are
   connected by scanning a QR code or opening a link (reason: no email
   service, no login flow, and keys come straight from the other person
@@ -108,11 +109,18 @@ and the sample simulates everything without a server.
 
 | Platform | Location |
 |---|---|
-| Android, iOS | The app's documents folder, visible in the system's Files app: `notes.md` plus one file per shared set (named after its members) |
-| Web | Browser storage (IndexedDB); download and import as Markdown files |
+| Android, iOS | The app's private storage, not visible in the Files app: `notes.md` plus one file per shared set, each encrypted with a key from the platform's key store (Android Keystore, iOS Keychain), which never leaves the device |
+| Web | Browser storage (IndexedDB), encrypted with a non-extractable WebCrypto key |
 
-A user-chosen folder (e.g. an Obsidian vault) can follow later. Devices
-rely on the operating system's own storage encryption for the local copy.
+Decided 2026-10-17 (user decision, as Signal does): only NoteDown reads
+the notes on the device; plain text leaves only by a step of the user —
+Copy, Share, Export, or an automatic export into a folder they choose
+(backlog #55, e.g. an Obsidian vault). The local key is not in the
+system backup and not synced: a new device gets the notes through sync
+(linking, recovery key) or an encrypted backup (backlog #56). In the web
+app the key sits next to the data in the browser profile, so there it
+only keeps the notes from being read as copied files. *App phase
+(backlog #19, #39).*
 
 ## Servers
 

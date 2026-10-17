@@ -20,7 +20,8 @@ A notes app for Android, iOS and the web — currently in the concept phase.
 
 Every note is a Markdown section and at the same time a to-do: open or
 done, with an optional due date that can remind you on the day. Open notes form the main list, done ones
-move to a read-only archive. Notes live in plain Markdown files: one
+move to a read-only archive. Notes live in Markdown files, which only
+NoteDown reads on the device (Export takes them out): one
 private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by persons or
 groups, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
