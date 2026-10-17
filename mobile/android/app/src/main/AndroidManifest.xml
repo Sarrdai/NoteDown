@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Not in any system backup (backlog #39, as Signal): the local data is encrypted with a key from the
+         Android Keystore that never leaves this device, so a copy is useless, and restoring the device keys
+         would clone this device. Changing phones goes through sync or an encrypted backup (backlog #56). -->
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -47,6 +53,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The screen lock (backlog #6): the system's PIN, pattern or biometrics through androidx.biometric. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- Scanning a QR code to link a device: getUserMedia in the web view (Capacitor asks at runtime). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />

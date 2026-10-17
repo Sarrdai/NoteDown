@@ -9,6 +9,10 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DictationPlugin.class);
         registerPlugin(ShareFilePlugin.class);
+        registerPlugin(VaultPlugin.class);
+        registerPlugin(PrivacyPlugin.class);
         super.onCreate(savedInstanceState);
+        // Screen security from the first frame (backlog #59), before the web code has loaded.
+        PrivacyPlugin.applyScreenSecurity(this);
     }
 }

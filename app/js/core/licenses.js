@@ -16,6 +16,7 @@ const ANDROIDX = [
   ["androidxActivityVersion", "AndroidX Activity", "https://developer.android.com/jetpack/androidx/releases/activity"],
   ["androidxFragmentVersion", "AndroidX Fragment", "https://developer.android.com/jetpack/androidx/releases/fragment"],
   ["androidxWebkitVersion", "AndroidX WebKit", "https://developer.android.com/jetpack/androidx/releases/webkit"],
+  ["androidxBiometricVersion", "AndroidX Biometric", "https://developer.android.com/jetpack/androidx/releases/biometric"],
 ];
 
 /** `name = 'value'` pairs of the `ext { }` block of variables.gradle. */
