@@ -65,7 +65,6 @@ export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], history: [], restore: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, maxMembers: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
   deleted: [], ended: "", blocked: null, outdated: false,
-  wrapsSigned: false,   // TEMPORARY (signed-wraps transition): this device renewed every file key once, so all wraps are signed
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });

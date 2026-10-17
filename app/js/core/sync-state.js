@@ -235,8 +235,8 @@ export function detachedFile(file, shared, me) {
  * nor an older one a removed device still knows.
  */
 export function keyVerdict({ signed, trusted, gen, known, have, same }) {
-  if (have && same && (!signed || gen <= known)) return "keep";
   if (!signed || !trusted) throw new Error("A file's key isn't signed by a device of its members; sync stopped for it");
+  if (have && same && gen <= known) return "keep";
   if (gen < known || (gen === known && have)) throw new Error("The server offered an outdated key for a file; sync stopped for it");
   return "take";
 }
