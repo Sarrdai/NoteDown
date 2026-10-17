@@ -84,3 +84,9 @@ test("keep: imported notes keep dates and status through the file format", () =>
   assert.equal(back[1].created, "2026-10-11T09:15Z");
   assert.notEqual(back[0].id, back[1].id);
 });
+
+test("keep: the note color comes along where NoteDown has it", () => {
+  assert.equal(toNoteDown(byFile("Book ideas.json")).color, "yellow");
+  assert.equal(toNoteDown(byFile("Holiday photos.json")).color, undefined);
+  assert.equal(keepNote({ title: "x", color: "GRAY" }).color, null);
+});

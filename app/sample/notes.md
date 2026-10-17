@@ -10,7 +10,7 @@
 <!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z due=2026-10-13 -->
 Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks.
 
-<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 -->
+<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 color=blue decor=waves -->
 ## Trip to Lisbon
 ### Before we go
 - [x] Book flights
@@ -42,13 +42,13 @@ The deadline was extended, but the accountant wants the papers this week.
 
 #paperwork
 
-<!-- note id=s05 status=permanent created=2026-10-11T09:15Z modified=2026-10-11T09:15Z -->
+<!-- note id=s05 status=permanent created=2026-10-11T09:15Z modified=2026-10-11T09:15Z color=yellow -->
 ## Book ideas
 - *The Overstory* — Richard Powers
 - *Piranesi* — Susanna Clarke
 - Something on the history of maps
 
-<!-- note id=s06 status=open created=2026-09-28T18:00Z modified=2026-10-10T20:30Z -->
+<!-- note id=s06 status=open created=2026-09-28T18:00Z modified=2026-10-10T20:30Z color=green decor=leaves -->
 ## Garden plan for spring
 ### Raised bed
 - Move the strawberries to the sunny corner
@@ -75,7 +75,7 @@ Six-month check-up is due. Ask whether Tuesday mornings are possible.
 <!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z deleted=2026-10-13T07:45Z -->
 Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.
 
-<!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 -->
+<!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 color=pink decor=stars -->
 ## Birthday party for Mia
 ### Guests
 - Grandparents, Lea's sister, the neighbours
@@ -89,7 +89,9 @@ Idea for the team meeting: start with the open questions from last week instead 
 
 ![Treasure hunt last year](https://media.example.net/mia/treasure-hunt.webm)
 
-<!-- note id=s10 status=permanent created=2026-10-04T11:00Z modified=2026-10-06T19:30Z -->
+#🎂
+
+<!-- note id=s10 status=permanent created=2026-10-04T11:00Z modified=2026-10-06T19:30Z decor=grid -->
 ## Recipe: lentil soup
 1. Sweat onion, carrot and celery in olive oil
 2. Add red lentils, tomato paste and stock

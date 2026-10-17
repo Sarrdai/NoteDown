@@ -1047,6 +1047,73 @@ a.row-open { text-decoration: none; }
 
 .app[data-tab="people"] .people-pane { display: flex; flex: 1; }
 
+/* ---------- note colors and motifs (core/look.js, ui/look-picker.js) ---------- */
+/* A color tints the card from the flavor's own shade, so text stays readable in
+   every theme; a motif is drawn behind the text in that tone (or a neutral one). */
+.note { isolation: isolate; }
+[data-color="red"] { --tone: var(--ctp-red); }
+[data-color="orange"] { --tone: var(--ctp-peach); }
+[data-color="yellow"] { --tone: var(--ctp-yellow); }
+[data-color="green"] { --tone: var(--ctp-green); }
+[data-color="teal"] { --tone: var(--ctp-teal); }
+[data-color="blue"] { --tone: var(--ctp-blue); }
+[data-color="purple"] { --tone: var(--ctp-mauve); }
+[data-color="pink"] { --tone: var(--ctp-pink); }
+.note[data-color] {
+  background: color-mix(in srgb, var(--tone) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--tone) 32%, var(--border));
+}
+.note[data-color] .chip:not(.today, .overdue, .news-chip, .due-add) { background: color-mix(in srgb, var(--tone) 16%, var(--surface-hover)); }
+[data-decor] { --ink: color-mix(in srgb, var(--tone, var(--text-faint)) 30%, transparent); }
+.note[data-decor]::before, .look-decors .look-swatch[data-decor]::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+}
+[data-decor="dots"]::before { background: radial-gradient(var(--ink) 1.3px, transparent 1.8px) 0 0 / 16px 16px; }
+[data-decor="grid"]::before {
+  background: linear-gradient(var(--ink) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, var(--ink) 1px, transparent 1px) 0 0 / 22px 22px;
+  opacity: 0.7;
+}
+[data-decor="waves"]::before { background: var(--ink); -webkit-mask: url(../decor/waves.svg) repeat-x left bottom / 160px 40px; mask: url(../decor/waves.svg) repeat-x left bottom / 160px 40px; }
+[data-decor="leaves"]::before { background: var(--ink); -webkit-mask: url(../decor/leaves.svg) no-repeat right 6px top 6px / 104px 104px; mask: url(../decor/leaves.svg) no-repeat right 6px top 6px / 104px 104px; }
+[data-decor="stars"]::before { background: var(--ink); -webkit-mask: url(../decor/stars.svg) no-repeat right 8px top 8px / 128px 82px; mask: url(../decor/stars.svg) no-repeat right 8px top 8px / 128px 82px; }
+
+/* The picker: two rows of round swatches in the popup menu. */
+.look-row { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 6px; padding: 4px 6px 8px; max-width: 312px; }
+.look-swatch {
+  position: relative; isolation: isolate; width: 44px; height: 44px; padding: 0; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer;
+}
+.look-swatch[data-color] { background: color-mix(in srgb, var(--tone) 55%, var(--surface)); border-color: color-mix(in srgb, var(--tone) 70%, var(--border)); }
+.look-decors .look-swatch { border-radius: 10px; }
+.look-decors[data-color="red"] .look-swatch { --tone: var(--ctp-red); }
+.look-decors[data-color="orange"] .look-swatch { --tone: var(--ctp-peach); }
+.look-decors[data-color="yellow"] .look-swatch { --tone: var(--ctp-yellow); }
+.look-decors[data-color="green"] .look-swatch { --tone: var(--ctp-green); }
+.look-decors[data-color="teal"] .look-swatch { --tone: var(--ctp-teal); }
+.look-decors[data-color="blue"] .look-swatch { --tone: var(--ctp-blue); }
+.look-decors[data-color="purple"] .look-swatch { --tone: var(--ctp-mauve); }
+.look-decors[data-color="pink"] .look-swatch { --tone: var(--ctp-pink); }
+.look-decors:not([data-color=""]) .look-swatch { background: color-mix(in srgb, var(--tone) 15%, var(--surface)); }
+.look-decors .look-swatch[data-decor] { --ink: color-mix(in srgb, var(--tone, var(--text-faint)) 60%, transparent); }
+/* The previews show the motif scaled down, so it fits the small tile. */
+.look-decors [data-decor="grid"]::before { background-size: 11px 11px; }
+.look-decors [data-decor="dots"]::before { background-size: 10px 10px; }
+.look-decors [data-decor="waves"]::before { -webkit-mask-size: 64px 18px; mask-size: 64px 18px; }
+.look-decors [data-decor="leaves"]::before { -webkit-mask-size: 36px 36px; mask-size: 36px 36px; -webkit-mask-position: right 2px top 2px; mask-position: right 2px top 2px; }
+.look-decors [data-decor="stars"]::before { -webkit-mask-size: 40px 26px; mask-size: 40px 26px; -webkit-mask-position: center; mask-position: center; }
+.look-swatch .icon { width: 20px; height: 20px; }
+.look-swatch .check { display: none; stroke-width: 3; }
+.look-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.look-swatch[aria-checked="true"] .check { display: block; }
+.look-swatch[aria-checked="true"] .none { display: none; }
+.look-swatch .none { color: var(--text-faint); }
+.look-swatch:hover { filter: brightness(0.97); }
+.look-swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Prototype variant (main.js → lookEntry): the toolbar's Color button only in variant B. */
+.app:not(.look-editor) .tool[data-cmd="look"] { display: none; }
+
 /* ---------- labels (#hashtags in the text) ---------- */
 /* In a note: a small chip; a tap filters the list by it. */
 .label-chip {

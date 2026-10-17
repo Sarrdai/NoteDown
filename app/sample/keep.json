@@ -62,7 +62,7 @@
   {
    "name": "Takeout/Keep/Book ideas.json",
    "json": {
-    "color": "DEFAULT",
+    "color": "YELLOW",
     "isTrashed": false,
     "isPinned": true,
     "isArchived": false,
@@ -75,7 +75,7 @@
   {
    "name": "Takeout/Keep/Garden plan for spring.json",
    "json": {
-    "color": "DEFAULT",
+    "color": "GREEN",
     "isTrashed": false,
     "isPinned": false,
     "isArchived": false,

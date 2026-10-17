@@ -323,7 +323,7 @@ against the base:
 |---|---|---|
 | unchanged | anything | remote |
 | changed | unchanged | local |
-| changed | changed | merged per field: status (with closed date), due date, text and the trash mark (`deleted`, `kept`) are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, where the other version is kept as a **conflict copy** (a separate note), so nothing is lost |
+| changed | changed | merged per field: status (with closed date), due date, text, the trash mark (`deleted`, `kept`), color and motif are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, where the other version is kept as a **conflict copy** (a separate note), so nothing is lost |
 | changed | deleted | the edit wins, the note stays (a shared note; in the private file a delete is the `deleted` field and merges like the others — the note waits in the trash with the edit) |
 | changed | moved to another file | the edit follows the note into that file, or into the user's private file if the user is no longer a member there (`applyDisplaced`) |
 

@@ -39,7 +39,7 @@ Done by bank transfer, reference number in the banking app.
 - A note starts at its marker line `<!-- note … -->` and runs until the
   next marker or the end of the file. Its body is plain Markdown and may
   contain any headings, so the marker — not a heading — is the boundary.
-- Labels (`#travel`) are plain text in the body; the format has no
+- Labels (`#travel`, `#😉`) are plain text in the body; the format has no
   attribute for them (`docs/requirements.md` → "Labels").
 - Task states are plain Markdown too: `[ ]` open, `[x]` done, `[/]` in
   progress, `[-]` cancelled (as Obsidian themes write them;
@@ -66,6 +66,8 @@ Done by bank transfer, reference number in the banking app.
 | `left` | no | Shared files only: identity IDs of members who left the note, comma-separated (see "Leaving a shared note") |
 | `deleted` | no | Private file only: time (UTC) the note went into the trash; it is removed for good 30 days later (`docs/sync-and-sharing.md` → "Trash") |
 | `from` | no | A closed note of done tasks (Clear done tasks): the id of the note they came from, for Back to note (`docs/requirements.md` → "Multi-select") |
+| `color` | no | The note's background color: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple` or `pink` (`docs/requirements.md` → "Note colors and motifs"); an unknown value reads as none |
+| `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves` or `stars`; an unknown value reads as none |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of

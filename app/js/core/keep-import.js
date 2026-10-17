@@ -2,12 +2,14 @@
 // JSON file per note under Takeout/Keep/) and turns them into NoteDown notes
 // (docs/requirements.md → "Import from Google Keep"). Title → "## Title",
 // text as it is, checklists → task checkboxes, labels → a last line of
-// #labels, the dates kept; archived → closed, pinned → permanent. Images,
-// recordings and drawings, colors, collaborators and reminders don't come
-// along; notes in Keep's trash are left out.
+// #labels, the dates kept; archived → closed, pinned → permanent; the note
+// color → the matching NoteDown color (core/look.js). Images, recordings and
+// drawings, collaborators and reminders don't come along; notes in Keep's
+// trash are left out.
 import { zipEntries } from "./zip.js";
 import { createNote, timestamp, newId } from "./notes-file.js";
 import { toLabel } from "./labels.js";
+import { keepColor } from "./look.js";
 
 const KIND = [["image/", "image"], ["audio/", "recording"]];
 
@@ -42,6 +44,7 @@ export function keepNote(json, file = "") {
     status: json.isArchived ? "closed" : json.isPinned ? "permanent" : "open",
     created: usec(json.createdTimestampUsec) || modified,
     modified,
+    color: keepColor(json.color),
     trashed: !!json.isTrashed,
     shared: (json.sharees || []).some(s => !s.isOwner),
     dropped,
@@ -78,6 +81,7 @@ export function toNoteDown(k) {
   n.modified = k.modified;
   n.status = k.status;
   if (k.status === "closed") n.closed = k.modified;
+  if (k.color) n.color = k.color;
   return n;
 }
 

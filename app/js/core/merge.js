@@ -159,7 +159,7 @@ function withoutLeft({ left, ...note }) {
 }
 
 // Field groups merged independently; created and id never change.
-const GROUPS = [["status", "closed"], ["due"], ["body"], ["deleted", "kept"]];
+const GROUPS = [["status", "closed"], ["due"], ["body"], ["deleted", "kept"], ["color"], ["decor"]];
 
 function mergeNote(base, l, r, notes) {
   const newer = l.modified >= r.modified ? l : r;
@@ -173,6 +173,8 @@ function mergeNote(base, l, r, notes) {
   }
   if (!out.deleted) delete out.deleted;
   if (!out.kept) delete out.kept;
+  if (!out.color) delete out.color;
+  if (!out.decor) delete out.decor;
   // Both sides changed the text differently: keep the older text as a copy.
   if (l.body !== r.body && (!base || (l.body !== base.body && r.body !== base.body))) {
     notes.push({ ...older, id: newId() });
@@ -202,5 +204,5 @@ function same(a, b) {
   if (!a || !b) return !a && !b;
   if (isNote(a) !== isNote(b)) return false;
   if (!isNote(a)) return true;
-  return ["status", "created", "modified", "due", "closed", "body", "deleted", "kept"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
+  return ["status", "created", "modified", "due", "closed", "body", "deleted", "kept", "color", "decor"].every(k => a[k] === b[k]) && (a.left || []).join() === (b.left || []).join();
 }

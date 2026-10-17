@@ -8,6 +8,7 @@ import { openMenu } from "./menu.js";
 import { today, addDays } from "./format.js";
 import { icon } from "./icons.js";
 import { openSettings } from "./settings.js";
+import { openLookPicker } from "./look-picker.js";
 
 const BUTTONS = [
   ["heading", "Heading", "heading"],
@@ -20,6 +21,7 @@ const BUTTONS = [
   ["link", "Link (Ctrl+K)", "link"],
   ["media", "Image or video from the web", "image"],
   ["counter", "Counter (hold: time counter with stopwatch)", "counter"],
+  ["look", "Color and motif", "look"],   // Prototype variant B (main.js → lookEntry)
   ["undo", "Undo (Ctrl+Z)", "undo"],
   ["redo", "Redo (Ctrl+Shift+Z)", "redo"],
 ];
@@ -62,6 +64,7 @@ export function initToolbar({ onDue }) {
     if (!b) return;
     if (held) { held = false; return; }
     if (b.id === "toolbarDone") return endEdit();
+    if (b.dataset.cmd === "look") return openLookPicker(b, [state.editingId]);
     currentEditor()?.run(b.dataset.cmd);
   });
 

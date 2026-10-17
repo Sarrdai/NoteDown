@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS = {
   reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
+  lookEntry: "select",       // Prototype variant: where "Color" is reached — "select" (selection bar, A) | "editor" (editing toolbar, B)
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 
@@ -457,6 +458,19 @@ export function setDue(id, due) {
   emit("note:" + id);
 }
 
+/** Sets the color and / or motif (`look`: { color?, decor? }, null clears) of notes (core/look.js); like the due
+ *  date it is no content change, so `modified` stays. Returns a function that undoes it. */
+export function setLook(ids, look) {
+  const changed = ids.map(note).filter(n => n && !n.news && Object.keys(look).some(k => (n[k] || null) !== look[k]));
+  if (!changed.length) return () => {};
+  const apply = (n, l) => { for (const [k, v] of Object.entries(l)) { if (v) n[k] = v; else delete n[k]; } };
+  const before = changed.map(n => [n, Object.fromEntries(Object.keys(look).map(k => [k, n[k] || null]))]);
+  for (const n of changed) apply(n, look);
+  saveFiles();
+  for (const n of changed) emit("note:" + n.id);
+  return () => { for (const [n, b] of before) apply(n, b); saveFiles(); for (const [n] of before) emit("note:" + n.id); };
+}
+
 /** A new note starts in the private file, or in the file of `memberIds`
  *  (the circle the list is filtered to, #23), created on first use. */
 export function addNote(body, memberIds = []) {
@@ -558,6 +572,10 @@ export function applyMerge(changes, merged, mode = "copy") {
   n.due = merged.due;
   target.notes.unshift(n);
   if (permanent) n.status = "permanent";
+  // It takes the look of the first source that has one.
+  const look = ids.map(note).find(x => x && (x.color || x.decor));
+  if (look?.color) n.color = look.color;
+  if (look?.decor) n.decor = look.decor;
   saveFiles();
   emit("structure");
   return {

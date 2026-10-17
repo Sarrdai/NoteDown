@@ -37,3 +37,10 @@ test("labels: rendered as chips, not in code, headings keep their text", () => {
   assert.match(html, /<code>#code<\/code>/);
   assert.deepEqual(headings("## Lisbon #travel"), [{ depth: 2, text: "Lisbon #travel" }]);
 });
+
+test("labels: emoji count as labels, alone or with letters", () => {
+  assert.deepEqual(labelsOf("Party #🎂 and #😉, #👍🏽ok #🏳️‍🌈 #🇩🇪 #trip✈️"), ["🎂", "😉", "👍🏽ok", "🏳️‍🌈", "🇩🇪", "trip✈️"]);
+  assert.deepEqual(labelsOf("Keycaps #️⃣ and #1️⃣ are no labels"), []);
+  assert.equal(toLabel("Party 🎉!"), "Party-🎉");
+  assert.match(renderMarkdown("Mia #🎂"), /<button type="button" class="label-chip" data-label="🎂">#🎂<\/button>/);
+});

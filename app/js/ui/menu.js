@@ -1,5 +1,6 @@
 // A popup menu anchored to a button. Items: { label, icon?, checked?, disabled?, onSelect }
-// or { section: "Title" } or { separator: true }. Picking an item closes it.
+// or { section: "Title" } or { separator: true } or { node: Element } (placed as it is, e.g. a row of swatches;
+// it stays open on a tap inside). Picking an item closes it.
 import { icon } from "./icons.js";
 
 let openFor = null;
@@ -10,6 +11,7 @@ export function openMenu(anchor, items) {
   menu.replaceChildren(...items.map(item => {
     if (item.section) return Object.assign(document.createElement("div"), { className: "menu-section", textContent: item.section });
     if (item.separator) return Object.assign(document.createElement("div"), { className: "menu-sep" });
+    if (item.node) return item.node;
     const b = document.createElement("button");
     b.className = "menu-item";
     b.setAttribute("role", item.checked === undefined ? "menuitem" : "menuitemradio");

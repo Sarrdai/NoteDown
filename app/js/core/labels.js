@@ -1,13 +1,24 @@
 // Labels: #hashtags in a note's text (like Obsidian), so they stay plain
 // Markdown. A label follows a space or the line start ("# Heading" with a
 // space stays a heading, "issue#5" is no label), runs over letters, digits,
-// "_", "-" and "/" and holds at least one letter or "_" ("#5" is no label).
-// Compared case-insensitively; a label is shown in the spelling it first
-// appears in.
+// emoji, "_", "-" and "/" and holds at least one letter, emoji or "_" ("#5"
+// is no label, "#😉" is one). Compared case-insensitively; a label is shown
+// in the spelling it first appears in.
+
+// An emoji: a pictograph or flag letter, with what joins and varies it
+// (variation selector, zero-width joiner, skin tone, keycap).
+const EMOJI = String.raw`\p{Extended_Pictographic}\p{Regional_Indicator}`;
+const JOIN = String.raw`\u{FE0F}\u{200D}\p{Emoji_Modifier}\u{20E3}`;
+const START = String.raw`[\p{L}\p{N}_${EMOJI}]`;
+const INNER = String.raw`[\p{L}\p{N}_/${EMOJI}${JOIN}-]`;
+const END = String.raw`[\p{L}\p{N}_${EMOJI}${JOIN}]`;
+const NAME = String.raw`(?=[\p{N}/-]*[\p{L}_${EMOJI}])(${START}(?:${INNER}*${END})?)`;
 
 /** A label at the start of a string: [whole match, name]. */
-export const LABEL_AT = /^#(?=[\p{N}/-]*[\p{L}_])([\p{L}\p{N}_](?:[\p{L}\p{N}_/-]*[\p{L}\p{N}_])?)/u;
-const LABEL_IN = /(^|[\s(])#(?=[\p{N}/-]*[\p{L}_])([\p{L}\p{N}_](?:[\p{L}\p{N}_/-]*[\p{L}\p{N}_])?)/gu;
+export const LABEL_AT = new RegExp("^#" + NAME, "u");
+const LABEL_IN = new RegExp(String.raw`(^|[\s(])#` + NAME, "gu");
+/** Where a label may start: [match, the character before "#"]. */
+export const LABEL_START = new RegExp(String.raw`(^|[\s(])#${START}`, "u");
 
 export const labelKey = name => name.toLocaleLowerCase();
 
@@ -42,6 +53,6 @@ export function labelCounts(notes) {
 /** A label name from another app (e.g. Google Keep's "Trip ideas") as a
  *  NoteDown label: spaces become "-", characters a label can't hold go. */
 export function toLabel(name) {
-  const s = name.trim().replace(/[^\p{L}\p{N}_/\s-]/gu, "").trim().replace(/\s+/g, "-").replace(/^[-/]+|[-/]+$/g, "");
-  return /[\p{L}_]/u.test(s) ? s : null;
+  const s = name.trim().replace(new RegExp(String.raw`[^\p{L}\p{N}_/\s${EMOJI}${JOIN}-]`, "gu"), "").trim().replace(/\s+/g, "-").replace(/^[-/]+|[-/]+$/g, "");
+  return new RegExp(String.raw`[\p{L}_${EMOJI}]`, "u").test(s) ? s : null;
 }

@@ -17,7 +17,9 @@
 // An `<!-- order … -->` marker holds a custom note order: the user's own in
 // the private file, a circle's shared one in a shared file. `<!-- news … -->`
 // markers in the private file remember which news posts the user has seen,
-// archived or deleted (core/news.js).
+// archived or deleted (core/news.js). A note's `color=` and `decor=` are its
+// look (core/look.js).
+import { validColor, validDecor } from "./look.js";
 
 const MARKER = /^<!-- (note|device|contact|member|news|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
@@ -86,6 +88,8 @@ export function noteMarker(n) {
   if (n.deleted) attrs.push("deleted=" + n.deleted);
   if (n.kept) attrs.push("kept=" + n.kept);
   if (n.from) attrs.push("from=" + n.from);
+  if (n.color) attrs.push("color=" + n.color);
+  if (n.decor) attrs.push("decor=" + n.decor);
   return `<!-- note ${attrs.join(" ")} -->`;
 }
 
@@ -159,6 +163,8 @@ function finishNote({ meta, body }) {
     ...(meta.deleted && { deleted: meta.deleted }),
     ...(meta.kept && { kept: meta.kept }),
     ...(meta.from && { from: meta.from }),
+    ...(validColor(meta.color) && { color: meta.color }),
+    ...(validDecor(meta.decor) && { decor: meta.decor }),
   };
 }
 
