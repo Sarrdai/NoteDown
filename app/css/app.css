@@ -935,6 +935,7 @@ a.row-open { text-decoration: none; }
 .unsorted-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); order: 1; }
 .unsorted-divider .link-btn { order: 2; border: 0; padding: 4px 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; letter-spacing: 0; text-transform: none; font-size: 0.85rem; cursor: pointer; }
 .unsorted-divider .link-btn:hover { background: var(--surface-hover); }
+.toc-list .unsorted-divider { margin: 6px 0 2px 10px; font-size: 0.7rem; }
 .empty { max-width: 780px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-muted); }
 
 /* ---------- table of contents ---------- */

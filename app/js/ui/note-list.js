@@ -51,14 +51,15 @@ export function reorderList(notes, { keepId, ...options }) {
 
 /** The tiles' elements without placing them (also the swipe's preview of the other view). */
 export function listItems(notes, { dividerBefore = null, onArrange, view = state.view } = {}) {
-  return notes.flatMap(n => n.id === dividerBefore ? [divider(onArrange), noteElement(n, view)] : [noteElement(n, view)]);
+  return notes.flatMap(n => n.id === dividerBefore ? [unsortedDivider(onArrange), noteElement(n, view)] : [noteElement(n, view)]);
 }
 
-function divider(onArrange) {
+/** The custom order's "Not sorted yet" line with its Arrange… link (also in the contents). */
+export function unsortedDivider(onArrange) {
   const el = document.createElement("div");
   el.className = "unsorted-divider";
   el.innerHTML = `<span>Not sorted yet</span><button class="link-btn">Arrange…</button>`;
-  el.querySelector("button").addEventListener("click", onArrange);
+  if (onArrange) el.querySelector("button").addEventListener("click", onArrange);
   return el;
 }
 

@@ -5,11 +5,13 @@
 // way into multi-select (ui/selection.js): a long-press (or Ctrl+click) on
 // an entry selects that section with everything below it, then taps add or
 // remove entries. Next to the level stepper a switch shows the task progress
-// of each section here and at the notes' headings (ui/note-list.js).
+// of each section here and at the notes' headings (ui/note-list.js). Sorted
+// by a custom order, the list's "Not sorted yet" line with its Arrange… link
+// sits above the first entry of the notes not sorted yet, as in the list.
 import { tableOfContents } from "../core/query.js";
 import { sectionProgress } from "../core/tasks.js";
 import { state, updateSettings } from "../store.js";
-import { flashNote } from "./note-list.js";
+import { flashNote, unsortedDivider } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { markHits } from "./search-hits.js";
@@ -29,6 +31,7 @@ const app = () => $("app");
 const phone = window.matchMedia("(max-width: 599px)");
 let press = null;     // { key, x, y, timer } while an entry is held
 let swallowClick = false;
+let custom = { dividerOf: () => null, onArrange: null };   // set by initToc
 
 export function renderToc(notes) {
   const { maxLevel } = tableOfContents(notes);
@@ -41,14 +44,22 @@ export function renderToc(notes) {
 }
 
 /** The entries' elements without placing them (also the view swipe's preview of the other view). */
-export function tocItems(notes, search = state.search) {
+export function tocItems(notes, search = state.search, view = state.view) {
   const { entries, maxLevel } = tableOfContents(notes);
   const depth = Math.min(state.settings.tocDepth, maxLevel);
   const progress = state.settings.tocProgress && new Map(notes.map(n => [n.id, sectionProgress(n.body)]));
   if (!entries.length) return [Object.assign(document.createElement("p"), { className: "toc-empty", textContent: search ? "No matches" : "No notes" })];
   const shown = [];
+  // The notes from the first one not sorted yet on (they come last in a custom order).
+  const first = custom.dividerOf(view, notes);
+  const from = first ? notes.findIndex(n => n.id === first) : -1;
+  const unsorted = new Set(from < 0 ? [] : notes.slice(from).map(n => n.id));
+  let divided = !unsorted.size;
+  const onArrange = view === state.view && custom.onArrange
+    ? () => { if (phone.matches) setTocOpen(false); custom.onArrange(); } : null;
   entries.forEach((e, i) => {
     if (e.level > depth) return;
+    if (!divided && unsorted.has(e.noteId)) { shown.push(unsortedDivider(onArrange)); divided = true; }
     const b = document.createElement("button");
     b.className = `toc-entry level-${Math.min(e.level, 6)}` + (e.fromHeading ? "" : " plain")
       + (state.selected.has(e.key) ? " selected" : "");
@@ -64,6 +75,7 @@ export function tocItems(notes, search = state.search) {
     if (p) b.prepend(progressBadge(p));
     shown.push(b);
   });
+  if (!divided) shown.push(unsortedDivider(onArrange));   // their entries are all on hidden levels
   return shown;
 }
 
@@ -76,7 +88,9 @@ export function progressBadge({ done, total }) {
   });
 }
 
-export function initToc() {
+/** `dividerOf(view, notes)`: the first note not sorted yet in a custom order, or null; `onArrange` opens the dialog. */
+export function initToc({ dividerOf, onArrange } = {}) {
+  if (dividerOf) custom = { dividerOf, onArrange };
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
   $("tocProgress").addEventListener("click", () => {
