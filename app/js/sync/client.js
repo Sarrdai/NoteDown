@@ -188,6 +188,7 @@ async function loadKeys() {
 // (docs/sync-and-sharing.md → "Keys"). Every other device does the same on its first round after the update.
 async function addOwnKem() {
   for (let { devices, entries } = await chain(); ;) {
+    noteRecoveryKem(devices);
     const listed = devices.get(state.sync.device)?.kem;
     if (listed) {
       if (c.b64u(listed) !== c.b64u(keys.kem.publicKey)) {
@@ -207,6 +208,37 @@ async function addOwnKem() {
     }
   }
   kemChecked = true;
+}
+
+// TEMPORARY (backlog #20 transition, until the owner's identity from before post-quantum wrapping is upgraded):
+// an identity whose recovery device has no ML-KEM key yet keeps X25519-only copies of its file keys for the
+// recovery key; only the recovery key can add it. `recoveryKem` shows the card that asks for it once.
+function noteRecoveryKem(devices) {
+  const missing = [...devices.values()].some(d => d.kind === "recovery" && d.active && !d.kem);
+  if (missing !== !!state.sync.recoveryKem) setSync({ recoveryKem: missing });
+}
+
+/** TEMPORARY (backlog #20 transition): adds the recovery device's ML-KEM key with the recovery key, then renews
+ *  every file key so the recovery key's copies are wrapped hybrid too. */
+export async function finishRecoveryKem(recoveryKey) {
+  const r = await c.deriveRecovery(c.recoveryKeyBytes(recoveryKey));
+  if (c.b64u(r.identity.publicKey) !== state.sync.identityKey) throw new Error("This isn't the recovery key of your identity.");
+  const recoveryId = await c.keyId(r.recovery.sign.publicKey);
+  await loadKeys();
+  for (let { devices, entries } = await chain(); ;) {
+    if (devices.get(recoveryId)?.kem) break;
+    const body = await c.newEntry(state.sync.identity, entries, "kem", { id: recoveryId, kem: c.b64u(r.recovery.kem.publicKey) });
+    try {
+      await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, "identity", r.identity.privateKey));
+      markRenew();
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      ({ devices, entries } = await chain());   // another device appended first
+    }
+  }
+  setSync({ recoveryKem: false });
+  await syncNow();
 }
 
 // The verified device list: { devices (Map), entries }.

@@ -12,7 +12,7 @@ import { Capacitor } from "../../vendor/capacitor-core.esm.js";
 const $ = id => document.getElementById(id);
 
 /** `onLink`: Sync & sharing on "Link this device"; `onSync`: Sync & sharing (turning sync on). */
-export function initSyncNotice({ onLink, onSync }) {
+export function initSyncNotice({ onLink, onSync, onRecoveryKem }) {
   const card = h("div", { class: "storage-hint sync-notice", id: "syncNotice", role: "status", hidden: true });
   $("viewHint").before(card);
   let shown = "";
@@ -25,7 +25,8 @@ export function initSyncNotice({ onLink, onSync }) {
     if (!n) return card.replaceChildren();
     const action = n.kind === "removed" ? button("Link again", "primary", onLink)
       : n.kind === "deleted" ? button("Turn on sync", "primary", onSync)
-      : n.kind === "outdated" && !Capacitor.isNativePlatform() ? button("Reload", "primary", () => location.reload()) : null;
+      : n.kind === "outdated" && !Capacitor.isNativePlatform() ? button("Reload", "primary", () => location.reload())
+      : n.kind === "recoveryKem" ? button("Enter recovery key", "primary", onRecoveryKem) : null;
     card.dataset.kind = n.kind;
     card.replaceChildren(...[
       h("span", { class: "storage-hint-icon", html: icon("sync") }),

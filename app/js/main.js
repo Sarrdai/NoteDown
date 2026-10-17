@@ -10,6 +10,7 @@ import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
 import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite, openLinkPage } from "./ui/sync-panel.js";
 import { initSyncNotice } from "./ui/sync-notice.js";
+import { openRecoveryKem } from "./ui/recovery-kem.js";   // TEMPORARY (backlog #20 transition)
 import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
@@ -693,7 +694,7 @@ async function start() {
   initReminders({ open: showDue });
   initExport();
   initStorageHint({ onSync: openSyncPanel, onExport: exportDialog });
-  initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel });
+  initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel, onRecoveryKem: openRecoveryKem });
   document.body.dataset.ready = "1";
 }
 
