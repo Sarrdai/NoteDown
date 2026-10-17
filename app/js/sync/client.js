@@ -159,15 +159,27 @@ function busy() {
   setSync({ status: "syncing" });
 }
 
+// The device keys: the WebCrypto pairs as "device" (CryptoKeys, kept in IndexedDB), the ML-KEM pair `{ seed,
+// publicKey }` as "device-kem" (plain bytes, so the vault encrypts it; keystore.js).
+async function readKeys() {
+  const pairs = await getSecret("device");
+  return pairs && { ...pairs, kem: await getSecret("device-kem") };
+}
+
+async function saveKeys({ kem, ...pairs }) {
+  await setSecret("device", pairs);
+  await setSecret("device-kem", kem);
+}
+
 async function loadKeys() {
-  keys ||= await getSecret("device");
+  keys ||= await readKeys();
   if (!keys) throw new Error("This device's keys are missing");
   if (!keys.kem) {
     // Keys from before post-quantum wrapping (backlog #20): the device gets its ML-KEM pair now. Read again first,
     // so two tabs of the web app don't make two.
-    const stored = await getSecret("device");
-    keys = stored.kem ? stored : { ...stored, kem: await c.generateKemKeys() };
-    if (!stored.kem) await setSecret("device", keys);
+    const stored = await getSecret("device-kem");
+    keys = { ...keys, kem: stored || await c.generateKemKeys() };
+    if (!stored) await setSecret("device-kem", keys.kem);
   }
 }
 
@@ -179,7 +191,7 @@ async function addOwnKem() {
     const listed = devices.get(state.sync.device)?.kem;
     if (listed) {
       if (c.b64u(listed) !== c.b64u(keys.kem.publicKey)) {
-        keys = await getSecret("device");   // another tab of the web app added its key first
+        keys = await readKeys();   // another tab of the web app added its key first
         if (c.b64u(listed) !== c.b64u(keys.kem.publicKey)) throw new Error("This device's keys don't match the device list");
       }
       break;
@@ -212,7 +224,7 @@ export async function loadDevices() {
 
 async function adopt({ name, identity, server, identityKey, device }) {
   await clearSecrets();
-  await setSecret("device", device);
+  await saveKeys(device);
   keys = device;
   kemChecked = false;
   forgetKeys();
@@ -496,8 +508,8 @@ async function detach(why) {
 }
 
 /**
- * Erases everything NoteDown keeps on this device (notes, settings, sync
- * state in localStorage; device and file keys in IndexedDB) and stops syncing.
+ * Erases everything NoteDown keeps on this device (the vault with notes,
+ * settings, sync state and file keys; the device keys in IndexedDB) and stops syncing.
  * The caller reloads the page afterwards.
  */
 export async function eraseDevice() {
@@ -505,7 +517,7 @@ export async function eraseDevice() {
   clearTimeout(timer);
   api = null;   // no sync round starts from here on
   apis = null;
-  eraseStoredState();
+  await eraseStoredState();
   keys = null;
   forgetKeys();
   await deleteDatabase();

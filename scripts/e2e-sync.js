@@ -357,6 +357,60 @@ async function main() {
       assert.ok(all.includes(sample.s05) && all.includes(sample.s06));
     });
 
+    await step("updating from a version before the vault (backlog #19): A's plain data moves into the vault, unchanged, and A syncs on", async () => {
+      const before = { text: await fileText(a), sync: await syncState(a) };
+      const records = [before.sync.file, ...Object.values(before.sync.files)];
+      before.keys = await Promise.all(records.map(r => fileKeyOf(a, r)));
+      // What the old version kept: the records as plain localStorage, the file keys as raw bytes in IndexedDB.
+      const old = await a.evaluate(async recs => {
+        const v = await (await import("/app/js/vault.js")).openVault();
+        const out = { storage: {}, keys: {} };
+        for (const n of ["notedown.file", "notedown.shared", "notedown.sync", "notedown.settings"]) {
+          const value = await v.get(n);
+          if (value !== undefined) out.storage[n] = value;
+        }
+        for (const r of recs) out.keys["file:" + r.server + "/" + r.id] = Array.from(await v.get("secret:file:" + r.server + "/" + r.id));
+        const kem = await v.get("secret:device-kem");   // the ML-KEM seed, plain bytes like the file keys
+        out.kem = { seed: Array.from(kem.seed), publicKey: Array.from(kem.publicKey) };
+        return out;
+      }, records);
+      await a.goto(`http://127.0.0.1:${PORT}/README.md`);   // same origin, no app code running
+      await a.evaluate(async old => {
+        for (const [k, v] of Object.entries(old.storage)) localStorage.setItem(k, v);
+        await new Promise(r => { const q = indexedDB.deleteDatabase("notedown-vault"); q.onsuccess = q.onerror = q.onblocked = r; });
+        const db = await new Promise((res, rej) => { const q = indexedDB.open("notedown", 1); q.onupgradeneeded = () => q.result.createObjectStore("keys"); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+        await new Promise((res, rej) => {
+          const t = db.transaction("keys", "readwrite");
+          for (const [k, v] of Object.entries(old.keys)) t.objectStore("keys").put(new Uint8Array(v), k);
+          t.objectStore("keys").put({ seed: new Uint8Array(old.kem.seed), publicKey: new Uint8Array(old.kem.publicKey) }, "device-kem");
+          t.oncomplete = res; t.onerror = () => rej(t.error);
+        });
+        db.close();
+      }, old);
+      await a.goto(`http://127.0.0.1:${PORT}/app/index.html`);
+      await a.waitForFunction(() => document.body.dataset.ready === "1");
+      await loadModules(a);
+      assert.equal(await fileText(a), before.text, "the private file is unchanged");
+      assert.equal((await syncState(a)).identity, before.sync.identity);
+      assert.deepEqual(await Promise.all(records.map(r => fileKeyOf(a, r))), before.keys, "the file keys are unchanged");
+      const left = await a.evaluate(async () => {
+        const db = await new Promise(res => { const q = indexedDB.open("notedown", 1); q.onsuccess = () => res(q.result); });
+        const keys = await new Promise(res => { const q = db.transaction("keys").objectStore("keys").getAllKeys(); q.onsuccess = () => res(q.result); });
+        db.close();
+        // The vault's records on disk: none holds a note's text in plain.
+        const vdb = await new Promise(res => { const q = indexedDB.open("notedown-vault", 1); q.onsuccess = () => res(q.result); });
+        const raw = await new Promise(res => { const q = vdb.transaction("records").objectStore("records").getAll(); q.onsuccess = () => res(q.result); });
+        vdb.close();
+        return { storage: Object.keys(localStorage), keys, raw: raw.map(b => new TextDecoder().decode(b)).join("") };
+      });
+      assert.ok(left.storage.every(k => k === "notedown.api"), `plain localStorage removed: ${left.storage}`);
+      assert.ok(left.keys.every(k => !k.startsWith("file:") && k !== "device-kem"), `plain file keys removed: ${left.keys}`);
+      for (const body of await bodies(a)) assert.ok(!left.raw.includes(body.split("\n")[0]), "no note text in the vault's records");
+      await addNote(a, sample.s18);
+      await converge(a, b);
+      assert.ok((await bodies(b)).includes(sample.s18));
+    });
+
     await step("the same note edited on both keeps both versions", async () => {
       const before = (await bodies(a)).length;
       await Promise.all([
@@ -427,8 +481,8 @@ async function main() {
       }));
       assert.equal(left.sync, false, "sync is off");
       assert.equal(left.notes, 4, "first start: the welcome notes");
-      assert.deepEqual(left.databases, [], "no IndexedDB left");
-      assert.ok(left.keys.every(k => ["notedown.api", "notedown.file", "notedown.shared", "notedown.sync"].includes(k)), `only first-start keys: ${left.keys}`);
+      assert.deepEqual(left.databases, ["notedown-vault"], "only the fresh vault of the first start");
+      assert.ok(left.keys.every(k => k === "notedown.api"), `nothing but the server address in plain localStorage: ${left.keys}`);
       await shot(c, "signed-out-tablet");
       // A's verified list no longer has C, and A, D keep syncing.
       await sync(a);

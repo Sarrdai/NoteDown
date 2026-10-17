@@ -63,7 +63,12 @@ QR code.
 **Security:** the goal is to be at least as secure as
 [Signal](https://signal.org). Notes are end-to-end encrypted, with keys
 wrapped post-quantum hybrid as in Signal (X25519 + ML-KEM), and on the
-device only NoteDown reads them. The **web app** is available now and
+device only NoteDown reads them: everything it keeps there is encrypted
+(on Android with a key from the Android Keystore) and stays out of the
+system backup; an encrypted backup file takes the notes to a new device.
+The Android app can lock with the phone's screen lock, keeps its notes
+out of screenshots and the recent-apps preview, asks the keyboard not to
+learn what is typed, and its reminders show no note text unless chosen. The **web app** is available now and
 convenient, but like any web app it is only as trustworthy as the host
 that serves its code — which is why Signal has no web client. The
 Android app is the secure way; a **desktop client** with signed updates

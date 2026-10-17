@@ -153,6 +153,14 @@
    "text": "apache-2.0"
   },
   {
+   "name": "AndroidX Biometric",
+   "version": "1.1.0",
+   "license": "Apache-2.0",
+   "url": "https://developer.android.com/jetpack/androidx/releases/biometric",
+   "platform": "android",
+   "text": "apache-2.0"
+  },
+  {
    "name": "Apache Cordova (Android)",
    "version": "14.0.1",
    "license": "Apache-2.0",

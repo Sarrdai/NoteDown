@@ -13,6 +13,7 @@ import { createEditor } from "../js/ui/editor.js";
 import { relativeTime } from "../js/ui/format.js";
 import { createApi } from "../js/sync/api.js";
 import { getSecret } from "../js/sync/keystore.js";
+import { readStored } from "../js/vault.js";
 import { serverUrl } from "../js/core/linking.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { fillMedia } from "../js/ui/external.js";
@@ -48,13 +49,15 @@ const S = {
 let api = null;
 
 const readStore = key => { try { return localStorage.getItem(key); } catch { return null; } };
-const readJson = key => { try { return JSON.parse(readStore(key) || "null"); } catch { return null; } };
+// The app's settings and sync state, from the encrypted vault (app/js/vault.js).
+const readJson = async key => { try { return JSON.parse((await readStored(key)) || "null"); } catch { return null; } };
 
 // ---------- theme and tier ----------
 
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
+let storedFlavor = "";
 function applyTheme() {
-  const wanted = params.get("flavor") || (readJson("notedown.settings") || {}).flavor || "system";
+  const wanted = params.get("flavor") || storedFlavor || "system";
   const flavor = FLAVORS.includes(wanted) ? wanted : systemDark.matches ? "mocha" : "latte";
   document.documentElement.dataset.flavor = flavor;
 }
@@ -74,7 +77,7 @@ async function connect() {
     S.identity = data.overview.identity;
     return true;
   }
-  const sync = readJson("notedown.sync");
+  const sync = await readJson("notedown.sync");
   const keys = sync && sync.enabled && sync.identity && !sync.simulated ? await getSecret("device").catch(() => null) : null;
   if (!keys || !keys.sign || !sync.device) { S.status = "no-sync"; return false; }
   let config = {};
@@ -1007,6 +1010,7 @@ async function start() {
 }
 
 applyTheme();
+readJson("notedown.settings").then(s => { storedFlavor = (s && s.flavor) || ""; applyTheme(); });
 systemDark.addEventListener("change", applyTheme);
 initMenu();
 $("restoreFile").addEventListener("change", e => { const f = e.target.files[0]; if (f) openRestoreDialog(f); });

@@ -8,7 +8,7 @@
 import { readKeepZip, keepNotes, toNoteDown, droppedText } from "../js/core/keep-import.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { fillMedia } from "../js/ui/external.js";
-import { state, load, importNotes } from "../js/store.js";
+import { state, load, importNotes, flushStored } from "../js/store.js";
 import { initConfirm, openConfirm } from "../js/ui/confirm.js";
 import { relativeTime } from "../js/ui/format.js";
 import { icon } from "../js/ui/icons.js";
@@ -127,9 +127,10 @@ function confirmImport() {
     text: "They go to your private notes in this browser, archived ones to the archive. With sync on, your other devices get them too.",
     danger: false,
     okLabel: () => "Import",
-    onConfirm: () => {
-      load();   // the newest state, should the app have changed it meanwhile
+    onConfirm: async () => {
+      await load();   // the newest state, should the app have changed it meanwhile
       importNotes(chosen.map(toNoteDown));
+      await flushStored();
       $("doneText").textContent = `${plural(chosen.length, "note")} imported`;
       show("doneStep");
     },
@@ -143,7 +144,7 @@ function esc(s) {
 }
 
 async function start() {
-  load();
+  await load();
   applyTheme();
   systemDark.addEventListener("change", applyTheme);
   initConfirm();

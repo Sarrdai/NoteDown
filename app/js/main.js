@@ -671,7 +671,7 @@ function writeApi(url) {
 
 async function start() {
   wire();
-  const hadFile = load();
+  const hadFile = await load();
   const sample = applyUrlOptions();
   if (state.view === "trash") enterTrash();
   if (sample) replaceFiles(await loadSampleState(sample));
