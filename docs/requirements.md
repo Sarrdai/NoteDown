@@ -282,13 +282,6 @@ before the first live test).
     loads the current one) and "Install the current app" on Android, no
     ✕. It goes by itself with the first round after the update. Before,
     an outdated app just failed on data it couldn't read.
-  - **Recovery key not upgraded yet** (temporary, backlog #20, user
-    decision 2026-10-17): an identity from before post-quantum wrapping
-    shows "Enter your recovery key once — It finishes the post-quantum
-    protection of your notes …" with **Enter recovery key**, no ✕; its
-    page takes the recovery key, upgrades the recovery device and renews
-    the file keys (`docs/sync-and-sharing.md` → "Keys"). To be removed
-    once the owner's identity is upgraded; new identities never see it.
   *Prototype: 2026-10-16 (⋮ → Prototype → "Simulate device removal",
   "Simulate outdated app").*
 - **Signing out this device** (backlog #15): Sync & sharing → "Sign out

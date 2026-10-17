@@ -207,10 +207,6 @@ export function syncNotice(sync, timeZone, native = false) {
   if (sync.enabled && sync.blocked) {
     return { kind: "blocked", title: blockedMessage(sync.blocked.until, timeZone), sub: "Changes you make here are kept and sync once the block ends.", closable: false };
   }
-  // TEMPORARY (backlog #20 transition): the recovery key's copies of the file keys are still X25519-only.
-  if (sync.enabled && sync.recoveryKem) {
-    return { kind: "recoveryKem", title: "Enter your recovery key once", sub: "It finishes the post-quantum protection of your notes: the copies of your keys kept for the recovery key are still protected the old way.", closable: false };
-  }
   return null;
 }
 

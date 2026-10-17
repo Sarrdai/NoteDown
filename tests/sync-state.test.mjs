@@ -212,11 +212,3 @@ test("syncNotice: an outdated app is told to reload (web) or install the current
   assert.equal(syncNotice({ enabled: true, outdated: true, blocked: { until: null } }).kind, "outdated", "updating comes first");
   assert.equal(syncNotice({ enabled: false, outdated: true }), null, "sync off: no notice");
 });
-
-test("TEMPORARY (backlog #20 transition): a card asks for the recovery key while the recovery device has no ML-KEM key", async () => {
-  const { syncNotice } = await import("../app/js/core/sync-state.js");
-  assert.equal(syncNotice({ enabled: true, recoveryKem: true }).kind, "recoveryKem");
-  assert.equal(syncNotice({ enabled: true, recoveryKem: true }).closable, false);
-  assert.equal(syncNotice({ enabled: true, recoveryKem: false }), null);
-  assert.equal(syncNotice({ enabled: false, recoveryKem: true }), null);
-});

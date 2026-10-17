@@ -991,7 +991,7 @@ async function main() {
       assert.match(await noteBody(d, noteK), /after Lea deleted her data$/);
     });
 
-    await step("an X25519-only device adds its ML-KEM key and renews the file key; the card asks for the recovery key once and upgrades the recovery device", async () => {
+    await step("an X25519-only device adds its ML-KEM key and renews the file key; restoring upgrades the recovery device", async () => {
       // The state an app from before post-quantum wrapping left: device list, keys and wraps without ML-KEM.
       const o = await device(browser, "O", { width: 390, height: 844 });
       const old = await o.evaluate(async api => {
@@ -1037,32 +1037,13 @@ async function main() {
       const upgraded = await pq(o);
       assert.deepEqual({ ...upgraded, fileKey: undefined }, { deviceKem: true, recoveryKem: false, ownHybrid: true, fileKey: undefined, renew: 0 });
       assert.notEqual(upgraded.fileKey, old.fileKey, "the file key was renewed");
-      // TEMPORARY (backlog #20 transition): only the recovery key can upgrade the recovery device, so a card asks
-      // for it once; entering it adds the recovery device's ML-KEM key and renews the key once more.
-      const card = o.locator("#syncNotice", { hasText: "Enter your recovery key once" });
-      await card.waitFor();
-      await shot(o, "recovery-kem-card-phone");
-      await card.getByRole("button", { name: "Enter recovery key" }).click();
-      await o.fill('input[aria-label="Recovery key"]', "AAAA-BBBB-CCCC-DDDD-EEEE-FFGG");
-      await o.getByRole("button", { name: "Finish protection" }).click();
-      await o.getByText(/isn't the recovery key of your identity|doesn't look like a recovery key/).waitFor();
-      await o.fill('input[aria-label="Recovery key"]', old.recoveryKey);
-      await shot(o, "recovery-kem-page-phone");
-      await o.getByRole("button", { name: "Finish protection" }).click();
-      await o.getByText("Post-quantum protection finished").waitFor();
-      await card.waitFor({ state: "hidden" });
-      const finished = await pq(o);
-      assert.deepEqual({ ...finished, fileKey: undefined }, { deviceKem: true, recoveryKem: true, ownHybrid: true, fileKey: undefined, renew: 0 });
-      assert.notEqual(finished.fileKey, upgraded.fileKey, "the file key was renewed for the recovery device");
-      assert.equal((await syncState(o)).recoveryKem, false);
-      // Restoring with the recovery key afterwards finds a hybrid copy for the recovery device.
+      // Only the recovery key can upgrade the recovery device: restoring does it and renews the key once more.
       const p = await device(browser, "P", { width: 1440, height: 900 });
       await p.evaluate(key => window.__sync.restore(key), old.recoveryKey);
       await converge(o, p);
       const restored = await pq(p);
       assert.deepEqual({ ...restored, fileKey: undefined }, { deviceKem: true, recoveryKem: true, ownHybrid: true, fileKey: undefined, renew: 0 });
-      assert.equal(restored.fileKey, finished.fileKey, "no further renewal needed");
-      assert.equal(await p.locator("#syncNotice", { hasText: "Enter your recovery key once" }).isVisible(), false, "no card on an upgraded identity");
+      assert.notEqual(restored.fileKey, upgraded.fileKey, "the file key was renewed for the recovery device");
       const recoveryWrap = await p.evaluate(async ({ recoveryKey, id }) => {
         const c = window.__crypto, r = await c.deriveRecovery(c.recoveryKeyBytes(recoveryKey));
         const { createApis } = await import("/app/js/sync/api.js");

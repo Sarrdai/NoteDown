@@ -318,11 +318,8 @@ the first sync round.
   an ML-KEM key; each device does this once. A recorded X25519-only wrap
   then opens only the old states. The recovery device's ML-KEM key comes
   from the recovery key, so an identity from before gets it the next
-  time the recovery key is entered: restoring, or — temporarily, for the
-  owner's identity from the test phase (user decision 2026-10-17) — a
-  card above the notes, "Enter your recovery key once", whose page adds
-  the recovery device's ML-KEM key and renews every file key; until then
-  the recovery key's copies stay X25519-only. Old wraps stay readable until replaced;
+  time the recovery key is entered (restoring); until then the recovery
+  key's copies stay X25519-only. Old wraps stay readable until replaced;
   apps from before can't read the new records and are asked to update
   (`docs/server-api.md` → "App versions"). A device
   list counts only if its chain starts with the identity key the user's

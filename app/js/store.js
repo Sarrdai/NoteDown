@@ -65,7 +65,6 @@ export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], history: [], restore: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, maxMembers: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
   deleted: [], ended: "", blocked: null, outdated: false,
-  recoveryKem: false,   // TEMPORARY (backlog #20 transition): the recovery device has no ML-KEM key yet (sync/client.js)
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
