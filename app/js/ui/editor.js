@@ -12,6 +12,7 @@ import {
   continueList, toggleWrap, insertLink, insertMedia,
 } from "../core/md-commands.js";
 import { appendCounter } from "../core/counter.js";
+import { newRating } from "../core/rating.js";
 
 const markdown = new Language(defineLanguageFacet(), markdownParser.configure([GFM]), [], "markdown");
 
@@ -83,7 +84,14 @@ export const COMMANDS = {
   outdent: v => mapLines(v, l => outdentLine(l)),
   bold: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "**")),
   italic: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "*")),
+  highlight: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "==")),
   link: v => selectionEdit(v, insertLink),
+  rating: v => {
+    const { from, to } = v.state.selection.main;
+    const ins = newRating(v.state.doc.sliceString(Math.max(0, from - 1), from));
+    v.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + ins.length }, scrollIntoView: true, userEvent: "input" });
+    return true;
+  },
   counter: v => mapLines(v, l => appendCounter(l)),
   timeCounter: v => mapLines(v, l => appendCounter(l, true)),
   media: v => {   // at the selection as it is, also inside a list item's text

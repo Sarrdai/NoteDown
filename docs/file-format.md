@@ -47,6 +47,10 @@ Done by bank transfer, reference number in the banking app.
 - Counters (`23,5 [-4 -1 +1 +8]`, `docs/requirements.md` → "Counters")
   are plain text in the body too: the app changes only the number, and a
   stopwatch's start time in the brackets.
+- Highlights (`==text==`, Obsidian's syntax), star ratings (`★★★☆☆`) and
+  tables (GFM) are plain Markdown text as well (`docs/requirements.md` →
+  "Creating and editing"); a tap on a star rewrites only the stars.
+  Other renderers show a highlight's `==` as text.
 - Text before the first marker is the file's preamble (e.g. a title); it
   is kept unchanged.
 - When writing, notes are separated by one blank line and the body is

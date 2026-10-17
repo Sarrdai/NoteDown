@@ -183,3 +183,9 @@ test("query: search hits are found case-insensitively, also with regex character
   assert.deepEqual(matchRanges("costs (1+2)?", "(1+2)?"), [[6, 12]]);
   assert.deepEqual(matchRanges("anything", "  "), []);
 });
+
+test("renderMarkdown: a table sits in a box that scrolls sideways (backlog #44)", () => {
+  const html = renderMarkdown("| a | b |\n|---|---|\n| 1 | 2 |");
+  assert.match(html, /^<div class="md-table"><table>[\s\S]*<\/table><\/div>\s*$/);
+  assert.doesNotMatch(renderMarkdown("<table>x</table>"), /md-table/, "raw HTML stays text");
+});

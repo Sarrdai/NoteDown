@@ -22,6 +22,41 @@ export function restoredFile(current, old) {
 }
 
 /**
+ * The file after restoring one note of `old` into `current` (backlog #38): the note replaces its current
+ * version in place (same id), or, when it's missing now or in the trash, comes back as an open note at the
+ * end; its purged marker goes. `modified` is set to `now` so the restore wins when synced as an edit. The
+ * file is unchanged when `old` lacks the note or it moved into another file since.
+ */
+export function restoredNote(current, old, noteId, now = new Date().toISOString()) {
+  const then = old.notes.find(n => n.id === noteId && !n.deleted);
+  if (!then || (current.moved || []).some(m => m.id === noteId)) return current;
+  const { deleted, kept, ...rest } = then;
+  const note = { ...rest, modified: now };
+  const has = current.notes.some(n => n.id === noteId);
+  return {
+    ...current,
+    notes: has ? current.notes.map(n => (n.id === noteId ? note : n)) : [...current.notes, note],
+    purged: (current.purged || []).filter(m => m.id !== noteId),
+  };
+}
+
+/**
+ * Undo of restoredNote: the note as `before` had it (also in the trash), or gone again with its purged marker
+ * when `before` lacked it; only this note changes, so edits synced in between stay. `modified` = `now`, so the
+ * undo wins when synced as an edit too.
+ */
+export function unrestoredNote(current, before, noteId, now = new Date().toISOString()) {
+  const was = before.notes.find(n => n.id === noteId);
+  if (was) {
+    const note = { ...was, modified: now };
+    const has = current.notes.some(n => n.id === noteId);
+    return { ...current, notes: has ? current.notes.map(n => (n.id === noteId ? note : n)) : [...current.notes, note] };
+  }
+  const purged = (before.purged || []).filter(m => m.id === noteId);
+  return { ...current, notes: current.notes.filter(n => n.id !== noteId), purged: [...(current.purged || []), ...purged] };
+}
+
+/**
  * What restoring `old` over `current` changes, by note (trashed notes count as gone): `back` the notes
  * that come back (not there now), `gone` the notes that go (added since), `changed` [{ before, now }]
  * the notes whose text differs, `same` how many stay as they are. Order and trash are left out.

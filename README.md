@@ -35,7 +35,9 @@ on their box; a switch in the contents shows how many tasks of each
 section are done. A counter
 (`23,5 [-4 -1 +1 +8]`) shows its number; a tap on it pops up buttons that count up and down, e.g. for
 an hour tracker; counters of time (`3:45 [-0:15 +0:15]` or `23,5 h [-1 +1]`)
-can carry a stopwatch (`⏱15`) that adds the time it ran. Images and
+can carry a stopwatch (`⏱15`) that adds the time it ran. `==Highlights==`,
+tables (scrolling sideways on the phone) and star ratings (`★★★☆☆`, set
+with a tap) are plain Markdown too. Images and
 videos from the web can be embedded; whether they load by themselves,
 after a tap or never, and whether links open, ask first or stay text, is
 set per device — for all notes and per circle — so no one else's note
@@ -67,7 +69,7 @@ code (or with the recovery key), add contacts by their code or an
 invitation link (verify the latter later by a safety code), and share notes with them from multi-select → Share.
 Where the server's owner has switched on version history for an
 identity, Sync & sharing → Version history brings back an older state
-of the notes (kept for 30 days) and "Back up now" keeps the current state;
+of the notes (kept for 30 days), or just one note of it, and "Back up now" keeps the current state;
 "Your identity" shows the ID to tell the owner.
 The server's owner has an admin page at `/admin/` (signed in with their
 own linked device): what the server stores, the identities (searchable

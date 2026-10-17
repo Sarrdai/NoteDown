@@ -218,8 +218,15 @@ before the first live test).
     and device names stay as they are now); for a shared file for
     everyone in it, after a confirmation that says so. The state it
     replaces stays in the history ("before a restore"), so a restore
-    can be undone. Restoring a single note is backlog #38; a deleted
-    note alone comes back from the trash.
+    can be undone.
+  - **Restoring a single note** (backlog #38, decided 2026-10-17): in a
+    state's view every note under "Come back" and "Changed" has
+    **Restore this note**. It replaces the note's current text with the
+    state's (a deleted or trashed note comes back as an open note), with
+    no confirmation, also in a shared file: "Note restored · Undo", and
+    Undo puts back only that note, so edits synced meanwhile stay. It is
+    written like an edit of the note, so it syncs to everyone in its
+    file. *Prototype: 2026-10-17.*
   - **Where:** Sync & sharing → "Version history" → the file → its
     states, newest first, each with its time and a summary of what
     restoring it changes ("1 note back · 2 newer notes go · 1 changed").
@@ -831,12 +838,28 @@ this needs none of it.
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
   (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
-  indent, bold, italic, link, image or video (backlog #30), **counter**,
-  undo / redo, and Done. No due-date and no microphone button (removed
+  indent, bold, italic, **highlight**, link, image or video (backlog #30),
+  **counter**, **star rating**, undo / redo, and Done. No due-date and no
+  microphone button (removed
   2026-10-16): the due date has its chip on the note, dictation the
   long-press on +. On phone and tablet it sits above the on-screen
   keyboard and scrolls sideways; on the desktop it floats at the bottom
   of the list. *Prototype: round 2.*
+- **Highlight** (backlog #43, decided 2026-10-17): `==text==`
+  (Obsidian's syntax) shows the text on a soft green (not yellow: that marks search hits), in the note and
+  in the editor; the toolbar button wraps or unwraps the selection like
+  bold. Other apps may show the `==` as text. *Prototype: 2026-10-17.*
+- **Star rating** (backlog #42, decided 2026-10-17): three to ten stars,
+  the filled ones first (`★★★☆☆`), are plain text and show as stars to
+  tap, in the note and in the editor: a tap on the n-th star sets n, a
+  tap on the highest filled star clears the rating; only the stars in
+  the text change. The toolbar's star button inserts `☆☆☆☆☆` at the
+  cursor. Not in closed, trashed or news notes. *Prototype: 2026-10-17.*
+- **Tables** (backlog #44, decided 2026-10-17): Markdown tables show with
+  lines, a header row and striped rows; a table wider than its note
+  scrolls sideways inside it (the swipe between views leaves it alone),
+  so cells keep their words whole on the phone. Written as plain
+  Markdown, without editor help (backlog #54). *Prototype: 2026-10-17.*
 - On the desktop the editor has shortcuts: Ctrl/Cmd+B bold, +I italic,
   +K link, +Enter tick / untick the task, Tab / Shift+Tab indent, Ctrl+Z
   / Ctrl+Shift+Z undo / redo. Outside the editor, `n` creates a note, `/`

@@ -8,8 +8,8 @@
 import { state, sharedFiles, setPrivateFile, setSharedFile } from "../store.js";
 import { parseNotesFile } from "../core/notes-file.js";
 import { renderMarkdown, noteTitle } from "../core/markdown.js";
-import { restoredFile, compareStates, changeSummary, stateTime } from "../core/history.js";
-import { fileVersions, fileVersionText, restoreFileVersion, backUpNow } from "../sync/client.js";
+import { restoredFile, restoredNote, unrestoredNote, compareStates, changeSummary, stateTime } from "../core/history.js";
+import { fileVersions, fileVersionText, restoreFileVersion, backUpNow, syncNow as syncReal } from "../sync/client.js";
 import { syncNow as simulatedSync } from "../sync-sim.js";
 import { loadSharingSample } from "../sample.js";
 import { registerPage, addOverviewSection, go, popPage, refreshPage, isPanelOpen, panelData, row, section } from "./sync-panel.js";
@@ -125,17 +125,19 @@ addOverviewSection(() => {
 // ---------- pages ----------
 
 // `slot`: the file's circle, whose setting decides on links and media (ui/external.js).
-const noteCard = (note, cls, slot) => {
+const noteCard = (note, cls, slot, onRestore) => {
   const { text: title } = noteTitle(note.body);
   const body = h("div", { class: "history-note-body md", html: renderMarkdown(note.body) });
   applyExternal(body, slot);
   fillWatches(body);
-  return h("li", { class: "history-note " + cls, "aria-label": title }, body);
+  if (!onRestore) return h("li", { class: "history-note " + cls, "aria-label": title }, body);
+  return h("li", { class: "history-note-item" }, h("div", { class: "history-note " + cls, "aria-label": title }, body),
+    button("Restore this note", "history-note-restore", () => onRestore(note)));
 };
 
-function noteGroup(title, notes, cls, slot) {
+function noteGroup(title, notes, cls, slot, onRestore) {
   if (!notes.length) return null;
-  return [section(`${title} (${notes.length})`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n, cls, slot)))];
+  return [section(`${title} (${notes.length})`), h("ul", { class: "history-notes" }, notes.map(n => noteCard(n, cls, slot, onRestore)))];
 }
 
 const stateTitle = v => stateTime(v.replaced) + (v.saved ? " · backed up" : v.pinned ? " · before a restore" : "");
@@ -207,15 +209,32 @@ registerPage("historyState", {
     return [
       ...head,
       text("What restoring this state changes:"),
-      noteGroup("Come back", diff.back, "back", data.slot),
+      noteGroup("Come back", diff.back, "back", data.slot, n => restoreNote(data, n)),
       noteGroup("Go, added since", diff.gone, "gone", data.slot),
       diff.changed.length ? [section(`Changed (${diff.changed.length})`), text("They go back to this text:", "sheet-text muted"),
-        h("ul", { class: "history-notes" }, diff.changed.map(c => noteCard(c.before, "changed", data.slot)))] : null,
+        h("ul", { class: "history-notes" }, diff.changed.map(c => noteCard(c.before, "changed", data.slot, n => restoreNote(data, n))))] : null,
       diff.same ? text(`${diff.same} ${diff.same === 1 ? "note stays" : "notes stay"} as they are.`, "sheet-text muted") : null,
     ].flat();
   },
   footer: data => data.old ? [button("Restore this state", "primary", () => confirmRestore(data))] : [],
 });
+
+const syncAfterEdit = () => (!state.sync.enabled ? Promise.resolve() : real() ? syncReal().catch(() => {}) : simulatedSync());
+const writeFile = (slot, file) => (slot === "" ? setPrivateFile(file) : setSharedFile(slot.split("+"), file));
+
+// One note back from the state, no confirmation: Undo puts only that note back as it was. Written like a note
+// edit, so it syncs as one (in a shared file for everyone in it).
+async function restoreNote(data, note) {
+  const before = fileOf(data.slot);
+  writeFile(data.slot, restoredNote(before, data.old, note.id));
+  refreshPage({ keepScroll: true });
+  await syncAfterEdit();
+  showSnackbar("Note restored", async () => {
+    writeFile(data.slot, unrestoredNote(fileOf(data.slot), before, note.id));
+    refreshPage({ keepScroll: true });
+    await syncAfterEdit();
+  });
+}
 
 function confirmRestore(data) {
   const when = stateTime(data.version.replaced);

@@ -5,6 +5,7 @@ import { Marked } from "../../vendor/marked.esm.js";
 import { LABEL_AT, LABEL_START } from "./labels.js";
 import { mediaSource, mediaKind } from "./external.js";
 import { counterAt, counterStart, counterHtml } from "./counter.js";
+import { ratingAt, ratingStart, ratingHtml } from "./rating.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
 marked.use({
@@ -37,6 +38,36 @@ marked.use({
     },
     renderer({ counter }) {
       return counterHtml(counter);
+    },
+  }, {
+    // Star ratings (core/rating.js); the view maps a tap to the rating's index.
+    name: "rating",
+    level: "inline",
+    start(src) {
+      const i = ratingStart(src);
+      return i < 0 ? undefined : i;
+    },
+    tokenizer(src) {
+      const r = ratingAt(src);
+      if (r) return { type: "rating", raw: r.raw, rating: r };
+    },
+    renderer({ rating }) {
+      return ratingHtml(rating);
+    },
+  }, {
+    // Highlight: ==text== (Obsidian syntax).
+    name: "highlight",
+    level: "inline",
+    start(src) {
+      const i = src.indexOf("==");
+      return i < 0 ? undefined : i;
+    },
+    tokenizer(src) {
+      const m = /^==(?!=)([^\n]*?[^\s=])==(?!=)/.exec(src);
+      if (m) return { type: "highlight", raw: m[0], tokens: this.lexer.inlineTokens(m[1]) };
+    },
+    renderer({ tokens }) {
+      return `<mark class="hl">${this.parser.parseInline(tokens)}</mark>`;
     },
   }, {
     // A task in progress or cancelled (`[/]`, `[-]`), set up by walkTokens below.
@@ -83,7 +114,9 @@ marked.use({
 });
 
 export function renderMarkdown(body) {
-  return marked.parse(body);
+  // A table sits in a box that scrolls sideways (backlog #44), so it keeps its natural width on the phone.
+  // Safe as a text replace: raw HTML in a note is escaped (renderer.html above).
+  return marked.parse(body).replace(/<table>/g, '<div class="md-table"><table>').replace(/<\/table>/g, "</table></div>");
 }
 
 /** Headings of a body in document order: [{ depth, text }]. */
