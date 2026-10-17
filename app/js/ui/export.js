@@ -8,10 +8,11 @@ import { state, updateSettings } from "../store.js";
 import { exportMarkdown, zipFiles } from "../core/export.js";
 import { today } from "./format.js";
 import { showSnackbar } from "./snackbar.js";
-import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
+import { shareFilePlugin } from "../platform.js";
+import { expectReturn } from "./app-lock.js";
 
 // The Android app's own plugin (mobile/…/ShareFilePlugin.java): the web view ignores downloads.
-const NativeShare = Capacitor.isNativePlatform() ? registerPlugin("ShareFile") : null;
+const NativeShare = shareFilePlugin();
 
 const $ = id => document.getElementById(id);
 let source = null;   // { selection } or { view, files, archiveInView }
@@ -71,6 +72,7 @@ function run() {
 // Web: a download. The Android app hands the file to the system's share sheet.
 function save(name, data, type) {
   if (NativeShare) {
+    expectReturn();
     NativeShare.share({ name, type, data: base64(typeof data === "string" ? new TextEncoder().encode(data) : data) })
       .catch(() => showSnackbar("Export failed"));
     return;

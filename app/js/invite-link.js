@@ -3,10 +3,10 @@
 // the app with the fragment kept; in the Android app the App Link opens the
 // app itself (`appUrlOpen`, or the launch URL on a cold start). Both hand the
 // link's text to `open`. Also the web address that invitation links start with.
-import { Capacitor, registerPlugin } from "../vendor/capacitor-core.esm.js";
+import { nativeApp } from "./platform.js";
 import { parseInvitationLink } from "./core/linking.js";
 
-const NativeApp = Capacitor.isNativePlatform() ? registerPlugin("App") : null;
+const NativeApp = nativeApp;
 const SAME_LINK_MS = 2000;   // the launch URL and the retained `appUrlOpen` event both report a cold start
 
 /** The web address of this app (no trailing slash): the configured one (`web` in app/config.json, the

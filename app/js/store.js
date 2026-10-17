@@ -10,6 +10,7 @@ import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
 import { DEFAULT_EXTERNAL } from "./core/external.js";
+import { DEFAULT_LOCK } from "./core/app-lock.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
 import { openVault, onVaultChange } from "./vault.js";
 
@@ -24,7 +25,10 @@ export const DEFAULT_SETTINGS = {
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
-  reminders: { on: false, time: "09:00" },          // due-date reminders (#1): this device only, not synced
+  reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
+  lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
+  privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only
+  lastBackup: null,          // ISO time of the last backup made on this device (#56)
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
@@ -133,6 +137,8 @@ export async function load() {
       ...structuredClone(DEFAULT_SETTINGS), ...s,
       sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
       external: { ...structuredClone(DEFAULT_EXTERNAL), ...(s.external || {}) },
+      lock: { ...DEFAULT_LOCK, ...(s.lock || {}) },
+      privacy: { ...DEFAULT_SETTINGS.privacy, ...(s.privacy || {}) },
     };
   } catch { /* keep defaults */ }
   try {
@@ -168,6 +174,16 @@ export function followOtherTabs() {
     fileListeners.forEach(fn => fn());
   });
 }
+
+/** Adds notes restored from a backup to the private file, on top. */
+export function addRestoredNotes(notes) {
+  state.file.notes.unshift(...notes);
+  saveFiles();
+  emit("structure");
+}
+
+/** The ids of every note on this device: private (trash included) and shared. */
+export const noteIds = () => allFiles().flatMap(f => f.notes.map(n => n.id));
 
 /** Adds imported notes (the Google Keep import) to the private file, on top. */
 export function importNotes(notes) {

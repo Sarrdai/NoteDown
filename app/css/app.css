@@ -1389,3 +1389,21 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .history-note-item .history-note { align-self: stretch; }
 .history-note-restore { min-height: 40px; }
 @media (pointer: coarse) { .history-note-restore { min-height: 48px; } }
+
+/* Screen lock (#6): an opaque layer above everything, the same in every tier (ui/app-lock.js). */
+.app-lock {
+  position: fixed; z-index: 100; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: var(--safe-top) 24px var(--safe-bottom); background: var(--surface); color: var(--text);
+}
+.app-lock[hidden] { display: none; }
+.app-lock-icon { width: 96px; height: 96px; border-radius: 24px; }
+.app-lock-title { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.app-lock .btn.primary { height: var(--tap); min-width: 160px; }
+
+/* A settings row with a line of explanation under its label (Settings → Privacy). */
+.setting-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.setting-sub { font-size: 0.85rem; color: var(--text-muted); }
+.setting-row.off .setting-sub { color: var(--text-faint); }
+.switch:disabled, .pick:disabled { opacity: 0.5; cursor: default; }
+.btn.text-action { align-self: flex-start; }
+.file-name { margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); font-weight: 600; word-break: break-all; }
