@@ -211,7 +211,10 @@ additive statements).
 `mobile/` holds the Capacitor configuration (`webDir` is `../app`) and
 the generated Android project in `mobile/android/`; the copied web files
 are not committed. Native code of our own sits next to `MainActivity.java`,
-which registers it: `DictationPlugin.java` (speech input). Community plugins are npm dependencies in `mobile/package.json` (`@capacitor/local-notifications` for the due-date reminders) and reached from `app/` through the vendored `@capacitor/core` (`registerPlugin`), so no further JS is vendored. The launcher
+which registers it: `DictationPlugin.java` (speech input),
+`ShareFilePlugin.java` (hands an export to the share sheet). The app's
+static pages are linked as `<page>/index.html`: Capacitor's local server
+answers a path without a file name (`privacy/`) with the app's own page. Community plugins are npm dependencies in `mobile/package.json` (`@capacitor/local-notifications` for the due-date reminders) and reached from `app/` through the vendored `@capacitor/core` (`registerPlugin`), so no further JS is vendored. The launcher
 icon (adaptive: Mauve background, foreground and monochrome layer) and the
 splash screen (androidx core-splashscreen: the icon on `splash_background`,
 Latte base / Mocha base in `values-night`) are ours, not Capacitor's

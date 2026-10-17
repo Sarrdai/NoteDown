@@ -13,6 +13,7 @@ import { circleName } from "./people-list.js";
 import { nameOf } from "./people.js";
 import { registerPage, refreshPage, section } from "./sync-panel.js";
 import { h } from "./dom.js";
+import { pickButton } from "./menu.js";
 
 export const MEDIA_LABELS = { auto: "Load automatically", click: "Tap to load", never: "Never load" };
 export const LINK_LABELS = { open: "Open directly", confirm: "Ask first", off: "Not clickable" };
@@ -28,10 +29,9 @@ export function externalSummary() {
 }
 
 // `withDefault`: a circle's choice, whose first option "Default" follows the default for all notes.
-function select(value, labels, onChange, withDefault = false) {
+function select(value, labels, onChange, label, withDefault = false) {
   const options = [...(withDefault ? [["", "Default"]] : []), ...Object.entries(labels)];
-  return h("select", { class: "ext-select", onchange: e => onChange(e.target.value || null) },
-    ...options.map(([v, label]) => h("option", { value: v, selected: v === value }, label)));
+  return pickButton(value, options, v => onChange(v || null), { cls: "ext-select", label });
 }
 
 function change(settings) {
@@ -47,17 +47,17 @@ registerPage("settingsLinks", {
     return [
       h("p", { class: "sheet-text" }, "On this device only — not synced. Pictures and videos from other websites let that website see when you read the note."),
       section("All notes"),
-      ...KINDS.map(([kind, label, labels]) => h("label", { class: "setting-row ext-row" },
+      ...KINDS.map(([kind, label, labels]) => h("div", { class: "setting-row ext-row" },
         h("span", { class: "setting-label" }, label),
-        select(s[kind], labels, v => change({ ...s, [kind]: v })))),
+        select(s[kind], labels, v => change({ ...s, [kind]: v }), label))),
       section("Per circle"),
       ...circles.map(e => {
         const own = s.circles[e.key] || {};
         return h("div", { class: "ext-circle" },
           h("div", { class: "ext-circle-name" }, circleName(e.key, e.members)),
-          ...KINDS.map(([kind, label, labels]) => h("label", { class: "ext-circle-row" },
+          ...KINDS.map(([kind, label, labels]) => h("div", { class: "ext-circle-row" },
             h("span", { class: "ext-circle-kind" }, label),
-            select(own[kind] || "", labels, v => change(setCirclePolicy(s, e.key, kind, v)), true))));
+            select(own[kind] || "", labels, v => change(setCirclePolicy(s, e.key, kind, v)), label, true))));
       }),
     ];
   },

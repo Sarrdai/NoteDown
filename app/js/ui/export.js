@@ -8,6 +8,10 @@ import { state, updateSettings } from "../store.js";
 import { exportMarkdown, zipFiles } from "../core/export.js";
 import { today } from "./format.js";
 import { showSnackbar } from "./snackbar.js";
+import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
+
+// The Android app's own plugin (mobile/…/ShareFilePlugin.java): the web view ignores downloads.
+const NativeShare = Capacitor.isNativePlatform() ? registerPlugin("ShareFile") : null;
 
 const $ = id => document.getElementById(id);
 let source = null;   // { selection } or { view, files, archiveInView }
@@ -64,14 +68,25 @@ function run() {
   closeDialog();
 }
 
-// Web: a download. The Android app hands the file to the system's share sheet (app phase).
+// Web: a download. The Android app hands the file to the system's share sheet.
 function save(name, data, type) {
+  if (NativeShare) {
+    NativeShare.share({ name, type, data: base64(typeof data === "string" ? new TextEncoder().encode(data) : data) })
+      .catch(() => showSnackbar("Export failed"));
+    return;
+  }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type }));
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   showSnackbar(`Exported ${name}`);
+}
+
+function base64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
 }
 
 export function initExport() {
