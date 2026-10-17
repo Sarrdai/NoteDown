@@ -293,6 +293,20 @@ the first sync round.
 | Data key (AES-256-GCM), one per device | Encrypts what NoteDown keeps on the device ("Where the files live") | Only on that device: sealed by the Android Keystore, in the web app a non-extractable WebCrypto key; never synced, never in a backup |
 | Backup key (30 digits) | Opens the user's encrypted backups (`docs/requirements.md` → "Encrypted backup") | With the user; a copy in the vault of the device that made the backups |
 
+- **Wrapped keys are signed** (decided 2026-10-17, found in the review of
+  the security round): every wrapped key carries the signature of the
+  device that made it and the key's **generation** (1 for a new file, one
+  more per renewal). A device takes a new key only when the signer is an
+  active device of one of the file's members and the generation is
+  higher than the one it has; anything else stops sync of that file and
+  the device keeps its key. Why: unsigned, a server could wrap a key of
+  its own for a device — the public keys are no secret — and the device
+  would have encrypted everything after with it; Signal authenticates
+  every sender the same way. The generation keeps an older key, which a
+  removed device knows, from coming back. The wraps from before were
+  replaced by one renewal of every file key on each device's first round
+  (temporary code, `sync/client.js`). Byte layout: `docs/server-api.md`
+  → "Keys".
 - **Sharing a note in a new set of people:** the device creates a random
   file key, wraps it for every device on each member's device list,
   including the user's own, encrypts the file with it and uploads both.

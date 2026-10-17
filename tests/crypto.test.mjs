@@ -437,3 +437,25 @@ test("safetyCode: the same for both sides, 5 groups of 4 digits, different per p
   assert.notEqual(await safetyCode(a, c), ab);
   assert.equal(await safetyCode(a, b), ab);
 });
+
+test("signed wrap: binds file, recipient, generation and signer; any change fails", async () => {
+  const { signWrap, readSignedWrap, verifyWrap } = await import("../app/js/core/crypto.js");
+  const phone = await generateDeviceKeys(), laptop = await generateDeviceKeys();
+  const phoneId = await keyId(phone.sign.publicKey), laptopId = await keyId(laptop.sign.publicKey);
+  const fileKey = generateFileKey();
+  const wrap = await wrapFileKey(fileKey, recipientOf(phone));
+  const signed = await signWrap(wrap, { file: "F".repeat(22), to: phoneId, gen: 3 }, laptopId, laptop.sign.privateKey);
+  assert.ok(signed.length <= 2048, signed.length);
+  const parts = readSignedWrap(signed);
+  assert.deepEqual({ gen: parts.gen, signer: parts.signer, wrap: parts.wrap }, { gen: 3, signer: laptopId, wrap });
+  assert.deepEqual(await unwrapFileKey(parts.wrap, phone), fileKey);
+  assert.equal(await verifyWrap(parts, { file: "F".repeat(22), to: phoneId }, laptop.sign.publicKey), true);
+  assert.equal(await verifyWrap(parts, { file: "G".repeat(22), to: phoneId }, laptop.sign.publicKey), false, "another file");
+  assert.equal(await verifyWrap(parts, { file: "F".repeat(22), to: laptopId }, laptop.sign.publicKey), false, "another recipient");
+  assert.equal(await verifyWrap(parts, { file: "F".repeat(22), to: phoneId }, phone.sign.publicKey), false, "another signer's key");
+  assert.equal(await verifyWrap({ ...parts, gen: 4 }, { file: "F".repeat(22), to: phoneId }, laptop.sign.publicKey), false, "another generation");
+  const other = await wrapFileKey(generateFileKey(), recipientOf(phone));
+  assert.equal(await verifyWrap({ ...parts, wrap: other }, { file: "F".repeat(22), to: phoneId }, laptop.sign.publicKey), false, "another key");
+  assert.throws(() => readSignedWrap(wrap), /isn't signed/);
+  await assert.rejects(signWrap(wrap, { file: "F".repeat(22), to: phoneId, gen: 0 }, laptopId, laptop.sign.privateKey), /generation/);
+});

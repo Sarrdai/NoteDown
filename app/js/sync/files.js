@@ -13,7 +13,7 @@ import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-fil
 import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
 import { restoredFile } from "../core/history.js";
-import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored, withSynced, dropSeenPurged } from "../core/sync-state.js";
+import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored, withSynced, dropSeenPurged, keyVerdict } from "../core/sync-state.js";
 import * as c from "../core/crypto.js";
 import { ApiError, NetworkError } from "./api.js";
 import { getSecret, setSecret, deleteSecret } from "./keystore.js";
@@ -21,7 +21,8 @@ import { getSecret, setSecret, deleteSecret } from "./keystore.js";
 const PRIVATE = "";
 
 let ctx = null;                 // { api(server), home(), defaultServer(), keys(), chain(), busy(), moved() }, from sync/client.js
-const fileKeys = new Map();     // "<server>/<file ID>" → file key (32 bytes), read from IndexedDB on first use
+const fileKeys = new Map();     // "<server>/<file ID>" → file key (32 bytes), read from the vault on first use
+const keyGens = new Map();      // "<server>/<file ID>" → the generation of that key
 let migrated = false;
 
 /** Hands over what the sync client owns: the API, this device's keys, the verified own device list and the round's flags. */
@@ -32,6 +33,7 @@ export function initFiles(context) {
 /** Forgets the file keys held in memory (the database was cleared). */
 export function forgetKeys() {
   fileKeys.clear();
+  keyGens.clear();
 }
 
 // ---------- slots ----------
@@ -68,9 +70,18 @@ async function keyOf(server, id) {
   return fileKeys.get(name) || null;
 }
 
-async function rememberKey(server, id, key) {
+// The key's generation: 1 for a new file, one more with every renewal; signed into each wrap.
+async function genOf(server, id) {
+  const name = keyName(server, id);
+  if (!keyGens.has(name)) keyGens.set(name, (await getSecret("filegen:" + name)) || 0);
+  return keyGens.get(name);
+}
+
+async function rememberKey(server, id, key, gen) {
   fileKeys.set(keyName(server, id), key);
   await setSecret("file:" + keyName(server, id), key);
+  keyGens.set(keyName(server, id), gen);
+  await setSecret("filegen:" + keyName(server, id), gen);
 }
 
 // One time, on the first round after an update: what a device stored before files were addressed by server
@@ -119,8 +130,39 @@ async function holdersFor(key, run) {
   return allKeyHolders(await Promise.all(members.map(m => chainOf(m, run))));
 }
 
-async function wrapFor(devices, key) {
-  return Object.fromEntries(await Promise.all(devices.map(async d => [d.id, await c.wrapFileKey(key, d)])));
+// A file key wrapped for a device and signed by this one: `file` the file's ID, `gen` the key's generation.
+async function signedWrap(fileKey, device, file, gen) {
+  return c.signWrap(await c.wrapFileKey(fileKey, device), { file, to: device.id, gen }, state.sync.device, ctx.keys().sign.privateKey);
+}
+
+async function wrapFor(devices, key, file, gen) {
+  return Object.fromEntries(await Promise.all(devices.map(async d => [d.id, await signedWrap(key, d, file, gen)])));
+}
+
+// Opens a wrapped key for `keys` (a device's `{ enc, kem }`) and checks its signature: by an active device of one
+// of `members` (identity IDs; `devicesOf(member)` gives the verified devices), for file `file` and device `to`.
+// → { key, signed (false for an unsigned wrap), trusted, gen }
+async function openWrap({ wrapped, file, to, members, devicesOf, keys }) {
+  let signed = null;
+  try { signed = c.readSignedWrap(wrapped); } catch { /* unsigned */ }
+  const key = await c.unwrapFileKey(signed ? signed.wrap : wrapped, keys);
+  if (!signed) return { key, signed: false, trusted: false, gen: 0 };
+  for (const m of members) {
+    const d = (await devicesOf(m)).get(signed.signer);
+    if (d && d.active && await c.verifyWrap(signed, { file, to }, d.sign)) return { key, signed: true, trusted: true, gen: signed.gen };
+  }
+  return { key, signed: true, trusted: false, gen: signed.gen };
+}
+
+// The key the server holds for this device, taken only as core/sync-state.js → keyVerdict allows: signed by a
+// member's device, and not older than the one this device has. → the key to use.
+async function acceptKey(server, id, wrapped, members, run) {
+  const got = await openWrap({ wrapped, file: id, to: state.sync.device, members, devicesOf: m => chainOf(m, run), keys: ctx.keys() });
+  const have = await keyOf(server, id);
+  const verdict = keyVerdict({ ...got, known: await genOf(server, id), have: !!have, same: !!have && c.b64u(got.key) === c.b64u(have) });
+  if (verdict === "keep") return have;
+  await rememberKey(server, id, got.key, got.gen);
+  return got.key;
 }
 
 /** Wraps the key of every file this device can read for a new device of this identity (linking); `recipient`: its `{ enc, kem }`. */
@@ -128,7 +170,7 @@ export async function grantKeys(deviceId, recipient) {
   for (const slot of slotKeys()) {
     const r = rec(slot);
     const key = r && await keyOf(r.server, r.id);
-    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await c.wrapFileKey(key, recipient) });
+    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await signedWrap(key, { ...recipient, id: deviceId }, r.id, Math.max(1, await genOf(r.server, r.id))) });
   }
 }
 
@@ -200,7 +242,7 @@ export async function filesRound() {
       if (f.version < r.version) throw new Error("The server sent an older version than this device has seen");
       if (f.version > r.version || !await keyOf(r.server, r.id)) {
         ctx.busy();
-        const got = await download(r.server, r.id);
+        const got = await download(r.server, r.id, key, run);
         if (got.version < r.version) throw new Error("The server sent an older version than this device has seen");
         remote.set(key, got);
       }
@@ -331,13 +373,12 @@ async function fetchNews(api) {
   setNewsFeed({ version, posts: news.map(({ id, created, modified, body }) => ({ id, created: utc(created), modified: utc(modified), body })) });
 }
 
-async function download(server, id) {
+async function download(server, id, slot, run) {
   ctx.moved();
   const r = await ctx.api(server).getFile(id);
   if (!r.key) throw new Error("No key for this device on the server");
-  const key = await c.unwrapFileKey(r.key, ctx.keys());
-  const have = await keyOf(server, id);
-  if (!have || c.b64u(key) !== c.b64u(have)) await rememberKey(server, id, key);   // renewed after a device was removed
+  // A new key after a renewal (a device was removed) is taken only when a member's device signed it.
+  const key = await acceptKey(server, id, r.key, fileMembers(state.sync.identity, circle(slot)), run);
   return { version: r.version, text: await c.decryptFile(key, r.ciphertext) };
 }
 
@@ -367,12 +408,12 @@ async function create(key, run) {
   const fileKey = c.generateFileKey();
   const body = {
     base_version: 0, ciphertext: await c.encryptFile(fileKey, text),
-    keys: await wrapFor(await holdersFor(key, run), fileKey),
+    keys: await wrapFor(await holdersFor(key, run), fileKey, id, 1),
   };
   if (key !== PRIVATE) body.members = fileMembers(state.sync.identity, circle(key));
   try {
     if (await put(key, server, id, body, text, run)) {
-      await rememberKey(server, id, fileKey);
+      await rememberKey(server, id, fileKey, 1);
       return true;
     }
     run.done = false;
@@ -420,13 +461,14 @@ async function renewPending(run) {
         const text = textAt(key), fileKey = c.generateFileKey(), oldKey = await keyOf(r.server, r.id);
         if (!oldKey) throw new Error("No key for this device on the server");
         ctx.busy();
+        const gen = await genOf(r.server, r.id) + 1;
         const body = {
           base_version: r.version, ciphertext: await c.encryptFile(fileKey, text),
-          keys: await wrapFor(await holdersFor(key, run), fileKey),
+          keys: await wrapFor(await holdersFor(key, run), fileKey, r.id, gen),
           previous_key: await c.sealPreviousKey(fileKey, oldKey),   // keeps the file's history readable
         };
         if (!await put(key, r.server, r.id, body, text, run)) { run.done = false; return false; }
-        await rememberKey(r.server, r.id, fileKey);
+        await rememberKey(r.server, r.id, fileKey, gen);
         return true;
       });
       if (!renewed) continue;
@@ -497,18 +539,33 @@ export async function restoreVersion(slot, version) {
 // ---------- restoring ----------
 
 /**
- * Restoring with the recovery key, as the recovery device: for every file of the identity reads
- * the key, wraps it for the new device and reads the text. → [{ id, members, version, key, text }]
+ * Restoring with the recovery key, as the recovery device: for every file of the identity reads the key (signed by
+ * a device of its members), wraps it for the new device (signed by it) and reads the text.
+ * `identity`: its ID, `own`: its verified devices; `device`: the new device's { id, keys }.
+ * → [{ id, members, version, key, gen, text }]
  */
-export async function readForRestore(list, recoveryKeys, deviceId, deviceRecipient) {
+export async function readForRestore(list, recoveryKeys, recoveryId, identity, own, device) {
   const api = ctx.api(ctx.home());
+  const chains = new Map([[identity, own]]);
+  const devicesOf = async m => {
+    if (!chains.has(m)) {
+      const { identity_key: identityKey, entries, deleted } = await api.getIdentity(m);
+      const bytes = c.fromB64u(identityKey, 32);
+      if (await c.keyId(bytes) !== m) throw new Error("The device list of someone in a shared file doesn't check out");
+      chains.set(m, deleted ? new Map() : await c.verifyChain(bytes, entries));
+    }
+    return chains.get(m);
+  };
   const out = [];
   for (const f of list) {
     const got = await api.getFile(f.id);
     if (!got.key) continue;
-    const key = await c.unwrapFileKey(got.key, recoveryKeys);
-    await api.addKeys(f.id, { [deviceId]: await c.wrapFileKey(key, deviceRecipient) });
-    out.push({ id: f.id, members: f.members, version: got.version, key, text: await c.decryptFile(key, got.ciphertext) });
+    const opened = await openWrap({ wrapped: got.key, file: f.id, to: recoveryId, members: f.members, devicesOf, keys: recoveryKeys });
+    if (!opened.trusted) throw new Error("A file's key isn't signed by a device of its members; restoring stopped");
+    const wrap = await c.signWrap(await c.wrapFileKey(opened.key, c.recipientOf(device.keys)), { file: f.id, to: device.id, gen: opened.gen },
+      device.id, device.keys.sign.privateKey);
+    await api.addKeys(f.id, { [device.id]: wrap });
+    out.push({ id: f.id, members: f.members, version: got.version, key: opened.key, gen: opened.gen, text: await c.decryptFile(opened.key, got.ciphertext) });
   }
   return out;
 }
@@ -519,12 +576,12 @@ export async function installRestored(read, identity, local) {
   const { privateFile, shared } = matchFiles(read.map(f => ({ ...f })), identity);
   const server = ctx.home();
   if (privateFile) {
-    await rememberKey(server, privateFile.id, privateFile.key);
+    await rememberKey(server, privateFile.id, privateFile.key, privateFile.gen);
     setPrivateFile(mergeNotesFiles(emptyFile(), local, parseNotesFile(privateFile.text)).file);
     setRec(PRIVATE, { server, id: privateFile.id, version: privateFile.version, base: privateFile.text });
   }
   for (const [key, f] of shared) {
-    await rememberKey(server, f.id, f.key);
+    await rememberKey(server, f.id, f.key, f.gen);
     if (!fileAt(key)) setSharedFile(circle(key), emptyFile());
     setRec(key, { server, id: f.id, version: 0, base: "" });
   }

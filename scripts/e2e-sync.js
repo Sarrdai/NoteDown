@@ -356,6 +356,53 @@ async function main() {
       assert.ok(all.includes(sample.s05) && all.includes(sample.s06));
     });
 
+    await step("a file key the server swaps in is refused: unsigned or signed by a stranger, B keeps its key and notes", async () => {
+      // A malicious server: a version of A's private file under a key it chose, wrapped for B.
+      const r = (await syncState(b)).file, bDevice = (await syncState(b)).device;
+      const before = { key: await fileKeyOf(b, r), text: await fileText(b) };
+      const ownWrap = page => page.evaluate(async () => {
+        const s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+        const { createApis } = await import("/app/js/sync/api.js");
+        return (await createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server).getFile(s.file.id)).key;
+      });
+      const original = await ownWrap(b), originalA = await ownWrap(a);   // a renewal replaces every wrap of the file
+      const swap = (page, mode) => page.evaluate(async ({ to, mode }) => {
+        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+        const { createApis } = await import("/app/js/sync/api.js");
+        const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
+        const target = (await window.__sync.loadDevices()).get(to);
+        const evil = c.generateFileKey(), current = await api.getFile(s.file.id);
+        let wrap = await c.wrapFileKey(evil, { enc: target.enc, kem: target.kem });
+        if (mode === "stranger") {   // signed, but with a key no member's device has, claiming to be A
+          const stranger = await c.generateDeviceKeys();
+          wrap = await c.signWrap(wrap, { file: s.file.id, to, gen: 99 }, s.device, stranger.sign.privateKey);
+        }
+        await api.putFile(s.file.id, {
+          base_version: current.version, ciphertext: await c.encryptFile(evil, window.__store.fileText()),
+          keys: { [to]: wrap }, previous_key: await c.sealPreviousKey(evil, c.generateFileKey()),
+        });
+      }, { to: bDevice, mode });
+      for (const mode of ["unsigned", "stranger"]) {
+        await swap(a, mode);
+        await sync(b);
+        const st = await syncState(b);
+        assert.equal(st.status, "error", mode);
+        assert.match(st.error, /isn't signed by a device of its members/, mode);
+        assert.equal(await fileKeyOf(b, r), before.key, `${mode}: B kept its key`);
+        assert.equal(await fileText(b), before.text, `${mode}: B's notes are unchanged`);
+      }
+      // The real key comes back (the devices' own signed wraps), A uploads its notes under it again: both sync on.
+      await a.evaluate(async ({ to, original, originalA, key }) => {
+        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+        const { createApis } = await import("/app/js/sync/api.js");
+        const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
+        const current = await api.getFile(s.file.id);
+        await api.addKeys(s.file.id, { [to]: original, [s.device]: originalA });
+        await api.putFile(s.file.id, { base_version: current.version, ciphertext: await c.encryptFile(c.fromB64u(key), window.__store.fileText()) });
+      }, { to: bDevice, original, originalA, key: before.key });
+      await converge(a, b);
+    });
+
     await step("the same note edited on both keeps both versions", async () => {
       const before = (await bodies(a)).length;
       await Promise.all([

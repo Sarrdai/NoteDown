@@ -224,3 +224,19 @@ export function detachedFile(file, shared, me) {
     devices: [], contacts: [], members: [], news: file.news || [], order: file.order || null,
   };
 }
+
+/**
+ * What a device does with a file key the server hands it (docs/sync-and-sharing.md → "Keys"): each
+ * wrapped key is signed by the device that made it, with the key's generation, which goes up with every renewal.
+ * `signed`: the wrap carries a signature; `trusted`: it checks out against an active device of one of the file's
+ * members; `gen`: its generation; `known`: the highest generation this device took for the file (0: none);
+ * `have`: this device has a key for the file; `same`: the offered key is that key.
+ * → "keep" (nothing new), "take" (remember the offered key) or throws: a server can't swap in a key of its own,
+ * nor an older one a removed device still knows.
+ */
+export function keyVerdict({ signed, trusted, gen, known, have, same }) {
+  if (have && same && (!signed || gen <= known)) return "keep";
+  if (!signed || !trusted) throw new Error("A file's key isn't signed by a device of its members; sync stopped for it");
+  if (gen < known || (gen === known && have)) throw new Error("The server offered an outdated key for a file; sync stopped for it");
+  return "take";
+}

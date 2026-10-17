@@ -110,6 +110,9 @@ async function round() {
   if (state.editingId) return;
   try {
     await loadKeys();
+    // TEMPORARY (signed-wraps transition, until the owner's devices have synced once): the wraps made before keys
+    // were signed are unsigned; renewing every file key once replaces them with signed ones.
+    if (!state.sync.wrapsSigned) { markRenew(); setSync({ wrapsSigned: true }); }
     let done = false;
     let failure = null;   // a problem with a file doesn't keep back the contacts
     for (let i = 0; i < ATTEMPTS && !done && !failure; i++) {
@@ -195,6 +198,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
     device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, maxMembers: null, recoveryKey: "", status: "syncing", error: "", ended: "", blocked: null,
+    wrapsSigned: true,   // TEMPORARY (signed-wraps transition): a new device only ever gets signed wraps
   });
 }
 
@@ -234,7 +238,7 @@ export async function restore(recoveryKey) {
   const recoveryId = await c.keyId(r.recovery.sign.publicKey);
   const device = await c.generateDeviceKeys();
   const deviceId = await c.keyId(device.sign.publicKey);
-  let remote = [];
+  let remote = [], own = null;
   // The recovery device signs in for everything below, reading the list included.
   caller = { identity, device: recoveryId, sign: r.recovery.sign.privateKey };
   try {
@@ -259,7 +263,9 @@ export async function restore(recoveryKey) {
       }
     }
     // Every file of the identity, the shared ones too: the key is wrapped for the new device.
-    remote = await readForRestore((await api.listFiles()).files, r.recovery, deviceId, c.recipientOf(device));
+    const { entries } = await api.getIdentity(identity);   // with the new device on it
+    own = await c.verifyChain(r.identity.publicKey, entries);
+    remote = await readForRestore((await api.listFiles()).files, r.recovery, recoveryId, identity, own, { id: deviceId, keys: device });
   } finally {
     caller = null;
     apis.forgetTokens();
