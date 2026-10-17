@@ -83,7 +83,9 @@ marked.use({
 });
 
 export function renderMarkdown(body) {
-  return marked.parse(body);
+  // A table sits in a box that scrolls sideways (backlog #44), so it keeps its natural width on the phone.
+  // Safe as a text replace: raw HTML in a note is escaped (renderer.html above).
+  return marked.parse(body).replace(/<table>/g, '<div class="md-table"><table>').replace(/<\/table>/g, "</table></div>");
 }
 
 /** Headings of a body in document order: [{ depth, text }]. */

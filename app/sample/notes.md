@@ -53,6 +53,12 @@ The deadline was extended, but the accountant wants the papers this week.
 ### Raised bed
 - Move the strawberries to the sunny corner
 - Try tomatoes again, but the small ones
+
+| Plant | Sow indoors | Plant out | Spacing | Where |
+|---|---|---|---|---|
+| Cherry tomatoes | March | mid-May | 50 cm | back row, along the fence |
+| Strawberries | — | April | 30 cm | the sunny corner |
+| Basil | April | June | 20 cm | between the tomatoes |
 ### Tools
 - [ ] Sharpen the hedge trimmer
 - [ ] New hose connector

@@ -894,6 +894,12 @@ a.row-open { text-decoration: none; }
 .counter-watch-btn.running { background: var(--danger); }
 .counter-pop .counter-step:active { filter: brightness(0.92); }
 .md a { color: var(--link); }
+/* Tables (backlog #44): a wide one scrolls sideways inside its note (the view swipe leaves it alone); words aren't broken inside a cell. */
+.md .md-table { max-width: 100%; overflow-x: auto; margin: 0.5em 0; }
+.md table { width: max-content; max-width: 48em; border-collapse: collapse; font-size: 0.94em; overflow-wrap: normal; }
+.md th, .md td { padding: 5px 10px; border: 1px solid var(--border); text-align: left; vertical-align: top; min-width: 3em; }
+.md th { background: var(--surface-hover); font-weight: 600; }
+.md tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-hover) 45%, transparent); }
 /* External content (#30, ui/external.js): a link that isn't clickable, and
    embedded images and videos — loaded, behind a tile with their address, or a placeholder. */
 .md .link-off { color: var(--text-muted); text-decoration: underline dotted; text-underline-offset: 2px; }
