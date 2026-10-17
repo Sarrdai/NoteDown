@@ -224,7 +224,8 @@ const isId = text => typeof text === "string" && /^[A-Za-z0-9_-]{22}$/.test(text
 
 /**
  * Checks a whole device list like the server; returns a Map of every device
- * ever added by ID: `{ id, kind, sign, enc, kem (raw bytes, kem null until the device has one), active }`.
+ * ever added by ID: `{ id, kind, sign, enc, kem (raw bytes, kem null until the device has one), active, signedOut }`;
+ * `signedOut`: the device removed itself (signing out), so its signatures from before still count.
  */
 export async function verifyChain(identityKeyBytes, entries) {
   const identity = await keyId(identityKeyBytes);
@@ -243,7 +244,7 @@ export async function verifyChain(identityKeyBytes, entries) {
     if (!await verifySignature(signer.sign, fromB64u(sig, 64), canonicalJson(unsigned))) throw fail("bad signature");
 
     if (entry.op === "add") await applyAdd(entry.device, devices, fail);
-    else if (entry.op === "remove") applyRemove(entry.device, devices, fail);
+    else if (entry.op === "remove") applyRemove(entry.device, entry.signer, devices, fail);
     else if (entry.op === "kem") applyKem(entry.device, entry.signer, devices, fail);
     else throw fail("unknown op");
   }
@@ -260,7 +261,7 @@ async function applyAdd(device, devices, fail) {
   const all = [...devices.values()];
   if (device.kind === "recovery" && all.some(d => d.kind === "recovery")) throw fail("second recovery device");
   if (all.filter(d => d.active).length >= MAX_DEVICES) throw fail("too many devices");
-  devices.set(device.id, { id: device.id, kind: device.kind, sign, enc, kem, active: true });
+  devices.set(device.id, { id: device.id, kind: device.kind, sign, enc, kem, active: true, signedOut: false });
 }
 
 // A device that was added without an ML-KEM key gets one: signed by itself, or by the identity (the recovery device).
@@ -272,11 +273,12 @@ function applyKem(device, signer, devices, fail) {
   target.kem = fromB64u(device.kem, KEM_PUBLIC_BYTES);
 }
 
-function applyRemove(device, devices, fail) {
+function applyRemove(device, signer, devices, fail) {
   if (!isObject(device) || !sameKeys(device, ["id"]) || !isId(device.id)) throw fail("malformed remove");
   const target = devices.get(device.id);
   if (!target || !target.active || target.kind === "recovery") throw fail("device can't be removed");
   target.active = false;
+  target.signedOut = signer === device.id;
 }
 
 // ---------- authentication ----------
