@@ -20,7 +20,8 @@ A notes app for Android, iOS and the web — currently in the concept phase.
 
 Every note is a Markdown section and at the same time a to-do: open or
 done, with an optional due date that can remind you on the day. Open notes form the main list, done ones
-move to a read-only archive. Notes live in plain Markdown files: one
+move to a read-only archive. Notes live in Markdown files, which only
+NoteDown reads on the device (Export takes them out): one
 private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by persons or
 groups, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
@@ -58,6 +59,14 @@ and the web app, and sharing single notes with other people, run through
 an end-to-end encrypted server: it only ever stores encrypted files.
 There are no accounts — devices and contacts are connected by scanning a
 QR code.
+
+**Security:** the goal is to be at least as secure as
+[Signal](https://signal.org). Notes are end-to-end encrypted, and on the
+device only NoteDown reads them. The **web app** is available now and
+convenient, but like any web app it is only as trustworthy as the host
+that serves its code — which is why Signal has no web client. The
+Android app is the secure way; a **desktop client** with signed updates
+is planned.
 
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on

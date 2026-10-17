@@ -43,8 +43,9 @@ without another source were decided with the user on 2026-10-13.
 ## Vision
 
 NoteDown is a notes app in which every note is also a to-do: quick to
-capture (typing or dictation), quick to tick off, and stored as plain
-Markdown that stays readable in any other editor.
+capture (typing or dictation), quick to tick off, and written as plain
+Markdown that stays readable in any other editor once exported. On the
+device only NoteDown reads the notes ("Notes and storage").
 
 **Open** — who else it is for beyond the user's own use, and what sets it
 apart from existing apps beyond the points above.
@@ -56,8 +57,14 @@ apart from existing apps beyond the points above.
   tiers in `PROJECT.md` → "Device tiers" stay in scope: phone and tablet
   through the native apps and the mobile web, desktop through the web app
   only.
-- No native desktop apps (Windows, macOS, Linux) are planned; the desktop
-  browser covers that use.
+- **A native desktop client** (Windows, macOS, Linux) is planned
+  (backlog #58), with signed updates the user can check; until then the
+  desktop browser covers that use. Why: a web app loads its code from the
+  web host on every start, so whoever controls the host could serve code
+  that reads the notes after decrypting them — the app is only as
+  trustworthy as the host. Signal has no web client for this reason
+  (`docs/sync-and-sharing.md` → "Security goal"). The web app stays as
+  the convenient way in; the apps are the secure one.
 - **Android and web ship first**, iOS follows (decided 2026-10-13: iOS
   needs an Apple developer account and signing, the first tests don't);
   the technology is in `PROJECT.md` → "Technology direction".
@@ -73,18 +80,30 @@ apart from existing apps beyond the points above.
   are stored in UTC and shown in each device's local time; a due date is
   a calendar day (so devices and members of a shared file in different
   time zones agree).
-- All notes, open and closed, are stored locally as Markdown: one file
-  for the user's own notes, plus one per set of people notes are shared
-  with ("Sync and sharing"); the metadata sits in an invisible comment per
-  note so the files stay clean in other editors (`docs/file-format.md`). *Prototype: round 1
-  (stored in browser storage; Copy and Export take notes out).*
+- All notes, open and closed, are kept as Markdown: one file for the
+  user's own notes, plus one per set of people notes are shared with
+  ("Sync and sharing"); the metadata sits in an invisible comment per
+  note so an exported file stays clean in other editors
+  (`docs/file-format.md`). *Prototype: round 1 (stored in browser
+  storage; Copy and Export take notes out).*
+- **Only NoteDown reads the notes on the device** (decided 2026-10-17,
+  user decision, like Signal): the local files are app-private and
+  encrypted at rest with a key the app can use but not read out — on
+  Android and iOS from the platform's key store (hardware-backed where
+  the device has it), in the web app a non-extractable WebCrypto key
+  (weaker: it only keeps the data from being copied as files). Notes
+  leave in plain text only by a step of the user: Copy, Share, Export,
+  or an automatic export they switch on (backlog #55). Why: other apps,
+  a lost unlocked file system or a cloud backup shouldn't read the
+  notes. *App phase (backlog #19); the prototype still keeps them in
+  plain browser storage.*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left
   empty is discarded silently. *Prototype: round 1.*
 - **Local first:** every device keeps the complete notes on the device
-  and works offline; in the app the files sit in the app's documents
-  folder (visible in the Files app), in the web app in browser storage
+  and works offline; in the app the files sit in the app's private
+  storage, in the web app in browser storage, encrypted in both
   (`docs/sync-and-sharing.md` → "Where the files live"). *App phase.*
 - **Web app: notes only in this browser.** At start the web app asks the
   browser to keep its storage (`navigator.storage.persist()`), so it isn't
