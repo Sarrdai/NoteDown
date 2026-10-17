@@ -8,6 +8,16 @@
 
 A notes app for Android, iOS and the web — currently in the concept phase.
 
+<p align="center">
+  <img src="docs/images/desktop.png" alt="NoteDown on the desktop: table of contents on the left, notes as cards" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/phone-dark.png" alt="NoteDown on a phone, dark theme" width="32%">
+  &nbsp;
+  <img src="docs/images/phone-edit.png" alt="Editing a note on a phone, with the formatting toolbar" width="32%">
+</p>
+<p align="center"><sub>The prototype with its sample notes — desktop, phone in the dark theme, editing a note on the phone.</sub></p>
+
 Every note is a Markdown section and at the same time a to-do: open or
 done, with an optional due date that can remind you on the day. Open notes form the main list, done ones
 move to a read-only archive. Notes live in plain Markdown files: one

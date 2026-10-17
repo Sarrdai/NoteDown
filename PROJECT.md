@@ -36,6 +36,7 @@ the live test setup is described in `docs/operations.md`.
 | `docs/server-api.md` | The server API and protocol byte for byte: encodings, keys, device list, authentication, endpoints, limits |
 | `docs/decentralisation-plan.md` | Not decided: what choosing the sync server per circle of people (backlog #29) changes in the implementation, the work packages and the questions to settle first |
 | `docs/operations.md` | Live test setup: hosting, the owner's one-time setup steps, deployments |
+| `docs/images/` | Screenshots shown in `README.md` |
 | `app/` | The prototype (see "Prototype") |
 | `tests/` | Unit tests of the prototype's core logic (`node --test`) |
 | `server/` | The sync server (see "Server") |
@@ -151,6 +152,10 @@ NODE_PATH="$(npm root -g)" node scripts/screenshot.js --device phone --theme dar
 The script serves the repo itself, starts each run with empty storage
 and the sample notes (`--first-start` shows the welcome notes instead),
 lists page errors and exits non-zero on them. Options are documented in its header.
+
+The README pictures live in `docs/images/` (desktop 1440 px wide, phone
+shots scaled to 585 px); retake them with this script when the look of
+the main list changes noticeably.
 
 ## Technology direction
 
