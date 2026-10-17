@@ -32,7 +32,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
-import { initReminders, simulateReminder } from "./ui/reminders.js";
+import { initReminders } from "./ui/reminders.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
@@ -482,7 +482,6 @@ function moreMenu() {
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     sync.simulated && sync.enabled && { label: "Simulate device removal", onSelect: simulateRemoval },
-    { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
 }
 

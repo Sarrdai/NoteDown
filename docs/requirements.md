@@ -562,8 +562,7 @@ paid features per user.
   they come while the app is closed; the web app reminds only while it is
   open — the browser can't wake a closed web app without server push —
   and the page says so. *Prototype: 2026-10-14; in the settings
-  2026-10-16 (⋮ → Prototype → "Simulate reminder" shows the
-  notification).* Why in the settings: it is set once, a top-bar bell
+  2026-10-16.* Why in the settings: it is set once, a top-bar bell
   took room for it all the time; offered only in the due-date menu it
   would read as per note, so the menu only links there.
 

@@ -3,12 +3,9 @@
 // in the Android app as local notifications scheduled on the device, so they
 // come while the app is closed; on the web by a timer while the app is open
 // (the browser can't wake a closed web app without push).
-// Prototype: ⋮ → Prototype → "Simulate reminder" shows the notification as a
-// banner, so screenshots can show it.
 import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
 import { state, allNotes, updateSettings, subscribe } from "../store.js";
-import { DEFAULT_REMINDERS, reminderSchedule, reminderText } from "../core/reminders.js";
-import { today } from "./format.js";
+import { DEFAULT_REMINDERS, reminderSchedule } from "../core/reminders.js";
 import { showSnackbar } from "./snackbar.js";
 import { registerPage, refreshPage } from "./sync-panel.js";
 import { h } from "./dom.js";
@@ -82,13 +79,6 @@ function deliverWeb(r) {
   } else {
     showNotice(r);
   }
-}
-
-/** Prototype: today's reminder as a banner that looks like the system notification. */
-export function simulateReminder() {
-  const notes = allNotes().filter(n => n.status !== "closed" && n.due === today());
-  if (!notes.length) return showSnackbar("No open notes due today");
-  showNotice({ ids: notes.map(n => n.id), ...reminderText(notes) });
 }
 
 function showNotice(r) {
