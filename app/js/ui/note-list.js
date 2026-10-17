@@ -87,8 +87,14 @@ export function patchNote(id) {
   const n = note(id);
   if (!el || !n) return;
   // The edited note keeps its editor; only its meta line follows.
-  if (state.editingId === id) el.querySelector(".note-meta").innerHTML = metaHtml(n);
+  if (state.editingId === id) { el.querySelector(".note-meta").innerHTML = metaHtml(n); applyLook(el, n); }
   else el.replaceWith(noteElement(n));
+}
+
+// A note's color and motif (core/look.js) as attributes the styles pick up (app.css → "Note colors and motifs").
+function applyLook(el, n) {
+  if (n.color) el.dataset.color = n.color; else delete el.dataset.color;
+  if (n.decor) el.dataset.decor = n.decor; else delete el.dataset.decor;
 }
 
 function noteElement(n, view = state.view) {
@@ -96,6 +102,7 @@ function noteElement(n, view = state.view) {
   el.className = "note" + (n.status === "closed" ? " closed" : "") + (n.status === "permanent" ? " permanent" : "")
     + (n.deleted ? " trashed" : "") + (n.news ? " news" : "") + (n.fresh ? " fresh" : "");
   el.dataset.id = n.id;
+  applyLook(el, n);
 
   // The round button closes or reopens; a permanent note has its mark there instead, a trashed note neither.
   const status = document.createElement(n.status === "permanent" ? "span" : "button");

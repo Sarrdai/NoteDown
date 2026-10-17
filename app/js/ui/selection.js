@@ -28,6 +28,7 @@ import { openShareDialog } from "./share-dialog.js";
 import { openMenu, pickButton } from "./menu.js";
 import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { openExport } from "./export.js";
+import { openLookPicker } from "./look-picker.js";
 import { icon } from "./icons.js";
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 
@@ -278,6 +279,7 @@ function update() {
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
+    !archive && state.settings.lookEntry === "select" && { id: "look", label: "Color", run: e => openLookPicker(e?.currentTarget?.offsetParent ? e.currentTarget : $("selMore"), ids), disabled: !whole, menu: true },
     !archive && { id: permanent ? "permanent" : "closable", label: permanent ? "Make permanent" : "Make closable", run: () => setPermanent(permanent), disabled: !whole, menu: true },
     { id: "trash", label: "Delete", run: remove, disabled: !whole },
     !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },

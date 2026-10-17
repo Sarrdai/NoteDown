@@ -181,7 +181,9 @@ Current state, edited in place when a decision changes.
 - Colors: Catppuccin flavors mapped to semantic tokens (`app/css/app.css`
   top): surfaces from `base`/`mantle`, text from `text`/`subtext`,
   accent Mauve, overdue = red, done = green, links = blue; the archive
-  tints the surfaces with teal.
+  tints the surfaces with teal. A note's own color (`docs/requirements.md`
+  → "Note colors and motifs") is a light tint of its card from the same
+  flavor, never a full-strength fill, so text keeps its contrast.
 - Status marks: a **round** button for the note itself, **square**
   checkboxes for tasks inside the text.
 - People are shown as **initials avatars**, each contact in one stable

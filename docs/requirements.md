@@ -25,6 +25,7 @@
   - [Settings](#settings)
   - [Legal texts and license](#legal-texts-and-license)
   - [Look](#look)
+  - [Note colors and motifs](#note-colors-and-motifs)
   - [Not in scope (for now)](#not-in-scope-for-now)
 <!-- /toc -->
 
@@ -720,8 +721,10 @@ whose labels need a place).
   as in Obsidian: plain Markdown that other editors show, typed like any
   text, no file format change (chosen over a hidden marker attribute,
   which needs its own UI and is invisible elsewhere). It follows a space
-  or the line start and holds a letter (`# Heading`, `issue#5` and `#5`
-  are none); none in code or links. Labels compare case-insensitively.
+  or the line start and holds a letter or an **emoji** (`#😉`, `#🎂`,
+  `#trip✈️`; skin tones, flags and joined emoji count as one — user
+  request 2026-10-17); `# Heading`, `issue#5`, `#5` and the keycap `#️⃣`
+  are none, nor anything in code or links. Labels compare case-insensitively.
 - Labels are part of the text, so everyone a note is shared with sees
   them; there are no private labels on shared notes.
 - In a note a label shows as a small **chip**; tapping it **filters the
@@ -1251,6 +1254,41 @@ Decided 2026-10-16 (user request, for publishing in the Play Store).
 - Notes are shown as **separate cards** (decided 2026-10-13 over one
   continuous page): each note's boundary is clear for tapping into it and
   for long-press selection.
+
+### Note colors and motifs
+
+Decided 2026-10-17 (user request): notes can be told apart at a glance,
+like the colored notes in Google Keep.
+
+- A note can have a **background color** and a **motif**, each optional
+  and independent. The colors are a **fixed palette** of eight — Red,
+  Orange, Yellow, Green, Teal, Blue, Purple, Pink — that each theme
+  flavor draws from its own Catppuccin shade as a light tint of the card,
+  so text stays readable in light and dark (chosen over a free color
+  picker, which can't guarantee that).
+- The motifs are **built into the app** (chosen over the user's own
+  photos, which would eat into the 2 MB per identity and have to sync):
+  two patterns behind the text — Dots, Grid —, Waves along the bottom
+  edge, and drawings in the top right corner: Leaves and Stars, and by
+  occasion Birthday, Christmas, Gifts, Travel, Packing, Camper and Shopping (user
+  request 2026-10-17) — all drawn faintly in the note's color (neutral
+  without one).
+- Color and motif **belong to the note** (`docs/file-format.md` →
+  "Marker attributes"): they sync, and everyone the note is shared with
+  sees them, like labels. Setting them is no content change (the "Edited"
+  time stays). A merged note takes the look of the first source that has
+  one; the Google Keep import takes over Keep's note color where the
+  palette has it.
+- **Picker:** a popup with a row of colors and a row of motif tiles
+  (previewed in the chosen color), each starting with "None"; a tap
+  applies at once and the popup stays open to try others; a tap outside
+  or Esc closes it. For several notes it marks what they share. Not for
+  closed notes, the trash or news posts.
+- **Where it is reached — open, two variants in the prototype**
+  (⋮ → "Prototype: Color", `?look=`): **A** (recommended) **Color** in
+  the selection bar (phone: under its ⋮), for one or several notes at
+  once; **B** a palette button in the editing toolbar, for the note
+  being edited. *Prototype: 2026-10-17.*
 
 ### Not in scope (for now)
 

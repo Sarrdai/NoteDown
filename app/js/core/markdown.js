@@ -2,7 +2,7 @@
 // the table of contents, the preview title, and the task checkboxes and their
 // states in the source.
 import { Marked } from "../../vendor/marked.esm.js";
-import { LABEL_AT } from "./labels.js";
+import { LABEL_AT, LABEL_START } from "./labels.js";
 import { mediaSource, mediaKind } from "./external.js";
 import { counterAt, counterStart, counterHtml } from "./counter.js";
 
@@ -13,7 +13,7 @@ marked.use({
     name: "label",
     level: "inline",
     start(src) {
-      const m = /(^|[\s(])#[\p{L}\p{N}_]/u.exec(src);
+      const m = LABEL_START.exec(src);
       return m ? m.index + m[1].length : undefined;
     },
     tokenizer(src) {
