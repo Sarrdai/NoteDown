@@ -37,6 +37,10 @@ and the sample simulates everything without a server.
     convenient way in, the apps are the secure one.
   - **No desktop client yet** (backlog #58), which needs signed,
     verifiable updates like Signal Desktop's.
+  - **Device keys outside the Keystore on Android** (backlog #61):
+    Signal keeps its identity key under its Keystore-sealed database
+    key; NoteDown's X25519 and Ed25519 device keys sit in the web view's
+    IndexedDB ("Where the files live").
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
@@ -138,9 +142,13 @@ copied files.
   in front (`app/js/core/vault.js`). The app reads them once at start
   into memory and writes a record back after each change; another tab of
   the same browser hears of a write through a `BroadcastChannel`.
-- **Device keys** stay non-extractable WebCrypto keys in IndexedDB
-  `notedown` (the vault can only hold bytes); in the web app that is the
-  same protection as the vault's own key.
+- **Device keys:** the X25519 and Ed25519 keys stay non-extractable
+  WebCrypto keys in IndexedDB `notedown` (the vault can only hold bytes;
+  in the web app that is the same protection as the vault's own key);
+  the ML-KEM seed (backlog #20) is a secret in the vault. In the Android
+  app the WebCrypto keys are protected by the app's sandbox and the
+  missing backup, not by the Keystore — a known gap (backlog #61); a
+  hybrid wrap still needs the vault's ML-KEM seed as well.
 - **Moving plain data in** (backlog #19): the first start of a version
   with the vault copies what an older one kept in plain text — the
   `notedown.*` keys of `localStorage` and the file keys of IndexedDB
