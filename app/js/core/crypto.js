@@ -1,8 +1,10 @@
 // Client-side cryptography of sync (docs/server-api.md): encodings, keys, the
-// signed device list, authentication and file encryption. WebCrypto only, no
-// DOM; byte-compatible with server/notedown_server/protocol.py (pinned by
-// tests/fixtures/crypto-vectors.json).
+// signed device list, authentication and file encryption. WebCrypto plus
+// ML-KEM-768 (app/vendor/mlkem.js, libcrux as WebAssembly), no DOM;
+// byte-compatible with server/notedown_server/protocol.py and
+// scripts/crypto-vectors.py (pinned by tests/fixtures/crypto-vectors.json).
 import { normalizeRecoveryKey } from "./sharing.js";
+import { mlkemPublicKey, mlkemEncapsulate, mlkemDecapsulate } from "../../vendor/mlkem.js";
 
 const subtle = () => globalThis.crypto.subtle;
 const utf8 = text => new TextEncoder().encode(text);
@@ -15,6 +17,9 @@ const concat = (...parts) => {
 
 export const MAX_DEVICES = 20;
 const NONCE_BYTES = 12;
+const KEM_SEED_BYTES = 64;      // ML-KEM-768 seed d ‖ z (FIPS 203)
+const KEM_PUBLIC_BYTES = 1184;  // ML-KEM-768 encapsulation key
+const KEM_CT_BYTES = 1088;      // ML-KEM-768 ciphertext
 
 /** A request or chain that breaks the protocol (the server answers 400). */
 export class ProtocolError extends Error {}
@@ -129,15 +134,27 @@ export function recoveryKeyBytes(text) {
   return Uint8Array.from(bytes);
 }
 
-/** The identity key pair and the recovery device's key pairs (`{ identity, recovery: { sign, enc } }`) from the recovery key bytes. */
+/** For tests and restore: ML-KEM-768 key pair `{ seed, publicKey }` from a 64-byte seed (the seed is the private key). */
+export async function importKemSeed(seed) {
+  if (seed.length !== KEM_SEED_BYTES) throw new ProtocolError("expected a 64-byte seed");
+  return { seed, publicKey: await mlkemPublicKey(seed) };
+}
+
+/** A new random ML-KEM-768 key pair `{ seed, publicKey }` (a device that had none before gets one, docs/server-api.md → "Device list"). */
+export function generateKemKeys() {
+  return importKemSeed(globalThis.crypto.getRandomValues(new Uint8Array(KEM_SEED_BYTES)));
+}
+
+/** The identity key pair and the recovery device's key pairs (`{ identity, recovery: { sign, enc, kem } }`) from the recovery key bytes. */
 export async function deriveRecovery(recoveryBytes) {
-  const seed = info => hkdf(recoveryBytes, utf8("NoteDown"), utf8(info));
-  const [identity, sign, enc] = await Promise.all([
+  const seed = (info, length) => hkdf(recoveryBytes, utf8("NoteDown"), utf8(info), length);
+  const [identity, sign, enc, kem] = await Promise.all([
     seed("identity-sign").then(importSigningSeed),
     seed("recovery-sign").then(importSigningSeed),
     seed("recovery-enc").then(importEncSeed),
+    seed("recovery-kem", KEM_SEED_BYTES).then(importKemSeed),
   ]);
-  return { identity, recovery: { sign, enc } };
+  return { identity, recovery: { sign, enc, kem } };
 }
 
 async function generatePair(name) {
@@ -145,15 +162,31 @@ async function generatePair(name) {
   return { privateKey, publicKey: new Uint8Array(await subtle().exportKey("raw", publicKey)) };
 }
 
-/** New device keys: Ed25519 `sign` and X25519 `enc` pairs, private keys non-extractable, public keys raw bytes. */
+/**
+ * New device keys: Ed25519 `sign` and X25519 `enc` pairs (private keys non-extractable, public keys raw
+ * bytes) and the ML-KEM-768 `kem` pair `{ seed, publicKey }`, whose seed WebCrypto can't hold as a key.
+ */
 export async function generateDeviceKeys() {
-  const [sign, enc] = await Promise.all([generatePair("Ed25519"), generatePair("X25519")]);
-  return { sign, enc };
+  const [sign, enc, kem] = await Promise.all([generatePair("Ed25519"), generatePair("X25519"), generateKemKeys()]);
+  return { sign, enc, kem };
 }
 
-/** A device-list record `{ id, kind, sign, enc }` ("device" or "recovery") for the keys. */
+/** A device-list record `{ id, kind, sign, enc, kem }` ("device" or "recovery") for the keys (`kem` only when they have one). */
 export async function deviceRecord(keys, kind) {
-  return { id: await keyId(keys.sign.publicKey), kind, sign: b64u(keys.sign.publicKey), enc: b64u(keys.enc.publicKey) };
+  return {
+    id: await keyId(keys.sign.publicKey), kind, sign: b64u(keys.sign.publicKey), enc: b64u(keys.enc.publicKey),
+    ...(keys.kem && { kem: b64u(keys.kem.publicKey) }),
+  };
+}
+
+/** What a key is wrapped for: a device's public `{ enc, kem }` (raw bytes; `kem` null for a device without one), from its keys. */
+export function recipientOf(keys) {
+  return { enc: keys.enc.publicKey, kem: keys.kem?.publicKey || null };
+}
+
+/** The commitment to an ML-KEM public key in a link code: b64u of its SHA-256. */
+export async function kemHash(publicKey) {
+  return b64u(await sha256(publicKey));
 }
 
 // ---------- device list ----------
@@ -187,7 +220,7 @@ const isId = text => typeof text === "string" && /^[A-Za-z0-9_-]{22}$/.test(text
 
 /**
  * Checks a whole device list like the server; returns a Map of every device
- * ever added by ID: `{ id, kind, sign, enc (raw bytes), active }`.
+ * ever added by ID: `{ id, kind, sign, enc, kem (raw bytes, kem null until the device has one), active }`.
  */
 export async function verifyChain(identityKeyBytes, entries) {
   const identity = await keyId(identityKeyBytes);
@@ -207,21 +240,32 @@ export async function verifyChain(identityKeyBytes, entries) {
 
     if (entry.op === "add") await applyAdd(entry.device, devices, fail);
     else if (entry.op === "remove") applyRemove(entry.device, devices, fail);
+    else if (entry.op === "kem") applyKem(entry.device, entry.signer, devices, fail);
     else throw fail("unknown op");
   }
   return devices;
 }
 
 async function applyAdd(device, devices, fail) {
-  if (!isObject(device) || !sameKeys(device, ["enc", "id", "kind", "sign"])
+  if (!isObject(device) || !(sameKeys(device, ["enc", "id", "kind", "sign"]) || sameKeys(device, ["enc", "id", "kem", "kind", "sign"]))
       || !Object.values(device).every(v => typeof v === "string")) throw fail("malformed device");
   const sign = fromB64u(device.sign, 32), enc = fromB64u(device.enc, 32);
+  const kem = device.kem === undefined ? null : fromB64u(device.kem, KEM_PUBLIC_BYTES);
   if (device.id !== await keyId(sign) || devices.has(device.id)) throw fail("wrong or reused device id");
   if (!["device", "recovery"].includes(device.kind)) throw fail("unknown kind");
   const all = [...devices.values()];
   if (device.kind === "recovery" && all.some(d => d.kind === "recovery")) throw fail("second recovery device");
   if (all.filter(d => d.active).length >= MAX_DEVICES) throw fail("too many devices");
-  devices.set(device.id, { id: device.id, kind: device.kind, sign, enc, active: true });
+  devices.set(device.id, { id: device.id, kind: device.kind, sign, enc, kem, active: true });
+}
+
+// A device that was added without an ML-KEM key gets one: signed by itself, or by the identity (the recovery device).
+function applyKem(device, signer, devices, fail) {
+  if (!isObject(device) || !sameKeys(device, ["id", "kem"]) || !isId(device.id) || typeof device.kem !== "string") throw fail("malformed kem");
+  const target = devices.get(device.id);
+  if (!target || !target.active || target.kem) throw fail("device can't get a kem key");
+  if (signer !== device.id && signer !== "identity") throw fail("kem must be signed by the device itself");
+  target.kem = fromB64u(device.kem, KEM_PUBLIC_BYTES);
 }
 
 function applyRemove(device, devices, fail) {
@@ -327,46 +371,85 @@ export function openPreviousKey(newKey, text) {
   return open(newKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES), PREVIOUS_KEY);
 }
 
-async function wrapKey(label, privateKey, otherPublic, ephemeralPublic, recipientPublic) {
+async function x25519(privateKey, otherPublic) {
   const other = await subtle().importKey("raw", otherPublic, { name: "X25519" }, false, []);
-  const shared = new Uint8Array(await subtle().deriveBits({ name: "X25519", public: other }, privateKey, 256));
-  return hkdf(shared, new Uint8Array(0), concat(utf8(label), ephemeralPublic, recipientPublic));
+  return new Uint8Array(await subtle().deriveBits({ name: "X25519", public: other }, privateKey, 256));
 }
 
-// Ephemeral X25519 to the recipient's `enc` key, HKDF with `label`, AES-GCM:
-// b64u of ephemeral public key ‖ nonce ‖ ciphertext.
-async function sealFor(label, recipientEncPublic, plain) {
+const HYBRID = 0x01;   // first byte of a hybrid (post-quantum) sealed value
+const HYBRID_HEAD = 1 + 32 + KEM_CT_BYTES;
+
+// The wrap key of a hybrid seal: HKDF-SHA256 over both shared secrets, info the label and the SHA-256 of both
+// ciphertexts and both public keys (as PQXDH, plus the KEM transcript; hashed because WebCrypto implementations
+// cap info at 1024 bytes), so it holds if either X25519 or ML-KEM-768 does.
+async function hybridKey(label, sharedX, sharedKem, ephemeralPublic, recipient, kemCiphertext) {
+  const transcript = await sha256(concat(ephemeralPublic, recipient.enc, kemCiphertext, recipient.kem));
+  return hkdf(concat(sharedX, sharedKem), new Uint8Array(0), concat(utf8(label + "-pq"), transcript));
+}
+
+/**
+ * Seals `plain` for a device's public keys `{ enc, kem }`. With `kem` (hybrid): b64u of 0x01 ‖ ephemeral
+ * X25519 public key ‖ ML-KEM-768 ciphertext ‖ nonce ‖ AES-GCM; without (a device that has no ML-KEM key yet):
+ * b64u of ephemeral X25519 public key ‖ nonce ‖ AES-GCM, the wrap key HKDF over the X25519 secret alone.
+ */
+async function sealFor(label, recipient, plain) {
   const ephemeral = await generatePair("X25519");
-  const key = await wrapKey(label, ephemeral.privateKey, recipientEncPublic, ephemeral.publicKey, recipientEncPublic);
+  const sharedX = await x25519(ephemeral.privateKey, recipient.enc);
+  if (!recipient.kem) {
+    const key = await hkdf(sharedX, new Uint8Array(0), concat(utf8(label), ephemeral.publicKey, recipient.enc));
+    const { nonce, sealed } = await seal(key, plain);
+    return b64u(concat(ephemeral.publicKey, nonce, sealed));
+  }
+  const { ciphertext, sharedSecret } = await mlkemEncapsulate(recipient.kem);
+  const key = await hybridKey(label, sharedX, sharedSecret, ephemeral.publicKey, recipient, ciphertext);
   const { nonce, sealed } = await seal(key, plain);
-  return b64u(concat(ephemeral.publicKey, nonce, sealed));
+  return b64u(concat(Uint8Array.of(HYBRID), ephemeral.publicKey, ciphertext, nonce, sealed));
 }
 
-async function openFor(label, text, encKeyPair) {
+// Opens `sealFor`'s output with a device's keys `{ enc, kem }` (`kem`: `{ seed, publicKey }` or none). A value
+// that isn't hybrid, or whose hybrid reading fails (an X25519-only one that happens to start with 0x01), is
+// read as X25519-only: those stay readable until they are replaced.
+async function openFor(label, text, keys) {
   const raw = fromB64u(text);
+  if (keys.kem && raw[0] === HYBRID && raw.length >= HYBRID_HEAD + NONCE_BYTES + 16) {
+    try {
+      const ephemeralPublic = raw.subarray(1, 33), ciphertext = raw.subarray(33, HYBRID_HEAD);
+      const sharedX = await x25519(keys.enc.privateKey, ephemeralPublic);
+      const sharedKem = await mlkemDecapsulate(keys.kem.seed, ciphertext);
+      const key = await hybridKey(label, sharedX, sharedKem, ephemeralPublic, recipientOf(keys), ciphertext);
+      return await open(key, raw.subarray(HYBRID_HEAD, HYBRID_HEAD + NONCE_BYTES), raw.subarray(HYBRID_HEAD + NONCE_BYTES));
+    } catch { /* not hybrid after all */ }
+  }
   const ephemeralPublic = raw.subarray(0, 32);
-  const key = await wrapKey(label, encKeyPair.privateKey, ephemeralPublic, ephemeralPublic, encKeyPair.publicKey);
+  const key = await hkdf(await x25519(keys.enc.privateKey, ephemeralPublic), new Uint8Array(0),
+    concat(utf8(label), ephemeralPublic, keys.enc.publicKey));
   return open(key, raw.subarray(32, 32 + NONCE_BYTES), raw.subarray(32 + NONCE_BYTES));
 }
 
-/** b64u of ephemeral X25519 public key ‖ nonce ‖ AES-GCM(wrap key, file key), for the recipient's `enc` key. */
-export function wrapFileKey(fileKey, recipientEncPublic) {
-  return sealFor("notedown-wrap", recipientEncPublic, fileKey);
+/** Whether a sealed value (a wrapped file key, relay payload or card) is hybrid, i.e. safe from a future quantum computer. */
+export function isHybrid(text) {
+  const raw = fromB64u(text);
+  return raw[0] === HYBRID && raw.length >= HYBRID_HEAD + NONCE_BYTES + 16;
 }
 
-/** The 32-byte file key from `wrapFileKey`'s output; `encKeyPair` is `{ privateKey, publicKey }`. */
-export function unwrapFileKey(wrapped, encKeyPair) {
-  return openFor("notedown-wrap", wrapped, encKeyPair);
+/** A file key wrapped for a device's public keys `{ enc, kem }` (`sealFor`, label `notedown-wrap`). */
+export function wrapFileKey(fileKey, recipient) {
+  return sealFor("notedown-wrap", recipient, fileKey);
+}
+
+/** The 32-byte file key from `wrapFileKey`'s output; `keys` are this device's `{ enc, kem }` (as `generateDeviceKeys`). */
+export function unwrapFileKey(wrapped, keys) {
+  return openFor("notedown-wrap", wrapped, keys);
 }
 
 /** The relay payload for a new device: `message` (JSON-able) sealed like a file key, label `notedown-relay`. */
-export function sealRelayMessage(message, recipientEncPublic) {
-  return sealFor("notedown-relay", recipientEncPublic, utf8(JSON.stringify(message)));
+export function sealRelayMessage(message, recipient) {
+  return sealFor("notedown-relay", recipient, utf8(JSON.stringify(message)));
 }
 
-/** The message of `sealRelayMessage`'s output; throws when it wasn't sealed for `encKeyPair`. */
-export async function openRelayMessage(payload, encKeyPair) {
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-relay", payload, encKeyPair)));
+/** The message of `sealRelayMessage`'s output; throws when it wasn't sealed for these device keys. */
+export async function openRelayMessage(payload, keys) {
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-relay", payload, keys)));
 }
 
 // ---------- contacts and invitations (docs/server-api.md → "Contacts and invitations") ----------
@@ -402,14 +485,14 @@ export async function verifyInvitation(signKey, sig, id) {
   }
 }
 
-/** A contact request's card (JSON-able) sealed like a relay payload for a device's `enc` key, label `notedown-contact`. */
-export function sealContactCard(card, recipientEncPublic) {
-  return sealFor("notedown-contact", recipientEncPublic, utf8(JSON.stringify(card)));
+/** A contact request's card (JSON-able) sealed like a relay payload for a device's public keys, label `notedown-contact`. */
+export function sealContactCard(card, recipient) {
+  return sealFor("notedown-contact", recipient, utf8(JSON.stringify(card)));
 }
 
-/** The card of `sealContactCard`'s output; throws when it wasn't sealed for `encKeyPair`. */
-export async function openContactCard(sealed, encKeyPair) {
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-contact", sealed, encKeyPair)));
+/** The card of `sealContactCard`'s output; throws when it wasn't sealed for these device keys. */
+export async function openContactCard(sealed, keys) {
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await openFor("notedown-contact", sealed, keys)));
 }
 
 // ---------- safety codes (docs/sync-and-sharing.md → "Contacts") ----------

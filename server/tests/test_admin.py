@@ -12,7 +12,7 @@ from notedown_server.admin import MAX_QUOTA_OVERRIDE
 from notedown_server.app import MAX_STORAGE_BYTES, Settings
 from notedown_server.protocol import b64u
 
-from conftest import DATABASE_URL, Identity, Keys, token
+from conftest import DATABASE_URL, Identity, Keys, new_slot, token
 from test_api import upload
 
 NOT_FOUND = {"detail": "not found"}
@@ -315,7 +315,7 @@ def test_backup_mutate_restore_round_trip(client, people, admin):
 
 def test_restore_clears_relay_and_rate_limit_rows(client, people, admin):
     backup = client.get("/v1/admin/backup", headers=admin.h).json()
-    client.post("/v1/relay")
+    client.post("/v1/relay", json=new_slot())
     assert client.post("/v1/admin/restore", json=backup, headers=admin.h).status_code == 200
     with psycopg.connect(DATABASE_URL) as conn:
         assert conn.execute("SELECT count(*) FROM relay").fetchone()[0] == 0

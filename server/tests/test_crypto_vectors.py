@@ -11,6 +11,7 @@ import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from notedown_server import auth
+from notedown_server.app import MAX_WRAPPED_KEY
 from notedown_server.protocol import (
     ProtocolError, b64u, canonical, entry_hash, from_b64u, invitation_message, key_id, verify_chain, verify_signature,
 )
@@ -75,6 +76,16 @@ def test_sealed_contact_card_fits_the_limit_and_holds_the_secret():
 def test_wrapped_key_fits_the_limit():
     assert len(VECTORS["wrap"]["wrapped"]) <= 512
     assert len(from_b64u(VECTORS["wrap"]["wrapped"])) == 32 + 12 + 32 + 16
+
+
+@pytest.mark.parametrize("name", ["hybrid_wrap", "hybrid_contact_card", "hybrid_relay"])
+def test_hybrid_seals_fit_the_limit_and_their_ml_kem_part_decapsulates(name):
+    from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PrivateKey
+    vector = VECTORS[name]
+    raw = from_b64u(vector["sealed"])
+    assert raw[0] == 1 and len(vector["sealed"]) <= MAX_WRAPPED_KEY
+    phone = MLKEM768PrivateKey.from_seed_bytes(bytes.fromhex(VECTORS["phone"]["kem_seed"]))
+    assert phone.decapsulate(raw[33:33 + 1088]).hex() == vector["kem_shared"]
 
 
 def test_file_ciphertext_is_padded_to_4096_bytes_and_legacy_files_are_not():

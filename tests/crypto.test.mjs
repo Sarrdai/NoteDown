@@ -8,6 +8,7 @@ import {
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
   decryptFile, sealPreviousKey, openPreviousKey, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
   newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
+  importKemSeed, generateKemKeys, recipientOf, isHybrid, kemHash, sealRelayMessage, openRelayMessage,
 } from "../app/js/core/crypto.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./fixtures/crypto-vectors.json", import.meta.url), "utf8"));
@@ -17,8 +18,11 @@ const text = bytes => new TextDecoder().decode(bytes);
 const clone = value => structuredClone(value);
 
 async function deviceFrom(v) {
-  return { sign: await importSigningSeed(hex(v.sign_seed)), enc: await importEncSeed(hex(v.enc_seed)) };
+  return { sign: await importSigningSeed(hex(v.sign_seed)), enc: await importEncSeed(hex(v.enc_seed)), kem: await importKemSeed(hex(v.kem_seed)) };
 }
+
+// The keys of a device from before post-quantum wrapping: no ML-KEM pair.
+const withoutKem = ({ kem, ...keys }) => keys;
 
 // A fresh chain built the way the client does: phone, recovery device, then `more`.
 async function freshChain() {
@@ -76,6 +80,8 @@ test("recovery key: bytes, identity and recovery device keys match Python", asyn
   assert.equal(await keyId(identity.publicKey), vectors.recovery.identity_id);
   assert.equal(b64u(recovery.sign.publicKey), vectors.recovery.device.sign);
   assert.equal(b64u(recovery.enc.publicKey), vectors.recovery.device.enc);
+  assert.equal(toHex(recovery.kem.seed), vectors.recovery.device.kem_seed);
+  assert.equal(b64u(recovery.kem.publicKey), vectors.recovery.device.kem);
   assert.equal(await keyId(recovery.sign.publicKey), vectors.recovery.device.id);
 });
 
@@ -93,16 +99,24 @@ test("device keys from the vector seeds have Python's public keys and IDs", asyn
   const phone = await deviceFrom(vectors.phone);
   assert.equal(b64u(phone.sign.publicKey), vectors.phone.sign);
   assert.equal(b64u(phone.enc.publicKey), vectors.phone.enc);
+  assert.equal(b64u(phone.kem.publicKey), vectors.phone.kem);   // libcrux (wasm) = Python's ML-KEM key generation
   assert.equal(await keyId(phone.sign.publicKey), vectors.phone.id);
   assert.deepEqual(await deviceRecord(phone, "device"), vectors.chain[0].device);
+  assert.equal(await kemHash(phone.kem.publicKey), b64u(new Uint8Array(await crypto.subtle.digest("SHA-256", phone.kem.publicKey))));
 });
 
 test("generateDeviceKeys: fresh pairs, record has the ID of the signing key", async () => {
   const a = await generateDeviceKeys(), b = await generateDeviceKeys();
   assert.notDeepEqual(a.sign.publicKey, b.sign.publicKey);
+  assert.notDeepEqual(a.kem.seed, b.kem.seed);
+  assert.equal(a.kem.seed.length, 64);
+  assert.equal(a.kem.publicKey.length, 1184);
   const record = await deviceRecord(a, "device");
-  assert.deepEqual(Object.keys(record), ["id", "kind", "sign", "enc"]);
+  assert.deepEqual(Object.keys(record), ["id", "kind", "sign", "enc", "kem"]);
   assert.equal(record.id, await keyId(a.sign.publicKey));
+  assert.deepEqual(Object.keys(await deviceRecord(withoutKem(a), "device")), ["id", "kind", "sign", "enc"]);
+  assert.deepEqual((await importKemSeed(a.kem.seed)).publicKey, a.kem.publicKey);
+  await rejects(importKemSeed(new Uint8Array(32)), "expected a 64-byte seed");
 });
 
 test("chain: JS rebuilds the Python entries byte for byte (deterministic signatures)", async () => {
@@ -114,7 +128,8 @@ test("chain: JS rebuilds the Python entries byte for byte (deterministic signatu
   const add = async (op, device, signer, key) => entries.push(await signEntry(await newEntry(id, entries, op, device), signer, key));
   await add("add", await deviceRecord(phone, "device"), "identity", rec.identity.privateKey);
   await add("add", await deviceRecord(recoveryDevice, "recovery"), "identity", rec.identity.privateKey);
-  await add("add", await deviceRecord(tablet, "device"), vectors.phone.id, phone.sign.privateKey);
+  await add("add", await deviceRecord(withoutKem(tablet), "device"), vectors.phone.id, phone.sign.privateKey);
+  await add("kem", { id: vectors.tablet.id, kem: b64u(tablet.kem.publicKey) }, vectors.tablet.id, tablet.sign.privateKey);
   await add("remove", { id: vectors.tablet.id }, vectors.tablet.id, tablet.sign.privateKey);
   assert.deepEqual(entries, vectors.chain);
   for (const [i, e] of vectors.chain.entries()) assert.equal(await entryHash(e), vectors.chain_hashes[i]);
@@ -128,7 +143,29 @@ test("verifyChain: accepts the Python chain and reports every device", async () 
   const phone = devices.get(vectors.phone.id);
   assert.equal(b64u(phone.sign), vectors.phone.sign);
   assert.equal(b64u(phone.enc), vectors.phone.enc);
+  assert.equal(b64u(phone.kem), vectors.phone.kem);
+  assert.equal(b64u(devices.get(vectors.tablet.id).kem), vectors.tablet.kem);   // added by its "kem" entry
   assert.equal((await verifyChain(fromB64u(vectors.recovery.identity_sign), [])).size, 0);
+});
+
+test("verifyChain: a device without an ML-KEM key gets one once, signed by itself or the identity", async () => {
+  const chain = await freshChain();
+  const tablet = await generateDeviceKeys();
+  const record = await deviceRecord(withoutKem(tablet), "device");
+  await chain.append("add", record, chain.phoneRecord.id, chain.phone.sign.privateKey);
+  assert.equal((await verifyChain(chain.identityKey, chain.entries)).get(record.id).kem, null);
+  const kem = b64u(tablet.kem.publicKey);
+  const attempt = async (device, signer, key) => verifyChain(chain.identityKey,
+    [...chain.entries, await signEntry(await newEntry(chain.identityId, chain.entries, "kem", device), signer, key)]);
+  await rejects(attempt({ id: record.id, kem }, chain.phoneRecord.id, chain.phone.sign.privateKey), "entry 3: kem must be signed by the device itself");
+  await rejects(attempt({ id: chain.phoneRecord.id, kem }, chain.phoneRecord.id, chain.phone.sign.privateKey), "entry 3: device can't get a kem key");
+  await rejects(attempt({ id: record.id, kem, kind: "device" }, record.id, tablet.sign.privateKey), "entry 3: malformed kem");
+  await rejects(attempt({ id: record.id, kem: b64u(new Uint8Array(32)) }, record.id, tablet.sign.privateKey), "expected 1184 bytes");
+  const byIdentity = await attempt({ id: record.id, kem }, "identity", chain.rec.identity.privateKey);
+  assert.equal(b64u(byIdentity.get(record.id).kem), kem);
+  await chain.append("kem", { id: record.id, kem }, record.id, tablet.sign.privateKey);
+  assert.equal(b64u((await verifyChain(chain.identityKey, chain.entries)).get(record.id).kem), kem);
+  await rejects(attempt({ id: record.id, kem }, record.id, tablet.sign.privateKey), "entry 4: device can't get a kem key");
 });
 
 test("verifyChain: rejects tampered Python chains with the server's messages", async () => {
@@ -195,6 +232,8 @@ test("verifyChain: rejects a reused ID, a wrong ID, an unknown kind or op, malfo
   await check("add", { id: other.id }, "entry 2: malformed device");
   await check("add", { ...other, enc: "!" + other.enc.slice(1) }, "invalid base64url");
   await check("add", { ...other, sign: b64u(new Uint8Array(31)) }, "expected 32 bytes");
+  await check("add", { ...other, kem: b64u(new Uint8Array(1183)) }, "expected 1184 bytes");
+  await check("add", { ...other, kem: 5 }, "entry 2: malformed device");
   await check("rename", other, "entry 2: unknown op");
   await check("remove", { id: "short" }, "entry 2: malformed remove");
   await check("remove", { id: other.id, kind: "device" }, "entry 2: malformed remove");
@@ -298,20 +337,63 @@ test("file: wrong key or changed data is rejected", async () => {
   await assert.rejects(decryptFile(key, b64u(raw)));
 });
 
-test("file key: unwraps the Python wrapped key; JS wrap round trips; fits the limit", async () => {
+test("file key: opens Python's hybrid wrap; JS hybrid wrap round trips and fits the limit", async () => {
   const phone = await deviceFrom(vectors.phone);
-  assert.equal(toHex(await unwrapFileKey(vectors.wrap.wrapped, phone.enc)), vectors.wrap.file_key);
+  const v = vectors.hybrid_wrap;
+  assert.ok(isHybrid(v.sealed));
+  assert.equal(toHex(await unwrapFileKey(v.sealed, phone)), v.file_key);
 
   const key = generateFileKey();
   assert.equal(key.length, 32);
-  const wrapped = await wrapFileKey(key, phone.enc.publicKey);
-  assert.ok(wrapped.length <= 512);
-  assert.equal(fromB64u(wrapped).length, 32 + 12 + 32 + 16);
-  assert.deepEqual(await unwrapFileKey(wrapped, phone.enc), key);
-  assert.notEqual(wrapped, await wrapFileKey(key, phone.enc.publicKey));
+  const wrapped = await wrapFileKey(key, recipientOf(phone));
+  assert.ok(isHybrid(wrapped));
+  assert.ok(wrapped.length <= 2048, wrapped.length);
+  assert.equal(fromB64u(wrapped).length, 1 + 32 + 1088 + 12 + 32 + 16);
+  assert.deepEqual(await unwrapFileKey(wrapped, phone), key);
+  assert.notEqual(wrapped, await wrapFileKey(key, recipientOf(phone)));
 
   const other = await generateDeviceKeys();
-  await assert.rejects(unwrapFileKey(wrapped, other.enc));
+  await assert.rejects(unwrapFileKey(wrapped, other));
+  // Both halves count: the right X25519 key with another ML-KEM key fails, and the other way round.
+  await assert.rejects(unwrapFileKey(wrapped, { ...phone, kem: other.kem }));
+  await assert.rejects(unwrapFileKey(wrapped, { ...phone, enc: other.enc }));
+  await assert.rejects(unwrapFileKey(wrapped, withoutKem(phone)));
+  await assert.rejects(wrapFileKey(key, { enc: phone.enc.publicKey, kem: new Uint8Array(1184).fill(255) }), /invalid ML-KEM-768/);
+});
+
+test("file key: X25519-only wraps (from before, or for a device without ML-KEM key) still open", async () => {
+  const phone = await deviceFrom(vectors.phone);
+  assert.ok(!isHybrid(vectors.wrap.wrapped));
+  assert.equal(toHex(await unwrapFileKey(vectors.wrap.wrapped, phone)), vectors.wrap.file_key);
+  assert.equal(toHex(await unwrapFileKey(vectors.wrap.wrapped, withoutKem(phone))), vectors.wrap.file_key);
+  const key = generateFileKey();
+  const legacy = await wrapFileKey(key, { enc: phone.enc.publicKey, kem: null });
+  assert.equal(fromB64u(legacy).length, 32 + 12 + 32 + 16);
+  assert.ok(!isHybrid(legacy));
+  assert.deepEqual(await unwrapFileKey(legacy, phone), key);
+  assert.deepEqual(await unwrapFileKey(legacy, withoutKem(phone)), key);
+  // An X25519-only wrap that starts with the hybrid marker byte falls back to X25519.
+  let marked;
+  do marked = await wrapFileKey(key, { enc: phone.enc.publicKey, kem: null }); while (fromB64u(marked)[0] !== 1);
+  assert.deepEqual(await unwrapFileKey(marked, phone), key);
+});
+
+test("relay message: opens Python's hybrid payload; round trips", async () => {
+  const phone = await deviceFrom(vectors.phone);
+  assert.deepEqual(await openRelayMessage(vectors.hybrid_relay.sealed, phone), vectors.hybrid_relay.message);
+  const message = { v: 1, identity: "I".repeat(22), name: "Zoë" };
+  const sealed = await sealRelayMessage(message, recipientOf(phone));
+  assert.ok(isHybrid(sealed));
+  assert.deepEqual(await openRelayMessage(sealed, phone), message);
+  await assert.rejects(openRelayMessage(sealed, await generateDeviceKeys()));
+});
+
+test("ML-KEM: libcrux decapsulates to Python's shared secret", async () => {
+  const { mlkemDecapsulate } = await import("../app/vendor/mlkem.js");
+  const phone = await deviceFrom(vectors.phone);
+  const ciphertext = fromB64u(vectors.hybrid_wrap.sealed).subarray(33, 33 + 1088);
+  assert.equal(toHex(await mlkemDecapsulate(phone.kem.seed, ciphertext)), vectors.hybrid_wrap.kem_shared);
+  assert.equal((await generateKemKeys()).publicKey.length, 1184);
 });
 
 test("invitation: ID, message and signature match Python", async () => {
@@ -338,20 +420,22 @@ test("invitation: a fresh secret has 16 bytes and its own ID; a wrong key, ID or
   assert.equal(await verifyInvitation(device.sign.publicKey, sig.slice(0, 40), id), false);
 });
 
-test("contact card: opens Python's sealed card; JS seal round trips, fits the limit and is no wrapped key", async () => {
+test("contact card: opens Python's sealed cards; JS seal round trips, fits the limit and is no wrapped key", async () => {
   const phone = await deviceFrom(vectors.phone);
-  const v = vectors.contact_card;
-  assert.deepEqual(await openContactCard(v.sealed, phone.enc), v.card);
+  assert.deepEqual(await openContactCard(vectors.contact_card.sealed, phone), vectors.contact_card.card);   // X25519-only
+  assert.deepEqual(await openContactCard(vectors.hybrid_contact_card.sealed, phone), vectors.hybrid_contact_card.card);
   const card = { v: 1, identity: "I".repeat(22), name: "Zoë ".repeat(10).trim(), secret: "S".repeat(22) };
-  const sealed = await sealContactCard(card, phone.enc.publicKey);
-  assert.ok(sealed.length <= 512, sealed.length);
-  assert.deepEqual(await openContactCard(sealed, phone.enc), card);
-  assert.notEqual(sealed, await sealContactCard(card, phone.enc.publicKey));
+  const sealed = await sealContactCard(card, recipientOf(phone));
+  assert.ok(isHybrid(sealed));
+  assert.ok(sealed.length <= 2048, sealed.length);
+  assert.deepEqual(await openContactCard(sealed, phone), card);
+  assert.notEqual(sealed, await sealContactCard(card, recipientOf(phone)));
   const other = await generateDeviceKeys();
-  await assert.rejects(openContactCard(sealed, other.enc));
+  await assert.rejects(openContactCard(sealed, other));
   // Separate HKDF labels: a card is no relay payload and no wrapped key, and the other way round.
-  await assert.rejects(openContactCard(await wrapFileKey(generateFileKey(), phone.enc.publicKey), phone.enc));
-  await assert.rejects(unwrapFileKey(sealed, phone.enc));
+  await assert.rejects(openContactCard(await wrapFileKey(generateFileKey(), recipientOf(phone)), phone));
+  await assert.rejects(unwrapFileKey(sealed, phone));
+  await assert.rejects(openRelayMessage(sealed, phone));
 });
 
 test("safetyCode: the same for both sides, 5 groups of 4 digits, different per pair", async () => {

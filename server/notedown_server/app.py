@@ -25,7 +25,8 @@ from .protocol import (LimitError, ProtocolError, b64u, check_members, client_le
 # Total decoded ciphertext per identity; a constant for now (a paid option may raise it later).
 MAX_STORAGE_BYTES = 2 * 1024 * 1024
 MAX_FILES = 50
-MAX_WRAPPED_KEY = 512
+MAX_WRAPPED_KEY = 2048   # a hybrid wrapped key is 1575 characters, a sealed card a little more
+MAX_PREVIOUS_KEY = 512   # the old file key sealed with the new one (symmetric, 80 characters)
 MAX_RELAY_PAYLOAD = 8 * 1024
 RELAY_MINUTES = 10
 MAX_OPEN_INVITATIONS = 20
@@ -131,6 +132,10 @@ class Confirm(BaseModel):
 
 class RelayPayload(BaseModel):
     payload: str
+
+
+class NewSlot(BaseModel):
+    kem: str   # the new device's ML-KEM-768 key, which its link code only names by hash
 
 
 def client_ip(request: Request) -> str:
@@ -516,7 +521,7 @@ def create_app(settings: Settings) -> FastAPI:
                     # Renewing: the old key goes into the chain, so the file's history stays readable.
                     if body.previous_key is None:
                         raise ProtocolError("new keys for an existing file need previous_key")
-                    if len(body.previous_key) > MAX_WRAPPED_KEY:
+                    if len(body.previous_key) > MAX_PREVIOUS_KEY:
                         raise ProtocolError("previous_key too long")
                     from_b64u(body.previous_key)
             current = row[0] if row else 0
@@ -765,14 +770,24 @@ def create_app(settings: Settings) -> FastAPI:
     # --- relay slots for linking a device ---
 
     @app.post("/v1/relay", status_code=201, dependencies=[rate_limit("relay", LIMIT_RELAY)])
-    def create_slot():
+    def create_slot(body: NewSlot):
+        protocol.check_kem(body.kem)
         slot = b64u(os.urandom(16))
         with pool.connection() as conn:
             conn.execute("DELETE FROM relay WHERE expires < now()")
             expires = conn.execute(
-                "INSERT INTO relay (slot, expires) VALUES (%s, now() + make_interval(mins => %s)) "
-                "RETURNING expires", (slot, RELAY_MINUTES)).fetchone()[0]
+                "INSERT INTO relay (slot, kem, expires) VALUES (%s, %s, now() + make_interval(mins => %s)) "
+                "RETURNING expires", (slot, body.kem, RELAY_MINUTES)).fetchone()[0]
         return {"slot": slot, "expires": expires.isoformat()}
+
+    @app.get("/v1/relay/{slot}/kem")
+    def slot_kem(slot: str):
+        with pool.connection() as conn:
+            row = conn.execute("SELECT kem FROM relay WHERE slot = %s AND payload IS NULL AND expires > now()",
+                               (slot,)).fetchone()
+        if not row:
+            raise HTTPException(404, "unknown, expired or already filled slot")
+        return {"kem": row[0]}
 
     @app.put("/v1/relay/{slot}", status_code=204)
     def fill_slot(slot: str, body: RelayPayload, who: Authed):

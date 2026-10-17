@@ -159,3 +159,5 @@ ALTER TABLE identities ADD COLUMN IF NOT EXISTS deleted timestamptz;
 ALTER TABLE identities ADD COLUMN IF NOT EXISTS max_members integer;
 -- A state a member saved by hand ("Back up now"): pinned, and left out when thinning compares states.
 ALTER TABLE file_versions ADD COLUMN IF NOT EXISTS saved boolean NOT NULL DEFAULT false;
+-- The new device's ML-KEM-768 key while it waits to be linked (its link code holds only the hash, backlog #20).
+ALTER TABLE relay ADD COLUMN IF NOT EXISTS kem text;

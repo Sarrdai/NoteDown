@@ -61,7 +61,8 @@ There are no accounts — devices and contacts are connected by scanning a
 QR code.
 
 **Security:** the goal is to be at least as secure as
-[Signal](https://signal.org). Notes are end-to-end encrypted, and on the
+[Signal](https://signal.org). Notes are end-to-end encrypted, with keys
+wrapped post-quantum hybrid as in Signal (X25519 + ML-KEM), and on the
 device only NoteDown reads them. The **web app** is available now and
 convenient, but like any web app it is only as trustworthy as the host
 that serves its code — which is why Signal has no web client. The

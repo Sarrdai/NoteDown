@@ -24,7 +24,8 @@ from .protocol import (DEFAULT_MEMBERS, MAX_MEMBERS, MIN_MEMBERS, MAX_NEWS, MAX_
 MAX_QUOTA_OVERRIDE = 1024 ** 3
 BACKUP_FORMAT = "notedown-backup"
 BACKUP_VERSION = 1
-MAX_WRAPPED_KEY = 512   # as in app.py: the longest wrapped key / sealed card
+MAX_WRAPPED_KEY = 2048   # as in app.py: the longest wrapped key / sealed card
+MAX_PREVIOUS_KEY = 512   # as in app.py: a sealed previous key
 INVITATION_KINDS = ("code", "link")
 
 
@@ -312,7 +313,7 @@ def parse_backup(doc: Any) -> dict:
         gen = _int(r, "gen", "file_key_chain", 1, current[fid][1] - 1)
         sealed = _text(r, "sealed", "file_key_chain")
         _b64u(r, "sealed", "file_key_chain")
-        if (fid, gen) in seen_chain or len(sealed) > MAX_WRAPPED_KEY:
+        if (fid, gen) in seen_chain or len(sealed) > MAX_PREVIOUS_KEY:
             raise _bad("file_key_chain row does not fit")
         seen_chain.add((fid, gen))
         out["file_key_chain"].append((fid, gen, sealed))

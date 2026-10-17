@@ -37,7 +37,6 @@ and the sample simulates everything without a server.
     convenient way in, the apps are the secure one.
   - **No desktop client yet** (backlog #58), which needs signed,
     verifiable updates like Signal Desktop's.
-  - **No post-quantum key wrapping** (backlog #20; Signal uses PQXDH).
   - **The device-side protections of Signal's apps** — local data
     encrypted with a key from the platform's key store, no system
     backup, encrypted own backup, app lock, hidden notification text,
@@ -158,9 +157,10 @@ the first sync round.
   (≥ 128 bit, shown once as groups of letters and digits, to print or
   store safely) from which the **identity key** is derived, plus a key
   pair for this device. Until then the app works fully without sync.
-- **Every device has its own keys** (X25519 for encryption, Ed25519 for
-  signing), created on the device as **non-exportable WebCrypto keys**
-  in the app's browser storage (IndexedDB) — in the web app and in the
+- **Every device has its own keys** (X25519 and ML-KEM-768 for
+  encryption, Ed25519 for signing), created on the device as
+  **non-exportable WebCrypto keys** (ML-KEM, which WebCrypto lacks: its
+  seed) in the app's browser storage (IndexedDB) — in the web app and in the
   Android app's web view alike (decided 2026-10-13: one code path; the
   Android Keystore would need a native plugin and Android 13+). The web
   view needs Ed25519 and X25519 in WebCrypto (current Android System
@@ -269,13 +269,32 @@ the first sync round.
 |---|---|---|
 | Recovery key | Seed of the identity key and of the recovery "device" key | Only with the user; never sent anywhere |
 | Identity key (Ed25519) | Who the user is: contacts remember it; signs the start of the device list | Derived from the recovery key when needed, stored on no device |
-| Device keys (X25519, Ed25519), one pair per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device, non-exportable (WebCrypto, IndexedDB) |
+| Device keys (X25519, ML-KEM-768, Ed25519), one set per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device, non-exportable (WebCrypto, IndexedDB; the ML-KEM seed as stored bytes, since WebCrypto has no ML-KEM) |
 | File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; renewed when a device is removed, the previous key sealed with the new one so the version history stays readable |
 
 - **Sharing a note in a new set of people:** the device creates a random
   file key, wraps it for every device on each member's device list,
-  including the user's own (X25519 + HKDF-SHA256 + AES-256-GCM, as in
-  HPKE, RFC 9180), encrypts the file with it and uploads both. A device
+  including the user's own, encrypts the file with it and uploads both.
+- **Wrapping is post-quantum hybrid** (decided 2026-10-17, backlog #20;
+  reason: a recorded server database must stay unreadable for a future
+  quantum computer, "harvest now, decrypt later", as Signal protects with
+  PQXDH): X25519 and ML-KEM-768 (FIPS 203) together, both shared secrets
+  through one HKDF-SHA256, then AES-256-GCM — as long as either holds,
+  the key holds. Relay messages and contact cards are sealed the same
+  way. ML-KEM comes from libcrux-ml-kem (Cryspen, formally verified, the
+  implementation in libsignal), built once to WebAssembly and shipped
+  with the app.
+- **Upgrade without a step by the user:** a device from before adds its
+  ML-KEM key to the device list on its first sync round after the
+  update and renews the key of every file it reads (as when a device is
+  removed), so the new keys are wrapped hybrid for every device that has
+  an ML-KEM key; each device does this once. A recorded X25519-only wrap
+  then opens only the old states. The recovery device's ML-KEM key comes
+  from the recovery key, so an identity from before gets it the next
+  time the recovery key is entered (restoring); until then the recovery
+  key's copies stay X25519-only. Old wraps stay readable until replaced;
+  apps from before can't read the new records and are asked to update
+  (`docs/server-api.md` → "App versions"). A device
   list counts only if its chain starts with the identity key the user's
   app remembered for that contact, so the server can't add a device. Members' devices
   pick up their wrapped key with the file on their next sync.

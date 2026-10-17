@@ -29,7 +29,8 @@ const SLOT_POLL_MS = 2000;
 let apis = null;         // server URL → API client (sync/api.js)
 let api = null;          // the client of the default server: where a new identity, a slot or a recovery key is looked for
 let defaultServer = ""; // the configured API address (app/config.json, ?api=)
-let keys = null;         // this device's { sign, enc } key pairs
+let keys = null;         // this device's { sign, enc, kem } key pairs
+let kemChecked = false;  // this device's ML-KEM key is on the device list (checked once per start)
 let caller = null;       // while restoring: the recovery device signs in
 let running = null, again = false, timer = null, busySince = 0;
 let pollTimer = null, pollDelay = POLL_MIN_MS;
@@ -110,6 +111,7 @@ async function round() {
   if (state.editingId) return;
   try {
     await loadKeys();
+    if (!kemChecked) await addOwnKem();
     let done = false;
     let failure = null;   // a problem with a file doesn't keep back the contacts
     for (let i = 0; i < ATTEMPTS && !done && !failure; i++) {
@@ -160,6 +162,39 @@ function busy() {
 async function loadKeys() {
   keys ||= await getSecret("device");
   if (!keys) throw new Error("This device's keys are missing");
+  if (!keys.kem) {
+    // Keys from before post-quantum wrapping (backlog #20): the device gets its ML-KEM pair now. Read again first,
+    // so two tabs of the web app don't make two.
+    const stored = await getSecret("device");
+    keys = stored.kem ? stored : { ...stored, kem: await c.generateKemKeys() };
+    if (!stored.kem) await setSecret("device", keys);
+  }
+}
+
+// A device from before post-quantum wrapping puts its ML-KEM key on the device list, then renews the key of every
+// file it reads, so the new keys are wrapped hybrid and a recorded X25519-only wrap reveals nothing written later
+// (docs/sync-and-sharing.md → "Keys"). Every other device does the same on its first round after the update.
+async function addOwnKem() {
+  for (let { devices, entries } = await chain(); ;) {
+    const listed = devices.get(state.sync.device)?.kem;
+    if (listed) {
+      if (c.b64u(listed) !== c.b64u(keys.kem.publicKey)) {
+        keys = await getSecret("device");   // another tab of the web app added its key first
+        if (c.b64u(listed) !== c.b64u(keys.kem.publicKey)) throw new Error("This device's keys don't match the device list");
+      }
+      break;
+    }
+    const body = await c.newEntry(state.sync.identity, entries, "kem", { id: state.sync.device, kem: c.b64u(keys.kem.publicKey) });
+    try {
+      await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      markRenew();
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      ({ devices, entries } = await chain());   // another device appended first
+    }
+  }
+  kemChecked = true;
 }
 
 // The verified device list: { devices (Map), entries }.
@@ -179,6 +214,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   await clearSecrets();
   await setSecret("device", device);
   keys = device;
+  kemChecked = false;
   forgetKeys();
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
@@ -222,7 +258,7 @@ export async function restore(recoveryKey) {
   const recoveryId = await c.keyId(r.recovery.sign.publicKey);
   const device = await c.generateDeviceKeys();
   const deviceId = await c.keyId(device.sign.publicKey);
-  let remote = [];
+  let remote = [], upgraded = false;
   // The recovery device signs in for everything below, reading the list included.
   caller = { identity, device: recoveryId, sign: r.recovery.sign.privateKey };
   try {
@@ -236,10 +272,17 @@ export async function restore(recoveryKey) {
     }
     if (found.identity_key !== c.b64u(r.identity.publicKey)) throw new Error("The server answered with another identity");
     for (let entries = found.entries; ;) {
-      await c.verifyChain(r.identity.publicKey, entries);
-      const body = await c.newEntry(identity, entries, "add", await c.deviceRecord(device, "device"));
+      const devices = await c.verifyChain(r.identity.publicKey, entries);
+      // An identity from before post-quantum wrapping: only the recovery key can give the recovery device its
+      // ML-KEM key (backlog #20), so it does that here first; the file keys are renewed below.
+      const missing = !devices.get(recoveryId)?.kem;
+      const body = missing
+        ? await c.newEntry(identity, entries, "kem", { id: recoveryId, kem: c.b64u(r.recovery.kem.publicKey) })
+        : await c.newEntry(identity, entries, "add", await c.deviceRecord(device, "device"));
       try {
-        await api.appendEntry(identity, await c.signEntry(body, recoveryId, r.recovery.sign.privateKey));
+        await api.appendEntry(identity, await c.signEntry(body, missing ? "identity" : recoveryId,
+          missing ? r.identity.privateKey : r.recovery.sign.privateKey));
+        if (missing) { upgraded = true; entries = (await api.getIdentity(identity)).entries; continue; }
         break;
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 409)) throw e;
@@ -247,13 +290,14 @@ export async function restore(recoveryKey) {
       }
     }
     // Every file of the identity, the shared ones too: the key is wrapped for the new device.
-    remote = await readForRestore((await api.listFiles()).files, r.recovery.enc, deviceId, device.enc.publicKey);
+    remote = await readForRestore((await api.listFiles()).files, r.recovery, deviceId, c.recipientOf(device));
   } finally {
     caller = null;
     apis.forgetTokens();
   }
   await adopt({ name: state.sync.name, identity, server: defaultServer, identityKey: r.identity.publicKey, device });
   await installRestored(remote, identity, withoutUntouchedWelcome(state.file));
+  if (upgraded) markRenew();   // the recovery device's copies of the file keys were X25519-only
   nameThisDevice();
   await syncNow();
 }
@@ -264,8 +308,12 @@ export async function restore(recoveryKey) {
  */
 export async function startLinking() {
   const device = await c.generateDeviceKeys();
-  const { slot, expires } = await api.createSlot();
-  const code = linkCode({ slot, sign: c.b64u(device.sign.publicKey), enc: c.b64u(device.enc.publicKey), name: deviceLabel(navigator.userAgent), server: defaultServer });
+  // The ML-KEM key is too long for a QR code: it waits at the slot, the code holds its hash.
+  const { slot, expires } = await api.createSlot(c.b64u(device.kem.publicKey));
+  const code = linkCode({
+    slot, sign: c.b64u(device.sign.publicKey), enc: c.b64u(device.enc.publicKey), kem: await c.kemHash(device.kem.publicKey),
+    name: deviceLabel(navigator.userAgent), server: defaultServer,
+  });
   return { device, slot, code, expires: Date.parse(expires) };
 }
 
@@ -289,7 +337,7 @@ export async function waitForLink({ device, slot }, cancelled) {
   }
   let message;
   try {
-    message = parseRelayMessage(await c.openRelayMessage(payload, device.enc));
+    message = parseRelayMessage(await c.openRelayMessage(payload, device));
   } catch { /* not sealed for this device */ }
   if (!message) throw new Error("The other device sent an answer this device can't read");
   // Reading a list needs a token: this device signs in as itself, which works only once it is on the list.
@@ -334,15 +382,19 @@ export async function linkDevice(text) {
   if (!code) throw new Error("That's not the code of a NoteDown device");
   const expired = new Error("The code has expired. Show a new one on the other device and scan again");
   const slotApi = apis(code.server || defaultServer);   // the server the slot is on
+  let kem;
   try {
-    await slotApi.readSlot(code.slot);   // still open (204), before the device goes on the list
+    kem = await slotApi.slotKem(code.slot);   // the slot is still open, before the device goes on the list
   } catch (e) {
     throw e instanceof ApiError && e.status === 404 ? expired : e;
   }
+  // The server keeps the key, the scanned code vouches for it.
+  if (await c.kemHash(c.fromB64u(kem, 1184)) !== code.kem) throw new Error("The other device's key doesn't match its code");
+  const recipient = { enc: c.fromB64u(code.enc, 32), kem: c.fromB64u(kem, 1184) };
   await syncNow();
   await loadKeys();
   if (!state.sync.file) throw new Error("Sync first, then link the device");
-  const record = { id: await c.keyId(c.fromB64u(code.sign, 32)), kind: "device", sign: code.sign, enc: code.enc };
+  const record = { id: await c.keyId(c.fromB64u(code.sign, 32)), kind: "device", sign: code.sign, enc: code.enc, kem };
   for (let entries = (await chain()).entries; ;) {
     const body = await c.newEntry(state.sync.identity, entries, "add", record);
     try {
@@ -353,13 +405,13 @@ export async function linkDevice(text) {
       entries = (await chain()).entries;   // another device appended first
     }
   }
-  await grantKeys(record.id, c.fromB64u(code.enc, 32));   // the key of every file, the shared ones too
+  await grantKeys(record.id, recipient);   // the key of every file, the shared ones too
   if (code.name) {
     setPrivateFile(withDeviceName(state.file, record.id, code.name));
     await syncNow();
   }
   try {
-    await slotApi.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name, home()), c.fromB64u(code.enc, 32)));
+    await slotApi.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name, home()), recipient));
   } catch (e) {
     throw e instanceof ApiError && e.status === 409 ? expired : e;
   }
