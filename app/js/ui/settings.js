@@ -13,6 +13,7 @@ import { appInfo } from "../app-info.js";
 import { reminderSummary } from "./reminders.js";
 import { externalSummary } from "./external-settings.js";
 import { h } from "./dom.js";
+import { pickButton } from "./menu.js";
 
 export const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 
@@ -38,9 +39,8 @@ registerPage("settings", {
   title: "Settings",
   render: () => [
     section("Appearance"),
-    h("label", { class: "setting-row" }, h("span", { class: "setting-label" }, "Theme"),
-      h("select", { class: "ext-select", onchange: e => { updateSettings({ flavor: e.target.value }); refreshPage({ keepScroll: true }); } },
-        ...Object.entries(FLAVORS).map(([id, label]) => h("option", { value: id, selected: state.settings.flavor === id }, label)))),
+    h("div", { class: "setting-row" }, h("span", { class: "setting-label" }, "Theme"),
+      pickButton(state.settings.flavor, Object.entries(FLAVORS), v => { updateSettings({ flavor: v }); refreshPage({ keepScroll: true }); }, { cls: "ext-select", label: "Theme" })),
     section("Notes"),
     h("ul", { class: "sheet-card" },
       row({ icon: "bell", title: "Reminders", sub: reminderSummary(), open: () => go("settingsReminders") }),
@@ -50,7 +50,7 @@ registerPage("settings", {
       row({ icon: "cloud", title: "Sync & sharing", sub: state.sync.enabled ? statusText() : "Off", open: () => { go(state.sync.enabled ? "overview" : "off"); syncOnRequest(); } })),
     section("Data"),
     h("ul", { class: "sheet-card" },
-      row({ icon: "restore", title: "Import from Google Keep", sub: "From a Google Takeout ZIP file", open: () => { location.href = new URL("../../import/", import.meta.url).href; } })),
+      row({ icon: "restore", title: "Import from Google Keep", sub: "From a Google Takeout ZIP file", open: () => { location.href = legalUrl("import"); } })),
     section("About"),
     aboutCard(),
   ],

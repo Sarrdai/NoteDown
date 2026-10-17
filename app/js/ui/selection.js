@@ -25,7 +25,7 @@ import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
-import { openMenu } from "./menu.js";
+import { openMenu, pickButton } from "./menu.js";
 import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { openExport } from "./export.js";
 import { icon } from "./icons.js";
@@ -62,7 +62,6 @@ export function initSelection(options) {
     closeDialog();
     fn(ordered, mode, target);
   });
-  $("orderTarget").addEventListener("change", e => renderDialog(e.target.value || null));
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
   const l = list();
@@ -459,8 +458,8 @@ function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null, i
   $("orderChoice").innerHTML = shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
     + choiceHtml("share", `Share with ${esc(membersLabel(shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(shareWith)) : "";
   $("orderTargetRow").hidden = !into?.targets.length;
-  $("orderTarget").replaceChildren(new Option("New note", ""),
-    ...(into?.targets || []).map(id => new Option(noteTitle(notes[id].body).text || "Untitled", id)));
+  $("orderTargetRow").replaceChildren("Into", pickButton("", [["", "New note"],
+    ...(into?.targets || []).map(id => [id, noteTitle(notes[id].body).text || "Untitled"])], v => renderDialog(v || null), { label: "Into" }));
   $("orderList").replaceChildren();
   renderDialog(null);
   $("orderDialog").hidden = false;

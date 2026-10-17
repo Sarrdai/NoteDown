@@ -446,8 +446,9 @@ function linkCodeContent(data) {
 
 // ---------- pages ----------
 
-/** The address of one of the app's static pages ("privacy", "terms"), relative to the app root. */
-export const legalUrl = page => new URL(`../../${page}/`, import.meta.url).href;
+/** The address of one of the app's static pages ("privacy", "terms", "import"), relative to the app root.
+ *  With index.html: the Android app's local server answers a path without a file name with the app's own page. */
+export const legalUrl = page => new URL(`../../${page}/index.html`, import.meta.url).href;
 
 /** "By turning on sync you accept …": under the buttons that turn sync on (no checkbox). */
 function legalLine() {

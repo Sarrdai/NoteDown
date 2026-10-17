@@ -1127,8 +1127,9 @@ one is worth it is discussed separately (backlog #31).
     never exported (they are private and no content).
 - Only Markdown (`.md`, several as `.zip`), named
   `NoteDown-YYYY-MM-DD`. The web app downloads the file; the Android app
-  hands it to the system's share sheet (save to Files, send) — *app
-  phase*. *Prototype: 2026-10-14 (download).*
+  hands it to the system's share sheet (save to Files or Drive, send),
+  since its web view ignores downloads. *Prototype: 2026-10-14 (download),
+  Android share sheet 2026-10-17.*
 
 ### Import from Google Keep
 

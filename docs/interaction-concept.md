@@ -191,6 +191,10 @@ Current state, edited in place when a decision changes.
   and list layout as the rendered note, so entering edit mode doesn't
   make the note jump; only the line with the cursor shows its Markdown.
 - Recording is red (Catppuccin `red`): the + button and the blinking dot.
+- A choice among a few options is a button with the chosen label and a
+  chevron that opens the app's own menu, never a native `<select>`: the
+  Android web view's system picker looks foreign. Date and time inputs
+  keep the system picker.
 - Dates are shown relative where it helps ("Today 08:40", "Yesterday"),
   otherwise as "12 Oct"; the meta line under a note shows the date the
   list is sorted by.

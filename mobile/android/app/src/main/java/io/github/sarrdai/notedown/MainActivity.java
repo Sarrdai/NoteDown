@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DictationPlugin.class);
+        registerPlugin(ShareFilePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

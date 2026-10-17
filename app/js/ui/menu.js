@@ -44,4 +44,23 @@ export function initMenu() {
     if (openFor && !e.target.closest("#menu") && !openFor.contains(e.target)) closeMenu();
   });
   window.addEventListener("resize", closeMenu);
+  // A scroll that moves the anchor away leaves the menu behind: close it.
+  document.addEventListener("scroll", e => { if (openFor && e.target.contains?.(openFor)) closeMenu(); }, true);
+}
+
+/** A choice in place of a <select> (whose native picker looks foreign on Android): a button with
+ *  the chosen label that opens the app's menu. options: [[value, label], …]. */
+export function pickButton(value, options, onChange, { cls = "", label } = {}) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = ("pick " + cls).trim();
+  b.setAttribute("aria-haspopup", "menu");
+  if (label) b.setAttribute("aria-label", label);
+  b.innerHTML = `<span class="pick-label"></span>` + icon("down", "icon pick-chevron");
+  const set = v => { value = v; b.firstChild.textContent = options.find(([o]) => o === v)?.[1] ?? ""; };
+  set(value);
+  b.addEventListener("click", () => openMenu(b, options.map(([v, l]) => ({
+    label: l, checked: v === value, onSelect: () => { if (v !== value) { set(v); onChange(v); } },
+  }))));
+  return b;
 }
