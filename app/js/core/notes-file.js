@@ -42,7 +42,7 @@ export function parseNotesFile(text) {
     else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "news") { if (c.meta.id && c.meta.seen) news.push(finishNews(c.meta)); }
     else if (c.kind === "device") { if (c.meta.id && (c.meta.name || c.meta.synced)) devices.push(finishDevice(c.meta)); }
-    else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved });
+    else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved, ...(c.meta.to && { to: c.meta.to.split("+") }) });
     else if (c.meta.purged && c.meta.id) purged.push({ id: c.meta.id, purged: c.meta.purged });
     else notes.push(finishNote(c));
   };
@@ -67,7 +67,7 @@ export function parseNotesFile(text) {
 export function serializeNotesFile({ preamble = "", notes, moved = [], purged = [], devices = [], contacts = [], members = [], news = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) parts.push(`${noteMarker(n)}\n${n.body.trim()}`);
-  for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved} -->`);
+  for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved}${m.to ? ` to=${m.to.join("+")}` : ""} -->`);
   for (const m of purged) parts.push(`<!-- note id=${m.id} purged=${m.purged} -->`);
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id}${d.name ? " name=" + encodeURIComponent(d.name) : ""}${d.synced ? " synced=" + d.synced : ""} -->`);

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { toggleTask } from "../app/js/core/markdown.js";
-import { mergeNotesFiles, applyDisplaced, moveNote, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../app/js/core/merge.js";
+import { mergeNotesFiles, applyDisplaced, moveNote, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote, moveTarget } from "../app/js/core/merge.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [s01, s03] = ["s01", "s03"].map(id => sample.notes.find(n => n.id === id));
@@ -53,9 +53,18 @@ test("merge: status and text changed on different sides combine", () => {
   assert.deepEqual(out.notes[0], { ...edited, status: "closed", closed: "2026-10-13T09:30" });
 });
 
-test("merge: text changed on both sides keeps both versions", () => {
+test("merge: text changed on different lines on both sides combines (backlog #47)", () => {
   const a = edit(s01, 1, "2026-10-13T09:10");
   const b = edit(s01, 2, "2026-10-13T09:20");
+  const out = mergeNotesFiles(file(s01), file(a), file(b)).file;
+  assert.equal(out.notes.length, 1);
+  assert.deepEqual(out.notes[0], { ...b, body: toggleTask(a.body, 2) });
+});
+
+test("merge: the same line changed differently on both sides keeps both versions", () => {
+  const coffee = s01.body.split("\n").find(l => l.startsWith("- [ ] Coffee"));
+  const a = { ...s01, body: s01.body.replace(coffee, coffee + " x2"), modified: "2026-10-13T09:10" };
+  const b = { ...s01, body: s01.body.replace(coffee, coffee + " x3"), modified: "2026-10-13T09:20" };
   const out = mergeNotesFiles(file(s01), file(a), file(b)).file;
   assert.equal(out.notes.length, 2);
   assert.deepEqual(out.notes.find(n => n.id === "s01"), b);
@@ -75,6 +84,24 @@ test("merge: a note moved on one side and edited on the other follows the move",
   assert.deepEqual(applyDisplaced(moved.to, displaced[0]).notes, [edited]);
   // Not a member of the target any more: the edit lands in the private file.
   assert.deepEqual(applyDisplaced(file(s03), displaced[0]).notes, [s03, edited]);
+});
+
+test("moveTarget: names the target only when the move tells the old file's members nothing new (backlog #32)", () => {
+  assert.deepEqual(moveTarget([], ["lea"], "me"), ["lea", "me"]);               // from the private file
+  assert.deepEqual(moveTarget(["lea"], ["lea", "max"], "me"), ["lea", "max", "me"]);   // shared with one more
+  assert.deepEqual(moveTarget(["lea", "max"], ["max"], "me"), ["max", "me"]);   // someone removed
+  assert.deepEqual(moveTarget(["lea"], [], "me"), ["me"]);                      // back to the private file
+  assert.equal(moveTarget(["lea"], ["tom"], "me"), undefined);                  // another circle entirely
+});
+
+test("merge: a moved marker with a target round-trips and travels with the displaced edit (backlog #32)", () => {
+  const moved = moveNote(file(s01, s03), file(), "s01", "2026-10-13T09:00", ["lea", "me"]);
+  const text = serializeNotesFile(moved.from);
+  assert.match(text, /<!-- note id=s01 moved=2026-10-13T09:00 to=lea\+me -->/);
+  assert.deepEqual(parseNotesFile(text).moved, [{ id: "s01", moved: "2026-10-13T09:00", to: ["lea", "me"] }]);
+  const edited = edit(s01, 1, "2026-10-13T09:05");
+  const { displaced } = mergeNotesFiles(file(s01, s03), file(edited, s03), parseNotesFile(text));
+  assert.deepEqual(displaced, [{ base: s01, note: edited, to: ["lea", "me"] }]);
 });
 
 test("merge: moving back removes the marker in the target", () => {

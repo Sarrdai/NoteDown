@@ -96,7 +96,11 @@ the note instead of reappearing here:
 <!-- note id=s03 moved=2026-10-13T09:00Z -->
 ```
 
-`moved` is the time of the move (UTC); markers are written after the
+`moved` is the time of the move (UTC). `to`, when present, names the
+note's new file by all its members' identity ids, sorted and joined with
+`+` (`<!-- note id=s03 moved=2026-10-13T09:00Z to=lea+sam -->`), so a
+concurrent edit follows the note there and nowhere else
+(`docs/sync-and-sharing.md` → "Merging"). Markers are written after the
 notes and kept (`docs/sync-and-sharing.md` → "Files"). Other editors
 don't show them.
 

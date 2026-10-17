@@ -398,9 +398,44 @@ against the base:
 |---|---|---|
 | unchanged | anything | remote |
 | changed | unchanged | local |
-| changed | changed | merged per field: status (with closed date), due date, text, the trash mark (`deleted`, `kept`), color and motif are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, where the other version is kept as a **conflict copy** (a separate note), so nothing is lost |
+| changed | changed | merged per field: status (with closed date), due date, text, the trash mark (`deleted`, `kept`), color and motif are taken from whichever side changed them; if both changed the same one, the later-modified side wins — except the text, which merges line by line (below) |
 | changed | deleted | the edit wins, the note stays (a shared note; in the private file a delete is the `deleted` field and merges like the others — the note waits in the trash with the edit) |
-| changed | moved to another file | the edit follows the note into that file, or into the user's private file if the user is no longer a member there (`applyDisplaced`) |
+| changed | moved to another file | the edit follows the note into the file its moved marker names (`to`), or into the user's private file if the marker names none or the user is no longer a member there (`applyDisplaced`) |
+
+**Text both sides changed** (backlog #47, `core/text-merge.js`): the
+changes combine line by line against the base (diff3), so ticking tasks,
+stepping counters or adding items on different lines never clash. Why:
+syncs are rounds seconds or days apart, not live typing, so a
+character-level CRDT would bring a large library and a file that is no
+longer plain Markdown for no gain.
+
+- Lines both sides added at the same place are all kept, the remote ones
+  first; the same line added on both comes in once.
+- A line both changed combines where its parts are apart: a task's box
+  and its text merge separately (both boxes changed: the newer side's);
+  a counter both stepped adds both steps, with the text around it merged
+  as a whole; a stopwatch both started runs once from the earlier start,
+  one both stopped (or otherwise both changed) takes the newer side's
+  counter, so a run isn't counted twice.
+- Anything else — the same line changed differently, one side changed a
+  line the other deleted — keeps the newer text and the older one as a
+  **conflict copy** (a separate note), so nothing is lost. Merging
+  within a line word by word is not done (backlog #64).
+- Limits: the very same change on both sides (both tapped `+1` on one
+  counter) counts once, as the merge sees only the states; a reordered
+  list is a delete plus an add, so a line moved on one side and edited on
+  the other conflicts. Notes too big to compare quickly (over ~2,000
+  changed lines) fall back to the conflict copy.
+
+**A moved note's new file** (backlog #32): a moved marker names the
+note's new file by all its member ids (`to`), and a concurrent edit
+follows the note only there — a member can write a note with any id into
+a file they share with the user, and the edit must not land in that file
+instead. The marker names the file only when the move tells the old
+file's members nothing new: the old file is the private one, or the new
+members are a subset or a superset of the old ones; otherwise the edit
+becomes a private copy. Likewise a trashed note leaves the trash only
+when it is back in the very file it came from (`kept`).
 
 The merged file keeps the remote order and appends notes only the local
 side has, so a merge that adds nothing equals the remote file and two

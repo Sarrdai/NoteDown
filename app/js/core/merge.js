@@ -4,13 +4,15 @@
 // nothing either side wrote is lost.
 
 import { newId } from "./notes-file.js";
+import { mergeText } from "./text-merge.js";
 
 /**
  * Three-way merge of parsed notes files ({ preamble, notes, moved, purged, devices, contacts, order }).
- * Returns { file, displaced }: `displaced` lists { base, note } for notes
+ * Returns { file, displaced }: `displaced` lists { base, note, to? } for notes
  * edited on one side while the other moved them to another file; the caller
- * re-applies each with applyDisplaced to the file the note moved to, or to
- * the private file when the user is no longer a member of that one.
+ * re-applies each with applyDisplaced to the file the moved marker names
+ * (`to`, see moveTarget), or to the private file when it names none or the
+ * user is no longer a member of that one (backlog #32).
  * The result keeps the remote order and appends what only the local side has,
  * so a merge that adds nothing returns the remote file unchanged and two
  * devices don't re-upload the same notes in each other's order.
@@ -30,7 +32,7 @@ export function mergeNotesFiles(base, local, remote) {
       // over a delete, and follows a move.
       const edited = isNote(sl) ? sl : sr;
       const other = isNote(sl) ? sr : sl;
-      if (other?.moved) { displaced.push({ base: isNote(sb) ? sb : null, note: edited }); out = other; } else out = edited;
+      if (other?.moved) { displaced.push({ base: isNote(sb) ? sb : null, note: edited, ...(other.to && { to: other.to }) }); out = other; } else out = edited;
     } else out = sl?.moved || sl?.purged ? sl : sr;
     if (isNote(out)) notes.push(out);
     else if (out?.moved) moved.push(out);
@@ -126,11 +128,26 @@ export function adoptNotes(file, notes) {
   return { ...file, notes: [...file.notes, ...fresh], moved: (file.moved || []).filter(m => !ids.has(m.id)) };
 }
 
-/** Moves a note from one parsed file to another, leaving a moved marker. */
-export function moveNote(from, to, id, now) {
+/**
+ * What a moved marker names as the note's new file (backlog #32): all member ids of the target (`toOthers` plus
+ * `me`, sorted), so a concurrent edit follows the note there and into no other file that happens to hold a note
+ * with the same id. Only when the move leaves the old file's members nothing new to learn: the old file is the
+ * private one, or the target's members are a subset or a superset of the old file's. Otherwise undefined, and
+ * a concurrent edit becomes a private copy. Member lists are the other members' ids (without `me`).
+ */
+export function moveTarget(fromOthers, toOthers, me) {
+  const [a, b] = [new Set(fromOthers), new Set(toOthers)];
+  const within = (x, y) => [...x].every(id => y.has(id));
+  if (a.size && !within(a, b) && !within(b, a)) return undefined;
+  return [...b, ...(me ? [me] : [])].sort();
+}
+
+/** Moves a note from one parsed file to another, leaving a moved marker (with `to`, see moveTarget, when given). */
+export function moveNote(from, to, id, now, target) {
   const note = from.notes.find(n => n.id === id);
+  const marker = { id, moved: now, ...(target && { to: target }) };
   return {
-    from: { ...from, notes: from.notes.filter(n => n.id !== id), moved: [...(from.moved || []), { id, moved: now }] },
+    from: { ...from, notes: from.notes.filter(n => n.id !== id), moved: [...(from.moved || []), marker] },
     to: { ...to, notes: [...to.notes, note], moved: (to.moved || []).filter(m => m.id !== id) },
   };
 }
@@ -148,9 +165,9 @@ export function rehomeTarget(note, members, own) {
   return { others: members.filter(m => m !== own && !note.left.includes(m)) };
 }
 
-/** Moves a note someone left into another parsed file, leaving a moved marker; the note drops `left`. */
-export function rehomeNote(from, to, id, now) {
-  const moved = moveNote(from, to, id, now);
+/** Moves a note someone left into another parsed file, leaving a moved marker (`target`: see moveTarget); the note drops `left`. */
+export function rehomeNote(from, to, id, now, target) {
+  const moved = moveNote(from, to, id, now, target);
   return { from: moved.from, to: { ...moved.to, notes: moved.to.notes.map(n => (n.id === id ? withoutLeft(n) : n)) } };
 }
 
@@ -175,9 +192,12 @@ function mergeNote(base, l, r, notes) {
   if (!out.kept) delete out.kept;
   if (!out.color) delete out.color;
   if (!out.decor) delete out.decor;
-  // Both sides changed the text differently: keep the older text as a copy.
+  // Both sides changed the text differently: their changes combine line by line (core/text-merge.js, backlog #47);
+  // where they don't, the newer text stays and the older one is kept as a copy.
   if (l.body !== r.body && (!base || (l.body !== base.body && r.body !== base.body))) {
-    notes.push({ ...older, id: newId() });
+    const merged = base ? mergeText(base.body, l.body, r.body, newer === l) : null;
+    if (merged !== null) out.body = merged;
+    else notes.push({ ...older, id: newId() });
   }
   const left = unionLeft(l, r);
   if (left) out.left = left;
