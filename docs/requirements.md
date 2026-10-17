@@ -100,11 +100,7 @@ apart from existing apps beyond the points above.
   notes. How (backlog #19, `docs/sync-and-sharing.md` → "Where the files
   live"): one random data key per device encrypts everything NoteDown
   keeps — the notes files, the sync state, the settings and the file
-  keys. **Updating keeps the notes:** the first start of a version with
-  this moves what an older version kept in plain text into the encrypted
-  storage, reads it back, and only then deletes the plain copy; an
-  interrupted move is finished at the next start. *Prototype and app:
-  2026-10-17.*
+  keys. *Prototype and app: 2026-10-17.*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left

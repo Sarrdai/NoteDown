@@ -15,8 +15,7 @@
 // Sam's devices (seen on one, seen on both; archived, gone with its marker), takes a backup, both of Sam's devices edit on,
 // the backup is restored, and no note is lost; with version history switched on, Sam's private file keeps its
 // older states through a key renewal, a restore (and its undo) reaches both devices and "Back up now" keeps the current state.
-// A device from before post-quantum wrapping (X25519-only keys and wraps) adds its ML-KEM key and renews the file key on
-// its first round; restoring that identity with the recovery key upgrades the recovery device too. Every step checks that the devices end up
+// Every step checks that the devices end up
 // with the same file. Note texts come from app/sample/notes.md.
 //
 //   scripts/test-sync.sh [--shots <dir>]   (screenshots of the panel pages)
@@ -355,60 +354,6 @@ async function main() {
       await converge(a, b);
       const all = await bodies(a);
       assert.ok(all.includes(sample.s05) && all.includes(sample.s06));
-    });
-
-    await step("updating from a version before the vault (backlog #19): A's plain data moves into the vault, unchanged, and A syncs on", async () => {
-      const before = { text: await fileText(a), sync: await syncState(a) };
-      const records = [before.sync.file, ...Object.values(before.sync.files)];
-      before.keys = await Promise.all(records.map(r => fileKeyOf(a, r)));
-      // What the old version kept: the records as plain localStorage, the file keys as raw bytes in IndexedDB.
-      const old = await a.evaluate(async recs => {
-        const v = await (await import("/app/js/vault.js")).openVault();
-        const out = { storage: {}, keys: {} };
-        for (const n of ["notedown.file", "notedown.shared", "notedown.sync", "notedown.settings"]) {
-          const value = await v.get(n);
-          if (value !== undefined) out.storage[n] = value;
-        }
-        for (const r of recs) out.keys["file:" + r.server + "/" + r.id] = Array.from(await v.get("secret:file:" + r.server + "/" + r.id));
-        const kem = await v.get("secret:device-kem");   // the ML-KEM seed, plain bytes like the file keys
-        out.kem = { seed: Array.from(kem.seed), publicKey: Array.from(kem.publicKey) };
-        return out;
-      }, records);
-      await a.goto(`http://127.0.0.1:${PORT}/README.md`);   // same origin, no app code running
-      await a.evaluate(async old => {
-        for (const [k, v] of Object.entries(old.storage)) localStorage.setItem(k, v);
-        await new Promise(r => { const q = indexedDB.deleteDatabase("notedown-vault"); q.onsuccess = q.onerror = q.onblocked = r; });
-        const db = await new Promise((res, rej) => { const q = indexedDB.open("notedown", 1); q.onupgradeneeded = () => q.result.createObjectStore("keys"); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
-        await new Promise((res, rej) => {
-          const t = db.transaction("keys", "readwrite");
-          for (const [k, v] of Object.entries(old.keys)) t.objectStore("keys").put(new Uint8Array(v), k);
-          t.objectStore("keys").put({ seed: new Uint8Array(old.kem.seed), publicKey: new Uint8Array(old.kem.publicKey) }, "device-kem");
-          t.oncomplete = res; t.onerror = () => rej(t.error);
-        });
-        db.close();
-      }, old);
-      await a.goto(`http://127.0.0.1:${PORT}/app/index.html`);
-      await a.waitForFunction(() => document.body.dataset.ready === "1");
-      await loadModules(a);
-      assert.equal(await fileText(a), before.text, "the private file is unchanged");
-      assert.equal((await syncState(a)).identity, before.sync.identity);
-      assert.deepEqual(await Promise.all(records.map(r => fileKeyOf(a, r))), before.keys, "the file keys are unchanged");
-      const left = await a.evaluate(async () => {
-        const db = await new Promise(res => { const q = indexedDB.open("notedown", 1); q.onsuccess = () => res(q.result); });
-        const keys = await new Promise(res => { const q = db.transaction("keys").objectStore("keys").getAllKeys(); q.onsuccess = () => res(q.result); });
-        db.close();
-        // The vault's records on disk: none holds a note's text in plain.
-        const vdb = await new Promise(res => { const q = indexedDB.open("notedown-vault", 1); q.onsuccess = () => res(q.result); });
-        const raw = await new Promise(res => { const q = vdb.transaction("records").objectStore("records").getAll(); q.onsuccess = () => res(q.result); });
-        vdb.close();
-        return { storage: Object.keys(localStorage), keys, raw: raw.map(b => new TextDecoder().decode(b)).join("") };
-      });
-      assert.ok(left.storage.every(k => k === "notedown.api"), `plain localStorage removed: ${left.storage}`);
-      assert.ok(left.keys.every(k => !k.startsWith("file:") && k !== "device-kem"), `plain file keys removed: ${left.keys}`);
-      for (const body of await bodies(a)) assert.ok(!left.raw.includes(body.split("\n")[0]), "no note text in the vault's records");
-      await addNote(a, sample.s18);
-      await converge(a, b);
-      assert.ok((await bodies(b)).includes(sample.s18));
     });
 
     await step("the same note edited on both keeps both versions", async () => {
@@ -989,70 +934,6 @@ async function main() {
       await converge(a, d);
       assert.equal((await syncState(a)).status, "synced", (await syncState(a)).error);
       assert.match(await noteBody(d, noteK), /after Lea deleted her data$/);
-    });
-
-    await step("an X25519-only device adds its ML-KEM key and renews the file key; restoring upgrades the recovery device", async () => {
-      // The state an app from before post-quantum wrapping left: device list, keys and wraps without ML-KEM.
-      const o = await device(browser, "O", { width: 390, height: 844 });
-      const old = await o.evaluate(async api => {
-        const c = window.__crypto, { createApi } = await import("/app/js/sync/api.js");
-        const recoveryKey = (await import("/app/js/core/sharing.js")).generateRecoveryKey();
-        const r = await c.deriveRecovery(c.recoveryKeyBytes(recoveryKey));
-        const strip = ({ kem, ...keys }) => keys;
-        const keys = strip(await c.generateDeviceKeys()), recovery = strip(r.recovery);
-        const identity = await c.keyId(r.identity.publicKey);
-        const deviceId = await c.keyId(keys.sign.publicKey), recoveryId = await c.keyId(recovery.sign.publicKey);
-        const entries = [];
-        for (const [k, kind] of [[keys, "device"], [recovery, "recovery"]]) {
-          entries.push(await c.signEntry(await c.newEntry(identity, entries, "add", await c.deviceRecord(k, kind)), "identity", r.identity.privateKey));
-        }
-        const server = createApi(api, () => ({ identity, device: deviceId, sign: keys.sign.privateKey }));
-        await server.createIdentity(c.b64u(r.identity.publicKey), entries);
-        const fileKey = c.generateFileKey(), id = c.b64u(crypto.getRandomValues(new Uint8Array(16))), text = window.__store.fileText();
-        const wrap = k => c.wrapFileKey(fileKey, { enc: k.enc.publicKey, kem: null });
-        const { version } = await server.putFile(id, {
-          base_version: 0, ciphertext: await c.encryptFile(fileKey, text), keys: { [deviceId]: await wrap(keys), [recoveryId]: await wrap(recovery) },
-        });
-        await window.__keystore.setSecret("device", keys);
-        await window.__keystore.setSecret(`file:${api}/${id}`, fileKey);
-        window.__store.setSync({ enabled: true, name: "Sam", identity, server: api, identityKey: c.b64u(r.identity.publicKey), device: deviceId,
-          file: { server: api, id, version, base: text }, status: "syncing" });
-        return { recoveryKey, id, deviceId, recoveryId, fileKey: c.b64u(fileKey) };
-      }, API);
-      // The updated app starts: its first round adds the ML-KEM key and renews the key.
-      await o.reload();
-      await o.waitForFunction(() => document.body.dataset.ready === "1");
-      await loadModules(o);
-      await converge(o);
-      const pq = page => page.evaluate(async ({ id, recoveryId }) => {
-        const c = window.__crypto, s = window.__store.state.sync, devices = await window.__sync.loadDevices();
-        const { createApis } = await import("/app/js/sync/api.js");
-        const keys = await window.__keystore.getSecret("device");
-        const own = await createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server).getFile(id);
-        return {
-          deviceKem: Boolean(devices.get(s.device).kem), recoveryKem: Boolean(devices.get(recoveryId).kem), ownHybrid: c.isHybrid(own.key),
-          fileKey: c.b64u(await window.__keystore.getSecret(`file:${s.server}/${id}`)), renew: s.renew.length,
-        };
-      }, old);
-      const upgraded = await pq(o);
-      assert.deepEqual({ ...upgraded, fileKey: undefined }, { deviceKem: true, recoveryKem: false, ownHybrid: true, fileKey: undefined, renew: 0 });
-      assert.notEqual(upgraded.fileKey, old.fileKey, "the file key was renewed");
-      // Only the recovery key can upgrade the recovery device: restoring does it and renews the key once more.
-      const p = await device(browser, "P", { width: 1440, height: 900 });
-      await p.evaluate(key => window.__sync.restore(key), old.recoveryKey);
-      await converge(o, p);
-      const restored = await pq(p);
-      assert.deepEqual({ ...restored, fileKey: undefined }, { deviceKem: true, recoveryKem: true, ownHybrid: true, fileKey: undefined, renew: 0 });
-      assert.notEqual(restored.fileKey, upgraded.fileKey, "the file key was renewed for the recovery device");
-      const recoveryWrap = await p.evaluate(async ({ recoveryKey, id }) => {
-        const c = window.__crypto, r = await c.deriveRecovery(c.recoveryKeyBytes(recoveryKey));
-        const { createApis } = await import("/app/js/sync/api.js");
-        const s = window.__store.state.sync, recoveryId = await c.keyId(r.recovery.sign.publicKey);
-        const got = await createApis(() => ({ identity: s.identity, device: recoveryId, sign: r.recovery.sign.privateKey }))(s.server).getFile(id);
-        return { hybrid: c.isHybrid(got.key), opens: c.b64u(await c.unwrapFileKey(got.key, r.recovery)) === c.b64u(await window.__keystore.getSecret(`file:${s.server}/${id}`)) };
-      }, old);
-      assert.deepEqual(recoveryWrap, { hybrid: true, opens: true });
-      assert.equal((await pq(o)).fileKey, restored.fileKey, "O took over the renewed key");
     });
 
     await step("without a server, sync can't be turned on", async () => {

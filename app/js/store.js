@@ -102,7 +102,7 @@ function write(key, value) {
   vault?.put(key, value).catch(() => { /* storage unavailable: keep in memory */ });
 }
 
-/** Erases everything NoteDown stored (the vault with its key, and plain data an older version may have left)
+/** Erases everything NoteDown stored (the vault with its key, and any `notedown.` key in localStorage)
  *  and stops writing for the rest of this page's life, so a late change can't bring a record back before the
  *  page reloads (signing out). */
 export async function eraseStoredState() {
