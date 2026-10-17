@@ -231,7 +231,7 @@ function stopAdminServer(proc) {
 
 // An admin call made from `page` with its device's keys (the way the admin page signs in). → { status, body } with the body as text.
 const adminCall = (page, method, route, body) => page.evaluate(async ([base, method, route, body]) => {
-  const s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+  const s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
   const level = String((await import("/app/js/sync/api.js")).CLIENT_LEVEL);
   const get = async (path, init = {}) => fetch(base + path, { ...init, headers: { ...init.headers, "NoteDown-Client": level } });
   const { challenge } = await (await get("/v1/auth/challenge")).json();
@@ -271,6 +271,11 @@ async function main() {
       const s = await syncState(a);
       assert.equal(s.file.version, 1);
       assert.equal(s.recoveryKey, "", "the recovery key must not be stored");
+      // The device keys are seeds in the encrypted vault (backlog #61); nothing goes to IndexedDB `notedown`.
+      assert.deepEqual(await a.evaluate(async () => {
+        const seeds = await window.__keystore.getSecret("device");
+        return [Object.keys(seeds), Object.values(seeds).every(v => v instanceof Uint8Array), (await indexedDB.databases()).some(d => d.name === "notedown")];
+      }), [["sign", "enc", "kem"], true, false]);
       await a.keyboard.press("Escape");
     });
 
@@ -361,13 +366,13 @@ async function main() {
       const r = (await syncState(b)).file, bDevice = (await syncState(b)).device;
       const before = { key: await fileKeyOf(b, r), text: await fileText(b) };
       const ownWrap = page => page.evaluate(async () => {
-        const s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+        const s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
         const { createApis } = await import("/app/js/sync/api.js");
         return (await createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server).getFile(s.file.id)).key;
       });
       const original = await ownWrap(b), originalA = await ownWrap(a);   // a renewal replaces every wrap of the file
       const swap = (page, mode) => page.evaluate(async ({ to, mode }) => {
-        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
         const { createApis } = await import("/app/js/sync/api.js");
         const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
         const target = (await window.__sync.loadDevices()).get(to);
@@ -393,7 +398,7 @@ async function main() {
       }
       // The real key comes back (the devices' own signed wraps), A uploads its notes under it again: both sync on.
       await a.evaluate(async ({ to, original, originalA, key }) => {
-        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__keystore.getSecret("device");
+        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
         const { createApis } = await import("/app/js/sync/api.js");
         const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
         const current = await api.getFile(s.file.id);

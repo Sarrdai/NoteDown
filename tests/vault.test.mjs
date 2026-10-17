@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { encodeValue, decodeValue, sealRecord, openRecord, generateVaultKey, importVaultKey, isVaultable, secretName } from "../app/js/core/vault.js";
+import { encodeValue, decodeValue, sealRecord, openRecord, generateVaultKey, importVaultKey, secretName } from "../app/js/core/vault.js";
 
 const notesText = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -33,13 +33,6 @@ test("the Android data key is imported non-extractable and its bytes are wiped",
   const key = await importVaultKey(bytes);
   assert.equal(key.extractable, false);
   assert.ok(bytes.every(b => b === 0));
-});
-
-test("only plain data goes into the vault; CryptoKeys stay where they are", async () => {
-  const pair = await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"]);
-  assert.equal(isVaultable(new Uint8Array(32)), true);
-  assert.equal(isVaultable({ a: "b" }), true);
-  assert.equal(isVaultable({ sign: pair }), false);
 });
 
 test("the store keeps its files in the vault and reads them back", async () => {

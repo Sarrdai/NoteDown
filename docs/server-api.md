@@ -45,7 +45,7 @@ milestone 1 (decided 2026-10-14). The server is `server/` (`PROJECT.md` →
 | Recovery key | 16 random bytes, shown as 26 characters of RFC 4648 base32 (A–Z, 2–7, no padding) in groups of 4 with a last group of 2 (`XXXX-…-XX`); typed input is case-insensitive and reads 0, 1, 8 as O, I, B | — |
 | Identity signing key | Ed25519 | HKDF-SHA256(recovery key, salt `NoteDown`, info `identity-sign`) → 32-byte seed |
 | Recovery device keys | Ed25519 + X25519 + ML-KEM-768 | same, info `recovery-sign` / `recovery-enc`; info `recovery-kem` with 64 bytes of output → the ML-KEM seed |
-| Device keys | Ed25519 + X25519 + ML-KEM-768 (FIPS 203) | generated on the device, never leave it |
+| Device keys | Ed25519 + X25519 + ML-KEM-768 (FIPS 203) | generated on the device from random seeds (32, 32 and 64 bytes) kept in its encrypted vault, never leave it |
 | File key | AES-256-GCM | random per file; renewed when a device is removed, the previous one chained to it ("Version history") |
 
 A 32-byte seed imports into WebCrypto as PKCS#8 (fixed 16-byte prefix

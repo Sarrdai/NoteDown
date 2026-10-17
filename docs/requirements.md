@@ -99,8 +99,9 @@ apart from existing apps beyond the points above.
   a lost unlocked file system or a cloud backup shouldn't read the
   notes. How (backlog #19, `docs/sync-and-sharing.md` → "Where the files
   live"): one random data key per device encrypts everything NoteDown
-  keeps — the notes files, the sync state, the settings and the file
-  keys. *Prototype and app: 2026-10-17.*
+  keeps — the notes files, the sync state, the settings, the file keys
+  and the seeds of the device keys (backlog #61). *Prototype and app:
+  2026-10-17.*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left

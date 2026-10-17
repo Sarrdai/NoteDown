@@ -19,7 +19,7 @@ import { createApis, ApiError, NetworkError } from "./api.js";
 import { initContacts, contactsRound } from "./contacts.js";
 import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored,
   listVersions, readVersion, restoreVersion, saveVersion } from "./files.js";
-import { getSecret, setSecret, clearSecrets, deleteDatabase } from "./keystore.js";
+import { getSecret, setSecret, clearSecrets, deleteOldKeyStore } from "./keystore.js";
 
 const AFTER_CHANGE_MS = 1500;
 const ATTEMPTS = 3;
@@ -157,21 +157,20 @@ function busy() {
   setSync({ status: "syncing" });
 }
 
-// The device keys: the WebCrypto pairs as "device" (CryptoKeys, kept in IndexedDB), the ML-KEM pair `{ seed,
-// publicKey }` as "device-kem" (plain bytes, so the vault encrypts it; keystore.js).
+// The device keys: their seeds as "device" in the encrypted vault (keystore.js), imported non-extractable into
+// memory. A device from before backlog #61 kept its keys elsewhere; it finds none here and has to be set up again.
 async function readKeys() {
-  const pairs = await getSecret("device");
-  return pairs && { ...pairs, kem: await getSecret("device-kem") };
+  const seeds = await getSecret("device");
+  return seeds && c.deviceKeysFromSeeds(seeds);
 }
 
-async function saveKeys({ kem, ...pairs }) {
-  await setSecret("device", pairs);
-  await setSecret("device-kem", kem);
+async function saveKeys(device) {
+  await setSecret("device", device.seeds);
 }
 
 async function loadKeys() {
   keys ||= await readKeys();
-  if (!keys || !keys.kem) throw new Error("This device's keys are missing");
+  if (!keys) throw new Error("This device's keys are missing");
 }
 
 // The verified device list: { devices (Map), entries }.
@@ -467,7 +466,7 @@ async function detach(why) {
 
 /**
  * Erases everything NoteDown keeps on this device (the vault with notes,
- * settings, sync state and file keys; the device keys in IndexedDB) and stops syncing.
+ * settings, sync state, device and file keys) and stops syncing.
  * The caller reloads the page afterwards.
  */
 export async function eraseDevice() {
@@ -478,7 +477,7 @@ export async function eraseDevice() {
   await eraseStoredState();
   keys = null;
   forgetKeys();
-  await deleteDatabase();
+  await deleteOldKeyStore();
 }
 
 /**
