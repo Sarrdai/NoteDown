@@ -113,7 +113,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.classList.toggle("look-editor", s.lookEntry === "editor");
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -478,9 +477,6 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    { section: "Prototype: Color" },
-    { label: "In the selection bar (A)", checked: s.lookEntry === "select", onSelect: () => updateSettings({ lookEntry: "select" }) },
-    { label: "In the editing toolbar (B)", checked: s.lookEntry === "editor", onSelect: () => updateSettings({ lookEntry: "editor" }) },
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -649,7 +645,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["select", "editor"].includes(p.get("look"))) patch.lookEntry = p.get("look");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

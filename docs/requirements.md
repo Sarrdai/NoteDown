@@ -1290,13 +1290,10 @@ like the colored notes in Google Keep.
 - **Picker:** a popup with a row of colors and a row of motif tiles
   (previewed in the chosen color), each starting with "None"; a tap
   applies at once and the popup stays open to try others; a tap outside
-  or Esc closes it. For several notes it marks what they share. Not for
-  closed notes, the trash or news posts.
-- **Where it is reached — open, two variants in the prototype**
-  (⋮ → "Prototype: Color", `?look=`): **A** (recommended) **Color** in
-  the selection bar (phone: under its ⋮), for one or several notes at
-  once; **B** a palette button in the editing toolbar, for the note
-  being edited. *Prototype: 2026-10-17.*
+  or Esc closes it. Not for closed notes, the trash or news posts.
+- **Where it is reached:** a palette button in the editing toolbar, for
+  the note being edited (decided 2026-10-17 over Color in the selection
+  bar: color is set while writing, one note at a time).
 
 ### Not in scope (for now)
 
