@@ -44,18 +44,36 @@ milestone 1 (decided 2026-10-14). The server is `server/` (`PROJECT.md` →
 |---|---|---|
 | Recovery key | 16 random bytes, shown as 26 characters of RFC 4648 base32 (A–Z, 2–7, no padding) in groups of 4 with a last group of 2 (`XXXX-…-XX`); typed input is case-insensitive and reads 0, 1, 8 as O, I, B | — |
 | Identity signing key | Ed25519 | HKDF-SHA256(recovery key, salt `NoteDown`, info `identity-sign`) → 32-byte seed |
-| Recovery device keys | Ed25519 + X25519 | same, info `recovery-sign` / `recovery-enc` |
-| Device keys | Ed25519 + X25519 | generated on the device, never leave it |
+| Recovery device keys | Ed25519 + X25519 + ML-KEM-768 | same, info `recovery-sign` / `recovery-enc`; info `recovery-kem` with 64 bytes of output → the ML-KEM seed |
+| Device keys | Ed25519 + X25519 + ML-KEM-768 (FIPS 203) | generated on the device, never leave it |
 | File key | AES-256-GCM | random per file; renewed when a device is removed, the previous one chained to it ("Version history") |
 
 A 32-byte seed imports into WebCrypto as PKCS#8 (fixed 16-byte prefix
-plus the seed); exporting the key as JWK yields the public key.
+plus the seed); exporting the key as JWK yields the public key. An
+ML-KEM-768 key pair is its 64-byte seed `d ‖ z` (FIPS 203 key
+generation); the app stores the seed and computes the 1184-byte public
+key from it with libcrux-ml-kem (`app/vendor/mlkem.wasm`).
 
-**Wrapped file key** (opaque to the server, at most 512 characters, as
-in HPKE, RFC 9180): `b64u(ephemeral X25519 public key ‖ nonce ‖
-AES-GCM(wrap key, file key))`, where the wrap key is HKDF-SHA256 over
-the X25519 shared secret with an empty salt and info `notedown-wrap` ‖
-ephemeral public key ‖ recipient public key, and the nonce has 12 bytes. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
+**Wrapped file key** (opaque to the server, at most 2048 characters;
+post-quantum hybrid, backlog #20): `b64u(0x01 ‖ ephemeral X25519 public
+key ‖ ML-KEM-768 ciphertext (1088 bytes) ‖ nonce ‖ AES-GCM(wrap key,
+file key))`, 1181 bytes. The sender makes an ephemeral X25519 key and
+encapsulates to the recipient's `kem` key; the wrap key is HKDF-SHA256
+with an empty salt over the X25519 shared secret ‖ the ML-KEM shared
+secret, info `notedown-wrap-pq` ‖ SHA-256(ephemeral public key ‖
+recipient X25519 key ‖ ML-KEM ciphertext ‖ recipient ML-KEM key); the
+nonce has 12 bytes. Reason (decided 2026-10-17): a recorded database
+stays unreadable for a future quantum computer, at Signal's level
+(PQXDH); one KDF over both secrets as in PQXDH, binding both ciphertexts
+and keys (the transcript hashed, as WebCrypto caps HKDF info at 1024
+bytes), so the key holds while either X25519 or ML-KEM-768 does.
+**X25519-only** (a device without `kem`, and every wrap from before):
+`b64u(ephemeral X25519 public key ‖ nonce ‖ AES-GCM(wrap key, file
+key))`, the wrap key HKDF-SHA256 over the X25519 secret alone, info
+`notedown-wrap` ‖ ephemeral public key ‖ recipient public key. A reader
+takes a value as hybrid when it starts with `0x01` and is long enough,
+and falls back to X25519-only when that fails, so old wraps stay
+readable until they are replaced. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
 the padded, compressed Markdown file, a fresh nonce per upload.
 Compressed: one `0x01` byte, then the raw DEFLATE stream (RFC 1951, no
 zlib header) of the UTF-8 text (`CompressionStream("deflate-raw")` in
@@ -77,14 +95,20 @@ An identity's devices are an append-only chain of signed entries:
 
 ```json
 {"identity": "<id>", "seq": 0, "prev": "", "op": "add",
- "device": {"id": "<device id>", "kind": "device", "sign": "<b64u>", "enc": "<b64u>"},
+ "device": {"id": "<device id>", "kind": "device", "sign": "<b64u>", "enc": "<b64u>", "kem": "<b64u>"},
  "signer": "identity", "sig": "<b64u>"}
 ```
 
 - `seq` counts from 0; `prev` is `b64u(SHA-256(canonical JSON of the
   previous entry including its sig))`, empty for `seq` 0.
-- `op` is `add` (with the full `device`) or `remove` (only
-  `{"id": ...}`); `kind` is `device` or `recovery`.
+- `op` is `add` (with the full `device`), `remove` (only
+  `{"id": ...}`) or `kem` (`{"id", "kem"}`); `kind` is `device` or
+  `recovery`. `kem` is the device's ML-KEM-768 public key (1184 bytes,
+  checked against FIPS 203's modulus check). Devices added before
+  post-quantum wrapping have none: such a device adds it once with a
+  `kem` entry, signed by itself (the recovery device: by `identity`,
+  i.e. on restoring), while it is active. Every current app adds devices
+  with `kem`.
 - `signer` is `identity` (the identity key, i.e. whoever holds the
   recovery key) or the ID of a device that is on the list at that point.
   `sig` is the Ed25519 signature over the canonical JSON of the entry
@@ -210,7 +234,8 @@ it can't read.
   so the web app can read it. `/health` is not checked.
 - A change that older apps can't read or would break (a file format, the
   key scheme) raises `CLIENT_LEVEL` and `MIN_CLIENT` in the same commit.
-  Today the app sends 1 and `MIN_CLIENT` is 0: no app is refused yet.
+  Today the app sends 2 and `MIN_CLIENT` is 2: level 1 apps can't read
+  device records with `kem` or hybrid wraps (backlog #20).
 - The app keeps its notes and its changes and shows a card ("Update
   NoteDown to keep syncing"; `docs/requirements.md` → "Sync and
   sharing"); every later round gets the 426 again until it is updated.
@@ -239,11 +264,12 @@ it can't read.
 | `POST /v1/invitations` | yes | `{"id", "kind", "sig"}` (`kind` `code` or `link`) → 201 `{"expires"}`; 400 for an invalid ID, kind or a `sig` that isn't the calling device's signature, 409 if the ID exists, 413 with 20 open |
 | `GET /v1/invitations` | yes | → `{"invitations": [{"id", "kind", "device", "sig", "expires", "request"}]}` of the identity; `device` is the signing device, `request` `null` or `{"identity", "card"}` with the card sealed for the calling device (`null` if none is) |
 | `DELETE /v1/invitations/{iid}` | yes | → 204: the inviter withdraws it or declines its request (also when it is gone; nothing happens for anyone else) |
-| `POST /v1/invitations/{iid}/request` | yes | `{"cards": {device id: sealed card}}` → 204; 404 unknown or expired, 409 already requested, 403 own invitation, 400 for no card, a card over 512 characters or not `b64u`, or a device that isn't an active device of the inviter |
+| `POST /v1/invitations/{iid}/request` | yes | `{"cards": {device id: sealed card}}` → 204; 404 unknown or expired, 409 already requested, 403 own invitation, 400 for no card, a card over 2048 characters or not `b64u`, or a device that isn't an active device of the inviter |
 | `GET /v1/contacts` | yes | → `{"contacts": [identity id]}` |
 | `POST /v1/contacts` | yes | `{"invitation"}` → 201 `{"identity"}`: confirms the request on one's own invitation; 404 without one |
 | `DELETE /v1/contacts/{id}` | yes | → 204 (also when they were no contact) |
-| `POST /v1/relay` | — | → 201 `{"slot", "expires"}`, a 10-minute mailbox |
+| `POST /v1/relay` | — | `{"kem"}`, the new device's ML-KEM-768 key → 201 `{"slot", "expires"}`, a 10-minute mailbox; 400 for an invalid key |
+| `GET /v1/relay/{slot}/kem` | — | → 200 `{"kem"}` while the slot is open and empty, 404 otherwise |
 | `PUT /v1/relay/{slot}` | yes | `{"payload"}` → 204, once (409 after that) |
 | `GET /v1/relay/{slot}` | — | → 200 `{"payload"}` (and the slot is gone), 204 while empty, 404 when gone or expired |
 
@@ -268,30 +294,35 @@ it can't read.
   state: the state it replaces is pinned ("Version history").
 - Removing a device also deletes its wrapped keys in every file.
 - **Linking a device:** the new device creates a relay slot and shows a
-  QR code with its device keys and the slot. The linked device appends
+  QR code with its device keys and the slot; its ML-KEM key, too long
+  for the code, waits at the slot (`POST /v1/relay`). The linked device appends
   the new device to the list, adds its wrapped file keys and puts the
   identity ID and the display name, encrypted for the new device's
-  `enc` key, into the slot. The new device polls the slot (every 2 s),
+  `enc` and `kem` keys, into the slot. The new device polls the slot (every 2 s),
   then authenticates normally. Formats (client side,
   `app/js/core/linking.js`):
-  - **QR code text:** `notedown:link?v=1&slot=<slot>&sign=<b64u>&enc=<b64u>&name=<name>&srv=<server>`
+  - **QR code text:** `notedown:link?v=1&slot=<slot>&sign=<b64u>&enc=<b64u>&kem=<b64u>&name=<name>&srv=<server>`
     — a URL query (form-encoded), the device's public Ed25519 and X25519
-    keys, its suggested name (at most 40 characters, may be empty) and
-    `srv`, the server the slot is on (missing = the default server).
-    About 210 characters: QR version 10 at error correction M.
-  - **Relay payload:** b64u of ephemeral X25519 public key ‖ nonce ‖
-    AES-256-GCM ciphertext, built like a wrapped file key but with the
-    HKDF label `notedown-relay` instead of `notedown-wrap`; the plaintext
+    keys, `kem` the SHA-256 of its ML-KEM key (so the server can't swap
+    the key it keeps), its suggested name (at most 40 characters, may be
+    empty) and `srv`, the server the slot is on (missing = the default
+    server). About 270 characters: QR version 12 at error correction M.
+  - **Relay payload:** built like a wrapped file key (hybrid) but with
+    the HKDF label `notedown-relay` instead of `notedown-wrap`; the plaintext
     is the UTF-8 JSON `{"v": 1, "identity": "<id>", "name": "<display name>", "server": "<home server>"}`;
     `server` is where the identity lives, where the new device signs in
     (missing = the default server).
-  - The linked device first reads the slot (204 = still open) so an
-    expired code fails before the device list changes. The new device
+  - The linked device first reads the slot's ML-KEM key (`GET
+    /v1/relay/{slot}/kem`; 404 = expired or used) and checks it against
+    the code's hash, so an expired code fails before the device list
+    changes. The new device
     joins only if its own device is active on the verified list of
     that identity.
 - **Restoring with the recovery key:** derive the identity and recovery
-  device keys, authenticate as the recovery device, append the new
-  device, wrap the file keys for it.
+  device keys, authenticate as the recovery device, give the recovery
+  device its `kem` key if it has none yet (an identity from before
+  backlog #20; then every file key is renewed), append the new device,
+  wrap the file keys for it.
 - Errors are `{"detail": "<message>"}` with 400 (malformed), 401 (no or
   invalid token), 403 (not allowed), 404, 409 (conflict), 413 (too
   large, or the storage quota is used up), 429 (rate limit; the
@@ -453,7 +484,8 @@ feed for everyone.
 | Files per identity (it is a member of) | 50 |
 | Open invitations per identity | 20 |
 | Members per file | 20, or what the admin sets for the server or the creating identity (2 to 50) |
-| Sealed card | 512 characters each |
+| Wrapped key, sealed card | 2048 characters each (a hybrid wrapped key is 1575) |
+| Sealed previous key (`previous_key`) | 512 characters |
 | Devices on a list (active) | 20 |
 | Relay payload | 8 KB |
 | News post body | 1 byte to 16 KiB (UTF-8), not only white space |

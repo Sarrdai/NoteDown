@@ -220,7 +220,10 @@ before the first live test).
   before encryption, so the server doesn't learn their exact size
   either (backlog #17), and compressed before that (decided 2026-10-15:
   Markdown shrinks to about a third, which saves server storage and the
-  user's quota; app versions from before can't read such files).
+  user's quota; app versions from before can't read such files). Keys
+  are wrapped post-quantum hybrid (X25519 + ML-KEM-768, as Signal's
+  PQXDH), so a recorded server database stays unreadable for a future
+  quantum computer (backlog #20).
 - **Abuse protection without accounts** (backlog #8): the default server
   keeps at most **2 MB** of encrypted files per identity — thousands of
   notes; the user wants to raise it later as a paid option — and limits

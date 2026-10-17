@@ -1,0 +1,24 @@
+# The WebAssembly build of ML-KEM-768 in app/vendor/mlkem.wasm (PROJECT.md → "Prototype"):
+# libcrux-ml-kem (Cryspen, formally verified, as in libsignal) behind a tiny C-ABI wrapper.
+# Rebuild only when updating: ./build.sh here.
+[package]
+name = "notedown-mlkem"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+libcrux-ml-kem = { version = "=0.0.11", default-features = false, features = ["mlkem768"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false

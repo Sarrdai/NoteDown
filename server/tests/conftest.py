@@ -4,11 +4,12 @@ import os
 import psycopg
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fastapi.testclient import TestClient
 
-from notedown_server import auth
+from notedown_server import auth, protocol
 from notedown_server.app import Settings, create_app
 from notedown_server.protocol import b64u, canonical, entry_hash, invitation_message, key_id
 
@@ -23,15 +24,18 @@ def raw(public_key) -> bytes:
 class Keys:
     """A device's (or the identity's) key pairs, like a client would hold them."""
 
-    def __init__(self, kind: str = "device"):
+    def __init__(self, kind: str = "device", kem: bool = True):
         self.kind = kind
         self.sign_key = Ed25519PrivateKey.generate()
         self.sign = raw(self.sign_key.public_key())
         self.enc = raw(X25519PrivateKey.generate().public_key())
+        self.kem = raw(MLKEM768PrivateKey.generate().public_key())
+        self.with_kem = kem   # False: a device added before post-quantum keys
         self.id = key_id(self.sign)
 
     def device(self) -> dict:
-        return {"id": self.id, "kind": self.kind, "sign": b64u(self.sign), "enc": b64u(self.enc)}
+        record = {"id": self.id, "kind": self.kind, "sign": b64u(self.sign), "enc": b64u(self.enc)}
+        return {**record, "kem": b64u(self.kem)} if self.with_kem else record
 
     def signed(self, entry: dict, signer: str) -> dict:
         return {**entry, "signer": signer, "sig": b64u(self.sign_key.sign(canonical({**entry, "signer": signer})))}
@@ -59,7 +63,8 @@ def make_client(rate_limits: bool):
             "DROP TABLE IF EXISTS file_versions, file_key_chain, news, contacts, invitations, file_members, file_keys, files, devices, "
             "device_entries, identities, relay, rate_limits, server_state CASCADE")
     settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=rate_limits)
-    with TestClient(create_app(settings)) as c:
+    # Every request is from a current app (docs/server-api.md → "App versions").
+    with TestClient(create_app(settings), headers={"NoteDown-Client": str(protocol.MIN_CLIENT)}) as c:
         c.settings = settings   # tests set settings.admin_identities once they know an identity
         yield c
 
@@ -153,3 +158,8 @@ class Person:
 def people(client):
     """A factory for registered identities."""
     return lambda: Person(client)
+
+
+def new_slot() -> dict:
+    """The body of POST /v1/relay: a new device's ML-KEM-768 key."""
+    return {"kem": b64u(raw(MLKEM768PrivateKey.generate().public_key()))}

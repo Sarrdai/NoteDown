@@ -25,6 +25,7 @@ async function generate() {
     variablesGradle: read("mobile/android/variables.gradle"),
     markedJs: read("app/vendor/marked.esm.js"),
     catppuccinCss: read("app/css/catppuccin.css"),
+    mlkemCargo: read("scripts/vendor/mlkem/Cargo.toml"),
     capacitorLicense: read("app/vendor/capacitor-core.LICENSE"),
     codemirrorLicense: read("app/vendor/codemirror.LICENSE"),
     jsqrLicense: read("app/vendor/jsqr.LICENSE"),

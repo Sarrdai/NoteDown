@@ -34,7 +34,7 @@ function need(value, what) {
 /**
  * `files`: { vendorPackage (parsed scripts/vendor/package.json), mobilePackage
  * (parsed mobile/package.json), variablesGradle (text), markedJs (text),
- * catppuccinCss (text), and the license texts: capacitorLicense,
+ * catppuccinCss (text), mlkemCargo (scripts/vendor/mlkem/Cargo.toml), and the license texts: capacitorLicense,
  * codemirrorLicense, jsqrLicense (Apache-2.0), markedLicense, qrcodeLicense,
  * catppuccinLicense }. Returns { texts, entries }.
  */
@@ -44,6 +44,7 @@ export function buildLicenses(files) {
   const gradle = parseGradleVariables(files.variablesGradle);
   const markedVersion = need(/marked v([\d.]+)/.exec(files.markedJs)?.[1], "marked version");
   const catppuccinVersion = need(/@catppuccin\/palette ([\d.]+)/.exec(files.catppuccinCss)?.[1], "Catppuccin version");
+  const mlkemVersion = need(/^libcrux-ml-kem = \{ version = "=([\d.]+)"/m.exec(files.mlkemCargo)?.[1], "libcrux-ml-kem version");
 
   const texts = {
     "mit-marked": files.markedLicense,
@@ -64,6 +65,7 @@ export function buildLicenses(files) {
     web("qrcode-generator", dev["qrcode-generator"], "MIT", "https://github.com/kazuhikoarase/qrcode-generator", "mit-qrcode"),
     web("Capacitor", dev["@capacitor/core"], "MIT", "https://capacitorjs.com", MIT_CAPACITOR),
     web("Catppuccin palette", catppuccinVersion, "MIT", "https://catppuccin.com", "mit-catppuccin"),
+    web("libcrux-ml-kem", mlkemVersion, "Apache-2.0", "https://github.com/cryspen/libcrux", APACHE),
     android("Capacitor Android", mobile["@capacitor/android"], "MIT", "https://capacitorjs.com", MIT_CAPACITOR),
     android("Capacitor App plugin", mobile["@capacitor/app"], "MIT", "https://capacitorjs.com", MIT_CAPACITOR),
     android("Capacitor Local Notifications plugin", mobile["@capacitor/local-notifications"], "MIT", "https://capacitorjs.com", MIT_CAPACITOR),

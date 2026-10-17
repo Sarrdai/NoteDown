@@ -144,7 +144,7 @@ def test_a_request_needs_valid_cards_for_active_devices_of_the_inviter(people):
     iid, _ = alice.invite()
     ok = b64u(b"card")
     for cards in ({}, {Keys().id: ok}, {bob.phone.id: ok}, {alice.phone.id: "a+b/"},
-                  {alice.phone.id: b64u(b"x" * 400)}):    # 400 bytes are 534 characters
+                  {alice.phone.id: b64u(b"x" * 1600)}):    # 1600 bytes are 2134 characters
         assert bob.request(iid, alice, cards).status_code == 400, cards
     laptop = alice.add_device()
     entry = alice.identity.entry("remove", {"id": laptop.id}, signer=alice.phone)

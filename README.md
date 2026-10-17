@@ -61,7 +61,8 @@ There are no accounts — devices and contacts are connected by scanning a
 QR code.
 
 **Security:** the goal is to be at least as secure as
-[Signal](https://signal.org). Notes are end-to-end encrypted, and on the
+[Signal](https://signal.org). Notes are end-to-end encrypted, with keys
+wrapped post-quantum hybrid as in Signal (X25519 + ML-KEM), and on the
 device only NoteDown reads them: everything it keeps there is encrypted
 (on Android with a key from the Android Keystore) and stays out of the
 system backup; an encrypted backup file takes the notes to a new device.

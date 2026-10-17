@@ -103,3 +103,44 @@ def test_invitation_message_binds_the_version_and_the_id():
     iid = b64u(b"\x07" * 16)
     assert invitation_message(iid) == f"notedown-invite-v1:{iid}".encode()
     assert invitation_message(iid) != invitation_message(b64u(b"\x08" * 16))
+
+
+def test_a_device_without_ml_kem_key_adds_it_itself_once():
+    identity, phone, recovery, old = Identity(), Keys(), Keys("recovery", kem=False), Keys(kem=False)
+    identity.entry("add", phone.device())
+    identity.entry("add", recovery.device())
+    identity.entry("add", old.device(), signer=phone)
+    devices = verify_chain(identity.key.sign, identity.entries)
+    assert (devices[phone.id].kem, devices[old.id].kem) == (True, False)
+    identity.entry("kem", {"id": old.id, "kem": b64u(old.kem)}, signer=old)
+    identity.entry("kem", {"id": recovery.id, "kem": b64u(recovery.kem)})   # the recovery device: by the identity
+    devices = verify_chain(identity.key.sign, identity.entries)
+    assert devices[old.id].kem and devices[recovery.id].kem
+
+
+@pytest.mark.parametrize("case", ["other signer", "has one", "removed", "malformed", "invalid key"])
+def test_kem_entries_are_checked(case):
+    identity, phone, old = Identity(), Keys(), Keys(kem=False)
+    identity.entry("add", phone.device())
+    identity.entry("add", old.device(), signer=phone)
+    target, signer, kem = old, old, b64u(old.kem)
+    if case == "other signer":
+        signer = phone
+    elif case == "has one":
+        target, signer = phone, phone
+    elif case == "removed":
+        identity.entry("remove", {"id": old.id}, signer=phone)
+        signer = phone
+    elif case == "invalid key":
+        kem = b64u(b"\xff" * 1184)
+    device = {"id": target.id, "kem": kem, **({"kind": "device"} if case == "malformed" else {})}
+    identity.entry("kem", device, signer=signer)
+    with pytest.raises(ProtocolError):
+        verify_chain(identity.key.sign, identity.entries)
+
+
+def test_an_added_device_with_an_invalid_ml_kem_key_is_rejected():
+    identity, phone = Identity(), Keys()
+    identity.entry("add", {**phone.device(), "kem": b64u(b"\xff" * 1184)})
+    with pytest.raises(ProtocolError, match="invalid kem key"):
+        verify_chain(identity.key.sign, identity.entries)
