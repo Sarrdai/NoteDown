@@ -1272,7 +1272,10 @@ like the colored notes in Google Keep.
   edge, and drawings in the top right corner: Leaves and Stars, and by
   occasion Birthday, Christmas, Gifts, Travel, Packing, Camper and Shopping (user
   request 2026-10-17) — all drawn faintly in the note's color (neutral
-  without one).
+  without one). They look premium (user request 2026-10-17): one
+  illustration style of fine even lines over a soft offset wash, fading
+  from the corner toward the text; the patterns fade out too (a halftone
+  for Dots, graph paper for Grid, layered swells for Waves).
 - Color and motif **belong to the note** (`docs/file-format.md` →
   "Marker attributes"): they sync, and everyone the note is shared with
   sees them, like labels. Setting them is no content change (the "Edited"
