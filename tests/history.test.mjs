@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
-import { restoredFile, restoredNote, compareStates, changeSummary, stateTime } from "../app/js/core/history.js";
+import { restoredFile, restoredNote, unrestoredNote, compareStates, changeSummary, stateTime } from "../app/js/core/history.js";
 
 const sample = () => parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 
@@ -75,4 +75,22 @@ test("stateTime: today, yesterday, then the date", () => {
   assert.equal(stateTime("2026-10-15T09:12:00Z", now, "UTC"), "Today, 09:12");
   assert.equal(stateTime("2026-10-14T18:40:00Z", now, "UTC"), "Yesterday, 18:40");
   assert.equal(stateTime("2026-10-12T08:00:00Z", now, "UTC"), "Mon 12 Oct, 08:00");
+});
+
+test("unrestoredNote: undo puts back only that note, edits made since stay", () => {
+  const before = sample();
+  const [a, b] = before.notes.filter(n => !n.deleted);
+  const old = { ...before, notes: before.notes.map(n => (n.id === a.id ? { ...n, body: n.body + "\nolder" } : n)) };
+  const now = "2026-10-17T10:00:00Z";
+  const restored = restoredNote(before, old, a.id, now);
+  const edited = { ...restored, notes: restored.notes.map(n => (n.id === b.id ? { ...n, body: "edited since" } : n)) };
+  const undone = unrestoredNote(edited, before, a.id, now);
+  assert.equal(undone.notes.find(n => n.id === a.id).body, a.body);
+  assert.equal(undone.notes.find(n => n.id === a.id).modified, now);
+  assert.equal(undone.notes.find(n => n.id === b.id).body, "edited since");
+  const gone = { ...before, notes: before.notes.filter(n => n.id !== a.id), purged: [{ id: a.id, at: now }] };
+  const back = restoredNote(gone, before, a.id, now);
+  assert.ok(back.notes.some(n => n.id === a.id) && !back.purged.some(m => m.id === a.id));
+  const again = unrestoredNote(back, gone, a.id, now);
+  assert.ok(!again.notes.some(n => n.id === a.id) && again.purged.some(m => m.id === a.id));
 });

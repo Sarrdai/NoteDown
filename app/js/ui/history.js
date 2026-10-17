@@ -8,7 +8,7 @@
 import { state, sharedFiles, setPrivateFile, setSharedFile } from "../store.js";
 import { parseNotesFile } from "../core/notes-file.js";
 import { renderMarkdown, noteTitle } from "../core/markdown.js";
-import { restoredFile, restoredNote, compareStates, changeSummary, stateTime } from "../core/history.js";
+import { restoredFile, restoredNote, unrestoredNote, compareStates, changeSummary, stateTime } from "../core/history.js";
 import { fileVersions, fileVersionText, restoreFileVersion, backUpNow, syncNow as syncReal } from "../sync/client.js";
 import { syncNow as simulatedSync } from "../sync-sim.js";
 import { loadSharingSample } from "../sample.js";
@@ -222,15 +222,15 @@ registerPage("historyState", {
 const syncAfterEdit = () => (!state.sync.enabled ? Promise.resolve() : real() ? syncReal().catch(() => {}) : simulatedSync());
 const writeFile = (slot, file) => (slot === "" ? setPrivateFile(file) : setSharedFile(slot.split("+"), file));
 
-// One note back from the state, no confirmation: Undo puts the file as it was back. Written like a note edit, so
-// it syncs as one (in a shared file for everyone in it).
+// One note back from the state, no confirmation: Undo puts only that note back as it was. Written like a note
+// edit, so it syncs as one (in a shared file for everyone in it).
 async function restoreNote(data, note) {
   const before = fileOf(data.slot);
   writeFile(data.slot, restoredNote(before, data.old, note.id));
   refreshPage({ keepScroll: true });
   await syncAfterEdit();
   showSnackbar("Note restored", async () => {
-    writeFile(data.slot, before);
+    writeFile(data.slot, unrestoredNote(fileOf(data.slot), before, note.id));
     refreshPage({ keepScroll: true });
     await syncAfterEdit();
   });
