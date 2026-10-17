@@ -1270,7 +1270,7 @@ like the colored notes in Google Keep.
   photos, which would eat into the 2 MB per identity and have to sync):
   two patterns behind the text — Dots, Grid —, Waves along the bottom
   edge, and drawings in the top right corner: Leaves and Stars, and by
-  occasion Birthday, Christmas, Gifts, Travel, Packing and Shopping (user
+  occasion Birthday, Christmas, Gifts, Travel, Packing, Camper and Shopping (user
   request 2026-10-17) — all drawn faintly in the note's color (neutral
   without one).
 - Color and motif **belong to the note** (`docs/file-format.md` →

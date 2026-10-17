@@ -1077,7 +1077,7 @@ a.row-open { text-decoration: none; }
 [data-decor="waves"]::before { background: var(--ink); -webkit-mask: url(../decor/waves.svg) repeat-x left bottom / 160px 40px; mask: url(../decor/waves.svg) repeat-x left bottom / 160px 40px; }
 /* The drawings sit in the top right corner, each from its own file in app/decor/. */
 [data-decor="leaves"], [data-decor="birthday"], [data-decor="christmas"], [data-decor="gifts"],
-[data-decor="travel"], [data-decor="packing"], [data-decor="shopping"] { --decor-pos: right 6px top 6px; --decor-size: 104px 104px; }
+[data-decor="travel"], [data-decor="packing"], [data-decor="camper"], [data-decor="shopping"] { --decor-pos: right 6px top 6px; --decor-size: 104px 104px; }
 [data-decor="stars"] { --decor-pos: right 8px top 8px; --decor-size: 128px 82px; }
 [data-decor="leaves"] { --decor-img: url(../decor/leaves.svg); }
 [data-decor="stars"] { --decor-img: url(../decor/stars.svg); }
@@ -1086,6 +1086,7 @@ a.row-open { text-decoration: none; }
 [data-decor="gifts"] { --decor-img: url(../decor/gifts.svg); }
 [data-decor="travel"] { --decor-img: url(../decor/travel.svg); }
 [data-decor="packing"] { --decor-img: url(../decor/packing.svg); }
+[data-decor="camper"] { --decor-img: url(../decor/camper.svg); }
 [data-decor="shopping"] { --decor-img: url(../decor/shopping.svg); }
 [data-decor]:not([data-decor="dots"], [data-decor="grid"], [data-decor="waves"])::before {
   background: var(--ink);
