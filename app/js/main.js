@@ -32,7 +32,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
-import { initReminders, simulateReminder } from "./ui/reminders.js";
+import { initReminders } from "./ui/reminders.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
@@ -113,7 +113,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.classList.toggle("look-editor", s.lookEntry === "editor");
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -478,15 +477,11 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    { section: "Prototype: Color" },
-    { label: "In the selection bar (A)", checked: s.lookEntry === "select", onSelect: () => updateSettings({ lookEntry: "select" }) },
-    { label: "In the editing toolbar (B)", checked: s.lookEntry === "editor", onSelect: () => updateSettings({ lookEntry: "editor" }) },
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
     sync.simulated && sync.enabled && { label: "Simulate device removal", onSelect: simulateRemoval },
-    { label: "Simulate reminder", onSelect: simulateReminder },
   ].filter(Boolean));
 }
 
@@ -649,7 +644,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["select", "editor"].includes(p.get("look"))) patch.lookEntry = p.get("look");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

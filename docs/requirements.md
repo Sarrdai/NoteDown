@@ -562,8 +562,7 @@ paid features per user.
   they come while the app is closed; the web app reminds only while it is
   open — the browser can't wake a closed web app without server push —
   and the page says so. *Prototype: 2026-10-14; in the settings
-  2026-10-16 (⋮ → Prototype → "Simulate reminder" shows the
-  notification).* Why in the settings: it is set once, a top-bar bell
+  2026-10-16.* Why in the settings: it is set once, a top-bar bell
   took room for it all the time; offered only in the due-date menu it
   would read as per note, so the menu only links there.
 
@@ -1290,13 +1289,10 @@ like the colored notes in Google Keep.
 - **Picker:** a popup with a row of colors and a row of motif tiles
   (previewed in the chosen color), each starting with "None"; a tap
   applies at once and the popup stays open to try others; a tap outside
-  or Esc closes it. For several notes it marks what they share. Not for
-  closed notes, the trash or news posts.
-- **Where it is reached — open, two variants in the prototype**
-  (⋮ → "Prototype: Color", `?look=`): **A** (recommended) **Color** in
-  the selection bar (phone: under its ⋮), for one or several notes at
-  once; **B** a palette button in the editing toolbar, for the note
-  being edited. *Prototype: 2026-10-17.*
+  or Esc closes it. Not for closed notes, the trash or news posts.
+- **Where it is reached:** a palette button in the editing toolbar, for
+  the note being edited (decided 2026-10-17 over Color in the selection
+  bar: color is set while writing, one note at a time).
 
 ### Not in scope (for now)
 

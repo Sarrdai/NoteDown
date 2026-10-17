@@ -1145,8 +1145,6 @@ a.row-open { text-decoration: none; }
 .look-swatch .none { color: var(--text-faint); }
 .look-swatch:hover { filter: brightness(0.97); }
 .look-swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Prototype variant (main.js → lookEntry): the toolbar's Color button only in variant B. */
-.app:not(.look-editor) .tool[data-cmd="look"] { display: none; }
 
 /* ---------- labels (#hashtags in the text) ---------- */
 /* In a note: a small chip; a tap filters the list by it. */

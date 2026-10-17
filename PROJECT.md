@@ -131,7 +131,6 @@ is deleted from code, menu and this table.
 
 | Parameter | Values | What it switches |
 |---|---|---|
-| `look` | `select` (A, default) · `editor` (B) | Where a note's color and motif are set: Color in the selection bar, or a palette button in the editing toolbar (`docs/requirements.md` → "Note colors and motifs") |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
@@ -139,7 +138,7 @@ is deleted from code, menu and this table.
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 
-In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, "Simulate reminder" shows today's due-date reminder as a notification banner, "Simulate device removal" shows what a removed device sees (sync off, the card above the notes; reload with `?sample` to get the sample identity back), and "Show storage hint again" brings back a hidden "only stored in this browser" card (not variants).
+In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, "Simulate device removal" shows what a removed device sees (sync off, the card above the notes; reload with `?sample` to get the sample identity back), and "Show storage hint again" brings back a hidden "only stored in this browser" card (not variants).
 
 ### Screenshots
 

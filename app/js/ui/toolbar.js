@@ -21,7 +21,7 @@ const BUTTONS = [
   ["link", "Link (Ctrl+K)", "link"],
   ["media", "Image or video from the web", "image"],
   ["counter", "Counter (hold: time counter with stopwatch)", "counter"],
-  ["look", "Color and motif", "look"],   // Prototype variant B (main.js → lookEntry)
+  ["look", "Color and motif", "look"],
   ["undo", "Undo (Ctrl+Z)", "undo"],
   ["redo", "Redo (Ctrl+Shift+Z)", "redo"],
 ];
