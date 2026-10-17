@@ -295,9 +295,13 @@ the first sync round.
   the security round): every wrapped key carries the signature of the
   device that made it and the key's **generation** (1 for a new file, one
   more per renewal). A device takes a new key only when the signer is an
-  active device of one of the file's members and the generation is
-  higher than the one it has; anything else stops sync of that file and
-  the device keeps its key. Why: unsigned, a server could wrap a key of
+  active or signed-out device of one of the file's members and the
+  generation is higher than the one it has; anything else stops sync of
+  that file and the device keeps its key. A device that signed itself out
+  counts because signing out doesn't renew the keys, so the wraps it made
+  stay in use (without it, restoring after the last device signed out
+  failed); one removed by another device doesn't, its removal renewed
+  every key it signed. Why: unsigned, a server could wrap a key of
   its own for a device — the public keys are no secret — and the device
   would have encrypted everything after with it; Signal authenticates
   every sender the same way. The generation keeps an older key, which a

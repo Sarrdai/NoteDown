@@ -947,6 +947,29 @@ async function main() {
       }
     });
 
+    await step("Lea signs out her only device and restores it with the recovery key: the keys her device signed still count", async () => {
+      await convergeShared([a, e], a, d, e);
+      const before = (await bodies(e)).sort();
+      await openPanel(e);
+      await e.getByRole("button", { name: "Sign out this device" }).click();
+      await Promise.all([
+        e.waitForNavigation(),
+        e.getByRole("button", { name: "Sign out and erase", exact: true }).click(),
+      ]);
+      // The test's server address was erased with the rest; the real app has its server built in.
+      await e.goto(`http://127.0.0.1:${PORT}/app/index.html?api=${API}`);
+      await e.waitForFunction(() => document.body.dataset.ready === "1");
+      await loadModules(e);
+      await openPanel(e);
+      await e.getByRole("button", { name: "Link to an existing device" }).click();
+      await e.fill("#syncBody input", e.recoveryKey);
+      await e.getByRole("button", { name: "Restore" }).click();
+      await e.getByText("This device", { exact: true }).waitFor();
+      await e.keyboard.press("Escape");
+      await convergeShared([a, e], a, d, e);
+      assert.deepEqual((await bodies(e)).sort(), before, "every note of Lea's comes back");
+    });
+
     await step("the owner blocks Lea until a day and lifts it; Lea deletes her sync data with the recovery key and keeps her notes, Sam keeps the shared one", async () => {
       await convergeShared([a, e], a, d, e);
       const lea = await ident(e);

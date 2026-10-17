@@ -139,8 +139,10 @@ async function wrapFor(devices, key, file, gen) {
   return Object.fromEntries(await Promise.all(devices.map(async d => [d.id, await signedWrap(key, d, file, gen)])));
 }
 
-// Opens a wrapped key for `keys` (a device's `{ enc, kem }`) and checks its signature: by an active device of one
-// of `members` (identity IDs; `devicesOf(member)` gives the verified devices), for file `file` and device `to`.
+// Opens a wrapped key for `keys` (a device's `{ enc, kem }`) and checks its signature: by an active or signed-out
+// device of one of `members` (identity IDs; `devicesOf(member)` gives the verified devices), for file `file` and
+// device `to`. A signed-out device erased its keys and the key wasn't renewed, so the wraps it made stay valid; one
+// removed by another device may be in the wrong hands, and its removal renewed the keys.
 // → { key, signed (false for an unsigned wrap), trusted, gen }
 async function openWrap({ wrapped, file, to, members, devicesOf, keys }) {
   let signed = null;
@@ -149,7 +151,7 @@ async function openWrap({ wrapped, file, to, members, devicesOf, keys }) {
   if (!signed) return { key, signed: false, trusted: false, gen: 0 };
   for (const m of members) {
     const d = (await devicesOf(m)).get(signed.signer);
-    if (d && d.active && await c.verifyWrap(signed, { file, to }, d.sign)) return { key, signed: true, trusted: true, gen: signed.gen };
+    if (d && (d.active || d.signedOut) && await c.verifyWrap(signed, { file, to }, d.sign)) return { key, signed: true, trusted: true, gen: signed.gen };
   }
   return { key, signed: true, trusted: false, gen: signed.gen };
 }

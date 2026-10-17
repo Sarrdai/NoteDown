@@ -222,6 +222,7 @@ test("verifyChain: a device removes itself, and the identity can remove too", as
   await chain.append("remove", { id: chain.phoneRecord.id }, "identity", chain.rec.identity.privateKey);
   const devices = await verifyChain(chain.identityKey, chain.entries);
   assert.deepEqual([...devices.values()].map(d => d.active), [false, true, false]);
+  assert.deepEqual([...devices.values()].map(d => d.signedOut), [false, false, true], "only the tablet signed itself out");
 });
 
 test("verifyChain: the recovery device can't be removed and there is only one", async () => {
