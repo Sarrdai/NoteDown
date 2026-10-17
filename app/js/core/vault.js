@@ -73,12 +73,5 @@ export async function importVaultKey(bytes) {
 
 // ---------- secrets ----------
 
-/** Vault names of the device's secrets (file keys, the ML-KEM seed; sync/keystore.js): `secret:<key>`. */
+/** Vault names of the device's secrets (device key seeds, file keys; sync/keystore.js): `secret:<key>`. */
 export const secretName = key => "secret:" + key;
-
-/** Whether a key-store value is plain data the vault can hold (no CryptoKey objects inside). */
-export function isVaultable(value) {
-  if (value === null || typeof value !== "object" || value instanceof Uint8Array) return true;
-  if (typeof CryptoKey !== "undefined" && value instanceof CryptoKey) return false;
-  return Object.values(value).every(isVaultable);
-}

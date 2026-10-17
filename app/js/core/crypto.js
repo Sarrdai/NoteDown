@@ -103,12 +103,12 @@ async function importSeed(name, seed) {
   return { privateKey, publicKey };
 }
 
-/** For tests and restore: Ed25519 key pair from a 32-byte seed (private key non-extractable). */
+/** Ed25519 key pair from a 32-byte seed (private key non-extractable). */
 export function importSigningSeed(seed) {
   return importSeed("Ed25519", seed);
 }
 
-/** For tests and restore: X25519 key pair from a 32-byte seed (private key non-extractable). */
+/** X25519 key pair from a 32-byte seed (private key non-extractable). */
 export function importEncSeed(seed) {
   return importSeed("X25519", seed);
 }
@@ -140,11 +140,6 @@ export async function importKemSeed(seed) {
   return { seed, publicKey: await mlkemPublicKey(seed) };
 }
 
-/** A new random ML-KEM-768 key pair `{ seed, publicKey }` (a device that had none before gets one, docs/server-api.md → "Device list"). */
-export function generateKemKeys() {
-  return importKemSeed(globalThis.crypto.getRandomValues(new Uint8Array(KEM_SEED_BYTES)));
-}
-
 /** The identity key pair and the recovery device's key pairs (`{ identity, recovery: { sign, enc, kem } }`) from the recovery key bytes. */
 export async function deriveRecovery(recoveryBytes) {
   const seed = (info, length) => hkdf(recoveryBytes, utf8("NoteDown"), utf8(info), length);
@@ -157,18 +152,26 @@ export async function deriveRecovery(recoveryBytes) {
   return { identity, recovery: { sign, enc, kem } };
 }
 
+// A fresh pair (the ephemeral X25519 key of a seal).
 async function generatePair(name) {
   const { privateKey, publicKey } = await subtle().generateKey({ name }, false, USAGES[name].concat(name === "Ed25519" ? ["verify"] : []));
   return { privateKey, publicKey: new Uint8Array(await subtle().exportKey("raw", publicKey)) };
 }
 
 /**
- * New device keys: Ed25519 `sign` and X25519 `enc` pairs (private keys non-extractable, public keys raw
- * bytes) and the ML-KEM-768 `kem` pair `{ seed, publicKey }`, whose seed WebCrypto can't hold as a key.
+ * Device keys from their seeds (docs/sync-and-sharing.md → "Where the files live"): Ed25519 `sign` and X25519
+ * `enc` pairs (private keys non-extractable, public keys raw bytes), the ML-KEM-768 `kem` pair `{ seed, publicKey }`
+ * and the `seeds` themselves (`{ sign, enc, kem }`), which the encrypted vault keeps.
  */
-export async function generateDeviceKeys() {
-  const [sign, enc, kem] = await Promise.all([generatePair("Ed25519"), generatePair("X25519"), generateKemKeys()]);
-  return { sign, enc, kem };
+export async function deviceKeysFromSeeds(seeds) {
+  const [sign, enc, kem] = await Promise.all([importSigningSeed(seeds.sign), importEncSeed(seeds.enc), importKemSeed(seeds.kem)]);
+  return { sign, enc, kem, seeds };
+}
+
+/** New device keys from random seeds (as `deviceKeysFromSeeds`). */
+export function generateDeviceKeys() {
+  const random = length => globalThis.crypto.getRandomValues(new Uint8Array(length));
+  return deviceKeysFromSeeds({ sign: random(32), enc: random(32), kem: random(KEM_SEED_BYTES) });
 }
 
 /** A device-list record `{ id, kind, sign, enc, kem }` ("device" or "recovery") for the keys (records of devices

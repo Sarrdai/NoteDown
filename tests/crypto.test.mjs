@@ -8,7 +8,7 @@ import {
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
   decryptFile, sealPreviousKey, openPreviousKey, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
   newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
-  importKemSeed, generateKemKeys, recipientOf, isHybrid, kemHash, sealRelayMessage, openRelayMessage,
+  importKemSeed, deviceKeysFromSeeds, recipientOf, isHybrid, kemHash, sealRelayMessage, openRelayMessage,
 } from "../app/js/core/crypto.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./fixtures/crypto-vectors.json", import.meta.url), "utf8"));
@@ -117,6 +117,22 @@ test("generateDeviceKeys: fresh pairs, record has the ID of the signing key", as
   assert.deepEqual(Object.keys(await deviceRecord(withoutKem(a), "device")), ["id", "kind", "sign", "enc"]);
   assert.deepEqual((await importKemSeed(a.kem.seed)).publicKey, a.kem.publicKey);
   await rejects(importKemSeed(new Uint8Array(32)), "expected a 64-byte seed");
+});
+
+test("device keys come back from their seeds, private keys non-extractable", async () => {
+  const a = await generateDeviceKeys();
+  assert.deepEqual(Object.keys(a.seeds), ["sign", "enc", "kem"]);
+  assert.ok(Object.values(a.seeds).every(seed => seed instanceof Uint8Array));
+  const b = await deviceKeysFromSeeds(a.seeds);
+  assert.deepEqual(b.sign.publicKey, a.sign.publicKey);
+  assert.deepEqual(b.enc.publicKey, a.enc.publicKey);
+  assert.deepEqual(b.kem.publicKey, a.kem.publicKey);
+  assert.equal(b.sign.privateKey.extractable, false);
+  assert.equal(b.enc.privateKey.extractable, false);
+  const message = new TextEncoder().encode("challenge");
+  const sig = await crypto.subtle.sign("Ed25519", b.sign.privateKey, message);
+  const pub = await crypto.subtle.importKey("raw", a.sign.publicKey, "Ed25519", false, ["verify"]);
+  assert.ok(await crypto.subtle.verify("Ed25519", pub, sig, message));
 });
 
 test("chain: JS rebuilds the Python entries byte for byte (deterministic signatures)", async () => {
@@ -383,7 +399,6 @@ test("ML-KEM: libcrux decapsulates to Python's shared secret", async () => {
   const phone = await deviceFrom(vectors.phone);
   const ciphertext = fromB64u(vectors.hybrid_wrap.sealed).subarray(33, 33 + 1088);
   assert.equal(toHex(await mlkemDecapsulate(phone.kem.seed, ciphertext)), vectors.hybrid_wrap.kem_shared);
-  assert.equal((await generateKemKeys()).publicKey.length, 1184);
 });
 
 test("invitation: ID, message and signature match Python", async () => {

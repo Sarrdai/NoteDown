@@ -37,10 +37,6 @@ and the sample simulates everything without a server.
     convenient way in, the apps are the secure one.
   - **No desktop client yet** (backlog #58), which needs signed,
     verifiable updates like Signal Desktop's.
-  - **Device keys outside the Keystore on Android** (backlog #61):
-    Signal keeps its identity key under its Keystore-sealed database
-    key; NoteDown's X25519 and Ed25519 device keys sit in the web view's
-    IndexedDB ("Where the files live").
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
@@ -142,13 +138,16 @@ copied files.
   in front (`app/js/core/vault.js`). The app reads them once at start
   into memory and writes a record back after each change; another tab of
   the same browser hears of a write through a `BroadcastChannel`.
-- **Device keys:** the X25519 and Ed25519 keys stay non-extractable
-  WebCrypto keys in IndexedDB `notedown` (the vault can only hold bytes;
-  in the web app that is the same protection as the vault's own key);
-  the ML-KEM seed (backlog #20) is a secret in the vault. In the Android
-  app the WebCrypto keys are protected by the app's sandbox and the
-  missing backup, not by the Keystore — a known gap (backlog #61); a
-  hybrid wrap still needs the vault's ML-KEM seed as well.
+- **Device keys:** a device's Ed25519, X25519 and ML-KEM-768 keys are
+  made from random seeds, and the seeds are one secret in the vault; at
+  start the app imports them as non-extractable WebCrypto keys into
+  memory (ML-KEM, which WebCrypto lacks, stays a seed). So on Android the
+  device keys sit under the Keystore-sealed data key, as Signal keeps its
+  identity key under its Keystore-sealed database key (decided
+  2026-10-17, backlog #61). Devices from before kept the X25519 and
+  Ed25519 keys in IndexedDB `notedown`; the app no longer reads them, such
+  a device signs out and is set up again (the one phone of the test
+  phase did so), and erasing a device deletes that database.
 - `notedown.api` (a test server address, no note data) is the one thing
   in `localStorage`.
 - **Signing out** erases the vault together with its key (and on Android
@@ -176,14 +175,13 @@ the first sync round.
   store safely) from which the **identity key** is derived, plus a key
   pair for this device. Until then the app works fully without sync.
 - **Every device has its own keys** (X25519 and ML-KEM-768 for
-  encryption, Ed25519 for signing), created on the device as
-  **non-exportable WebCrypto keys** in the app's browser storage
-  (IndexedDB; ML-KEM, which WebCrypto lacks, as its seed in the
-  encrypted vault, "Where the files live") — in the web app and in the
-  Android app's web view alike (decided 2026-10-13: one code path; the
-  Android Keystore would need a native plugin and Android 13+). The web
-  view needs Ed25519 and X25519 in WebCrypto (current Android System
-  WebView). The identity key itself stays on no device; it only signs the
+  encryption, Ed25519 for signing), created on the device from random
+  seeds that the encrypted vault keeps and used as **non-exportable
+  WebCrypto keys** in memory ("Where the files live") — in the web app
+  and in the Android app's web view alike (decided 2026-10-13: one code
+  path; signing with Keystore keys directly would need a native plugin
+  and Android 13+). The web view needs Ed25519 and X25519 in WebCrypto
+  (current Android System WebView). The identity key itself stays on no device; it only signs the
   start of the **device list**, and every later change to that list is
   signed by a device that is on it at that point.
 - **The server knows an identity only by an ID, its public keys and its
@@ -288,7 +286,7 @@ the first sync round.
 |---|---|---|
 | Recovery key | Seed of the identity key and of the recovery "device" key | Only with the user; never sent anywhere |
 | Identity key (Ed25519) | Who the user is: contacts remember it; signs the start of the device list | Derived from the recovery key when needed, stored on no device |
-| Device keys (X25519, ML-KEM-768, Ed25519), one set per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device: the WebCrypto ones non-exportable (IndexedDB), the ML-KEM seed (WebCrypto has no ML-KEM) in the encrypted vault ("Where the files live") |
+| Device keys (X25519, ML-KEM-768, Ed25519), one set per device | Unwrapping file keys; proving the device to the server; signing device-list changes | Private keys only on that device: their seeds in the encrypted vault, in memory as non-exportable WebCrypto keys (ML-KEM as its seed; "Where the files live") |
 | File key (AES-256-GCM), one per file | Encrypts that file | On the server once per device of every member (and per recovery key), each copy wrapped for that device's public key; on the device in the encrypted vault; renewed when a device is removed, the previous key sealed with the new one so the version history stays readable |
 | Data key (AES-256-GCM), one per device | Encrypts what NoteDown keeps on the device ("Where the files live") | Only on that device: sealed by the Android Keystore, in the web app a non-extractable WebCrypto key; never synced, never in a backup |
 | Backup key (30 digits) | Opens the user's encrypted backups (`docs/requirements.md` → "Encrypted backup") | With the user; a copy in the vault of the device that made the backups |
@@ -468,8 +466,8 @@ devices don't keep re-uploading the same notes in each other's order.
   helps.
 - **Client details:** the private file is the identity's file with
   itself as the only member; device names and contacts live in it
-  (`docs/file-format.md`), since the server knows neither; the notes
-  still sit in `localStorage`, only the keys in IndexedDB.
+  (`docs/file-format.md`), since the server knows neither; notes and keys
+  sit in the encrypted vault ("Where the files live").
 - Files are uploaded in an order that never shows a moved marker before
   the note exists in its new file: the files that receive notes first,
   the private file last. A shared file that keeps failing (e.g. a member
