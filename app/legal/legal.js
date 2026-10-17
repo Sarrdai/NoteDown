@@ -2,14 +2,21 @@
 // "Legal texts"). The texts are the same for every copy of NoteDown; who runs it comes from app/config.json
 // (`operator`: name, email and an optional postal address, written by the deploy workflows from repository
 // variables, docs/operations.md), so no personal data sits in the repository. `?sample` shows placeholders.
+import { readStored } from "../js/vault.js";
+
 const params = new URLSearchParams(location.search);
 const FLAVORS = ["latte", "frappe", "macchiato", "mocha"];
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
-const readStore = key => { try { return localStorage.getItem(key); } catch { return null; } };
+
+// The theme of the app's settings, read from the encrypted vault (app/js/vault.js) once it is open.
+let storedFlavor = "";
+readStored("notedown.settings").then(text => {
+  try { storedFlavor = JSON.parse(text || "{}").flavor || ""; } catch { /* default */ }
+  applyTheme();
+});
 
 function applyTheme() {
-  let wanted = params.get("flavor");
-  try { wanted ||= JSON.parse(readStore("notedown.settings") || "{}").flavor; } catch { /* default */ }
+  let wanted = params.get("flavor") || storedFlavor;
   document.documentElement.dataset.flavor = FLAVORS.includes(wanted) ? wanted : systemDark.matches ? "mocha" : "latte";
 }
 

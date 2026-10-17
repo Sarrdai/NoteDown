@@ -444,8 +444,8 @@ async function detach(why) {
 }
 
 /**
- * Erases everything NoteDown keeps on this device (notes, settings, sync
- * state in localStorage; device and file keys in IndexedDB) and stops syncing.
+ * Erases everything NoteDown keeps on this device (the vault with notes,
+ * settings, sync state and file keys; the device keys in IndexedDB) and stops syncing.
  * The caller reloads the page afterwards.
  */
 export async function eraseDevice() {
@@ -453,7 +453,7 @@ export async function eraseDevice() {
   clearTimeout(timer);
   api = null;   // no sync round starts from here on
   apis = null;
-  eraseStoredState();
+  await eraseStoredState();
   keys = null;
   forgetKeys();
   await deleteDatabase();

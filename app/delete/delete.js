@@ -7,6 +7,7 @@ import { createApi } from "../js/sync/api.js";
 import { deleteWithRecoveryKey } from "../js/sync/delete-identity.js";
 import { normalizeRecoveryKey } from "../js/core/sharing.js";
 import { serverUrl } from "../js/core/linking.js";
+import { readStored } from "../js/vault.js";
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -14,9 +15,15 @@ const FLAVORS = ["latte", "frappe", "macchiato", "mocha"];
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
 const readStore = key => { try { return localStorage.getItem(key); } catch { return null; } };
 
+// The theme of the app's settings, read from the encrypted vault (app/js/vault.js) once it is open.
+let storedFlavor = "";
+readStored("notedown.settings").then(text => {
+  try { storedFlavor = JSON.parse(text || "{}").flavor || ""; } catch { /* default */ }
+  applyTheme();
+});
+
 function applyTheme() {
-  let wanted = params.get("flavor");
-  try { wanted ||= JSON.parse(readStore("notedown.settings") || "{}").flavor; } catch { /* default */ }
+  let wanted = params.get("flavor") || storedFlavor;
   document.documentElement.dataset.flavor = FLAVORS.includes(wanted) ? wanted : systemDark.matches ? "mocha" : "latte";
 }
 
