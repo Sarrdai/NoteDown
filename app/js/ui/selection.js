@@ -257,7 +257,7 @@ function update() {
   const archive = state.view === "closed", trash = state.view === "trash";
   const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
     && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
-  // Close, Share, Permanent and Delete act on whole notes; `menu` = under ⋮ on the phone.
+  // Close, Share, Permanent and Delete act on whole notes; `menu` = under ⋮ in every tier.
   const ids = byNote.map(([n]) => n.id);
   const permanent = ids.some(id => note(id)?.status !== "permanent");
   // News posts are read-only and only this user's: close or reopen, copy, delete.
@@ -276,7 +276,7 @@ function update() {
       : { id: "cleardone", label: "Clear done tasks", run: clearDoneTasks, disabled: !byNote.some(([n, ps]) => countDone(n.body, ps)) },
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
-    !archive && { id: "share", label: "Share", run: share, disabled: !whole, menu: true },
+    !archive && { id: "share", label: "Share", run: share, disabled: !whole },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
     !archive && { id: permanent ? "permanent" : "closable", label: permanent ? "Make permanent" : "Make closable", run: () => setPermanent(permanent), disabled: !whole, menu: true },
     { id: "trash", label: "Delete", run: remove, disabled: !whole },
