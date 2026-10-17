@@ -1064,21 +1064,31 @@ a.row-open { text-decoration: none; }
   border-color: color-mix(in srgb, var(--tone) 32%, var(--border));
 }
 .note[data-color] .chip:not(.today, .overdue, .news-chip, .due-add) { background: color-mix(in srgb, var(--tone) 16%, var(--surface-hover)); }
-[data-decor] { --ink: color-mix(in srgb, var(--tone, var(--text-faint)) 30%, transparent); }
+/* Motif ink: strong enough for the fine lines; the drawings carry their own softer washes. */
+[data-decor] { --ink: color-mix(in srgb, var(--tone, var(--text-muted)) 52%, transparent); }
 .note[data-decor]::before, .look-decors .look-swatch[data-decor]::before {
   content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
 }
-[data-decor="dots"]::before { background: radial-gradient(var(--ink) 1.3px, transparent 1.8px) 0 0 / 16px 16px; }
-[data-decor="grid"]::before {
-  background: linear-gradient(var(--ink) 1px, transparent 1px) 0 0 / 22px 22px,
-    linear-gradient(90deg, var(--ink) 1px, transparent 1px) 0 0 / 22px 22px;
-  opacity: 0.7;
+/* Dots: a halftone that fades out from the top right corner. */
+[data-decor="dots"]::before {
+  background: radial-gradient(circle, var(--ink) 1.1px, transparent 1.7px) 6px 6px / 13px 13px;
+  -webkit-mask: radial-gradient(farthest-corner at 100% 0, #000 10%, transparent 80%);
+  mask: radial-gradient(farthest-corner at 100% 0, #000 10%, transparent 80%);
 }
-[data-decor="waves"]::before { background: var(--ink); -webkit-mask: url(../decor/waves.svg) repeat-x left bottom / 160px 40px; mask: url(../decor/waves.svg) repeat-x left bottom / 160px 40px; }
+/* Grid: fine graph paper with a stronger line every fourth square, fading toward the bottom. */
+[data-decor="grid"]::before {
+  --ink: color-mix(in srgb, var(--tone, var(--text-muted)) 17%, transparent);
+  --fine: color-mix(in srgb, var(--tone, var(--text-muted)) 10%, transparent);
+  background:
+    linear-gradient(var(--ink) 1px, transparent 1px) 0 7px / 64px 64px,
+    linear-gradient(90deg, var(--ink) 1px, transparent 1px) 7px 0 / 64px 64px,
+    linear-gradient(var(--fine) 1px, transparent 1px) 0 7px / 16px 16px,
+    linear-gradient(90deg, var(--fine) 1px, transparent 1px) 7px 0 / 16px 16px;
+  -webkit-mask: linear-gradient(#000, rgb(0 0 0 / 0.2));
+  mask: linear-gradient(#000, rgb(0 0 0 / 0.2));
+}
+[data-decor="waves"]::before { background: var(--ink); -webkit-mask: url(../decor/waves.svg) repeat-x left bottom / 240px 44px; mask: url(../decor/waves.svg) repeat-x left bottom / 240px 44px; }
 /* The drawings sit in the top right corner, each from its own file in app/decor/. */
-[data-decor="leaves"], [data-decor="birthday"], [data-decor="christmas"], [data-decor="gifts"],
-[data-decor="travel"], [data-decor="packing"], [data-decor="camper"], [data-decor="shopping"] { --decor-pos: right 6px top 6px; --decor-size: 104px 104px; }
-[data-decor="stars"] { --decor-pos: right 8px top 8px; --decor-size: 128px 82px; }
 [data-decor="leaves"] { --decor-img: url(../decor/leaves.svg); }
 [data-decor="stars"] { --decor-img: url(../decor/stars.svg); }
 [data-decor="birthday"] { --decor-img: url(../decor/birthday.svg); }
@@ -1088,10 +1098,15 @@ a.row-open { text-decoration: none; }
 [data-decor="packing"] { --decor-img: url(../decor/packing.svg); }
 [data-decor="camper"] { --decor-img: url(../decor/camper.svg); }
 [data-decor="shopping"] { --decor-img: url(../decor/shopping.svg); }
-[data-decor]:not([data-decor="dots"], [data-decor="grid"], [data-decor="waves"])::before {
+.note[data-decor]:not([data-decor="dots"], [data-decor="grid"], [data-decor="waves"])::before {
   background: var(--ink);
-  -webkit-mask: var(--decor-img) no-repeat var(--decor-pos) / var(--decor-size);
-  mask: var(--decor-img) no-repeat var(--decor-pos) / var(--decor-size);
+  -webkit-mask: var(--decor-img) no-repeat right 0 top 0 / 140px 140px;
+  mask: var(--decor-img) no-repeat right 0 top 0 / 140px 140px;
+}
+@media (max-width: 600px) {
+  .note[data-decor]:not([data-decor="dots"], [data-decor="grid"], [data-decor="waves"])::before {
+    -webkit-mask-size: 118px 118px; mask-size: 118px 118px;
+  }
 }
 
 /* The picker: two rows of round swatches in the popup menu. */
@@ -1112,13 +1127,15 @@ a.row-open { text-decoration: none; }
 .look-decors[data-color="purple"] .look-swatch { --tone: var(--ctp-mauve); }
 .look-decors[data-color="pink"] .look-swatch { --tone: var(--ctp-pink); }
 .look-decors:not([data-color=""]) .look-swatch { background: color-mix(in srgb, var(--tone) 15%, var(--surface)); }
-.look-decors .look-swatch[data-decor] { --ink: color-mix(in srgb, var(--tone, var(--text-faint)) 60%, transparent); }
+.look-decors .look-swatch[data-decor] { --ink: color-mix(in srgb, var(--tone, var(--text-muted)) 75%, transparent); }
 /* The previews show the motif scaled down, so it fits the small tile. */
-.look-decors [data-decor="grid"]::before { background-size: 11px 11px; }
-.look-decors [data-decor="dots"]::before { background-size: 10px 10px; }
-.look-decors [data-decor="waves"]::before { -webkit-mask-size: 64px 18px; mask-size: 64px 18px; }
-.look-decors .look-swatch[data-decor] { --decor-pos: center; --decor-size: 34px 34px; }
-.look-decors [data-decor="stars"] { --decor-size: 40px 26px; }
+.look-decors [data-decor="grid"]::before { background-size: 22px 22px, 22px 22px, 5.5px 5.5px, 5.5px 5.5px; background-position: 0 3px, 3px 0, 0 3px, 3px 0; opacity: 0.8; }
+.look-decors [data-decor="dots"]::before { background-size: 7px 7px; background-position: 2px 2px; }
+.look-decors [data-decor="waves"]::before { -webkit-mask-size: 96px 22px; mask-size: 96px 22px; }
+.look-decors .look-swatch[data-decor]:not([data-decor="dots"], [data-decor="grid"], [data-decor="waves"])::before {
+  background: var(--ink);
+  -webkit-mask: var(--decor-img) no-repeat center / 40px 40px; mask: var(--decor-img) no-repeat center / 40px 40px;
+}
 .look-swatch .icon { width: 20px; height: 20px; }
 .look-swatch .check { display: none; stroke-width: 3; }
 .look-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
