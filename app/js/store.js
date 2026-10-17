@@ -65,7 +65,7 @@ export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], history: [], restore: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, maxMembers: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
   deleted: [], ended: "", blocked: null, outdated: false,
-  recoveryKem: false,   // TEMPORARY (backlog #20 transition): the recovery device has no ML-KEM key yet (sync/client.js)
+  wrapsSigned: false,   // TEMPORARY (signed-wraps transition): this device renewed every file key once, so all wraps are signed
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
@@ -103,7 +103,7 @@ function write(key, value) {
   vault?.put(key, value).catch(() => { /* storage unavailable: keep in memory */ });
 }
 
-/** Erases everything NoteDown stored (the vault with its key, and plain data an older version may have left)
+/** Erases everything NoteDown stored (the vault with its key, and any `notedown.` key in localStorage)
  *  and stops writing for the rest of this page's life, so a late change can't bring a record back before the
  *  page reloads (signing out). */
 export async function eraseStoredState() {

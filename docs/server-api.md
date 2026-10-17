@@ -67,13 +67,25 @@ stays unreadable for a future quantum computer, at Signal's level
 (PQXDH); one KDF over both secrets as in PQXDH, binding both ciphertexts
 and keys (the transcript hashed, as WebCrypto caps HKDF info at 1024
 bytes), so the key holds while either X25519 or ML-KEM-768 does.
-**X25519-only** (a device without `kem`, and every wrap from before):
-`b64u(ephemeral X25519 public key ‖ nonce ‖ AES-GCM(wrap key, file
-key))`, the wrap key HKDF-SHA256 over the X25519 secret alone, info
-`notedown-wrap` ‖ ephemeral public key ‖ recipient public key. A reader
-takes a value as hybrid when it starts with `0x01` and is long enough,
-and falls back to X25519-only when that fails, so old wraps stay
-readable until they are replaced. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
+Only hybrid seals are made and read: a value that isn't one (the
+X25519-only wraps of the test phase, now all replaced) is refused, and a
+device without `kem` gets nothing sealed.
+
+**Signed wrapped key** (what `keys` in an upload and `key` in a download
+carry, decided 2026-10-17): `b64u(0x02 ‖ gen (u32, big-endian) ‖ signer
+device ID (16 bytes) ‖ Ed25519 signature (64 bytes) ‖ hybrid wrapped
+key)`, 1266 bytes. The signature is by the signer's `sign` key over the
+canonical JSON `{"file", "gen", "label": "notedown-wrap-sig", "signer",
+"to", "wrap"}` — file ID, recipient device ID, key generation, signer,
+and the hybrid wrap as b64u. `gen` is 1 for a new file and one more with
+every renewal. A device takes a key only when the signer is an active
+device on the verified list of one of the file's members and `gen` is
+higher than the one it has (equal: the same key); otherwise it refuses
+the file and keeps its key. Reason: the wraps used to be unsigned, so a
+server could wrap a key of its own for a device's public keys, which the
+device would have taken and then encrypted everything after with; the
+generation stops an older key, which a removed device knows, from being
+handed out again. The server keeps the value as it is. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
 the padded, compressed Markdown file, a fresh nonce per upload.
 Compressed: one `0x01` byte, then the raw DEFLATE stream (RFC 1951, no
 zlib header) of the UTF-8 text (`CompressionStream("deflate-raw")` in
@@ -319,10 +331,8 @@ it can't read.
     joins only if its own device is active on the verified list of
     that identity.
 - **Restoring with the recovery key:** derive the identity and recovery
-  device keys, authenticate as the recovery device, give the recovery
-  device its `kem` key if it has none yet (an identity from before
-  backlog #20; then every file key is renewed), append the new device,
-  wrap the file keys for it.
+  device keys, authenticate as the recovery device, append the new
+  device, wrap the file keys for it.
 - Errors are `{"detail": "<message>"}` with 400 (malformed), 401 (no or
   invalid token), 403 (not allowed), 404, 409 (conflict), 413 (too
   large, or the storage quota is used up), 429 (rate limit; the

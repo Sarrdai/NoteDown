@@ -361,21 +361,11 @@ test("file key: opens Python's hybrid wrap; JS hybrid wrap round trips and fits 
   await assert.rejects(wrapFileKey(key, { enc: phone.enc.publicKey, kem: new Uint8Array(1184).fill(255) }), /invalid ML-KEM-768/);
 });
 
-test("file key: X25519-only wraps (from before, or for a device without ML-KEM key) still open", async () => {
+test("file key: X25519-only wraps are refused and none is made", async () => {
   const phone = await deviceFrom(vectors.phone);
   assert.ok(!isHybrid(vectors.wrap.wrapped));
-  assert.equal(toHex(await unwrapFileKey(vectors.wrap.wrapped, phone)), vectors.wrap.file_key);
-  assert.equal(toHex(await unwrapFileKey(vectors.wrap.wrapped, withoutKem(phone))), vectors.wrap.file_key);
-  const key = generateFileKey();
-  const legacy = await wrapFileKey(key, { enc: phone.enc.publicKey, kem: null });
-  assert.equal(fromB64u(legacy).length, 32 + 12 + 32 + 16);
-  assert.ok(!isHybrid(legacy));
-  assert.deepEqual(await unwrapFileKey(legacy, phone), key);
-  assert.deepEqual(await unwrapFileKey(legacy, withoutKem(phone)), key);
-  // An X25519-only wrap that starts with the hybrid marker byte falls back to X25519.
-  let marked;
-  do marked = await wrapFileKey(key, { enc: phone.enc.publicKey, kem: null }); while (fromB64u(marked)[0] !== 1);
-  assert.deepEqual(await unwrapFileKey(marked, phone), key);
+  await assert.rejects(unwrapFileKey(vectors.wrap.wrapped, phone), /not a hybrid seal/);
+  await assert.rejects(wrapFileKey(generateFileKey(), { enc: phone.enc.publicKey, kem: null }), /no ML-KEM key/);
 });
 
 test("relay message: opens Python's hybrid payload; round trips", async () => {
@@ -422,7 +412,7 @@ test("invitation: a fresh secret has 16 bytes and its own ID; a wrong key, ID or
 
 test("contact card: opens Python's sealed cards; JS seal round trips, fits the limit and is no wrapped key", async () => {
   const phone = await deviceFrom(vectors.phone);
-  assert.deepEqual(await openContactCard(vectors.contact_card.sealed, phone), vectors.contact_card.card);   // X25519-only
+  await assert.rejects(openContactCard(vectors.contact_card.sealed, phone), /not a hybrid seal/);   // X25519-only
   assert.deepEqual(await openContactCard(vectors.hybrid_contact_card.sealed, phone), vectors.hybrid_contact_card.card);
   const card = { v: 1, identity: "I".repeat(22), name: "Zoë ".repeat(10).trim(), secret: "S".repeat(22) };
   const sealed = await sealContactCard(card, recipientOf(phone));
@@ -446,4 +436,26 @@ test("safetyCode: the same for both sides, 5 groups of 4 digits, different per p
   assert.equal(await safetyCode(b, a), ab);
   assert.notEqual(await safetyCode(a, c), ab);
   assert.equal(await safetyCode(a, b), ab);
+});
+
+test("signed wrap: binds file, recipient, generation and signer; any change fails", async () => {
+  const { signWrap, readSignedWrap, verifyWrap } = await import("../app/js/core/crypto.js");
+  const phone = await generateDeviceKeys(), laptop = await generateDeviceKeys();
+  const phoneId = await keyId(phone.sign.publicKey), laptopId = await keyId(laptop.sign.publicKey);
+  const fileKey = generateFileKey();
+  const wrap = await wrapFileKey(fileKey, recipientOf(phone));
+  const signed = await signWrap(wrap, { file: "F".repeat(22), to: phoneId, gen: 3 }, laptopId, laptop.sign.privateKey);
+  assert.ok(signed.length <= 2048, signed.length);
+  const parts = readSignedWrap(signed);
+  assert.deepEqual({ gen: parts.gen, signer: parts.signer, wrap: parts.wrap }, { gen: 3, signer: laptopId, wrap });
+  assert.deepEqual(await unwrapFileKey(parts.wrap, phone), fileKey);
+  assert.equal(await verifyWrap(parts, { file: "F".repeat(22), to: phoneId }, laptop.sign.publicKey), true);
+  assert.equal(await verifyWrap(parts, { file: "G".repeat(22), to: phoneId }, laptop.sign.publicKey), false, "another file");
+  assert.equal(await verifyWrap(parts, { file: "F".repeat(22), to: laptopId }, laptop.sign.publicKey), false, "another recipient");
+  assert.equal(await verifyWrap(parts, { file: "F".repeat(22), to: phoneId }, phone.sign.publicKey), false, "another signer's key");
+  assert.equal(await verifyWrap({ ...parts, gen: 4 }, { file: "F".repeat(22), to: phoneId }, laptop.sign.publicKey), false, "another generation");
+  const other = await wrapFileKey(generateFileKey(), recipientOf(phone));
+  assert.equal(await verifyWrap({ ...parts, wrap: other }, { file: "F".repeat(22), to: phoneId }, laptop.sign.publicKey), false, "another key");
+  assert.throws(() => readSignedWrap(wrap), /isn't signed/);
+  await assert.rejects(signWrap(wrap, { file: "F".repeat(22), to: phoneId, gen: 0 }, laptopId, laptop.sign.privateKey), /generation/);
 });

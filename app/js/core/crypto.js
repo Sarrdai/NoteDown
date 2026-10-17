@@ -171,7 +171,8 @@ export async function generateDeviceKeys() {
   return { sign, enc, kem };
 }
 
-/** A device-list record `{ id, kind, sign, enc, kem }` ("device" or "recovery") for the keys (`kem` only when they have one). */
+/** A device-list record `{ id, kind, sign, enc, kem }` ("device" or "recovery") for the keys (records of devices
+ *  added before post-quantum wrapping, still in old device lists, have no `kem`). */
 export async function deviceRecord(keys, kind) {
   return {
     id: await keyId(keys.sign.publicKey), kind, sign: b64u(keys.sign.publicKey), enc: b64u(keys.enc.publicKey),
@@ -179,9 +180,9 @@ export async function deviceRecord(keys, kind) {
   };
 }
 
-/** What a key is wrapped for: a device's public `{ enc, kem }` (raw bytes; `kem` null for a device without one), from its keys. */
+/** What a key is wrapped for: a device's public `{ enc, kem }` (raw bytes), from its keys. */
 export function recipientOf(keys) {
-  return { enc: keys.enc.publicKey, kem: keys.kem?.publicKey || null };
+  return { enc: keys.enc.publicKey, kem: keys.kem.publicKey };
 }
 
 /** The commitment to an ML-KEM public key in a link code: b64u of its SHA-256. */
@@ -388,42 +389,28 @@ async function hybridKey(label, sharedX, sharedKem, ephemeralPublic, recipient, 
 }
 
 /**
- * Seals `plain` for a device's public keys `{ enc, kem }`. With `kem` (hybrid): b64u of 0x01 ‖ ephemeral
- * X25519 public key ‖ ML-KEM-768 ciphertext ‖ nonce ‖ AES-GCM; without (a device that has no ML-KEM key yet):
- * b64u of ephemeral X25519 public key ‖ nonce ‖ AES-GCM, the wrap key HKDF over the X25519 secret alone.
+ * Seals `plain` for a device's public keys `{ enc, kem }`, hybrid: b64u of 0x01 ‖ ephemeral X25519 public key ‖
+ * ML-KEM-768 ciphertext ‖ nonce ‖ AES-GCM. A device without an ML-KEM key gets nothing sealed.
  */
 async function sealFor(label, recipient, plain) {
+  if (!recipient.kem) throw new ProtocolError("this device has no ML-KEM key");
   const ephemeral = await generatePair("X25519");
   const sharedX = await x25519(ephemeral.privateKey, recipient.enc);
-  if (!recipient.kem) {
-    const key = await hkdf(sharedX, new Uint8Array(0), concat(utf8(label), ephemeral.publicKey, recipient.enc));
-    const { nonce, sealed } = await seal(key, plain);
-    return b64u(concat(ephemeral.publicKey, nonce, sealed));
-  }
   const { ciphertext, sharedSecret } = await mlkemEncapsulate(recipient.kem);
   const key = await hybridKey(label, sharedX, sharedSecret, ephemeral.publicKey, recipient, ciphertext);
   const { nonce, sealed } = await seal(key, plain);
   return b64u(concat(Uint8Array.of(HYBRID), ephemeral.publicKey, ciphertext, nonce, sealed));
 }
 
-// Opens `sealFor`'s output with a device's keys `{ enc, kem }` (`kem`: `{ seed, publicKey }` or none). A value
-// that isn't hybrid, or whose hybrid reading fails (an X25519-only one that happens to start with 0x01), is
-// read as X25519-only: those stay readable until they are replaced.
+// Opens `sealFor`'s output with a device's keys `{ enc, kem: { seed, publicKey } }`; only hybrid seals open.
 async function openFor(label, text, keys) {
   const raw = fromB64u(text);
-  if (keys.kem && raw[0] === HYBRID && raw.length >= HYBRID_HEAD + NONCE_BYTES + 16) {
-    try {
-      const ephemeralPublic = raw.subarray(1, 33), ciphertext = raw.subarray(33, HYBRID_HEAD);
-      const sharedX = await x25519(keys.enc.privateKey, ephemeralPublic);
-      const sharedKem = await mlkemDecapsulate(keys.kem.seed, ciphertext);
-      const key = await hybridKey(label, sharedX, sharedKem, ephemeralPublic, recipientOf(keys), ciphertext);
-      return await open(key, raw.subarray(HYBRID_HEAD, HYBRID_HEAD + NONCE_BYTES), raw.subarray(HYBRID_HEAD + NONCE_BYTES));
-    } catch { /* not hybrid after all */ }
-  }
-  const ephemeralPublic = raw.subarray(0, 32);
-  const key = await hkdf(await x25519(keys.enc.privateKey, ephemeralPublic), new Uint8Array(0),
-    concat(utf8(label), ephemeralPublic, keys.enc.publicKey));
-  return open(key, raw.subarray(32, 32 + NONCE_BYTES), raw.subarray(32 + NONCE_BYTES));
+  if (!keys.kem || !isHybrid(text)) throw new ProtocolError("not a hybrid seal");
+  const ephemeralPublic = raw.subarray(1, 33), ciphertext = raw.subarray(33, HYBRID_HEAD);
+  const sharedX = await x25519(keys.enc.privateKey, ephemeralPublic);
+  const sharedKem = await mlkemDecapsulate(keys.kem.seed, ciphertext);
+  const key = await hybridKey(label, sharedX, sharedKem, ephemeralPublic, recipientOf(keys), ciphertext);
+  return open(key, raw.subarray(HYBRID_HEAD, HYBRID_HEAD + NONCE_BYTES), raw.subarray(HYBRID_HEAD + NONCE_BYTES));
 }
 
 /** Whether a sealed value (a wrapped file key, relay payload or card) is hybrid, i.e. safe from a future quantum computer. */
@@ -440,6 +427,46 @@ export function wrapFileKey(fileKey, recipient) {
 /** The 32-byte file key from `wrapFileKey`'s output; `keys` are this device's `{ enc, kem }` (as `generateDeviceKeys`). */
 export function unwrapFileKey(wrapped, keys) {
   return openFor("notedown-wrap", wrapped, keys);
+}
+
+// ---------- signed wraps (docs/server-api.md → "Keys": signed wrapped key) ----------
+
+const SIGNED = 0x02;
+const SIGNED_HEAD = 1 + 4 + 16 + 64;   // marker ‖ generation ‖ signer ID ‖ Ed25519 signature
+
+// What the signer vouches for: this key wrap is for device `to`, of file `file`, the file's key generation `gen`.
+const wrapStatement = ({ file, to, gen, signer, wrap }) =>
+  canonicalJson({ label: "notedown-wrap-sig", file, to, gen, signer, wrap });
+
+/**
+ * A wrapped file key signed by the device that made it, so the server can't hand a device a key of its own
+ * choosing: b64u of 0x02 ‖ `gen` (u32, big-endian) ‖ the signer's device ID (16 bytes) ‖ Ed25519 signature ‖
+ * the hybrid wrap (`wrapFileKey`). The signature covers file ID, recipient device ID, generation, signer and wrap.
+ */
+export async function signWrap(wrap, { file, to, gen }, signer, signKey) {
+  if (!Number.isSafeInteger(gen) || gen < 1 || gen > 0xffffffff) throw new ProtocolError("invalid key generation");
+  const sig = new Uint8Array(await subtle().sign({ name: "Ed25519" }, signKey, wrapStatement({ file, to, gen, signer, wrap })));
+  const head = new Uint8Array(1 + 4);
+  head[0] = SIGNED;
+  new DataView(head.buffer).setUint32(1, gen);
+  return b64u(concat(head, fromB64u(signer, 16), sig, fromB64u(wrap)));
+}
+
+/** The parts of `signWrap`'s output: { gen, signer, sig, wrap }; ProtocolError for anything else (an unsigned wrap). */
+export function readSignedWrap(text) {
+  const raw = fromB64u(text);
+  if (raw[0] !== SIGNED || raw.length <= SIGNED_HEAD) throw new ProtocolError("the wrapped key isn't signed");
+  return {
+    gen: new DataView(raw.buffer, raw.byteOffset).getUint32(1),
+    signer: b64u(raw.subarray(5, 21)),
+    sig: raw.subarray(21, SIGNED_HEAD),
+    wrap: b64u(raw.subarray(SIGNED_HEAD)),
+  };
+}
+
+/** Whether `signed` (from `readSignedWrap`) was signed by the device with Ed25519 key `signPublicKey` for `file` and `to`. */
+export function verifyWrap(signed, { file, to }, signPublicKey) {
+  return verifySignature(signPublicKey, signed.sig, wrapStatement({ file, to, gen: signed.gen, signer: signed.signer, wrap: signed.wrap }));
 }
 
 /** The relay payload for a new device: `message` (JSON-able) sealed like a file key, label `notedown-relay`. */

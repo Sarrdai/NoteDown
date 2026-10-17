@@ -100,11 +100,7 @@ apart from existing apps beyond the points above.
   notes. How (backlog #19, `docs/sync-and-sharing.md` → "Where the files
   live"): one random data key per device encrypts everything NoteDown
   keeps — the notes files, the sync state, the settings and the file
-  keys. **Updating keeps the notes:** the first start of a version with
-  this moves what an older version kept in plain text into the encrypted
-  storage, reads it back, and only then deletes the plain copy; an
-  interrupted move is finished at the next start. *Prototype and app:
-  2026-10-17.*
+  keys. *Prototype and app: 2026-10-17.*
 - Within a note, any Markdown is allowed, including further headings and
   task checkboxes; ticking a task checkbox doesn't close the note.
 - An emptied note is deleted when editing ends, with Undo; a new note left
@@ -223,7 +219,9 @@ before the first live test).
   user's quota; app versions from before can't read such files). Keys
   are wrapped post-quantum hybrid (X25519 + ML-KEM-768, as Signal's
   PQXDH), so a recorded server database stays unreadable for a future
-  quantum computer (backlog #20).
+  quantum computer (backlog #20), and each wrapped key is signed by the
+  device that made it, so not even the server can slip a device a key
+  of its own (decided 2026-10-17).
 - **Abuse protection without accounts** (backlog #8): the default server
   keeps at most **2 MB** of encrypted files per identity — thousands of
   notes; the user wants to raise it later as a paid option — and limits
@@ -282,13 +280,6 @@ before the first live test).
     loads the current one) and "Install the current app" on Android, no
     ✕. It goes by itself with the first round after the update. Before,
     an outdated app just failed on data it couldn't read.
-  - **Recovery key not upgraded yet** (temporary, backlog #20, user
-    decision 2026-10-17): an identity from before post-quantum wrapping
-    shows "Enter your recovery key once — It finishes the post-quantum
-    protection of your notes …" with **Enter recovery key**, no ✕; its
-    page takes the recovery key, upgrades the recovery device and renews
-    the file keys (`docs/sync-and-sharing.md` → "Keys"). To be removed
-    once the owner's identity is upgraded; new identities never see it.
   *Prototype: 2026-10-16 (⋮ → Prototype → "Simulate device removal",
   "Simulate outdated app").*
 - **Signing out this device** (backlog #15): Sync & sharing → "Sign out

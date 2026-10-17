@@ -207,10 +207,6 @@ export function syncNotice(sync, timeZone, native = false) {
   if (sync.enabled && sync.blocked) {
     return { kind: "blocked", title: blockedMessage(sync.blocked.until, timeZone), sub: "Changes you make here are kept and sync once the block ends.", closable: false };
   }
-  // TEMPORARY (backlog #20 transition): the recovery key's copies of the file keys are still X25519-only.
-  if (sync.enabled && sync.recoveryKem) {
-    return { kind: "recoveryKem", title: "Enter your recovery key once", sub: "It finishes the post-quantum protection of your notes: the copies of your keys kept for the recovery key are still protected the old way.", closable: false };
-  }
   return null;
 }
 
@@ -227,4 +223,20 @@ export function detachedFile(file, shared, me) {
     preamble: file.preamble || "", notes: [...file.notes, ...fromShared].map(plain), moved: [], purged: [],
     devices: [], contacts: [], members: [], news: file.news || [], order: file.order || null,
   };
+}
+
+/**
+ * What a device does with a file key the server hands it (docs/sync-and-sharing.md → "Keys"): each
+ * wrapped key is signed by the device that made it, with the key's generation, which goes up with every renewal.
+ * `signed`: the wrap carries a signature; `trusted`: it checks out against an active device of one of the file's
+ * members; `gen`: its generation; `known`: the highest generation this device took for the file (0: none);
+ * `have`: this device has a key for the file; `same`: the offered key is that key.
+ * → "keep" (nothing new), "take" (remember the offered key) or throws: a server can't swap in a key of its own,
+ * nor an older one a removed device still knows.
+ */
+export function keyVerdict({ signed, trusted, gen, known, have, same }) {
+  if (have && same && (!signed || gen <= known)) return "keep";
+  if (!signed || !trusted) throw new Error("A file's key isn't signed by a device of its members; sync stopped for it");
+  if (gen < known || (gen === known && have)) throw new Error("The server offered an outdated key for a file; sync stopped for it");
+  return "take";
 }

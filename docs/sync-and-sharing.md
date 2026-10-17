@@ -149,14 +149,8 @@ copied files.
   app the WebCrypto keys are protected by the app's sandbox and the
   missing backup, not by the Keystore — a known gap (backlog #61); a
   hybrid wrap still needs the vault's ML-KEM seed as well.
-- **Moving plain data in** (backlog #19): the first start of a version
-  with the vault copies what an older one kept in plain text — the
-  `notedown.*` keys of `localStorage` and the file keys of IndexedDB
-  `notedown` — into the vault, reads every item back and compares it,
-  and only then deletes the plain copy; an item the vault already has is
-  newer and stays. `notedown.api` (a test server address, no note data)
-  stays in `localStorage`. Tested in `tests/vault.test.mjs` and, against a
-  real server, in `scripts/e2e-sync.js`.
+- `notedown.api` (a test server address, no note data) is the one thing
+  in `localStorage`.
 - **Signing out** erases the vault together with its key (and on Android
   the Keystore key).
 
@@ -299,6 +293,20 @@ the first sync round.
 | Data key (AES-256-GCM), one per device | Encrypts what NoteDown keeps on the device ("Where the files live") | Only on that device: sealed by the Android Keystore, in the web app a non-extractable WebCrypto key; never synced, never in a backup |
 | Backup key (30 digits) | Opens the user's encrypted backups (`docs/requirements.md` → "Encrypted backup") | With the user; a copy in the vault of the device that made the backups |
 
+- **Wrapped keys are signed** (decided 2026-10-17, found in the review of
+  the security round): every wrapped key carries the signature of the
+  device that made it and the key's **generation** (1 for a new file, one
+  more per renewal). A device takes a new key only when the signer is an
+  active device of one of the file's members and the generation is
+  higher than the one it has; anything else stops sync of that file and
+  the device keeps its key. Why: unsigned, a server could wrap a key of
+  its own for a device — the public keys are no secret — and the device
+  would have encrypted everything after with it; Signal authenticates
+  every sender the same way. The generation keeps an older key, which a
+  removed device knows, from coming back. The wraps from before were
+  replaced by one renewal of every file key on each device's first round
+  (temporary code, `sync/client.js`). Byte layout: `docs/server-api.md`
+  → "Keys".
 - **Sharing a note in a new set of people:** the device creates a random
   file key, wraps it for every device on each member's device list,
   including the user's own, encrypts the file with it and uploads both.
@@ -311,20 +319,14 @@ the first sync round.
   way. ML-KEM comes from libcrux-ml-kem (Cryspen, formally verified, the
   implementation in libsignal), built once to WebAssembly and shipped
   with the app.
-- **Upgrade without a step by the user:** a device from before adds its
-  ML-KEM key to the device list on its first sync round after the
-  update and renews the key of every file it reads (as when a device is
-  removed), so the new keys are wrapped hybrid for every device that has
-  an ML-KEM key; each device does this once. A recorded X25519-only wrap
-  then opens only the old states. The recovery device's ML-KEM key comes
-  from the recovery key, so an identity from before gets it the next
-  time the recovery key is entered: restoring, or — temporarily, for the
-  owner's identity from the test phase (user decision 2026-10-17) — a
-  card above the notes, "Enter your recovery key once", whose page adds
-  the recovery device's ML-KEM key and renews every file key; until then
-  the recovery key's copies stay X25519-only. Old wraps stay readable until replaced;
-  apps from before can't read the new records and are asked to update
-  (`docs/server-api.md` → "App versions"). A device
+- **Only hybrid:** every device has an ML-KEM key on the device list
+  from the start; X25519-only seals are neither made nor read. The one
+  identity from the test phase was upgraded on 2026-10-17 (its devices
+  added their keys and renewed every file key), so the upgrade code is
+  gone; device lists keep its `kem` entries, which the chain check still
+  reads. A recorded X25519-only wrap opens only states from before that
+  day. Apps from before can't read the new records and are asked to
+  update (`docs/server-api.md` → "App versions"). A device
   list counts only if its chain starts with the identity key the user's
   app remembered for that contact, so the server can't add a device. Members' devices
   pick up their wrapped key with the file on their next sync.

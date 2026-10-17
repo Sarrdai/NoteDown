@@ -6,13 +6,10 @@
 // - Web: IndexedDB `notedown-vault`, the data key a non-extractable CryptoKey in
 //   the same database.
 // - Neither (no IndexedDB, unit tests): in memory only.
-// The vault is opened once; on first use it takes over what an older version kept
-// in plain text (localStorage, the file keys in IndexedDB `notedown`) and removes that.
-import { sealRecord, openRecord, generateVaultKey, importVaultKey, migrateLegacy, legacyStorageKeys, secretName, isVaultable } from "./core/vault.js";
+// The vault is opened once per page.
+import { sealRecord, openRecord, generateVaultKey, importVaultKey } from "./core/vault.js";
 
 const DB = "notedown-vault";
-const LEGACY_DB = "notedown";   // the key store of versions before the vault (sync/keystore.js keeps its CryptoKeys there)
-const LEGACY_STORE = "keys";
 const CHANNEL = "notedown-vault";
 
 const b64 = bytes => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
@@ -99,49 +96,6 @@ async function memoryBackend() {
 
 const isNative = () => !!globalThis.Capacitor?.isNativePlatform?.();
 
-// ---------- what older versions stored in plain text ----------
-
-function legacyStorage() {
-  let keys = [];
-  try { keys = Object.keys(localStorage); } catch { /* no localStorage */ }
-  return legacyStorageKeys(keys).map(({ key, name }) => {
-    let raw = null;
-    try { raw = localStorage.getItem(key); } catch { /* gone */ }
-    return { key, name, value: raw };
-  }).filter(i => i.value !== null);
-}
-
-async function legacySecrets() {
-  if (typeof indexedDB === "undefined") return { items: [], db: null };
-  // Only an existing database: opening creates it otherwise (sync/keystore.js creates it when it needs it).
-  const known = indexedDB.databases ? (await indexedDB.databases()).some(d => d.name === LEGACY_DB) : true;
-  if (!known) return { items: [], db: null };
-  const db = await idb(LEGACY_DB, [LEGACY_STORE]);
-  const keys = await tx(db, LEGACY_STORE, "readonly", s => s.getAllKeys());
-  const items = [];
-  for (const k of keys) {
-    const value = await tx(db, LEGACY_STORE, "readonly", s => s.get(k));
-    if (typeof k === "string" && isVaultable(value)) items.push({ key: k, name: secretName(k), value });
-  }
-  return { items, db };
-}
-
-async function takeOverLegacy(vault) {
-  const storage = legacyStorage();
-  const secrets = await legacySecrets();
-  try {
-    return await migrateLegacy({
-      items: async () => [...storage, ...secrets.items].map(({ name, value }) => ({ name, value })),
-      remove: async names => {
-        for (const i of storage) if (names.includes(i.name)) try { localStorage.removeItem(i.key); } catch { /* gone */ }
-        if (secrets.db) for (const i of secrets.items) if (names.includes(i.name)) await tx(secrets.db, LEGACY_STORE, "readwrite", s => s.delete(i.key));
-      },
-    }, vault);
-  } finally {
-    secrets.db?.close();
-  }
-}
-
 // ---------- the vault ----------
 
 let opening = null;
@@ -152,7 +106,7 @@ export function onVaultChange(fn) { changeListeners.add(fn); }
 
 /**
  * Opens the vault (once per page): { get(name), put(name, value), remove(name), clear() }. Values are JSON-able,
- * Uint8Array allowed; `put` resolves once the record is stored. Takes over plain data of older versions first.
+ * Uint8Array allowed; `put` resolves once the record is stored.
  */
 export function openVault() {
   opening ||= (async () => {
@@ -161,7 +115,6 @@ export function openVault() {
     else if (typeof indexedDB !== "undefined") backend = await webBackend().catch(() => memoryBackend());
     else backend = await memoryBackend();
     const vault = makeVault(backend);
-    await takeOverLegacy(vault);
     return vault;
   })();
   return opening;

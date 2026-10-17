@@ -213,10 +213,16 @@ test("syncNotice: an outdated app is told to reload (web) or install the current
   assert.equal(syncNotice({ enabled: false, outdated: true }), null, "sync off: no notice");
 });
 
-test("TEMPORARY (backlog #20 transition): a card asks for the recovery key while the recovery device has no ML-KEM key", async () => {
-  const { syncNotice } = await import("../app/js/core/sync-state.js");
-  assert.equal(syncNotice({ enabled: true, recoveryKem: true }).kind, "recoveryKem");
-  assert.equal(syncNotice({ enabled: true, recoveryKem: true }).closable, false);
-  assert.equal(syncNotice({ enabled: true, recoveryKem: false }), null);
-  assert.equal(syncNotice({ enabled: false, recoveryKem: true }), null);
+test("keyVerdict: a new key only when a member's device signed it, never an older one", async () => {
+  const { keyVerdict } = await import("../app/js/core/sync-state.js");
+  const v = o => keyVerdict({ signed: true, trusted: true, gen: 2, known: 1, have: true, same: false, ...o });
+  assert.equal(v({}), "take", "a renewal");
+  assert.equal(v({ have: false, known: 0 }), "take", "a new device or file");
+  assert.equal(v({ same: true, gen: 1, known: 1 }), "keep");
+  assert.equal(v({ signed: false, trusted: false, gen: 0, same: true }), "keep", "an unsigned wrap of the key this device already has");
+  assert.throws(() => v({ signed: false, trusted: false, gen: 0 }), /isn't signed/, "the server's own key");
+  assert.throws(() => v({ signed: false, trusted: false, gen: 0, have: false, known: 0 }), /isn't signed/);
+  assert.throws(() => v({ trusted: false }), /isn't signed/, "signed by a device that isn't a member's");
+  assert.throws(() => v({ gen: 1, known: 2 }), /outdated/, "an older key (a removed device knows it)");
+  assert.throws(() => v({ gen: 2, known: 2 }), /outdated/, "another key of the same generation");
 });
