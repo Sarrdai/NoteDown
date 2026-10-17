@@ -1383,3 +1383,9 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 @media (max-width: 599px) {
   .storage-hint { width: calc(100% - 24px); }
 }
+
+/* Version history: "Restore this note" under a note of a state (backlog #38). */
+.history-note-item { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.history-note-item .history-note { align-self: stretch; }
+.history-note-restore { min-height: 40px; }
+@media (pointer: coarse) { .history-note-restore { min-height: 48px; } }

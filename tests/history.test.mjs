@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
-import { restoredFile, compareStates, changeSummary, stateTime } from "../app/js/core/history.js";
+import { restoredFile, restoredNote, compareStates, changeSummary, stateTime } from "../app/js/core/history.js";
 
 const sample = () => parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 
@@ -33,6 +33,25 @@ test("restoredFile: a note moved into another file since stays there; a purged m
   assert.ok(file.notes.some(n => n.id === purged) && file.notes.some(n => n.id === kept));
   assert.deepEqual(file.purged.map(m => m.id), ["gone"]);
   assert.deepEqual(file.moved, current.moved);
+});
+
+test("restoredNote: replaces a changed note, brings back a missing or trashed one, leaves the rest", () => {
+  const old = sample(), current = sample();
+  const [a, b, c] = current.notes.filter(n => !n.deleted).map(n => n.id);
+  current.notes = current.notes.filter(n => n.id !== a)
+    .map(n => (n.id === b ? { ...n, body: "Edited since" } : n.id === c ? { ...n, deleted: "2026-10-14T08:00:00Z", kept: "lea" } : n));
+  current.purged = [{ id: a, purged: "2026-10-11T08:00:00Z" }];
+  const now = "2026-10-16T08:00:00Z";
+  const missing = restoredNote(current, old, a, now);
+  assert.deepEqual(missing.notes.at(-1), { ...old.notes.find(n => n.id === a), modified: now });
+  assert.deepEqual(missing.purged, []);
+  const changed = restoredNote(current, old, b, now);
+  assert.equal(changed.notes.find(n => n.id === b).body, old.notes.find(n => n.id === b).body);
+  assert.equal(changed.notes.length, current.notes.length);
+  const trashed = restoredNote(current, old, c, now).notes.find(n => n.id === c);
+  assert.ok(!trashed.deleted && !trashed.kept);
+  assert.equal(restoredNote(current, old, "nope", now), current);
+  assert.equal(restoredNote({ ...current, moved: [{ id: a, moved: now }] }, old, a, now).notes.length, current.notes.length);
 });
 
 test("compareStates: notes back, gone, changed and the same; trashed notes count as gone", () => {
