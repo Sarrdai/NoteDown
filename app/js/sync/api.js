@@ -5,8 +5,15 @@ import { signChallenge } from "../core/crypto.js";
 import { backupFileName } from "../core/admin.js";
 import { blockedMessage } from "../core/sync-state.js";
 
+/**
+ * This app's compatibility level, sent with every request (docs/server-api.md → "App versions", backlog #51).
+ * Raised together with the server's MIN_CLIENT when a change ships that older apps can't read or would break.
+ */
+export const CLIENT_LEVEL = 1;
+
 // The server's answers that get a sentence of their own in the sync status.
 function describe(status, body) {
+  if (status === 426) return "This version of NoteDown is too old to sync. Update the app.";
   if (status === 429) return "Too many attempts. Try again later.";
   if (status === 413 && body && body.detail === "storage quota exceeded") return "Sync storage is full.";
   if (status === 423) return blockedMessage(body?.until ?? null);
@@ -34,7 +41,8 @@ export function createApi(baseUrl, who) {
   let token = null;      // { value, expires (ms), device }
 
   async function call(method, path, body, auth = false, retry = true) {
-    const headers = body === undefined ? {} : { "Content-Type": "application/json" };
+    const headers = { "NoteDown-Client": String(CLIENT_LEVEL) };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
     if (auth) headers.Authorization = "Bearer " + await bearer();
     let res;
     try {

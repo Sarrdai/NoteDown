@@ -19,8 +19,18 @@ MAX_MEMBERS = 50
 MAX_NEWS_BODY = 16 * 1024
 MAX_NEWS_PUBLISHED = 20
 MAX_NEWS = 200
+# The oldest app the server serves (docs/server-api.md → "App versions", backlog #51): every app sends its
+# compatibility level in the NoteDown-Client header (none = 0); raised together with the app's CLIENT_LEVEL when
+# a change ships that older apps can't read or would break.
+MIN_CLIENT = 0
 _B64U = re.compile(r"^[A-Za-z0-9_-]*$")
 _ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
+
+
+def client_level(header: str | None) -> int:
+    """The compatibility level an app sent in its NoteDown-Client header; 0 when missing or not a number."""
+    value = (header or "").strip()
+    return int(value) if value.isdigit() and len(value) <= 6 else 0
 
 
 class ProtocolError(ValueError):

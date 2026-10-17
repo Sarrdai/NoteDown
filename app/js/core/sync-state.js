@@ -188,14 +188,21 @@ export function blockedMessage(until, timeZone) {
  * The card above the notes when sync stopped working on this device (user request 2026-10-16: so nobody types
  * on here and wonders why nothing syncs), from the sync state: → null or { kind, title, sub, closable }.
  * "removed": this device was taken off the device list; "deleted": the identity's sync data was deleted (both:
- * sync is off, the notes stayed); "blocked": the server's owner blocks the identity (sync resumes after it).
+ * sync is off, the notes stayed); "outdated": the server no longer serves this app version (backlog #51; `native`:
+ * the Android app, which is installed anew, else the web app, which reloads); "blocked": the server's owner blocks
+ * the identity (sync resumes after it).
  */
-export function syncNotice(sync, timeZone) {
+export function syncNotice(sync, timeZone, native = false) {
   if (!sync.enabled && sync.ended === "removed") {
     return { kind: "removed", title: "This device was removed from sync", sub: "Changes you make here stay on this device only. Link it again to sync.", closable: true };
   }
   if (!sync.enabled && sync.ended === "deleted") {
     return { kind: "deleted", title: "Your sync data was deleted", sub: "Your notes stay on this device only. Turn on sync to start again.", closable: true };
+  }
+  if (sync.enabled && sync.outdated) {
+    return { kind: "outdated", title: "Update NoteDown to keep syncing", sub: native
+      ? "This version is too old for the sync server. Install the current app; your changes here are kept and sync then."
+      : "This version is too old for the sync server. Reload the page to get the current one; your changes here are kept and sync then.", closable: false };
   }
   if (sync.enabled && sync.blocked) {
     return { kind: "blocked", title: blockedMessage(sync.blocked.until, timeZone), sub: "Changes you make here are kept and sync once the block ends.", closable: false };

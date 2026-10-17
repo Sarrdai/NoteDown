@@ -7,6 +7,7 @@
 - [Contacts and invitations](#contacts-and-invitations)
 - [Authentication](#authentication)
   - [Blocked and deleted identities](#blocked-and-deleted-identities)
+- [App versions](#app-versions)
 - [Endpoints](#endpoints)
 - [Version history](#version-history)
 - [Admin](#admin)
@@ -67,7 +68,8 @@ and then one `0x80`. Older files are read as they are: a plaintext that
 doesn't start with `0x01` is uncompressed UTF-8 (Markdown never starts
 with that byte), one without the `0x80` marker is unpadded. App versions
 from before compression can't read compressed files, so every device has
-to run a current version.
+to run a current version (a change like this now raises the minimum app
+version, "App versions").
 
 ## Device list
 
@@ -190,6 +192,31 @@ recovery key (below).
   signature that doesn't match the identity key (a device key is not
   enough); 404 for an unknown identity; 400 for an invalid or expired
   challenge.
+
+## App versions
+
+Backlog #51: an app the server or the shared files have moved past
+stops syncing cleanly and asks to be updated, instead of failing on data
+it can't read.
+
+- Every request sends the app's **compatibility level** in the header
+  `NoteDown-Client: <integer>` (`CLIENT_LEVEL` in `app/js/sync/api.js`);
+  a missing or malformed header counts as 0. The level is independent of
+  the version Settings → About shows.
+- The server serves levels from `MIN_CLIENT` (`server/notedown_server/
+  protocol.py`) on; any older request under `/v1/` (the delete page and
+  the admin page included, which share `api.js`) answers **426
+  `{"detail": "app outdated", "min_client": n}`**, with the CORS headers
+  so the web app can read it. `/health` is not checked.
+- A change that older apps can't read or would break (a file format, the
+  key scheme) raises `CLIENT_LEVEL` and `MIN_CLIENT` in the same commit.
+  Today the app sends 1 and `MIN_CLIENT` is 0: no app is refused yet.
+- The app keeps its notes and its changes and shows a card ("Update
+  NoteDown to keep syncing"; `docs/requirements.md` → "Sync and
+  sharing"); every later round gets the 426 again until it is updated.
+- CORS allows the `NoteDown-Client` header; a web app deployed before the
+  server that allows it sees the server as unreachable until the server's
+  deploy is through.
 
 ## Endpoints
 

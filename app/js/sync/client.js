@@ -125,7 +125,7 @@ async function round() {
     if (failure) throw failure;
     const wait = busySince + MIN_BUSY_MS - Date.now();
     if (state.sync.status === "syncing" && wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-    setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false, blocked: null });
+    setSync({ status: "synced", lastSync: Date.now(), error: "", storageFull: false, blocked: null, outdated: false });
   } catch (e) {
     fail(e);
   }
@@ -147,7 +147,8 @@ function fail(e) {
   if (e instanceof ApiError && e.status === 410) return detach("deleted");
   if (e instanceof ApiError && e.status === 401) return detach("removed");
   const blocked = e instanceof ApiError && e.status === 423 ? { until: e.body.until ?? null } : null;
-  setSync({ status: "error", error: e.message || e.name, blocked });
+  const outdated = e instanceof ApiError && e.status === 426;
+  setSync({ status: "error", error: e.message || e.name, blocked, outdated });
 }
 
 function busy() {

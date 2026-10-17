@@ -52,12 +52,13 @@ export const DEFAULT_SETTINGS = {
 // `deleted`: the deleted identities among the members of the shared files (shown as deleted, backlog #34);
 // `ended`: "removed" once this device was taken off the device list, "deleted" once its identity was deleted
 // from the server (sync is off, the notes stayed; ui/sync-notice.js); `blocked` ({ until } or null): the
-// server's owner blocks the identity (backlog #34).
+// server's owner blocks the identity (backlog #34); `outdated`: the server no longer serves this app version
+// (426, backlog #51) until it is updated.
 // status is "synced" | "syncing" | "offline" | "error" (with `error`), lastSync in ms.
 export const DEFAULT_SYNC = {
   enabled: false, name: "", simulated: false, identity: "", server: "", identityKey: "", device: "", file: null, files: {}, epochs: {}, renew: [], history: [], restore: [], news: null,
   recoveryKey: "", devices: [], contacts: [], requests: [], usage: null, maxMembers: null, storageFull: false, offline: false, status: "synced", lastSync: null, error: "",
-  deleted: [], ended: "", blocked: null,
+  deleted: [], ended: "", blocked: null, outdated: false,
 };
 
 const emptyFile = () => ({ preamble: "", notes: [], moved: [] });
