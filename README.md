@@ -60,6 +60,14 @@ an end-to-end encrypted server: it only ever stores encrypted files.
 There are no accounts — devices and contacts are connected by scanning a
 QR code.
 
+**Security:** the goal is to be at least as secure as
+[Signal](https://signal.org). Notes are end-to-end encrypted, and on the
+device only NoteDown reads them. The **web app** is available now and
+convenient, but like any web app it is only as trustworthy as the host
+that serves its code — which is why Signal has no web client. The
+Android app is the secure way; a **desktop client** with signed updates
+is planned.
+
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on
 desktop, tablet and phone. The prototype is turning into the real app:

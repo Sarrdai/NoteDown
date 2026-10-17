@@ -57,8 +57,14 @@ apart from existing apps beyond the points above.
   tiers in `PROJECT.md` → "Device tiers" stay in scope: phone and tablet
   through the native apps and the mobile web, desktop through the web app
   only.
-- No native desktop apps (Windows, macOS, Linux) are planned; the desktop
-  browser covers that use.
+- **A native desktop client** (Windows, macOS, Linux) is planned
+  (backlog #58), with signed updates the user can check; until then the
+  desktop browser covers that use. Why: a web app loads its code from the
+  web host on every start, so whoever controls the host could serve code
+  that reads the notes after decrypting them — the app is only as
+  trustworthy as the host. Signal has no web client for this reason
+  (`docs/sync-and-sharing.md` → "Security goal"). The web app stays as
+  the convenient way in; the apps are the secure one.
 - **Android and web ship first**, iOS follows (decided 2026-10-13: iOS
   needs an Apple developer account and signing, the first tests don't);
   the technology is in `PROJECT.md` → "Technology direction".

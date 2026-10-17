@@ -27,6 +27,21 @@ and the sample simulates everything without a server.
 
 ## Principles
 
+- **Security goal: at least as secure as Signal** (decided 2026-10-17,
+  user decision). Signal is widely used and counts as exemplary, so it is
+  the reference for every security question: where NoteDown protects
+  less, that is a gap to close or a stated exception. Known gaps today:
+  - **The web client** (Signal has none): it is only as trustworthy as
+    the host that serves its code, and its local key sits in the browser
+    profile ("Where the files live"). A stated exception: it stays as the
+    convenient way in, the apps are the secure one.
+  - **No desktop client yet** (backlog #58), which needs signed,
+    verifiable updates like Signal Desktop's.
+  - **No post-quantum key wrapping** (backlog #20; Signal uses PQXDH).
+  - **The device-side protections of Signal's apps** — local data
+    encrypted with a key from the platform's key store, no system
+    backup, encrypted own backup, app lock, hidden notification text,
+    screen security (backlog #19, #39, #56, #6, #57, #59).
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
