@@ -155,6 +155,14 @@ function tilesOf(view, notes) {
   return { tiles, dividerBefore: unsorted?.id ?? null };
 }
 
+// The contents keep the plain sort order, so their divider sits above the first
+// note not sorted yet there (permanent notes not sorted yet included).
+function tocDividerOf(view, notes) {
+  if (!isCustom(view)) return null;
+  const sorted = new Set(orderIds(view));
+  return notes.find(n => !sorted.has(n.id) && n.id !== state.topId)?.id ?? null;
+}
+
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
@@ -184,7 +192,7 @@ function swipeLanes() {
   if (panel.getClientRects().length) lanes.push({
     move: panel,   // the panel carries --swipe-x: the list moves by it, the background splits at it
     rect: () => { const r = (listShows ? toc : panel).getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; },
-    preview: listShows ? view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(listed(), view, ""), "")); return [l]; } : null,
+    preview: listShows ? view => { const l = document.createElement("div"); l.className = "toc-list"; l.append(...tocItems(inView(listed(), view, ""), "", view)); return [l]; } : null,
     peekClass: "toc-peek",
   });
   return lanes;
@@ -585,7 +593,7 @@ function wire() {
     if (e.key === "/") { e.preventDefault(); app.classList.add("searching"); $("searchInput").focus(); }
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
-  initToc();
+  initToc({ dividerOf: tocDividerOf, onArrange: arrange });
   initWatchBar();
   initSearchHits();
   // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.
