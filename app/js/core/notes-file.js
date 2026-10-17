@@ -84,12 +84,12 @@ export function noteMarker(n) {
   const attrs = ["id=" + n.id, "status=" + n.status, "created=" + n.created, "modified=" + n.modified];
   if (n.due) attrs.push("due=" + n.due);
   if (n.closed) attrs.push("closed=" + n.closed);
+  if (n.color) attrs.push("color=" + n.color);
+  if (n.decor) attrs.push("decor=" + n.decor);
   if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
   if (n.deleted) attrs.push("deleted=" + n.deleted);
   if (n.kept) attrs.push("kept=" + n.kept);
   if (n.from) attrs.push("from=" + n.from);
-  if (n.color) attrs.push("color=" + n.color);
-  if (n.decor) attrs.push("decor=" + n.decor);
   return `<!-- note ${attrs.join(" ")} -->`;
 }
 

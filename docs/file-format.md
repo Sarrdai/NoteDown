@@ -67,7 +67,7 @@ Done by bank transfer, reference number in the banking app.
 | `deleted` | no | Private file only: time (UTC) the note went into the trash; it is removed for good 30 days later (`docs/sync-and-sharing.md` → "Trash") |
 | `from` | no | A closed note of done tasks (Clear done tasks): the id of the note they came from, for Back to note (`docs/requirements.md` → "Multi-select") |
 | `color` | no | The note's background color: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple` or `pink` (`docs/requirements.md` → "Note colors and motifs"); an unknown value reads as none |
-| `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves` or `stars`; an unknown value reads as none |
+| `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves`, `stars`, `birthday`, `christmas`, `gifts`, `travel`, `packing` or `shopping`; an unknown value reads as none |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of

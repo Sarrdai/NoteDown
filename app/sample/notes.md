@@ -1,4 +1,4 @@
-<!-- note id=s01 status=open created=2026-10-13T08:05Z modified=2026-10-13T08:40Z due=2026-10-13 -->
+<!-- note id=s01 status=open created=2026-10-13T08:05Z modified=2026-10-13T08:40Z due=2026-10-13 decor=shopping -->
 ## Weekly groceries
 - [x] Oat milk
 - [ ] Coffee beans (the Ethiopian ones)
@@ -10,7 +10,7 @@
 <!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z due=2026-10-13 -->
 Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks.
 
-<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 color=blue decor=waves -->
+<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 color=blue decor=travel -->
 ## Trip to Lisbon
 ### Before we go
 - [x] Book flights
@@ -75,7 +75,7 @@ Six-month check-up is due. Ask whether Tuesday mornings are possible.
 <!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z deleted=2026-10-13T07:45Z -->
 Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.
 
-<!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 color=pink decor=stars -->
+<!-- note id=s09 status=open created=2026-10-05T16:20Z modified=2026-10-08T10:05Z due=2026-10-24 color=pink decor=birthday -->
 ## Birthday party for Mia
 ### Guests
 - Grandparents, Lea's sister, the neighbours

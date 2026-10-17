@@ -12,8 +12,9 @@ const byId = id => notes.find(n => n.id === id);
 
 test("look: color and motif are marker attributes and survive a round trip", () => {
   assert.equal(byId("s03").color, "blue");
-  assert.equal(byId("s03").decor, "waves");
+  assert.equal(byId("s03").decor, "travel");
   assert.equal(byId("s01").color, undefined);
+  assert.equal(byId("s01").decor, "shopping");
   assert.equal(serializeNotesFile({ notes }), text);
 });
 
@@ -27,9 +28,9 @@ test("look: unknown values read as none", () => {
 });
 
 test("look: commonLook says what several notes share", () => {
-  assert.deepEqual(commonLook([byId("s03")]), { color: "blue", decor: "waves", mixed: { color: false, decor: false } });
+  assert.deepEqual(commonLook([byId("s03")]), { color: "blue", decor: "travel", mixed: { color: false, decor: false } });
   assert.deepEqual(commonLook([byId("s03"), byId("s05")]), { color: null, decor: null, mixed: { color: true, decor: true } });
-  assert.deepEqual(commonLook([byId("s01"), byId("s02")]), { color: null, decor: null, mixed: { color: false, decor: false } });
+  assert.deepEqual(commonLook([byId("s02"), byId("s07")]), { color: null, decor: null, mixed: { color: false, decor: false } });
 });
 
 test("look: color and motif merge on their own, beside a text edit", () => {
@@ -43,5 +44,5 @@ test("look: color and motif merge on their own, beside a text edit", () => {
   assert.equal(merged.body, "changed");
   const cleared = mergeNotesFiles(base, edit("s03", { color: undefined }), base).file.notes.find(n => n.id === "s03");
   assert.equal(cleared.color, undefined);
-  assert.equal(cleared.decor, "waves");
+  assert.equal(cleared.decor, "travel");
 });

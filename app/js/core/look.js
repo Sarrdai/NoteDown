@@ -5,10 +5,13 @@
 // flavor maps them to its own shade (app.css), so the text stays readable.
 
 export const COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
-export const DECORS = ["dots", "grid", "waves", "leaves", "stars"];
+export const DECORS = ["dots", "grid", "waves", "leaves", "stars", "birthday", "christmas", "gifts", "travel", "packing", "shopping"];
 
 export const COLOR_NAMES = { red: "Red", orange: "Orange", yellow: "Yellow", green: "Green", teal: "Teal", blue: "Blue", purple: "Purple", pink: "Pink" };
-export const DECOR_NAMES = { dots: "Dots", grid: "Grid", waves: "Waves", leaves: "Leaves", stars: "Stars" };
+export const DECOR_NAMES = {
+  dots: "Dots", grid: "Grid", waves: "Waves", leaves: "Leaves", stars: "Stars",
+  birthday: "Birthday", christmas: "Christmas", gifts: "Gifts", travel: "Travel", packing: "Packing", shopping: "Shopping",
+};
 
 /** A known color or null (unknown values from newer apps read as none). */
 export const validColor = c => (COLORS.includes(c) ? c : null);

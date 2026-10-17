@@ -25,7 +25,7 @@ test("export: metadata writes each note's marker once, before its first part", (
   const parts = [{ noteId: "s03", from: 1, to: 2 }, { noteId: "s03", from: 5, to: 6 }];
   const md = exportMarkdown([{ items: parts.map(p => ({ note: s03, text: partText(s03.body, p) })) }], { metadata: true });
   assert.equal(md.match(/<!-- note id=s03 /g).length, 1);
-  assert.ok(md.startsWith("<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 color=blue decor=waves -->\n### Before we go"));
+  assert.ok(md.startsWith("<!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 color=blue decor=travel -->\n### Before we go"));
   // Round trip: an export with markers reads back as the same notes.
   const back = parseNotesFile(exportMarkdown([{ items: whole("s01", "s04") }], { metadata: true })).notes;
   assert.deepEqual(back.map(n => [n.id, n.body]), [["s01", byId("s01").body], ["s04", byId("s04").body]]);

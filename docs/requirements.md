@@ -1268,9 +1268,11 @@ like the colored notes in Google Keep.
   picker, which can't guarantee that).
 - The motifs are **built into the app** (chosen over the user's own
   photos, which would eat into the 2 MB per identity and have to sync):
-  two patterns behind the text — Dots, Grid — and three small drawings —
-  Waves along the bottom edge, Leaves and Stars in the top right corner —
-  drawn faintly in the note's color (neutral without one).
+  two patterns behind the text — Dots, Grid —, Waves along the bottom
+  edge, and drawings in the top right corner: Leaves and Stars, and by
+  occasion Birthday, Christmas, Gifts, Travel, Packing and Shopping (user
+  request 2026-10-17) — all drawn faintly in the note's color (neutral
+  without one).
 - Color and motif **belong to the note** (`docs/file-format.md` →
   "Marker attributes"): they sync, and everyone the note is shared with
   sees them, like labels. Setting them is no content change (the "Edited"
