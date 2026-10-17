@@ -846,7 +846,7 @@ this needs none of it.
   keyboard and scrolls sideways; on the desktop it floats at the bottom
   of the list. *Prototype: round 2.*
 - **Highlight** (backlog #43, decided 2026-10-17): `==text==`
-  (Obsidian's syntax) shows the text on a soft yellow, in the note and
+  (Obsidian's syntax) shows the text on a soft green (not yellow: that marks search hits), in the note and
   in the editor; the toolbar button wraps or unwraps the selection like
   bold. Other apps may show the `==` as text. *Prototype: 2026-10-17.*
 - **Star rating** (backlog #42, decided 2026-10-17): three to ten stars,

@@ -43,7 +43,7 @@
   --hit: color-mix(in srgb, var(--ctp-yellow) 40%, transparent);
   --hit-current: var(--ctp-peach);
   --on-hit-current: var(--ctp-crust);
-  --highlight: color-mix(in srgb, var(--ctp-yellow) 30%, transparent);
+  --highlight: color-mix(in srgb, var(--ctp-green) 26%, transparent);   /* ==text==: green, so search hits (yellow) stay apart */
   /* One color per contact (avatars); text on them. */
   --person-1: var(--ctp-peach);
   --person-2: var(--ctp-teal);
