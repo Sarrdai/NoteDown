@@ -170,7 +170,7 @@ export async function grantKeys(deviceId, recipient) {
   for (const slot of slotKeys()) {
     const r = rec(slot);
     const key = r && await keyOf(r.server, r.id);
-    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await signedWrap(key, { ...recipient, id: deviceId }, r.id, Math.max(1, await genOf(r.server, r.id))) });
+    if (key) await ctx.api(r.server).addKeys(r.id, { [deviceId]: await signedWrap(key, { ...recipient, id: deviceId }, r.id, await genOf(r.server, r.id)) });
   }
 }
 

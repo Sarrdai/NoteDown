@@ -303,9 +303,8 @@ the first sync round.
   its own for a device — the public keys are no secret — and the device
   would have encrypted everything after with it; Signal authenticates
   every sender the same way. The generation keeps an older key, which a
-  removed device knows, from coming back. The wraps from before were
-  replaced by one renewal of every file key on each device's first round
-  (temporary code, `sync/client.js`). Byte layout: `docs/server-api.md`
+  removed device knows, from coming back. An unsigned wrap is refused
+  too. Byte layout: `docs/server-api.md`
   → "Keys".
 - **Sharing a note in a new set of people:** the device creates a random
   file key, wraps it for every device on each member's device list,

@@ -219,7 +219,7 @@ test("keyVerdict: a new key only when a member's device signed it, never an olde
   assert.equal(v({}), "take", "a renewal");
   assert.equal(v({ have: false, known: 0 }), "take", "a new device or file");
   assert.equal(v({ same: true, gen: 1, known: 1 }), "keep");
-  assert.equal(v({ signed: false, trusted: false, gen: 0, same: true }), "keep", "an unsigned wrap of the key this device already has");
+  assert.throws(() => v({ signed: false, trusted: false, gen: 0, same: true }), /isn't signed/, "an unsigned wrap, even of the key this device has");
   assert.throws(() => v({ signed: false, trusted: false, gen: 0 }), /isn't signed/, "the server's own key");
   assert.throws(() => v({ signed: false, trusted: false, gen: 0, have: false, known: 0 }), /isn't signed/);
   assert.throws(() => v({ trusted: false }), /isn't signed/, "signed by a device that isn't a member's");

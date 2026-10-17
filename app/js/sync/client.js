@@ -110,9 +110,6 @@ async function round() {
   if (state.editingId) return;
   try {
     await loadKeys();
-    // TEMPORARY (signed-wraps transition, until the owner's devices have synced once): the wraps made before keys
-    // were signed are unsigned; renewing every file key once replaces them with signed ones.
-    if (!state.sync.wrapsSigned) { markRenew(); setSync({ wrapsSigned: true }); }
     let done = false;
     let failure = null;   // a problem with a file doesn't keep back the contacts
     for (let i = 0; i < ATTEMPTS && !done && !failure; i++) {
@@ -198,7 +195,6 @@ async function adopt({ name, identity, server, identityKey, device }) {
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
     device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, maxMembers: null, recoveryKey: "", status: "syncing", error: "", ended: "", blocked: null,
-    wrapsSigned: true,   // TEMPORARY (signed-wraps transition): a new device only ever gets signed wraps
   });
 }
 
