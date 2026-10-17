@@ -408,12 +408,15 @@ async function main() {
       await converge(a, b);
     });
 
-    await step("the same note edited on both keeps both versions", async () => {
+    await step("the same note edited on both: lines added on both combine, the same line changed on both keeps both versions", async () => {
       const before = (await bodies(a)).length;
-      await Promise.all([
-        a.evaluate(t => { const n = window.__store.allNotes().find(x => x.body === t); window.__store.setBody(n.id, t + "\n\nA"); }, sample.s02),
-        b.evaluate(t => { const n = window.__store.allNotes().find(x => x.body === t); window.__store.setBody(n.id, t + "\n\nB"); }, sample.s02),
-      ]);
+      const edit = (page, from, to) => page.evaluate(([f, t]) => { const n = window.__store.allNotes().find(x => x.body === f); window.__store.setBody(n.id, t); }, [from, to]);
+      await Promise.all([edit(a, sample.s02, sample.s02 + "\n\nA"), edit(b, sample.s02, sample.s02 + "\n\nB")]);
+      await converge(a, b);
+      assert.equal((await bodies(a)).length, before, "no conflict copy (backlog #47)");
+      const merged = (await bodies(a)).find(t => t.startsWith(sample.s02));
+      assert.ok(merged.includes("\n\nA") && merged.includes("\n\nB"), "both additions are kept");
+      await Promise.all([edit(a, merged, merged.replace(/\nA$|\nA\n/, m => m.replace("A", "A1"))), edit(b, merged, merged.replace(/\nA$|\nA\n/, m => m.replace("A", "A2")))]);
       await converge(a, b);
       assert.equal((await bodies(a)).length, before + 1, "a conflict copy is added");
     });
@@ -623,7 +626,7 @@ async function main() {
       await a.getByText("Shared with Lea").waitFor();
       assert.deepEqual(await circleOfNote(a, noteN), [await ident(e)]);
       await sync(a);
-      assert.match(await fileText(a), new RegExp(`<!-- note id=${noteN} moved=\\S+ -->`), "a moved marker stays in the private file");
+      assert.match(await fileText(a), new RegExp(`<!-- note id=${noteN} moved=\\S+ to=\\S+ -->`), "a moved marker naming the new file stays in the private file");
       await sync(e);
       assert.equal(await noteBody(e, noteN), sample.s09, "Lea has the note");
       assert.deepEqual(await circleOfNote(e, noteN), [await ident(a)]);
@@ -643,9 +646,9 @@ async function main() {
       await setBody(e, noteN, sample.s09 + "\n\nLea");
       await convergeShared([a, e], a, e);
       assert.equal(await noteBody(a, noteN), sample.s09 + "\n\nLea");
-      await Promise.all([setBody(a, noteN, sample.s09 + "\n\nLea\n\nSam"), setBody(e, noteN, sample.s09 + "\n\nLea\n\nLea again")]);
+      await Promise.all([setBody(a, noteN, sample.s09 + "\n\nLea and Sam"), setBody(e, noteN, sample.s09 + "\n\nLea again")]);
       const text = await convergeShared([a, e], a, e);
-      assert.equal((text.match(/<!-- note /g) || []).length, 2, "a conflict copy");
+      assert.equal((text.match(/<!-- note /g) || []).length, 2, "the same line changed on both: a conflict copy");
       assert.equal(await noteBody(a, noteN), await noteBody(e, noteN));
     });
 

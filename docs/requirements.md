@@ -246,8 +246,15 @@ before the first live test).
   status is shared. Notes are shared with contacts; someone new gets an
   invitation link first.
 - **Concurrent edits merge per note and per field;** when two devices
-  changed the same text, both versions are kept (conflict copy) — nothing
-  is lost. *Prototype: `app/js/core/merge.js`, used by real sync.*
+  changed the same note's text, their changes combine line by line —
+  ticked tasks, counter steps (added up), stopwatches and added lines on
+  both sides all survive — and only the same line changed differently on
+  both keeps both versions (conflict copy), so nothing is lost (backlog
+  #47; rules: `docs/sync-and-sharing.md` → "Merging"). A concurrent edit
+  of a note another member moved follows it only into the file the move
+  names, so a member can't catch it with a note of the same id (backlog
+  #32). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
+  used by real sync.*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
   anonymous identity with a **recovery key** shown once. Devices are

@@ -5,7 +5,7 @@
 // NoteDown file. `state.file` is the private file, each entry
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
-import { moveNote, hasLeft } from "./core/merge.js";
+import { moveNote, moveTarget, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
@@ -720,8 +720,9 @@ export function returnDoneTasks(ids) {
 
 // Moves a note between two files in place (the file objects keep their
 // identity), leaving a moved marker in the old one.
-function applyMove(from, to, id, now) {
-  const moved = moveNote(from, to, id, now);
+// `fromOthers`/`toOthers`: the other members of both files, for the marker's target (core/merge.js → moveTarget).
+function applyMove(from, to, id, now, fromOthers, toOthers) {
+  const moved = moveNote(from, to, id, now, moveTarget(fromOthers, toOthers, state.sync.identity));
   Object.assign(from, moved.from);
   Object.assign(to, moved.to);
 }
@@ -759,17 +760,17 @@ export function shareNotes(ids, memberIds) {
   for (const id of ids) {
     const holder = holderOf(id);
     if (!holder || holder.file === target) continue;
-    applyMove(holder.file, target, id, now);
-    moves.push({ id, from: holder.file });
+    applyMove(holder.file, target, id, now, holder.members, memberIds);
+    moves.push({ id, from: holder.file, members: holder.members });
   }
   if (!moves.length) return () => {};
   saveFiles();
   emit("structure");
   return () => {
-    for (const { id, from } of moves) {
+    for (const { id, from, members } of moves) {
       const holder = holderOf(id);
       if (!holder) continue;
-      applyMove(holder.file, from, id, timestamp());
+      applyMove(holder.file, from, id, timestamp(), holder.members, members);
       holder.file.moved = holder.file.moved.filter(m => m.id !== id);
     }
     saveFiles();

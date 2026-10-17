@@ -118,6 +118,13 @@ export function sumSteps(a, b) {
   return s.startsWith("-") ? s : "+" + s;
 }
 
+/** Both sides' changes to a counter's value added up (`base` changed to `local` on one side, to `remote` on the other):
+ *  the sync merge of a counter both sides stepped (core/text-merge.js). */
+export function addChanges(base, local, remote) {
+  const neg = v => (v.startsWith("-") ? v.slice(1) : "-" + v);
+  return addStep(local, addStep(remote, neg(base)));
+}
+
 /** True when a pending change adds nothing. */
 export const isZero = step => (step.includes(":") ? minutes(step) === 0 : num(step) === 0);
 

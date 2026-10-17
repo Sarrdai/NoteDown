@@ -10,7 +10,7 @@
 // never reaches this module. Slots are named by circleKey: "" is the private file.
 import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, contacts, setNewsFeed } from "../store.js";
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
-import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote } from "../core/merge.js";
+import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote, moveTarget } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
 import { restoredFile } from "../core/history.js";
 import { matchFiles, fileMembers, allKeyHolders, hasContent, serverRestored, withSynced, dropSeenPurged, keyVerdict } from "../core/sync-state.js";
@@ -266,8 +266,11 @@ export async function filesRound() {
   }
   if (trashed.length) putFile(PRIVATE, adoptNotes(state.file, trashed));
   for (const d of displaced) {
-    // The edit follows the note into the file it moved to, or lands in the private file when this user isn't a member there.
-    const to = slotKeys().find(k => k !== d.from && fileAt(k).notes.some(n => n.id === d.note.id)) ?? PRIVATE;
+    // The edit follows the note into the file its moved marker names, and into no other file that holds a note
+    // with the same id (one a member may have written, backlog #32); it lands in the private file when the marker
+    // names none, this user isn't a member there, or the note isn't there yet.
+    const named = d.to && d.to.includes(me) ? circleKey(d.to.filter(x => x !== me)) : null;
+    const to = named !== null && named !== d.from && slotKeys().includes(named) && fileAt(named).notes.some(n => n.id === d.note.id) ? named : PRIVATE;
     putFile(to, applyDisplaced(fileAt(to), d));
   }
 
@@ -275,11 +278,13 @@ export async function filesRound() {
   addNewCircles(slots);
   for (const key of slots.keys()) if (key !== PRIVATE && (slots.get(key) === null || remote.has(key) || rec(key).version === slots.get(key).version)) writeMemberName(key);
   if (remote.size) {
-    // A trashed note that is back in its shared file (someone undid the delete) leaves the trash; a private copy of
+    // A trashed note that is back in its shared file (someone undid the delete) leaves the trash — only from the file
+    // it came from (`kept`), so a member can't empty the trash by writing a note with its id (backlog #32); a private copy of
     // a note that is shared again (someone was removed and added back) becomes a note of its own.
     // A purged marker goes too: a later delete of the note has to reach the trash again.
     const ids = new Set(sharedFiles().flatMap(sf => sf.file.notes.map(n => n.id)));
-    if (state.file.notes.some(n => n.deleted && ids.has(n.id))) putFile(PRIVATE, { ...state.file, notes: state.file.notes.filter(n => !(n.deleted && ids.has(n.id))) });
+    const back = n => n.deleted && n.kept !== undefined && sharedFiles().some(sf => sf.key === n.kept && sf.file.notes.some(x => x.id === n.id));
+    if (state.file.notes.some(back)) putFile(PRIVATE, { ...state.file, notes: state.file.notes.filter(n => !back(n)) });
     if (state.file.purged.some(m => ids.has(m.id))) putFile(PRIVATE, { ...state.file, purged: state.file.purged.filter(m => !ids.has(m.id)) });
     const { file, renamed } = renameDuplicates(state.file, ids);
     if (renamed.length) putFile(PRIVATE, file);
@@ -354,7 +359,7 @@ function rehomeLeft() {
       if (!target) continue;
       const toKey = circleKey(target.others);
       if (toKey !== PRIVATE && !rec(toKey) && !target.others.every(isContact)) continue;
-      const moved = rehomeNote(fileAt(s.key), fileAt(toKey) || emptyFile(), note.id, now);
+      const moved = rehomeNote(fileAt(s.key), fileAt(toKey) || emptyFile(), note.id, now, moveTarget(circle(s.key), target.others, me));
       putFile(s.key, moved.from);
       putFile(toKey, moved.to);
     }
