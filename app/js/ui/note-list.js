@@ -8,6 +8,7 @@
 // a new due date sorts its note in (reorderList). News posts are read-only
 // cards: no editing, no due date, a label while they are new or updated.
 import { renderMarkdown, toggleTask, setTaskState, sections, noteTitle } from "../core/markdown.js";
+import { setRating } from "../core/rating.js";
 import { changeCounter } from "../core/counter.js";
 import { counterClick, fillWatches } from "./counter.js";
 import { holdForStates } from "./task-menu.js";
@@ -128,7 +129,7 @@ function noteElement(n, view = state.view) {
   wrapSections(body, sections(n.body));
   markHits(body);
   if (state.settings.tocProgress) addProgress(body, n.body);
-  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter").forEach(cb => (cb.disabled = true));
+  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter, .rating .star").forEach(cb => (cb.disabled = true));
   else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(n.id, setTaskState(note(n.id).body, index, s))));
   body.addEventListener("click", e => onBodyClick(e, n.id));
 
@@ -237,6 +238,13 @@ function onBodyClick(e, id) {
   const counter = e.target.closest(".counter");
   const index = counter && [...e.currentTarget.querySelectorAll(".counter")].indexOf(counter);
   if (counterClick(e, change => setBody(id, changeCounter(note(id).body, index, change)))) return;
+  const star = e.target.closest(".rating .star");
+  if (star) {
+    if (n.status === "closed" || n.deleted || star.closest(".app.selecting")) return;
+    const index = [...e.currentTarget.querySelectorAll(".rating")].indexOf(star.closest(".rating"));
+    setBody(id, setRating(n.body, index, Number(star.dataset.star)));
+    return;
+  }
   const cb = e.target.closest("input.task");
   if (cb) {
     e.preventDefault();

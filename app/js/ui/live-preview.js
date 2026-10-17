@@ -10,6 +10,7 @@ import { mediaSource, mediaKind } from "../core/external.js";
 import { fillMedia } from "./external.js";
 import { counterStart, counterAt, counters, changeCounter, counterHtml } from "../core/counter.js";
 import { counterClick, fillWatches } from "./counter.js";
+import { ratingStart, ratingAt, ratings, ratingHtml, setRating } from "../core/rating.js";
 import { holdForStates } from "./task-menu.js";
 
 /** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
@@ -78,6 +79,29 @@ class CounterWidget extends WidgetType {
       const text = changeCounter(line.text, index, change);
       if (text !== line.text) view.dispatch({ changes: { from: line.from, to: line.to, insert: text }, userEvent: "input" });
     }));
+    return el;
+  }
+  ignoreEvent() { return true; }
+}
+
+// A star rating (core/rating.js); a tap sets it at `from` without moving the cursor onto the line.
+class RatingWidget extends WidgetType {
+  constructor(rating, from) { super(); this.rating = rating; this.from = from; }
+  eq(o) { return o.rating.raw === this.rating.raw && o.from === this.from; }
+  toDOM(view) {
+    const wrap = document.createElement("span");
+    wrap.innerHTML = ratingHtml(this.rating);
+    const el = wrap.firstChild;
+    el.addEventListener("mousedown", e => e.preventDefault());
+    el.addEventListener("click", e => {
+      const star = e.target.closest(".star");
+      if (!star) return;
+      const line = view.state.doc.lineAt(this.from);
+      const index = ratings(line.text).findIndex(r => r.from === this.from - line.from);
+      if (index < 0) return;
+      const text = setRating(line.text, index, Number(star.dataset.star));
+      if (text !== line.text) view.dispatch({ changes: { from: line.from, to: line.to, insert: text }, userEvent: "input" });
+    });
     return el;
   }
   ignoreEvent() { return true; }
@@ -170,6 +194,8 @@ function build(view) {
   for (const { from, to } of view.visibleRanges) {
     for (let l = doc.lineAt(from).number; l <= doc.lineAt(to).number; l++) {
       counterMarks(doc.line(l), state, deco, active.has(l));
+      ratingMarks(doc.line(l), state, deco, active.has(l));
+      highlightMarks(doc.line(l), state, deco, active.has(l));
     }
   }
   return Decoration.set(deco, true);
@@ -190,6 +216,37 @@ function counterMarks(line, state, deco, raw) {
     if (code) continue;
     if (raw) deco.push(rawCounter.range(pos, line.from + at));
     else deco.push(Decoration.replace({ widget: new CounterWidget(c, pos) }).range(pos, line.from + at));
+  }
+}
+
+const inCode = (state, pos) => {
+  for (let n = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) if (/Code/.test(n.name)) return true;
+  return false;
+};
+
+// The ratings of a line outside code become widgets on lines that aren't being edited.
+function ratingMarks(line, state, deco, raw) {
+  if (raw) return;
+  let at = 0;
+  for (let i; (i = ratingStart(line.text.slice(at))) >= 0;) {
+    const start = at + i;
+    const r = ratingAt(line.text.slice(start));
+    at = start + r.raw.length;
+    const pos = line.from + start;
+    if (!inCode(state, pos)) deco.push(Decoration.replace({ widget: new RatingWidget(r, pos) }).range(pos, line.from + at));
+  }
+}
+
+// ==text== : the text is highlighted; the marks hide on lines that aren't being edited.
+const hlMark = Decoration.mark({ class: "cm-lp-hl" });
+function highlightMarks(line, state, deco, raw) {
+  const re = /==(?!=)([^\n]*?[^\s=])==(?!=)/g;
+  for (const m of line.text.matchAll(re)) {
+    const pos = line.from + m.index;
+    if (inCode(state, pos)) continue;
+    const end = pos + m[0].length;
+    deco.push(hlMark.range(pos + 2, end - 2));
+    if (!raw) deco.push(hide.range(pos, pos + 2), hide.range(end - 2, end));
   }
 }
 

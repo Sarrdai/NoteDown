@@ -35,7 +35,7 @@ Remind Lea that the bike needs new brake pads before the trip on Saturday. She s
 
 <!-- note id=s04 status=open created=2026-10-08T14:30Z modified=2026-10-11T16:45Z due=2026-10-10 -->
 ## Tax return 2025
-The deadline was extended, but the accountant wants the papers this week.
+The deadline was extended, but ==the accountant wants the papers this week==.
 - [/] Collect the craftsman invoices
 - [x] Download the annual bank statement
 - [ ] Find the donation receipts
@@ -103,6 +103,8 @@ Idea for the team meeting: start with the open questions from last week instead 
 2. Add red lentils, tomato paste and stock
 3. Simmer for 20 minutes, blend half of it
 4. Lemon juice and cumin at the end
+
+Rating: ★★★★☆
 
 From [Grandma's recipe box](https://recipes.example.com/lentil-soup)
 

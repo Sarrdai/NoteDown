@@ -43,6 +43,7 @@
   --hit: color-mix(in srgb, var(--ctp-yellow) 40%, transparent);
   --hit-current: var(--ctp-peach);
   --on-hit-current: var(--ctp-crust);
+  --highlight: color-mix(in srgb, var(--ctp-yellow) 30%, transparent);
   /* One color per contact (avatars); text on them. */
   --person-1: var(--ctp-peach);
   --person-2: var(--ctp-teal);
@@ -894,6 +895,17 @@ a.row-open { text-decoration: none; }
 .counter-watch-btn.running { background: var(--danger); }
 .counter-pop .counter-step:active { filter: brightness(0.92); }
 .md a { color: var(--link); }
+/* Highlight (==text==) and star ratings (core/rating.js). */
+mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius: 3px; padding: 0 2px; }
+.rating { display: inline-flex; vertical-align: baseline; white-space: nowrap; text-indent: 0; }
+.rating .star {
+  font: inherit; line-height: inherit; padding: 0 1px; margin: 0; border: 0; background: transparent; cursor: pointer;
+  color: var(--text-faint); position: relative; min-width: 1.15em;
+}
+.rating .star.on { color: var(--warning); }
+.rating .star::before { content: ""; position: absolute; inset: -6px -1px; } /* larger touch target */
+.rating .star:disabled { cursor: default; }
+@media (pointer: coarse) { .rating .star { min-width: 1.45em; } .rating .star::before { inset: -10px 0; } }
 /* Tables (backlog #44): a wide one scrolls sideways inside its note (the view swipe leaves it alone); words aren't broken inside a cell. */
 .md .md-table { max-width: 100%; overflow-x: auto; margin: 0.5em 0; }
 .md table { width: max-content; max-width: 48em; border-collapse: collapse; font-size: 0.94em; overflow-wrap: normal; }
@@ -1286,7 +1298,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   /* On the desktop the toolbar floats over the list column. */
   .toolbar {
     left: calc(var(--toc-w) + (100% - var(--toc-w)) / 2); right: auto; bottom: 20px; transform: translateX(-50%);
-    width: min(720px, calc(100% - var(--toc-w) - 48px)); border: 1px solid var(--ctp-surface0); border-radius: 16px; box-shadow: var(--shadow-high);
+    width: min(800px, calc(100% - var(--toc-w) - 48px)); border: 1px solid var(--ctp-surface0); border-radius: 16px; box-shadow: var(--shadow-high);
     padding-bottom: 6px;
   }
 }
