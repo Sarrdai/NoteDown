@@ -17,9 +17,10 @@ import { taskDue, setTaskDue } from "../core/task-due.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
+import { state, setUi, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
+import { localTime } from "../core/notes-file.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
@@ -37,10 +38,9 @@ import { openCompare } from "./compare.js";
 import { refOf } from "../core/note-ref.js";
 
 const list = () => document.getElementById("list");
+const localDay = ts => localTime(ts).slice(0, 10);
 
-/** Renders the tiles; `dividerBefore` (a note id) puts the custom order's
- *  "Not sorted yet" divider above that note, `dividerAtEnd` below the last one
- *  when all are sorted, so Arrange… stays at hand (backlog #24). */
+/** Renders the tiles; `pile` heads My order's pile (backlog #24), see listItems. */
 export function renderList(notes, options) {
   list().replaceChildren(...listItems(notes, options));
 }
@@ -58,23 +58,33 @@ export function reorderList(notes, { keepId, ...options }) {
 }
 
 /** The tiles' elements without placing them (also the swipe's preview of the other view).
- *  `sectionOf(note)` gives a custom order's section ({ id, title, count, collapsed }) or
- *  null: a header heads each section's notes, a folded one hides them (backlog #24). */
-export function listItems(notes, { dividerBefore = null, dividerAtEnd = false, onArrange, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
-  let current = null;
-  const items = notes.flatMap(n => {
-    const items = refOf(n) === dividerBefore ? [unsortedDivider(onArrange)] : [];
+ *  `pile` ({ has(id), top, count, level, oldest, collapsed } or null) puts My order's pile
+ *  header above its notes, which come first — after `top`, a new note kept on top — and
+ *  folds them; with an empty pile the header stands alone so Tidy up… stays at hand.
+ *  `sectionOf(note)` gives a section ({ id, title, count, collapsed }) or null: a header
+ *  heads each section's notes, a folded one hides them (backlog #24). */
+export function listItems(notes, { pile = null, onArrange, onTogglePile, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
+  let current = null, piled = !pile;
+  const items = [];
+  const putPile = () => { if (!piled) items.push(pileHeader(pile, onTogglePile, onArrange)); piled = true; };
+  for (const n of notes) {
+    const id = refOf(n);
+    if (pile?.has(id)) {
+      putPile();
+      if (!pile.collapsed) items.push(noteElement(n, view));
+      continue;
+    }
+    if (id !== pile?.top) putPile();
     const s = sectionOf(n);
     if (s && s.id !== current) items.push(sectionHeader(s, onToggleSection));
     current = s?.id ?? null;
     if (!s?.collapsed) items.push(noteElement(n, view));
-    return items;
-  });
-  if (dividerAtEnd && notes.length) items.push(unsortedDivider(onArrange));
+  }
+  if (notes.length) putPile();
   return items;
 }
 
-/** A custom order section's header (also in the contents): a tap folds or unfolds it. */
+/** A section's header in My order (also in the contents): a tap folds or unfolds it. */
 export function sectionHeader({ id, title, count, collapsed }, onToggle) {
   const b = document.createElement("button");
   b.className = "section-header" + (collapsed ? " collapsed" : "");
@@ -82,17 +92,36 @@ export function sectionHeader({ id, title, count, collapsed }, onToggle) {
   b.setAttribute("aria-expanded", String(!collapsed));
   b.innerHTML = `${icon("down")}<span class="section-title"></span><span class="section-count"></span>`;
   b.querySelector(".section-title").textContent = title;
-  b.querySelector(".section-count").textContent = collapsed ? (count === 1 ? "1 note" : `${count} notes`) : String(count);
+  b.querySelector(".section-count").textContent = collapsed ? notesCount(count) : String(count);
   if (onToggle) b.addEventListener("click", () => onToggle(id));
   return b;
 }
 
-/** The custom order's "Not sorted yet" line with its Arrange… link (also in the contents). */
-export function unsortedDivider(onArrange) {
+const notesCount = count => count === 1 ? "1 note" : `${count} notes`;
+const LEVEL_TEXT = { calm: "calm", growing: "growing", tidy: "time to tidy up" };
+
+/** My order's pile header (also in the contents): a tap on it folds or unfolds the pile,
+ *  its gauge shows the tidy-up reminder's level (core/tidy.js; none when it is off),
+ *  Tidy up… opens the arrange dialog. */
+export function pileHeader({ count, level, oldest, collapsed }, onToggle, onArrange) {
   const el = document.createElement("div");
-  el.className = "unsorted-divider";
-  el.innerHTML = `<span>Not sorted yet</span><button class="link-btn">Arrange…</button>`;
-  if (onArrange) el.querySelector("button").addEventListener("click", onArrange);
+  el.className = "pile-header" + (level ? " level-" + level : "") + (count ? "" : " empty") + (collapsed ? " collapsed" : "");
+  if (count) {
+    const b = document.createElement("button");
+    b.className = "pile-toggle";
+    b.setAttribute("aria-expanded", String(!collapsed));
+    const gauge = level ? `<span class="pile-gauge" role="img" aria-label="Tidy-up reminder: ${LEVEL_TEXT[level]}"><i></i><i></i><i></i></span>` : "";
+    const status = level === "tidy" ? "Time to tidy up" : level === "growing" && oldest ? `oldest ${shortDate(localDay(oldest))}` : "";
+    b.innerHTML = `${icon("down")}<span class="pile-title">Pile</span><span class="pile-count">${collapsed ? notesCount(count) : count}</span>${gauge}`
+      + (status ? `<span class="pile-status">${status}</span>` : "");
+    if (onToggle) b.addEventListener("click", onToggle);
+    el.append(b);
+  } else {
+    el.insertAdjacentHTML("beforeend", `<span class="pile-done">${icon("check")}Pile empty</span>`);
+  }
+  const link = Object.assign(document.createElement("button"), { className: "link-btn", textContent: "Tidy up…" });
+  if (onArrange) link.addEventListener("click", onArrange);
+  el.append(link);
   return el;
 }
 
@@ -105,6 +134,15 @@ document.addEventListener("click", e => {
   if (state.editingId) endEdit();
   if (!note(id)) return;
   openShareDialog([id]);
+});
+
+// A tap on a permanent note's mark filters the list to the permanent notes.
+document.addEventListener("click", e => {
+  const hit = e.target.closest("#list button.permanent-mark");
+  if (!hit || state.selected.size) return;
+  if (state.editingId) endEdit();
+  setUi({ permanent: true, topId: null });
+  window.scrollTo(0, 0);
 });
 
 // A tap on a private copy's chip compares it with its original (ui/compare.js).
@@ -147,13 +185,13 @@ function noteElement(n, view = state.view) {
   el.dataset.id = refOf(n);
   applyLook(el, n);
 
-  // The round button closes or reopens; a permanent note has its mark there instead, a trashed note neither.
-  const status = document.createElement(n.status === "permanent" ? "span" : "button");
+  // The round button closes or reopens; a permanent note has its mark there instead (a tap
+  // shows the permanent notes only), a trashed note neither.
+  const status = document.createElement("button");
   if (n.status === "permanent") {
     status.className = "permanent-mark";
-    status.setAttribute("role", "img");
-    status.setAttribute("aria-label", "Permanent note");
-    status.title = "Permanent · can't be closed";
+    status.setAttribute("aria-label", "Permanent note · show permanent notes only");
+    status.title = "Permanent · can't be closed. Tap to show permanent notes only";
     status.innerHTML = icon("permanent");
   } else {
     status.className = "status";

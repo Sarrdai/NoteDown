@@ -1,6 +1,6 @@
-// The custom order's arrange dialog (backlog #24): the notes of the current
-// view in two parts — sorted ones on top, then a line and the notes "not
-// sorted yet". Rows move by drag or arrow keys (the grip of the merge order
+// The arrange dialog of My order (backlog #24), opened by Tidy up…: the notes
+// of the current view in two parts — sorted ones on top, then a line and the
+// pile, the notes not sorted in yet. Rows move by drag or arrow keys (the grip of the merge order
 // dialog), + adds a note at the end of the sorted part, − takes it out.
 // Below the list a sort (any but the custom ones) orders the unsorted rows,
 // so the next ones to sort in are easy to find. "Section" adds a section
@@ -22,7 +22,7 @@ let unsortedBy = { key: "modified", dir: "desc" };   // as the list shows them
 /** Opens the dialog over `sorted` rows (notes and { section: id }, see
  *  core/query.js → arrangeRows) and `unsorted` notes; `save(ids)` gets the
  *  ids above the line, in order, section entries included. */
-export function openArrange({ title = "Custom order", hint = "Only you see this order.", sorted, unsorted, save, view: inView = "open" }) {
+export function openArrange({ title = "My order", hint = "Only you see this order.", sorted, unsorted, save, view: inView = "open" }) {
   onSave = save;
   notes = new Map([...sorted, ...unsorted].filter(n => n.id).map(n => [refOf(n), n]));
   view = inView;
@@ -94,7 +94,7 @@ function addSection() {
 function line() {
   const li = document.createElement("li");
   li.className = "arrange-line";
-  li.textContent = "Not sorted yet";
+  li.textContent = "Pile";
   return li;
 }
 
@@ -112,7 +112,7 @@ function sortMenu() {
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => !v.custom && (!v.views || v.views.includes(view)));
   const dirs = DIR_LABELS[unsortedBy.key] || DIR_LABELS.default;
   openMenu($("arrangeSort"), [
-    { section: "Sort not sorted yet by" },
+    { section: "Sort the pile by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: unsortedBy.key === key, onSelect: () => sortUnsorted({ key, dir: key === "title" || key === "due" ? "asc" : "desc" }) })),
     { separator: true },
     { label: dirs[1], checked: unsortedBy.dir === "desc", onSelect: () => sortUnsorted({ ...unsortedBy, dir: "desc" }) },

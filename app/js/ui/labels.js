@@ -5,12 +5,14 @@
 // carries any of them, core/filters.js), and each picked label shows as a
 // chip with × above the list (decided 2026-10-15 over a row of label chips
 // above the list: after an import there are many labels, and it works like
-// the people filter).
+// the people filter). In the main view its first entry, "∞ Permanent", filters
+// to the permanent notes (decided 2026-10-18; it replaces "Permanent first").
 import { labelCounts, labelKey } from "../core/labels.js";
 import { toggleLabel } from "../core/filters.js";
 import { state, setUi } from "../store.js";
 import { esc } from "./people.js";
 import { wirePick, checkHtml, pickBar } from "./filter-pick.js";
+import { icon } from "./icons.js";
 
 const $ = id => document.getElementById(id);
 let onPicked = () => {};
@@ -35,11 +37,25 @@ export function toggleLabelFilter(name) {
   setLabels(toggleLabel(state.labels, name));
 }
 
-/** Renders the overview; `notes` are the notes the view holds without the label filter. */
-export function renderLabels(notes) {
+/** Renders the overview; `notes` are the notes the view holds without the label filter,
+ *  `permanent` how many permanent notes it holds without the permanent filter (null: no entry). */
+export function renderLabels(notes, permanent = null) {
   const counts = labelCounts(notes);
-  $("labelList").replaceChildren(...[pickBar("labels", state.labels.length)].filter(Boolean), ...(counts.length ? counts.map(entry)
-    : [Object.assign(document.createElement("p"), { className: "people-empty", textContent: "No labels yet. Write #label in a note to add one." })]));
+  $("labelList").replaceChildren(...[pickBar("labels", state.labels.length)].filter(Boolean),
+    ...(permanent ? [permanentEntry(permanent)] : []),
+    ...(counts.length ? counts.map(entry)
+      : [Object.assign(document.createElement("p"), { className: "people-empty", textContent: "No labels yet. Write #label in a note to add one." })]));
+}
+
+// "∞ Permanent": a tap shows the permanent notes only, again shows all; it combines with the labels.
+function permanentEntry(count) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "people-entry label-entry permanent-entry" + (state.permanent ? " active" : "");
+  b.dataset.permanent = "";
+  b.innerHTML = `<span class="people-lead">${icon("permanent")}</span><span class="people-name">Permanent</span><span class="people-count">${count}</span>`;
+  b.setAttribute("aria-pressed", String(state.permanent));
+  return b;
 }
 
 function entry({ name, count }) {
@@ -63,6 +79,12 @@ export function initLabels({ onPick }) {
     single: el => setLabels(state.labels.length === 1 && isActive(el.dataset.label) ? [] : [el.dataset.label]),
     toggle: el => toggleLabelFilter(el.dataset.label),
     closes: close => onPicked(close),
+  });
+  $("labelList").addEventListener("click", e => {
+    if (!e.target.closest("[data-permanent]")) return;
+    setUi({ permanent: !state.permanent, topId: null });
+    window.scrollTo(0, 0);
+    onPicked(true);
   });
   // A label in a note (core/markdown.js renders it as a chip); note-list.js leaves the tap to this.
   $("list").addEventListener("click", e => {

@@ -188,6 +188,12 @@ button { font: inherit; color: inherit; }
 #viewBtn { padding: 0 6px; }
 /* The Due button's count: red when something is overdue, else the accent color. */
 #dueBtn { padding: 0 6px; }
+/* Time to tidy up My order's pile (core/tidy.js): a dot on the sort button. */
+#sortBtn, #moreBtn { position: relative; }
+:is(#sortBtn, #moreBtn).tidy-due::after {
+  content: ""; position: absolute; top: 8px; left: 26px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--warning); box-shadow: 0 0 0 2px var(--bg);
+}
 #dueBtn .count { margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; }
 #dueBtn .count:not(.has) { display: none; }
 #dueBtn .count.has { background: var(--accent); }
@@ -292,9 +298,10 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 /* A permanent note (docs/requirements.md → "Permanent notes") can't be closed:
    its mark takes the round button's place. */
 .permanent-mark {
-  grid-area: status; width: 36px; height: 36px; margin-top: 4px;
-  display: inline-flex; align-items: center; justify-content: center; color: var(--accent);
+  grid-area: status; width: 36px; height: 36px; margin-top: 4px; padding: 0; border: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--accent); cursor: pointer;
 }
+.permanent-mark:hover { background: var(--accent-soft); }
 .permanent-mark .icon { width: 24px; height: 24px; stroke-width: 2.2; }
 
 /* A trashed note is read-only; a tap selects it (ui/selection.js). */
@@ -1037,6 +1044,7 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .link-shown { margin: 8px 8px 4px; font-weight: 600; overflow-wrap: anywhere; }
 .link-address { margin: 0 8px 8px; padding: 10px 12px; border-radius: 10px; background: var(--code-bg); font-size: 0.88rem; }
 .pick.ext-select { flex: none; width: 50%; font-size: 0.92rem; }
+.pick.tidy-select { width: 60%; }
 .ext-section { margin: 14px 8px 6px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
 .ext-circle { padding: 8px; border-top: 1px solid var(--border); }
 .ext-circle-name { font-weight: 600; margin-bottom: 4px; }
@@ -1047,11 +1055,42 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .md blockquote { margin: 0.5em 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--text-muted); }
 
 /* Custom order (#24): the line above the notes not sorted yet. */
-.unsorted-divider { display: flex; align-items: center; gap: 10px; margin: 6px 0 -2px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
-.unsorted-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); order: 1; }
-.unsorted-divider .link-btn { order: 2; border: 0; padding: 4px 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; letter-spacing: 0; text-transform: none; font-size: 0.85rem; cursor: pointer; }
-.unsorted-divider .link-btn:hover { background: var(--surface-hover); }
-.toc-list .unsorted-divider { margin: 6px 0 2px 10px; font-size: 0.7rem; }
+/* My order's pile (#24): a tinted header above the notes not sorted in yet; a tap folds them.
+   Its gauge shows the tidy-up reminder (core/tidy.js): calm, growing, time to tidy up. */
+.pile-header {
+  --pile-tint: color-mix(in srgb, var(--text) 6%, transparent);
+  --pile-ink: var(--text);
+  display: flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 4px 0 2px;
+  border-radius: 12px; background: var(--pile-tint); color: var(--pile-ink);
+}
+.pile-header.level-growing { --pile-tint: color-mix(in srgb, var(--warning) 14%, transparent); }
+.pile-header.level-tidy { --pile-tint: color-mix(in srgb, var(--warning) 26%, transparent); --pile-ink: color-mix(in srgb, var(--warning) 45%, var(--text)); }
+.pile-toggle {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 6px;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.pile-toggle > .icon { flex: none; width: 18px; height: 18px; color: var(--text-muted); transition: transform 0.15s; }
+.pile-header.collapsed .pile-toggle > .icon { transform: rotate(-90deg); }
+.pile-title { font-size: 1.05rem; font-weight: 800; }
+.pile-count { flex: none; font-size: 0.82rem; color: var(--text-muted); }
+.pile-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; font-weight: 650; }
+.pile-header.level-growing .pile-status { font-weight: 500; color: var(--text-muted); }
+.pile-gauge { flex: none; display: inline-flex; gap: 3px; margin: 0 2px; }
+.pile-gauge i { width: 6px; height: 14px; border-radius: 3px; background: color-mix(in srgb, var(--text) 18%, transparent); }
+.level-calm .pile-gauge i:first-child { background: var(--text-faint); }
+.level-growing .pile-gauge i:not(:last-child), .level-tidy .pile-gauge i { background: var(--warning); }
+.pile-done { flex: 1; display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 0.9rem; font-weight: 650; color: var(--text-muted); }
+.pile-done .icon { width: 18px; height: 18px; color: var(--done); }
+.pile-header .link-btn { flex: none; border: 0; padding: 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+.pile-header .link-btn:hover, .pile-toggle:hover { background: var(--surface-hover); border-radius: 8px; }
+.pile-toggle:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
+.list .pile-header { margin: 2px 0; }
+.toc-list .pile-header { min-height: 36px; margin: 6px 0 2px; }
+.toc-list .pile-toggle { min-height: 36px; gap: 6px; }
+.toc-list .pile-toggle > .icon { width: 14px; height: 14px; }
+.toc-list .pile-title { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.toc-list .pile-status { display: none; }
+.toc-list .pile-header .link-btn { font-size: 0.8rem; padding: 6px; }
 /* A custom order section's header (#24): title, count and a rule; a tap folds its notes. */
 .section-header {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); margin: 4px 0 -4px; padding: 0 2px;
@@ -1291,6 +1330,8 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .labels-pane { display: none; flex-direction: column; min-height: 0; }
 .app[data-tab="labels"] .labels-pane { display: flex; flex: 1; }
 .label-entry .people-lead { font-weight: 700; font-size: 1.05rem; }
+.permanent-entry .people-lead { color: var(--accent); }
+.permanent-entry { margin-bottom: 4px; box-shadow: 0 1px 0 var(--border); }
 .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* The active filter as a chip above the list. */

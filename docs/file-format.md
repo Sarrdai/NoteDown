@@ -241,7 +241,7 @@ of a custom order, first to last (backlog #24):
 <!-- order modified=2026-10-14T09:00Z ids=s04,~Home,s01,s07 -->
 ```
 
-In the private file it is the user's own **Custom** order: ids from any
+In the private file it is the user's own order, **My order**: ids from any
 of the user's files (ids are unique across files), so shared notes can be
 ordered without the other members seeing it. In a shared file it is the
 circle's **Shared order** (backlog #25), listing that file's notes and

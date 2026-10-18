@@ -1,6 +1,6 @@
 // The settings (⋮ → "Settings…"): the app's own settings in one place
 // instead of the top bar and ⋮ — the theme, the due-date reminders
-// (ui/reminders.js), links & media (ui/external-settings.js), a way to the
+// (ui/reminders.js), the tidy-up reminder (ui/tidy-settings.js), links & media (ui/external-settings.js), a way to the
 // Sync & sharing panel, the Google Keep import and "About" (version,
 // open-source licenses (ui/licenses.js), privacy policy, terms of use,
 // source code). Its pages live in the
@@ -12,6 +12,7 @@ import { licenseCount, preloadLicenses } from "./licenses.js";
 import { appInfo } from "../app-info.js";
 import { reminderSummary } from "./reminders.js";
 import { externalSummary } from "./external-settings.js";
+import { tidySummary } from "./tidy-settings.js";
 import { h } from "./dom.js";
 import { pickButton } from "./menu.js";
 import { isAndroidApp, isNativeApp, privacyPlugin } from "../platform.js";
@@ -25,7 +26,7 @@ export const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", ma
 /** Opens the settings, or with `page` one of its pages ("reminders", "links") on top of them. */
 export function openSettings(page) {
   openPanel("settings");
-  if (page) go({ reminders: "settingsReminders", links: "settingsLinks", lock: "settingsLock", backup: "settingsBackup" }[page]);
+  if (page) go({ reminders: "settingsReminders", tidy: "settingsTidy", links: "settingsLinks", lock: "settingsLock", backup: "settingsBackup" }[page]);
 }
 
 // "About": version, licenses, the legal pages (static pages next to the app) and the source code.
@@ -77,6 +78,7 @@ registerPage("settings", {
     section("Notes"),
     h("ul", { class: "sheet-card" },
       row({ icon: "bell", title: "Reminders", sub: reminderSummary(), open: () => go("settingsReminders") }),
+      row({ icon: "sort", title: "Tidy-up reminder", sub: tidySummary(), open: () => go("settingsTidy") }),
       row({ icon: "link", title: "Links & media", sub: externalSummary(), open: () => go("settingsLinks") })),
     ...privacySection(),
     section("Sync"),

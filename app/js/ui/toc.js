@@ -6,12 +6,12 @@
 // an entry selects that section with everything below it, then taps add or
 // remove entries. Next to the level stepper a switch shows the task progress
 // of each section here and at the notes' headings (ui/note-list.js). Sorted
-// by a custom order, the list's "Not sorted yet" line with its Arrange… link
-// sits above the first entry of the notes not sorted yet, as in the list.
+// by a custom order, the pile's header with its Tidy up… link heads the
+// entries of the notes not sorted in yet, which come first, as in the list.
 import { tableOfContents } from "../core/query.js";
 import { sectionProgress } from "../core/tasks.js";
 import { state, updateSettings } from "../store.js";
-import { flashNote, unsortedDivider, sectionHeader } from "./note-list.js";
+import { flashNote, pileHeader, sectionHeader } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { markHits } from "./search-hits.js";
@@ -32,7 +32,7 @@ const app = () => $("app");
 const phone = window.matchMedia("(max-width: 599px)");
 let press = null;     // { key, x, y, timer } while an entry is held
 let swallowClick = false;
-let custom = { isCustom: () => false, dividerOf: () => null, sectionsOf: () => () => null, onArrange: null, onToggleSection: null };   // set by initToc
+let custom = { pileOf: () => ({ pile: null, sectionOf: () => null }), onArrange: null, onTogglePile: null, onToggleSection: null };   // set by initToc
 
 export function renderToc(notes) {
   const { maxLevel } = tableOfContents(notes);
@@ -51,28 +51,32 @@ export function tocItems(notes, search = state.search, view = state.view) {
   const progress = state.settings.tocProgress && new Map(notes.map(n => [refOf(n), sectionProgress(n.body)]));
   if (!entries.length) return [Object.assign(document.createElement("p"), { className: "toc-empty", textContent: search ? "No matches" : "No notes" })];
   const shown = [];
-  // The notes from the first one not sorted yet on (they come last in a custom order).
-  const first = custom.dividerOf(view, notes);
-  const from = first ? notes.findIndex(n => refOf(n) === first) : -1;
-  const unsorted = new Set(from < 0 ? [] : notes.slice(from).map(refOf));
-  // With all notes sorted the line (and its Arrange…) closes the list instead.
-  let divided = !unsorted.size && !custom.isCustom(view);
-  const onArrange = view === state.view && custom.onArrange
+  const live = view === state.view;
+  const onArrange = live && custom.onArrange
     ? () => { if (phone.matches) setTocOpen(false); custom.onArrange(); } : null;
-  // A custom order's sections head their notes' entries; a folded one hides them.
-  const sectionOf = custom.sectionsOf(view, notes);
+  // Sorted by a custom order: the pile's header above its notes' entries (they come
+  // first, after a new note kept on top), then each section heading its notes' entries.
+  const { pile, sectionOf } = custom.pileOf(view, notes);
+  let piled = !pile;
+  const putPile = () => { if (!piled) shown.push(pileHeader(pile, live ? custom.onTogglePile : null, onArrange)); piled = true; };
   const byId = new Map(notes.map(n => [refOf(n), n]));
   let lastNote = null, current = null, folded = false;
   entries.forEach((e, i) => {
     if (e.noteId !== lastNote) {
       lastNote = e.noteId;
-      const s = sectionOf(byId.get(e.noteId));
-      if (s && s.id !== current) shown.push(sectionHeader(s, view === state.view ? custom.onToggleSection : null));
-      current = s?.id ?? null;
-      folded = !!s?.collapsed;
+      if (pile?.has(e.noteId)) {
+        putPile();
+        current = null;
+        folded = pile.collapsed;
+      } else {
+        if (e.noteId !== pile?.top) putPile();
+        const s = sectionOf(byId.get(e.noteId));
+        if (s && s.id !== current) shown.push(sectionHeader(s, live ? custom.onToggleSection : null));
+        current = s?.id ?? null;
+        folded = !!s?.collapsed;
+      }
     }
     if (folded || e.level > depth) return;
-    if (!divided && unsorted.has(e.noteId)) { shown.push(unsortedDivider(onArrange)); divided = true; }
     const b = document.createElement("button");
     b.className = `toc-entry level-${Math.min(e.level, 6)}` + (e.fromHeading ? "" : " plain")
       + (state.selected.has(e.key) ? " selected" : "");
@@ -88,7 +92,7 @@ export function tocItems(notes, search = state.search, view = state.view) {
     if (p) b.prepend(progressBadge(p));
     shown.push(b);
   });
-  if (!divided) shown.push(unsortedDivider(onArrange));   // all sorted, or their entries are all on hidden levels
+  putPile();   // the pile is empty, or every entry is a new note's
   return shown;
 }
 
@@ -101,11 +105,10 @@ export function progressBadge({ done, total }) {
   });
 }
 
-/** `isCustom(view)`: whether the view is sorted by a custom order (the line then closes the contents once all are sorted);
- *  `dividerOf(view, notes)`: the first note not sorted yet in a custom order, or null; `onArrange` opens the dialog;
- *  `sectionsOf(view, notes)`: a function giving a note's custom order section (ui/note-list.js → listItems), `onToggleSection(id)` folds one. */
-export function initToc({ isCustom, dividerOf, sectionsOf, onArrange, onToggleSection } = {}) {
-  if (dividerOf) custom = { isCustom: isCustom || (() => false), dividerOf, sectionsOf: sectionsOf || (() => () => null), onArrange, onToggleSection };
+/** `pileOf(view, notes)`: { pile, sectionOf } as ui/note-list.js → listItems takes them (pile null outside a custom order);
+ *  `onArrange` opens the arrange dialog, `onTogglePile()` folds the pile, `onToggleSection(id)` a section. */
+export function initToc({ pileOf, onArrange, onTogglePile, onToggleSection } = {}) {
+  if (pileOf) custom = { pileOf, onArrange, onTogglePile, onToggleSection };
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
   $("tocProgress").addEventListener("click", () => {
