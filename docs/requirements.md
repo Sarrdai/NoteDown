@@ -839,6 +839,24 @@ paid features per user.
   the current hit is marked more strongly and scrolled into the middle of
   the screen. A new search text starts at its first hit, scrolled to when
   it is out of view. *Prototype: 2026-10-15.*
+- The search field **suggests** (backlog #66, user idea 2026-10-18): a
+  tap into the empty field offers the filters — "∞ Permanent", every
+  label and every circle (contacts, groups, Private), each with its count;
+  `#` offers only the labels. Typing narrows them and adds the **headings**
+  that match. Matching is **fuzzy**: the typed letters in order with gaps
+  ("trvl" finds #travel, "gp" Garden plan), ignoring case and accents, but
+  loose letters count only as a word's initials or, from three letters on,
+  with two of them together (fewer only match nearly everything). Picking a
+  filter sets it as a chip above the list (added to the filters already
+  picked, which are no longer offered) and empties the field; picking a
+  heading puts its text into the search. The full-text search keeps
+  filtering the list meanwhile, and itself stays exact, so its hits and
+  ▲ / ▼ stay unambiguous. Desktop: ↓ / ↑ and Enter pick, `Esc` closes the
+  suggestions. The People and Labels tabs stay: they give the overview with
+  counts and picking several; the field is the quick way in. Shown as a
+  list under the field with the kind and count per row — chosen
+  2026-10-18 over a row of chips under the top bar, which hid kind and
+  count and cut long headings. *Prototype: 2026-10-18.*
 
 ### Table of contents
 
@@ -1064,7 +1082,8 @@ this needs none of it.
 - On the desktop the editor has shortcuts: Ctrl/Cmd+B bold, +I italic,
   +K link, +Enter tick / untick the task, Tab / Shift+Tab indent, Ctrl+Z
   / Ctrl+Shift+Z undo / redo. Outside the editor, `n` creates a note, `/`
-  opens the search (Enter / Shift+Enter there step through the hits) and
+  opens the search (Enter / Shift+Enter there step through the hits, ↓ / ↑
+  and Enter pick a suggestion) and
   `Esc` ends editing or closes a panel.
   *Prototype: round 2.*
 

@@ -229,6 +229,25 @@ button { font: inherit; color: inherit; }
 mark.hit { background: var(--hit); color: inherit; border-radius: 2px; }
 mark.hit.current { background: var(--hit-current); color: var(--on-hit-current); }
 #searchBtn { display: none; }
+/* Suggestions in the search field (ui/search-suggest.js, backlog #66): a box under the field. */
+.suggest {
+  position: fixed; z-index: 30; overflow-y: auto; padding: 6px; box-sizing: border-box;
+  background: var(--ctp-base); color: var(--text); border: 1px solid var(--ctp-surface0); border-radius: 12px; box-shadow: var(--shadow-high);
+}
+.suggest[hidden] { display: none; }
+.suggest-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.suggest-item.active, .suggest-item:hover { background: var(--ctp-surface0); }
+.suggest-lead { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 24px; color: var(--text-muted); }
+.suggest-lead .icon { width: 18px; height: 18px; }
+.suggest-item.permanent .suggest-lead { color: var(--accent); }
+.suggest-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.suggest-text b { font-weight: 700; color: var(--accent); }
+.suggest-item.label .suggest-text, .suggest-item.permanent .suggest-text { font-weight: 600; }
+.suggest-tag { flex: none; font-size: 0.75rem; color: var(--text-faint); }
+.suggest-count { flex: none; min-width: 2ch; text-align: right; font-size: 0.85rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 /* Top bar actions that don't fit move under ⋮ (main.js → fitTopbar). */
 .topbar .icon-btn[hidden], .topbar .btn-label[hidden] { display: none; }
 
