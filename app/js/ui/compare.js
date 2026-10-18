@@ -11,6 +11,7 @@ import { membersLabel, esc } from "./people.js";
 import { relativeTime } from "./format.js";
 import { showSnackbar } from "./snackbar.js";
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
+import { refOf } from "../core/note-ref.js";
 
 const $ = id => document.getElementById(id);
 let openId = null;
@@ -42,7 +43,7 @@ function fill() {
   const { del, add } = diffCounts(ops);
   const title = noteTitle(o.body).text || "Untitled";
   $("compareTitle").textContent = "Compare with original";
-  const who = membersLabel(circleOf(o.id));
+  const who = membersLabel(circleOf(refOf(o)));
   $("compareHint").innerHTML = `“${esc(title)}” · shared with ${esc(who)} · edited ${esc(relativeTime(o.modified))}`
     + (st === "changed" ? ` · <strong>changed since your copy</strong>` : "");
   const same = del === 0 && add === 0;
@@ -73,7 +74,7 @@ export function initCompare() {
     if (e.target.closest(".diff-fold")) { unfolded = true; fill(); }
   });
   $("compareOpen").addEventListener("click", () => {
-    const id = copyOriginal(openId)?.id;
+    const original = copyOriginal(openId), id = original && refOf(original);
     close();
     if (id) afterLeave(() => document.dispatchEvent(new CustomEvent("notedown:show-note", { detail: { id } })));
   });

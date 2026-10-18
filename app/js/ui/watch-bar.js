@@ -8,6 +8,7 @@ import { counters, runningWatches, changeCounter, clock, elapsedMs } from "../co
 import { noteTitle } from "../core/markdown.js";
 import { openCounterPop } from "./counter.js";
 import { icon } from "./icons.js";
+import { refOf } from "../core/note-ref.js";
 
 const $ = id => document.getElementById(id);
 
@@ -22,7 +23,7 @@ export function renderWatchBar() {
     b.type = "button";
     b.className = "filter-chip watch-chip";
     Object.assign(b.dataset, {
-      note: n.id, index, steps: c.steps.join(" "), kind: c.kind, watch: c.watch.round, since: c.watch.since,
+      note: refOf(n), index, steps: c.steps.join(" "), kind: c.kind, watch: c.watch.round, since: c.watch.since,
       value: c.value + (c.unit ? " " + c.unit : ""),
     });
     b.innerHTML = `<span>${icon("stopwatch")}<span></span></span><span class="counter-clock"></span>`;

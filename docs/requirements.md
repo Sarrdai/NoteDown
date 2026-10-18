@@ -260,7 +260,9 @@ before the first live test).
   #47; rules: `docs/sync-and-sharing.md` → "Merging"). A concurrent edit
   of a note another member moved follows it only into the file the move
   names, so a member can't catch it with a note of the same id (backlog
-  #32). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
+  #32). A note with the id of one in another shared file stays a note of
+  its own: notes are addressed by file and id, so both open, edit and
+  share independently (backlog #63). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
   used by real sync.*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
@@ -1271,7 +1273,12 @@ that host its IP address and the reading time.
   ones give up their parts — or **Share with …** (names and avatars) —
   the new note goes to the circle of everyone involved and all sources
   give up their parts. Removing a shared note for the others stays a
-  separate Delete. *Prototype: 2026-10-14.*
+  separate Delete: a source that disappears from a shared file leaves a
+  moved marker, so the other members' devices see a move and not a delete
+  and don't put the source into their trash — its text lives on in the
+  merged note (backlog #35; a concurrent edit of the source lands as a
+  displaced edit, `docs/sync-and-sharing.md` → "Merging"). The same holds
+  for "Merge into". *Prototype: 2026-10-14.*
 - **Merge into an existing note** (decided 2026-10-15, user request: to
   insert a note into another at a chosen place): the merge dialog's
   **Into** picker offers "New note" (default) or one of the notes

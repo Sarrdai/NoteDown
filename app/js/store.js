@@ -6,6 +6,7 @@
 // of `state.shared` the file of one set of people (docs/sync-and-sharing.md).
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote, moveTarget, hasLeft } from "./core/merge.js";
+import { refOf, assignRefs } from "./core/note-ref.js";
 import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash, isSectionId } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
@@ -162,6 +163,7 @@ function readFiles() {
   const text = read(FILE_KEY);
   if (text === null) return false;
   state.file = withMoved(parseNotesFile(text));
+  buildRefs();
   return true;
 }
 
@@ -249,7 +251,7 @@ export function trashNotes() {
 export function purgeExpiredTrash(now = Date.now()) {
   const gone = expiredTrash(state.file.notes, now);
   if (!gone.length) return;
-  takeOut(gone.map(n => n.id));
+  takeOut(gone.map(refOf));
   markPurged(gone, timestamp(new Date(now)));
   saveFiles();
   emit("structure");
@@ -264,10 +266,16 @@ function markPurged(notes, now) {
   return () => { state.file.purged = state.file.purged.filter(m => !marks.includes(m)); };
 }
 
-// The file that holds a note, with its member ids ([] = the private file).
-function holderOf(id) {
-  if (state.file.notes.some(n => n.id === id)) return { members: [], file: state.file };
-  return state.shared.find(s => s.file.notes.some(n => n.id === id)) || null;
+// The file that holds a note (by address, core/note-ref.js), with its member ids ([] = the private file) and the note.
+function holderOf(ref) {
+  const find = f => f.notes.find(n => refOf(n) === ref);
+  const own = find(state.file);
+  if (own) return { members: [], file: state.file, note: own };
+  for (const s of state.shared) {
+    const n = find(s.file);
+    if (n) return { members: s.members, file: s.file, note: n };
+  }
+  return null;
 }
 
 /** The display name a shared file's markers give a member (someone who isn't a contact), or undefined. */
@@ -366,18 +374,18 @@ export function circleOf(id) {
 
 /** The member ids of the circle a trashed shared note came from ([] for every other note). */
 export function keptCircle(id) {
-  const n = state.file.notes.find(x => x.id === id);
+  const n = state.file.notes.find(x => refOf(x) === id);
   return n?.kept ? n.kept.split("+") : [];
 }
 
 /** Takes notes out of the trash; returns a function that undoes it. A note from a shared file goes back to its
  *  circle (its file, created on first use), or with `own` stays a private note of this user. */
 export function restoreNotes(ids, { own = false } = {}) {
-  const notes = trashNotes().filter(n => ids.includes(n.id));
+  const notes = trashNotes().filter(n => ids.includes(refOf(n)));
   const before = notes.map(n => [n, { deleted: n.deleted, kept: n.kept }]);
   const circles = new Map();   // circleKey → ids going back to that circle
   for (const n of notes) {
-    if (n.kept && !own) circles.set(n.kept, [...(circles.get(n.kept) || []), n.id]);
+    if (n.kept && !own) circles.set(n.kept, [...(circles.get(n.kept) || []), refOf(n)]);
     delete n.deleted;
     delete n.kept;
   }
@@ -417,7 +425,14 @@ function fileFor(memberIds) {
 const fileListeners = new Set();
 export function onFilesChanged(fn) { fileListeners.add(fn); }
 
+// Addresses the notes by file and ID (core/note-ref.js): private file first, the shared ones by circle.
+function buildRefs() {
+  assignRefs([{ key: "", notes: state.file.notes },
+    ...state.shared.map(s => ({ key: circleKey(s.members), notes: s.file.notes })).sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))]);
+}
+
 function saveFiles({ notify = true } = {}) {
+  buildRefs();
   write(FILE_KEY, serializeNotesFile(state.file));
   write(SHARED_KEY, JSON.stringify(state.shared.map(s => ({ members: s.members, text: serializeNotesFile(s.file) }))));
   if (notify) fileListeners.forEach(fn => fn());
@@ -444,7 +459,7 @@ export function setUi(patch, kind = "structure") {
 }
 
 export function note(id) {
-  return allNotes().find(n => n.id === id) || trashNotes().find(n => n.id === id) || newsNotes().find(n => n.id === id);
+  return allNotes().find(n => refOf(n) === id) || trashNotes().find(n => refOf(n) === id) || newsNotes().find(n => n.id === id);
 }
 
 /** The user's custom order (backlog #24): note ids, kept in the private
@@ -457,7 +472,7 @@ export function customOrder() {
  *  entries stay); returns a function that undoes it. */
 export function setCustomOrder(ids) {
   const before = state.file.order || null;
-  const known = new Set(allNotes().map(n => n.id));
+  const known = new Set(allNotes().map(refOf));
   state.file.order = { ids: ids.filter(id => known.has(id) || isSectionId(id)), modified: timestamp() };
   saveFiles();
   emit("structure");
@@ -474,7 +489,7 @@ export function circleOrder(key) {
 export function setCircleOrder(key, ids) {
   const file = fileFor(key.split("+"));
   const before = file.order || null;
-  const known = new Set(file.notes.map(n => n.id));
+  const known = new Set(file.notes.map(refOf));
   file.order = { ids: ids.filter(id => known.has(id) || isSectionId(id)), modified: timestamp() };
   saveFiles();
   emit("structure");
@@ -509,8 +524,8 @@ export function setLook(ids, look) {
   const before = changed.map(n => [n, Object.fromEntries(Object.keys(look).map(k => [k, n[k] || null]))]);
   for (const n of changed) apply(n, look);
   saveFiles();
-  for (const n of changed) emit("note:" + n.id);
-  return () => { for (const [n, b] of before) apply(n, b); saveFiles(); for (const [n] of before) emit("note:" + n.id); };
+  for (const n of changed) emit("note:" + refOf(n));
+  return () => { for (const [n, b] of before) apply(n, b); saveFiles(); for (const [n] of before) emit("note:" + refOf(n)); };
 }
 
 /** A new note starts in the private file, or in the file of `memberIds`
@@ -526,7 +541,7 @@ export function addNote(body, memberIds = []) {
  *  to its original (core/note-links.js). Returns { notes, undo }. */
 export function makePrivateCopies(ids) {
   const now = timestamp();
-  const copies = ids.map(note).filter(n => n && !n.news && !n.deleted && circleOf(n.id).length).map(n => privateCopy(n, now));
+  const copies = ids.map(note).filter(n => n && !n.news && !n.deleted && circleOf(refOf(n)).length).map(n => privateCopy(n, now));
   state.file.notes.unshift(...copies);
   saveFiles();
   emit("structure");
@@ -539,7 +554,7 @@ export function makePrivateCopies(ids) {
 /** The note a private copy was made from, while the user still sees it (not trashed); else null. */
 export function copyOriginal(id) {
   const c = note(id);
-  const o = c?.copyof && allNotes().find(n => n.id === c.copyof);
+  const o = c?.copyof && allNotes().find(n => n.id === c.copyof);   // by ID: the first holder when two files share it
   return o || null;
 }
 
@@ -565,11 +580,12 @@ export function removeNotes(ids) {
     return () => { undoNotes(); undoNews(); };
   }
   const now = timestamp();
-  const own = state.file.notes.filter(n => ids.includes(n.id) && !n.deleted);
+  const own = state.file.notes.filter(n => ids.includes(refOf(n)) && !n.deleted);
   for (const n of own) n.deleted = now;
   const shared = ids.map(id => ({ id, members: circleOf(id) })).filter(x => x.members.length);
+  const kept = new Map(shared.map(x => [note(x.id), circleKey(x.members)]));
   const putBack = takeOut(shared.map(x => x.id));
-  const copies = putBack.notes.map(n => ({ ...n, deleted: now, kept: circleKey(shared.find(x => x.id === n.id).members) }));
+  const copies = putBack.notes.map(n => ({ ...n, deleted: now, kept: kept.get(n) }));
   state.file.notes.push(...copies);
   saveFiles();
   emit("structure");
@@ -587,12 +603,29 @@ export function removeNotes(ids) {
 function takeOut(ids) {
   const removed = [];
   for (const file of allFiles()) {
-    file.notes.forEach((n, i) => { if (ids.includes(n.id)) removed.push([file, i, n]); });
-    file.notes = file.notes.filter(n => !ids.includes(n.id));
+    file.notes.forEach((n, i) => { if (ids.includes(refOf(n))) removed.push([file, i, n]); });
+    file.notes = file.notes.filter(n => !ids.includes(refOf(n)));
   }
   const putBack = () => { for (const [file, i, n] of removed) file.notes.splice(i, 0, n); };
   putBack.notes = removed.map(([, , n]) => n);
+  putBack.removed = removed;
   return putBack;
+}
+
+// A merge's source notes taken out of shared files (`putBack`, from `takeOut`) each leave a moved marker (target: the
+// file of `toMembers`, core/merge.js → moveTarget), so the other members' devices see a move and not a delete: the
+// text lives on in the merged note (backlog #35). Returns a function that takes the markers back out.
+function markMerged(putBack, toMembers, now) {
+  const added = [];
+  for (const [file, , n] of putBack.removed) {
+    const entry = state.shared.find(s => s.file === file);
+    if (!entry) continue;
+    const to = moveTarget(entry.members, toMembers, state.sync.identity);
+    const marker = { id: n.id, moved: now, ...(to && { to }) };
+    added.push([file, marker, file.moved.filter(m => m.id === n.id)]);
+    file.moved = [...file.moved.filter(m => m.id !== n.id), marker];
+  }
+  return () => { for (const [file, marker, before] of added) file.moved = [...file.moved.filter(m => m !== marker), ...before]; };
 }
 
 /** Closes, reopens or makes permanent a note; returns a function that undoes it. */
@@ -641,6 +674,7 @@ export function applyMerge(changes, merged, mode = "copy") {
     return [n, before];
   });
   const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  const unmark = markMerged(putBack, members, now);
   const n = createNote(merged.body, now);
   n.created = merged.created || n.created;
   n.due = merged.due;
@@ -655,7 +689,8 @@ export function applyMerge(changes, merged, mode = "copy") {
   return {
     note: n,
     undo: () => {
-      target.notes = target.notes.filter(x => x.id !== n.id);
+      target.notes = target.notes.filter(x => x !== n);
+      unmark();
       putBack();
       for (const [x, before] of edited) Object.assign(x, before);
       saveFiles();
@@ -681,9 +716,11 @@ export function applyMergeInto(targetId, body, changes) {
     return [n, before];
   });
   const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  const unmark = markMerged(putBack, target, now);
   saveFiles();
   emit("structure");
   return () => {
+    unmark();
     putBack();
     for (const [x, before] of edited) Object.assign(x, before);
     saveFiles();
@@ -707,7 +744,7 @@ export function archiveDone(changes) {
   });
   const added = changes.map(c => {
     const file = fileFor(circleOf(c.id));
-    const n = { ...createNote(c.done, now), status: "closed", closed: now, from: c.id };
+    const n = { ...createNote(c.done, now), status: "closed", closed: now, from: note(c.id).id };
     file.notes.unshift(n);
     return [file, n];
   });
@@ -727,8 +764,9 @@ export function archiveDone(changes) {
  *  another circle (Back to note isn't possible then). */
 export function doneSource(id) {
   const n = note(id);
-  const src = n?.from && allNotes().find(x => x.id === n.from);
-  return src && src.status !== "closed" && circleKey(circleOf(src.id)) === circleKey(circleOf(id)) ? src : null;
+  const home = n?.from && holderOf(id);   // the note it came from is in the same file
+  const src = home && home.file.notes.find(x => x.id === n.from && visible(x) && !x.deleted);
+  return src && src.status !== "closed" ? src : null;
 }
 
 /** Back to note (core/tasks.js → returnDone): puts the tasks of the archived notes `ids` back into the notes they
@@ -768,14 +806,14 @@ export function leaveNotes(ids) {
   const marked = [];
   for (const id of ids) {
     const holder = holderOf(id);
-    const n = holder?.members.length && holder.file.notes.find(x => x.id === id);
-    if (n && !hasLeft(n, me)) { n.left = [...(n.left || []), me]; marked.push(id); }
+    const n = holder?.members.length && holder.note;
+    if (n && !hasLeft(n, me)) { n.left = [...(n.left || []), me]; marked.push(n); }
   }
   saveFiles();
   emit("structure");
   return () => {
-    for (const id of marked) {   // looked up again: a sync may have replaced the file, or a remaining member moved the note on
-      const n = holderOf(id)?.file.notes.find(x => x.id === id);
+    for (const marker of marked) {   // looked up again: a sync may have replaced the file, or a remaining member moved the note on
+      const n = holderOf(refOf(marker))?.note;
       if (!n || !hasLeft(n, me)) continue;
       n.left = n.left.filter(x => x !== me);
       if (!n.left.length) delete n.left;
@@ -791,21 +829,21 @@ export function shareNotes(ids, memberIds) {
   const target = fileFor(memberIds);
   const now = timestamp();
   const moves = [];
-  for (const id of ids) {
-    const holder = holderOf(id);
+  for (const ref of ids) {
+    const holder = holderOf(ref);
     if (!holder || holder.file === target) continue;
-    applyMove(holder.file, target, id, now, holder.members, memberIds);
-    moves.push({ id, from: holder.file, members: holder.members });
+    applyMove(holder.file, target, holder.note.id, now, holder.members, memberIds);
+    moves.push({ note: holder.note, from: holder.file, members: holder.members });
   }
   if (!moves.length) return () => {};
   saveFiles();
   emit("structure");
   return () => {
-    for (const { id, from, members } of moves) {
-      const holder = holderOf(id);
+    for (const { note: n, from, members } of moves) {
+      const holder = holderOf(refOf(n));
       if (!holder) continue;
-      applyMove(holder.file, from, id, timestamp(), holder.members, members);
-      holder.file.moved = holder.file.moved.filter(m => m.id !== id);
+      applyMove(holder.file, from, n.id, timestamp(), holder.members, members);
+      holder.file.moved = holder.file.moved.filter(m => m.id !== n.id);
     }
     saveFiles();
     emit("structure");
