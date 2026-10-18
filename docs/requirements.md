@@ -750,8 +750,8 @@ paid features per user.
   note appears where the user looks, as in every other sort, and folding
   keeps the order in view). A tap on the header **folds** the pile to that
   one line, remembered per device like a section; a search shows it
-  unfolded. With the pile empty the header reads "Pile empty" and keeps
-  Tidy up… at hand. The sort menu's **Tidy up…** (and the same link on
+  unfolded. With the pile empty the header reads "Pile empty" with a check
+  and nothing else (arranging stays in the sort menu). The sort menu's **Tidy up…** (and the same link on
   the header in the list and in the table of contents) opens a dialog like
   the merge order dialog, where notes move above a line by drag (or arrow
   keys) or with + / −, and are ordered there; the pile is below the line.
@@ -768,21 +768,26 @@ paid features per user.
   can be ordered too without the other members seeing it; when two devices
   changed it, the newer list wins. *Prototype: 2026-10-14; named, pile on
   top 2026-10-18.*
-- **Tidy-up reminder** (decided 2026-10-18, user request): the pile header
-  shows how full the pile is as a three-step gauge — **calm**, **growing**
-  (tinted, "oldest" and the date of its oldest note), **time to tidy up**
-  (stronger tint, "Time to tidy up", and a dot on the sort button, or on ⋮
-  when the sort button is folded there, whatever the list is sorted by).
-  Each circle (Private, each contact, each group) has its own choice under
-  **Settings → Tidy-up reminder**: Off, 5 notes · 3 days, 10 notes · 1
-  week, 20 notes · 4 weeks; **Private on (10 notes · 1 week) by default,
-  shared circles off** (others often sort shared notes). A circle's pile
-  notes reach "time to tidy up" at its number of notes or once its oldest
-  is that old, "growing" at half of either; the pile shows its circles'
-  highest level, and no gauge when none has the reminder on. Main view
-  only; a setting of this device. A gauge rather than a score or push
-  messages: it should invite tidying, never make it a chore.
-  *Prototype: 2026-10-18 (mockup variant B).*
+- **Tidy-up reminder** (decided 2026-10-18, user request; reworked the
+  same day into bars): the pile header shows how full the pile is as a
+  gauge of **bars**. One bar fills per *n* notes on the pile and one per
+  *d* days its oldest note has waited, both in whole steps and added up
+  (3 notes at 2 per bar and 11 days at 5 per bar fill 1 + 2 bars); more
+  than fit show the gauge full. Filled bars are grey, **yellow** from 75 %
+  but at the latest one bar before full, with "Tidy up"; **red** when
+  full, with "Time to tidy up" and a dot on the sort button (or on ⋮ when
+  the sort button is folded there, whatever the list is sorted by).
+  **Settings → Tidy-up reminder** sets the three numbers for every circle
+  alike, each with − / +: Bars (1–10, default 5), Notes per bar (1–20,
+  default 2), Days per bar (1–30, default 2) — about the old "10 notes or
+  a week" when either acts alone. Below, each circle (Private, each
+  contact, each group) is **counted or ignored** by a switch; **Private
+  counted by default, shared circles ignored** (others often sort shared
+  notes). An ignored circle's view shows no gauge, and where several
+  circles show together only the counted circles' notes are taken
+  together. Main view only; a setting of this device. A gauge rather than
+  a score or push messages: it should invite tidying, never make it a
+  chore. *Prototype: 2026-10-18.*
 - **Sections** in My order (and a shared order): the arrange
   dialog's **+ Section** adds a titled divider right above the pile's
   line; it moves like a note, its title is edited in place and its ×
@@ -801,7 +806,7 @@ paid features per user.
   ("People circles as a filter") the sort menu also offers "Shared
   order" — an order of that circle's notes kept in the circle's own file,
   so every member sees and edits the same one; any member may set it,
-  none has to. It works like My order (Tidy up…, the pile with its reminder by that circle's choice, Undo; the
+  none has to. It works like My order (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
   dialog says who sees it) and merges the same way, the newer list
   winning. Outside a circle's view a view set to it shows the user's own
   My order. *Prototype: 2026-10-14; real on shared files since
@@ -1518,8 +1523,8 @@ place instead of the top bar and ⋮.
   Esc and the Android back key go one page back). Under ⋮, as settings
   are rarely needed and the phone's top bar is full.
 - Sections: **Appearance** — Theme (System, Latte, Frappé, Macchiato,
-  Mocha); **Notes** — Reminders, Tidy-up reminder (every circle with its
-  choice, "Sorting and search"), Links & media (each a page, its line
+  Mocha); **Notes** — Reminders, Tidy-up reminder (the gauge's numbers
+  and which circles count, "Sorting and search"), Links & media (each a page, its line
   saying what is set); **Sync** — Sync & sharing (the panel's own pages,
   its line the sync status; its top-bar icon stays for the status);
   **Privacy** (Android app only) — Screen lock, Screen security,

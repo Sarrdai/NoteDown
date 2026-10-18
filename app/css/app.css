@@ -192,7 +192,7 @@ button { font: inherit; color: inherit; }
 #sortBtn, #moreBtn { position: relative; }
 :is(#sortBtn, #moreBtn).tidy-due::after {
   content: ""; position: absolute; top: 8px; left: 26px; width: 9px; height: 9px; border-radius: 50%;
-  background: var(--warning); box-shadow: 0 0 0 2px var(--bg);
+  background: var(--danger); box-shadow: 0 0 0 2px var(--bg);
 }
 #dueBtn .count { margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; }
 #dueBtn .count:not(.has) { display: none; }
@@ -1044,7 +1044,6 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .link-shown { margin: 8px 8px 4px; font-weight: 600; overflow-wrap: anywhere; }
 .link-address { margin: 0 8px 8px; padding: 10px 12px; border-radius: 10px; background: var(--code-bg); font-size: 0.88rem; }
 .pick.ext-select { flex: none; width: 50%; font-size: 0.92rem; }
-.pick.tidy-select { width: 60%; }
 .ext-section { margin: 14px 8px 6px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
 .ext-circle { padding: 8px; border-top: 1px solid var(--border); }
 .ext-circle-name { font-weight: 600; margin-bottom: 4px; }
@@ -1056,15 +1055,15 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 
 /* Custom order (#24): the line above the notes not sorted yet. */
 /* My order's pile (#24): a tinted header above the notes not sorted in yet; a tap folds them.
-   Its gauge shows the tidy-up reminder (core/tidy.js): calm, growing, time to tidy up. */
+   Its gauge shows the tidy-up reminder's bars (core/tidy.js): grey, yellow shortly before full, red when full. */
 .pile-header {
   --pile-tint: color-mix(in srgb, var(--text) 6%, transparent);
   --pile-ink: var(--text);
   display: flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 4px 0 2px;
   border-radius: 12px; background: var(--pile-tint); color: var(--pile-ink);
 }
-.pile-header.level-growing { --pile-tint: color-mix(in srgb, var(--warning) 14%, transparent); }
-.pile-header.level-tidy { --pile-tint: color-mix(in srgb, var(--warning) 26%, transparent); --pile-ink: color-mix(in srgb, var(--warning) 45%, var(--text)); }
+.pile-header.level-warn { --pile-tint: color-mix(in srgb, var(--warning) 18%, transparent); --pile-ink: color-mix(in srgb, var(--warning) 40%, var(--text)); }
+.pile-header.level-full { --pile-tint: color-mix(in srgb, var(--danger) 16%, transparent); --pile-ink: color-mix(in srgb, var(--danger) 45%, var(--text)); }
 .pile-toggle {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 6px;
   border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
@@ -1074,11 +1073,19 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .pile-title { font-size: 1.05rem; font-weight: 800; }
 .pile-count { flex: none; font-size: 0.82rem; color: var(--text-muted); }
 .pile-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; font-weight: 650; }
-.pile-header.level-growing .pile-status { font-weight: 500; color: var(--text-muted); }
 .pile-gauge { flex: none; display: inline-flex; gap: 3px; margin: 0 2px; }
 .pile-gauge i { width: 6px; height: 14px; border-radius: 3px; background: color-mix(in srgb, var(--text) 18%, transparent); }
-.level-calm .pile-gauge i:first-child { background: var(--text-faint); }
-.level-growing .pile-gauge i:not(:last-child), .level-tidy .pile-gauge i { background: var(--warning); }
+.pile-gauge i.on { background: var(--text-faint); }
+:is(.level-warn .pile-gauge, .pile-gauge.level-warn) i.on { background: var(--warning); }
+:is(.level-full .pile-gauge, .pile-gauge.level-full) i.on { background: var(--danger); }
+/* Settings → Tidy-up reminder (ui/tidy-settings.js): − value + per number, the gauge at its fills. */
+.tidy-row { cursor: default; }
+.tidy-row:hover { background: transparent; }
+.tidy-stepper { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+.tidy-stepper .icon-btn { font-size: 1.3rem; font-weight: 600; border: 1px solid var(--border); }
+.tidy-stepper .icon-btn:disabled { opacity: 0.4; cursor: default; }
+.tidy-stepper output { min-width: 2ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tidy-preview { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px 8px 8px; }
 .pile-done { flex: 1; display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 0.9rem; font-weight: 650; color: var(--text-muted); }
 .pile-done .icon { width: 18px; height: 18px; color: var(--done); }
 .pile-header .link-btn { flex: none; border: 0; padding: 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
