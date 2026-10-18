@@ -18,6 +18,7 @@
   - [Creating and editing](#creating-and-editing)
   - [Task states and progress](#task-states-and-progress)
   - [Counters](#counters)
+  - [Links between notes and private copies](#links-between-notes-and-private-copies)
   - [Links and media from the web](#links-and-media-from-the-web)
   - [Dictation](#dictation)
   - [Multi-select](#multi-select)
@@ -950,7 +951,8 @@ this needs none of it.
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
   (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
-  indent, bold, italic, **highlight**, link, image or video (backlog #30),
+  indent, bold, italic, **highlight**, link, **link to a note** (types the
+  `[[` that opens the note picker, backlog #45), image or video (backlog #30),
   **counter**, **star rating**, undo / redo, and Done. No due-date and no
   microphone button (removed
   2026-10-16): the due date has its chip on the note, dictation the
@@ -1063,6 +1065,51 @@ Decided 2026-10-16 (user request).
   counter's pop-up right at the chip, with Stop and Discard.
   *Prototype: 2026-10-16.*
 
+### Links between notes and private copies
+
+Decided 2026-10-18 (backlog #45, user request).
+
+- **A link to another note** is a plain Markdown link to the note's id,
+  `[Trip to Lisbon](note:s03)` (`docs/file-format.md`), so renaming or
+  moving the note never breaks it and other editors still show its text.
+  The note shows the link's own text (it is the user's wording, also in
+  a sentence), with a small ↗ and a dotted underline; its tooltip names
+  the target's current title. A tap shows the target: in the view it
+  belongs to (also the archive), scrolled into view and flashed, with
+  search and filters cleared only when they hide it.
+- **Inserting:** typing `[[` in the editor — or the toolbar's **Link to a
+  note** — opens a picker under the line (above it when the keyboard
+  leaves no room) that lists the matching notes as you type: titles
+  starting with the text first, open notes before closed ones, then the
+  latest edit; ↑ / ↓ and Enter or a tap pick one, Esc closes it. The
+  link gets the note's current title as its text.
+- **Privacy across circles:** in a private note the picker offers every
+  note the user sees; in a shared note **only notes of the same circle**,
+  so a link's text never tells the others about a note they can't see.
+  A link to a note the reader can't see (not shared with them, deleted)
+  is grey and a tap says "This note isn't available to you".
+- **Private copy of a shared note:** multi-select → ⋮ → **Private copy**
+  (whole notes, all of them shared) puts a private copy of each on top
+  — same text, due date, color and motif — with Undo. The copy stays
+  linked to its original (`copyof` / `copied` in the file format; the
+  others never see it): its meta line shows **Copy of ‹title›**, marked
+  **Original changed** once the original was edited after the copy took
+  its text; once the user no longer sees the original it reads "Copy ·
+  original not available".
+- **Compare and update:** a tap on that chip opens **Compare with
+  original**: the original's title, circle and last edit, the line diff
+  in one column — the copy's own lines red with −, the original's green
+  with +, unchanged runs folded to "n unchanged lines" (a tap unfolds
+  them) — and how many lines an update replaces. **Update copy**
+  overwrites the copy's whole text with the original's (Undo in the
+  snackbar; no merge, person-requested: simplest); **Go to original**
+  shows the original. One column in every tier, decided over copy and
+  original side by side: it looks the same on every device.
+- *Prototype: 2026-10-18 (`app/js/core/note-links.js`,
+  `app/js/core/line-diff.js`, `app/js/ui/note-links.js`,
+  `app/js/ui/compare.js`; the sample has links and a copy of "Birthday
+  party for Mia").*
+
 ### Links and media from the web
 
 Decided 2026-10-16 (backlog #30, user request): anyone in a circle — or
@@ -1161,7 +1208,7 @@ that host its IP address and the reading time.
   by one also count and reorder one by one) and
   the actions as icons (with labels on the desktop): the frequent ones —
   Close, Clear done tasks, Copy, Share, Merge, Delete — in the bar, the
-  rarer ones — Export, Make permanent, Promote / Demote headings — under
+  rarer ones — Export, Private copy, Make permanent, Promote / Demote headings — under
   ⋮, the same in every tier (decided 2026-10-17 by the user's own use,
   backlog #36; all of them overran the desktop bar); the + button is
   hidden. On the phone the contents sheet's handle stays at the bottom,
@@ -1171,7 +1218,8 @@ that host its IP address and the reading time.
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Clear done tasks**, **Copy**, **Export** ("Export"), **Share** ("Sync
-  and sharing"), **Merge**, **Make permanent / Make closable**, **Delete**,
+  and sharing"), **Merge**, **Private copy** (shared notes, "Links between
+  notes and private copies"), **Make permanent / Make closable**, **Delete**,
   **Promote / Demote headings**. Close, Share, Make permanent and Delete act on whole notes
   (disabled while only parts of a note are selected) and end the
   selection with Undo; Close leaves permanent notes alone (disabled when

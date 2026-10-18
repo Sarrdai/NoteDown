@@ -34,6 +34,8 @@ const PATHS = {
   send: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   done: '<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.6 2.6 4.8-5.2"/>',
   reopen: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4h4"/>',
+  notelink: '<rect x="4" y="3.5" width="12" height="17" rx="2"/><path d="M7.5 8h5M7.5 11.5h3M12.5 16h8M17.5 13l3 3-3 3"/>',
+  privatecopy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/><rect x="11.8" y="14.5" width="5.4" height="4" rx="0.8"/><path d="M13 14.5v-1.2a1.5 1.5 0 0 1 3 0v1.2"/>',
   copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/>',
   merge: '<path d="M6 4v3.5a4.5 4.5 0 0 0 4.5 4.5h3A4.5 4.5 0 0 1 18 16.5V20M18 4v3.5a4.5 4.5 0 0 1-4.5 4.5M15 17l3 3 3-3"/>',
   sync: '<path d="M20 11a8 8 0 0 0-14.3-4.5M4 4v4h4M4 13a8 8 0 0 0 14.3 4.5M20 20v-4h-4"/>',

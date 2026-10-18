@@ -8,7 +8,7 @@
 #shopping
 
 <!-- note id=s02 status=open created=2026-10-12T19:22Z modified=2026-10-13T07:55Z due=2026-10-13 -->
-Remind Lea that the bike needs new brake pads before the trip on Saturday. She said the front one squeaks.
+Remind Lea that the bike needs new brake pads before the [trip](note:s03) on Saturday. She said the front one squeaks.
 
 <!-- note id=s03 status=open created=2026-10-02T10:00Z modified=2026-10-12T21:10Z due=2026-10-17 color=blue decor=travel -->
 ## Trip to Lisbon
@@ -77,6 +77,7 @@ The deadline was extended, but ==the accountant wants the papers this week==.
 <!-- note id=s07 status=open created=2026-10-09T12:40Z modified=2026-10-09T12:40Z due=2026-10-21 -->
 ## Call the dentist
 Six-month check-up is due. Ask whether Tuesday mornings are possible.
+Last time: [Move the dentist appointment](note:s16)
 
 <!-- note id=s08 status=open created=2026-10-07T07:10Z modified=2026-10-09T08:00Z deleted=2026-10-13T07:45Z -->
 Idea for the team meeting: start with the open questions from last week instead of the status round. Keeps it shorter.
@@ -92,6 +93,24 @@ Idea for the team meeting: start with the open questions from last week instead 
 ### Games
 - Treasure hunt in the garden
 - [Ideas from last year](https://example.com/party-games)
+
+![Treasure hunt last year](https://media.example.net/mia/treasure-hunt.webm)
+
+#🎂
+
+<!-- note id=s21 status=open created=2026-10-06T18:00Z modified=2026-10-07T09:00Z due=2026-10-24 color=pink decor=birthday copyof=s09 copied=2026-10-06T17:30Z -->
+## Birthday party for Mia
+### Guests
+- Grandparents, Lea's sister, the neighbours
+### Food
+- [ ] Order the cake #shopping
+- [ ] Ask grandma for the potato salad
+### Games
+- Treasure hunt in the garden
+- [Ideas from last year](https://example.com/party-games)
+### My part
+- [ ] Wrap the present
+- [ ] Pick up the balloons on Friday
 
 ![Treasure hunt last year](https://media.example.net/mia/treasure-hunt.webm)
 
@@ -148,6 +167,7 @@ New date confirmed by mail.
 <!-- note id=s18 status=closed created=2026-09-20T20:00Z modified=2026-10-04T09:00Z closed=2026-10-04T09:00Z -->
 ## Holiday photos
 Sorted and backed up to the external drive.
+The best ones are in [Tom's photo album](note:t07).
 
 #travel
 

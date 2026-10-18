@@ -44,6 +44,8 @@
   --hit-current: var(--ctp-peach);
   --on-hit-current: var(--ctp-crust);
   --highlight: color-mix(in srgb, var(--ctp-green) 26%, transparent);   /* ==text==: green, so search hits (yellow) stay apart */
+  --diff-del: color-mix(in srgb, var(--ctp-red) 16%, transparent);      /* comparing a private copy: lines only the copy has */
+  --diff-add: color-mix(in srgb, var(--ctp-green) 18%, transparent);    /* … and lines only the original has */
   /* One color per contact (avatars); text on them. */
   --person-1: var(--ctp-peach);
   --person-2: var(--ctp-teal);
@@ -260,6 +262,12 @@ mark.hit.current { background: var(--hit-current); color: var(--on-hit-current);
 .chip .icon { width: 14px; height: 14px; }
 .chip.today { background: var(--accent-soft); color: var(--accent); }
 .chip.overdue { background: var(--danger-soft); color: var(--danger); }
+/* A private copy (backlog #45): "Copy of …", with "Original changed" while the shared note moved on. */
+.chip.copy-chip { min-width: 0; max-width: 100%; }
+.chip.copy-chip .copy-of { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chip.copy-chip.changed { background: var(--accent-soft); color: var(--accent); }
+.copy-changed { flex: none; margin-left: 2px; padding-left: 6px; border-left: 1px solid currentColor; }
+.chip.copy-chip.gone { font-weight: 500; color: var(--text-faint); }
 .chip.from-chip { display: inline-block; max-width: 100%; line-height: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* An open note's due chip is a button (the due-date menu); without a date it
    is an empty slot. Its tap area reaches past the 24px chip. */
@@ -492,6 +500,39 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .btn:hover { background: var(--surface-hover); }
 .btn.primary { background: var(--accent); color: var(--on-accent); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The [[ picker in the editor (ui/note-links.js). */
+.link-picker {
+  position: fixed; z-index: 60; overflow-y: auto; padding: 6px;
+  background: var(--ctp-base); color: var(--text); border: 1px solid var(--ctp-surface0); border-radius: 12px; box-shadow: var(--shadow-high);
+}
+.link-pick {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.link-pick.active, .link-pick:hover { background: var(--ctp-surface0); }
+.link-pick-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+.link-pick.closed .link-pick-title { font-weight: 500; color: var(--text-muted); }
+.link-pick-tag { flex: none; font-size: 0.75rem; color: var(--text-faint); }
+.link-pick-empty { padding: 10px; font-size: 0.9rem; color: var(--text-muted); }
+
+/* Comparing a private copy with its original (ui/compare.js). */
+.dialog.compare { width: min(560px, 100%); }
+.compare-diff { flex: 1; min-height: 0; overflow-y: auto; margin: 0 4px; font-size: 0.92rem; overflow-wrap: anywhere; }
+.diff-legend { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 4px 8px; background: var(--ctp-base); font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+.diff-key { padding: 1px 8px; border-radius: 6px; }
+.diff-key.del, .diff-line.del { background: var(--diff-del); }
+.diff-key.add, .diff-line.add { background: var(--diff-add); }
+.diff-lines { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.diff-line { display: flex; gap: 6px; padding: 3px 10px 3px 6px; white-space: pre-wrap; }
+.diff-sign { flex: none; width: 1em; text-align: center; font-weight: 700; color: var(--text-muted); }
+.diff-line.same .diff-text { color: var(--text-muted); }
+.diff-fold { display: block; width: 100%; padding: 4px 10px; border: 0; background: var(--surface-hover); color: var(--text-faint); font: inherit; font-size: 0.8rem; text-align: center; cursor: pointer; }
+.dialog.compare .compare-open { margin-right: auto; }
+@media (max-width: 599px) {
+  .dialog.compare .dialog-actions { flex-wrap: wrap; }
+  .dialog.compare .compare-open { padding: 0 10px; }
+}
 
 /* Confirmation dialog for permanent deletion (ui/confirm.js). */
 /* Above the other dialogs: it also confirms from inside them (Restore this state in the Sync & sharing panel). */
@@ -895,6 +936,11 @@ a.row-open { text-decoration: none; }
 .counter-watch-btn.running { background: var(--danger); }
 .counter-pop .counter-step:active { filter: brightness(0.92); }
 .md a { color: var(--link); }
+/* A link to another note (backlog #45): no address, so it reads as a link inside the app only. */
+.md a.note-link { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.md a.note-link::before { content: "↗"; display: inline-block; margin-right: 2px; font-size: 0.8em; text-decoration: none; }
+.md a.note-link.unavailable { color: var(--text-faint); text-decoration-style: dashed; }
+.md a.note-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 /* Highlight (==text==) and star ratings (core/rating.js). */
 mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius: 3px; padding: 0 2px; }
 .rating { display: inline-flex; vertical-align: baseline; white-space: nowrap; text-indent: 0; }

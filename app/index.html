@@ -161,6 +161,19 @@
         </div>
       </div>
     </div>
+    <div class="dialog-scrim" id="compareDialog" hidden>
+      <div class="dialog compare" role="dialog" aria-modal="true" aria-labelledby="compareTitle">
+        <h2 class="dialog-title" id="compareTitle">Compare with original</h2>
+        <p class="dialog-hint" id="compareHint"></p>
+        <div class="compare-diff" id="compareDiff"></div>
+        <p class="dialog-hint after" id="compareSummary"></p>
+        <div class="dialog-actions">
+          <button class="btn compare-open" id="compareOpen">Go to original</button>
+          <button class="btn" id="compareClose">Close</button>
+          <button class="btn primary" id="compareUpdate">Update copy</button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-scrim keep-editing" id="exportDialog" hidden>
       <div class="dialog export" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
         <h2 class="dialog-title" id="exportTitle">Export</h2>

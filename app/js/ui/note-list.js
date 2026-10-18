@@ -15,7 +15,7 @@ import { holdForStates } from "./task-menu.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
-import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen } from "../store.js";
+import { state, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
 import { icon } from "./icons.js";
@@ -29,6 +29,9 @@ import { markHits } from "./search-hits.js";
 import { applyExternal } from "./external.js";
 import { circleKey } from "../core/sharing.js";
 import { externalPolicy } from "../core/external.js";
+import { copyState } from "../core/note-links.js";
+import { applyNoteLinks, followNoteLink, linkPicker } from "./note-links.js";
+import { openCompare } from "./compare.js";
 
 const list = () => document.getElementById("list");
 
@@ -73,6 +76,15 @@ document.addEventListener("click", e => {
   if (state.editingId) endEdit();
   if (!note(id)) return;
   openShareDialog([id]);
+});
+
+// A tap on a private copy's chip compares it with its original (ui/compare.js).
+document.addEventListener("click", e => {
+  const hit = e.target.closest("#list button.copy-chip");
+  if (!hit) return;
+  const id = hit.closest(".note").dataset.id;
+  if (state.editingId && state.editingId !== id) endEdit();
+  openCompare(id);
 });
 
 // A tap on the due chip opens the due-date menu; editing another note ends first.
@@ -125,6 +137,7 @@ function noteElement(n, view = state.view) {
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
   applyExternal(body, circleKey(circleOf(n.id)));
+  applyNoteLinks(body);
   fillWatches(body);
   wrapSections(body, sections(n.body));
   markHits(body);
@@ -202,12 +215,24 @@ function newsMetaHtml(n) {
   return `${fresh}<span>${edited ? "Edited" : "Published"} ${relativeTime(edited ? n.modified : n.created)}</span>`;
 }
 
+// A private copy of a shared note (backlog #45): "Copy of …", marked while its original changed since; a tap
+// compares the two. Once the user no longer sees the original, it only says so.
+function copyChipHtml(n) {
+  const o = copyOriginal(n.id);
+  if (!o) return `<span class="chip copy-chip gone">${icon("privatecopy")}Copy · original not available</span>`;
+  const changed = copyState(n, o) === "changed";
+  const title = esc(noteTitle(o.body).text || "Untitled");
+  return `<button type="button" class="chip copy-chip${changed ? " changed" : ""}" aria-label="${esc("Private copy of " + (noteTitle(o.body).text || "Untitled") + (changed ? ", the original changed" : "") + ", compare")}">`
+    + `${icon("privatecopy")}<span class="copy-of">Copy of ${title}</span>${changed ? '<span class="copy-changed">Original changed</span>' : ""}</button>`;
+}
+
 function metaHtml(n, view = state.view) {
   if (n.news) return newsMetaHtml(n);
   const parts = [markerHtml(n)].filter(Boolean);
   // Archived done tasks name the note they came from (Clear done tasks).
   const source = n.from && note(n.from);
   if (source) parts.push(`<span class="chip from-chip">From ${esc(noteTitle(source.body).text || "Untitled")}</span>`);
+  if (n.copyof) parts.push(copyChipHtml(n));
   if (n.status === "closed" || n.deleted) {
     // A closed note's due date is history, not a warning, and read-only.
     if (n.due) parts.push(`<span class="chip">${icon("calendar")}Due ${shortDate(n.due)}</span>`);
@@ -235,6 +260,8 @@ function onBodyClick(e, id) {
     if (n.fresh) markNewsSeen([id]);
     return;
   }
+  const link = e.target.closest("a.note-link");
+  if (link) { e.preventDefault(); return followNoteLink(link); }
   const counter = e.target.closest(".counter");
   const index = counter && [...e.currentTarget.querySelectorAll(".counter")].indexOf(counter);
   if (counterClick(e, change => setBody(id, changeCounter(note(id).body, index, change)))) return;
@@ -286,7 +313,7 @@ export function startEdit(id, at = {}) {
   const scrolled = window.scrollY;
   el.querySelector(".note-body").replaceWith(host);
   const media = externalPolicy(state.settings.external, circleKey(circleOf(id))).media;
-  const editor = createEditor({ parent: host, doc: n.body, media, onChange: text => setBody(id, text), onEscape: () => endEdit() });
+  const editor = createEditor({ parent: host, doc: n.body, media, extensions: [linkPicker(id)], onChange: text => setBody(id, text), onEscape: () => endEdit() });
   if (window.scrollY !== scrolled) window.scrollTo(0, scrolled);
   editing = { id, editor };
   editor.focusAt(at.x, at.y);

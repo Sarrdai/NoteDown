@@ -9,6 +9,7 @@ import { moveNote, moveTarget, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
+import { privateCopy } from "./core/note-links.js";
 import { DEFAULT_EXTERNAL } from "./core/external.js";
 import { DEFAULT_LOCK } from "./core/app-lock.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
@@ -518,6 +519,38 @@ export function addNote(body, memberIds = []) {
   fileFor(memberIds).notes.unshift(n);
   saveFiles();
   return n;
+}
+
+/** Private copies of shared notes (backlog #45): each a new private note on top with the same text, linked back
+ *  to its original (core/note-links.js). Returns { notes, undo }. */
+export function makePrivateCopies(ids) {
+  const now = timestamp();
+  const copies = ids.map(note).filter(n => n && !n.news && !n.deleted && circleOf(n.id).length).map(n => privateCopy(n, now));
+  state.file.notes.unshift(...copies);
+  saveFiles();
+  emit("structure");
+  return {
+    notes: copies,
+    undo: () => { state.file.notes = state.file.notes.filter(n => !copies.includes(n)); saveFiles(); emit("structure"); },
+  };
+}
+
+/** The note a private copy was made from, while the user still sees it (not trashed); else null. */
+export function copyOriginal(id) {
+  const c = note(id);
+  const o = c?.copyof && allNotes().find(n => n.id === c.copyof);
+  return o || null;
+}
+
+/** Overwrites a private copy with its original's current text; returns a function that undoes it. */
+export function updateCopy(id) {
+  const c = note(id), o = copyOriginal(id);
+  if (!c || !o) return () => {};
+  const before = { body: c.body, copied: c.copied, modified: c.modified };
+  Object.assign(c, { body: o.body, copied: o.modified, modified: timestamp() });
+  saveFiles();
+  emit("note:" + id);
+  return () => { Object.assign(c, before); saveFiles(); emit("note:" + id); };
 }
 
 /** Deletes notes into the trash (news are only hidden for this user); returns a function that undoes it. A

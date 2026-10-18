@@ -6,6 +6,7 @@ import { LABEL_AT, LABEL_START } from "./labels.js";
 import { mediaSource, mediaKind } from "./external.js";
 import { counterAt, counterStart, counterHtml } from "./counter.js";
 import { ratingAt, ratingStart, ratingHtml } from "./rating.js";
+import { noteLinkId } from "./note-links.js";
 
 const marked = new Marked({ gfm: true, breaks: true });
 marked.use({
@@ -96,6 +97,9 @@ marked.use({
     },
     link({ href, title, tokens }) {
       const text = this.parser.parseInline(tokens);
+      // A link to another note (core/note-links.js) has no address: the view resolves it (ui/note-links.js).
+      const target = noteLinkId(href);
+      if (target) return `<a class="note-link" data-note="${escapeAttr(target)}" role="link" tabindex="0">${text}</a>`;
       // Browsers drop tabs, newlines and leading controls from a URL, so "java\tscript:" must count too.
       if (/^(javascript|data|vbscript):/i.test(href.replace(/[\u0000-\u0020]/g, ""))) href = "#";
       return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener"${title ? ` title="${escapeAttr(title)}"` : ""}>${text}</a>`;

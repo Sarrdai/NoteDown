@@ -59,7 +59,8 @@ Current state, edited in place when a decision changes.
   edit, on a task checkbox = toggle, on the round button (bottom right
   of the card) = close / reopen, on a link = open (by default after
   "Open link?" with its real target; requirements → "Links and media
-  from the web"), on a media tile = load it.
+  from the web"), on a link to another note = show that note, on a
+  media tile = load it.
 - **Long-press** is reserved for secondary modes: on a note, a
   heading in a note or a contents entry it starts multi-select, on an
   entry of the People or Labels tab it starts picking several filters
