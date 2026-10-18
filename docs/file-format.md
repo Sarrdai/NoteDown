@@ -49,6 +49,11 @@ Done by bank transfer, reference number in the banking app.
 - Task states are plain Markdown too: `[ ]` open, `[x]` done, `[/]` in
   progress, `[-]` cancelled (as Obsidian themes write them;
   `docs/requirements.md` → "Task states and progress").
+- A task's due date is plain text at the end of its line in the Obsidian
+  Tasks syntax: `- [ ] Winter tyres 📅 2026-10-24` (a calendar day,
+  `YYYY-MM-DD`, like the note's `due`; `docs/requirements.md` → "Due date
+  per task"). Only the date at the end of a task's first line counts;
+  other renderers show it as text.
 - Counters (`23,5 [-4 -1 +1 +8]`, `docs/requirements.md` → "Counters")
   are plain text in the body too: the app changes only the number, and a
   stopwatch's start time in the brackets.

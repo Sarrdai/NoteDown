@@ -12,6 +12,8 @@ import { counterStart, counterAt, counters, changeCounter, counterHtml } from ".
 import { counterClick, fillWatches } from "./counter.js";
 import { ratingStart, ratingAt, ratings, ratingHtml, setRating } from "../core/rating.js";
 import { holdForStates } from "./task-menu.js";
+import { DUE_AT_END, lineDue, setLineDue } from "../core/task-due.js";
+import { openTaskDueMenu, fillTaskDue } from "./due-menu.js";
 
 /** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
 export const mediaMode = StateField.define({ create: () => "click", update: v => v });
@@ -107,6 +109,29 @@ class RatingWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
+// A task's due date (backlog #41) as its chip; a tap opens the due-date menu without moving the cursor onto the line.
+class TaskDueWidget extends WidgetType {
+  constructor(due, from, plain) { super(); this.due = due; this.from = from; this.plain = plain; }
+  eq(o) { return o.due === this.due && o.from === this.from && o.plain === this.plain; }
+  toDOM(view) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.dataset.due = this.due;
+    fillTaskDue(chip, { plain: this.plain });
+    chip.addEventListener("mousedown", e => e.preventDefault());
+    chip.addEventListener("click", () => openTaskDueMenu(chip, this.due, due => setDueAt(view, this.from, due)));
+    return chip;
+  }
+  ignoreEvent() { return true; }
+}
+
+// Sets the due date of the task on the line at `pos`.
+function setDueAt(view, pos, due) {
+  const line = view.state.doc.lineAt(Math.min(pos, view.state.doc.length));
+  const text = setLineDue(line.text, due);
+  if (text !== line.text) view.dispatch({ changes: { from: line.from, to: line.to, insert: text }, userEvent: "input" });
+}
+
 class MediaWidget extends WidgetType {
   constructor(src, alt, mode) { super(); this.src = src; this.alt = alt; this.mode = mode; }
   eq(o) { return o.src === this.src && o.alt === this.alt && o.mode === this.mode; }
@@ -195,6 +220,7 @@ function build(view) {
     for (let l = doc.lineAt(from).number; l <= doc.lineAt(to).number; l++) {
       counterMarks(doc.line(l), state, deco, active.has(l));
       ratingMarks(doc.line(l), state, deco, active.has(l));
+      taskDueMarks(doc.line(l), state, deco, active.has(l));
       highlightMarks(doc.line(l), state, deco, active.has(l));
     }
   }
@@ -235,6 +261,16 @@ function ratingMarks(line, state, deco, raw) {
     const pos = line.from + start;
     if (!inCode(state, pos)) deco.push(Decoration.replace({ widget: new RatingWidget(r, pos) }).range(pos, line.from + at));
   }
+}
+
+// A task line's due date becomes its chip on lines that aren't being edited; a done or cancelled task's is plain.
+function taskDueMarks(line, state, deco, raw) {
+  if (raw || !lineDue(line.text) || inCode(state, line.from)) return;
+  const m = DUE_AT_END.exec(line.text);
+  const box = /\[([ xX/-])\]/.exec(line.text)[1];
+  const plain = box !== " " && box !== "/";
+  const from = line.from + m.index + (m[0].length - m[0].trimStart().length);
+  deco.push(Decoration.replace({ widget: new TaskDueWidget(m[1], from, plain) }).range(from, line.to));
 }
 
 // ==text== : the text is highlighted; the marks hide on lines that aren't being edited.

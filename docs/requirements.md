@@ -688,7 +688,8 @@ paid features per user.
   scrolled out of view on the phone. *Prototype: 2026-10-14.*
 - **Reminders for due dates** (backlog #1): on a note's due day, at one
   time of day for all notes (default 09:00), one notification lists the
-  open notes due that day ("2 notes due today" and their titles); tapping
+  open notes due that day — by their own due date or an open task's date
+  ("Due date per task") — ("2 notes due today" and their titles); tapping
   it shows the main list, unfiltered, with those notes highlighted. Closed
   notes and notes without a due date never remind; no per-note times.
   Off until turned on under **Settings → Reminders** (a switch and the
@@ -709,7 +710,8 @@ paid features per user.
   **alphabetically** (first heading, else first sentence); the archive
   additionally by **closed** date. Each option can be reversed. Defaults:
   last edited, newest first; in the archive closed, newest first.
-  Notes without the sort value (no due date) always come last. The choice
+  Notes without the sort value (no due date) always come last; by due
+  date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
 - **Custom** (backlog #24) is one more sort option, in the main view and
   the archive: the user's own order. Notes start **not sorted yet**; the
@@ -973,11 +975,12 @@ this needs none of it.
   and its toolbar; the tapped target then acts normally (e.g. starts
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
-  (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
+  (cycles # → ## → ### → #### → none), bullet list, task checkbox, **task
+  due date** (backlog #41, "Due date per task"), outdent /
   indent, bold, italic, **highlight**, link, **link to a note** (types the
   `[[` that opens the note picker, backlog #45), image or video (backlog #30),
-  **counter**, **star rating**, undo / redo, and Done. No due-date and no
-  microphone button (removed
+  **counter**, **star rating**, undo / redo, and Done. No button for the
+  note's due date and no microphone button (removed
   2026-10-16): the due date has its chip on the note, dictation the
   long-press on +. On phone and tablet it sits above the on-screen
   keyboard and scrolls sideways; on the desktop it floats at the bottom
@@ -1029,7 +1032,28 @@ Decided 2026-10-16 (user request).
   shows green. The switch is a setting of this device, off by default,
   and remembered like the level count.
 - **Clear done tasks** takes cancelled tasks along with the done ones;
-  tasks in progress stay.
+  tasks in progress stay. A dated task goes like any other, its date with
+  it (decided 2026-10-18).
+- **Due date per task** (backlog #41, decided 2026-10-18): a task carries
+  its own date in the Obsidian Tasks syntax, `📅 YYYY-MM-DD` at the end of
+  its line (`docs/file-format.md`). The rendered note and the editor (on
+  lines the cursor isn't on) show it as a chip in the due chip's look —
+  red when overdue, accent-colored today; plain for a done or cancelled
+  task and in the archive. A tap on the chip opens the **due-date menu**
+  (as the note's: today, tomorrow, in a week, pick a date, remove) without
+  entering edit mode. The editor toolbar's **Task due date** button
+  (calendar) opens the same menu for the line the cursor is on, which
+  becomes a task if it isn't one; typing the syntax works too. Why the
+  toolbar: easiest to find, the same in all tiers, like counter and star
+  rating; a "Due date…" entry in the task's long-press menu and typing
+  only were tried and not chosen.
+- **Task dates count for the note**: an open or in-progress task's date
+  sorts the note by due date (the earliest of the note's own date and its
+  tasks' dates) and reminds on its day like a note's due date. The note's
+  chip keeps showing only the note's own date. Why: a dated task that
+  neither sorts nor reminds would be decoration. How note and task dates
+  relate (and whether a note's date becomes a reminder instead of a due
+  date) is still open: backlog #65.
 
 ### Counters
 

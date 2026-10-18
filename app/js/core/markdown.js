@@ -71,24 +71,33 @@ marked.use({
       return `<mark class="hl">${this.parser.parseInline(tokens)}</mark>`;
     },
   }, {
+    // A task's due date (core/task-due.js): a chip only at the end of a task's first line (walkTokens below
+    // marks it); anywhere else it stays text. The view fills in its label (ui/note-list.js).
+    name: "taskDue",
+    level: "inline",
+    start(src) {
+      const i = src.indexOf("📅");
+      return i < 0 ? undefined : i;
+    },
+    tokenizer(src) {
+      const m = /^📅\uFE0F?[ \t]?(\d{4}-\d{2}-\d{2})(?=[ \t]*(?:\n|$))/.exec(src);
+      if (m) return { type: "taskDue", raw: m[0], due: m[1], inTask: false };
+    },
+    renderer({ raw, due, inTask }) {
+      return inTask ? `<button type="button" class="chip task-due" data-due="${due}">${escapeHtml(raw)}</button>` : escapeHtml(raw);
+    },
+  }, {
     // A task in progress or cancelled (`[/]`, `[-]`), set up by walkTokens below.
     name: "taskState",
     renderer({ state }) {
       return taskBox(state);
     },
   }],
-  // GFM knows `[ ]` and `[x]` only: a list item starting with `[/]` or `[-]`
-  // becomes a task too, its box drawn by the taskState renderer.
+  // Task items: the extra states `[/]` `[-]` and the due date at the end of the first line.
   walkTokens(token) {
-    if (token.type !== "list_item" || token.task) return;
-    const m = /^\[([/-])\] +(?=\S)/.exec(token.text);
-    const block = token.tokens[0];
-    const first = block && (block.type === "text" || block.type === "paragraph") && block.tokens?.[0];
-    if (!m || !first || first.type !== "text" || !first.text.startsWith(m[0])) return;
-    first.text = first.text.slice(m[0].length);
-    first.raw = first.raw.slice(m[0].length);
-    block.tokens.unshift({ type: "taskState", raw: "", state: STATES[m[1]] });
-    token.task = true;
+    if (token.type !== "list_item") return;
+    if (!token.task) taskState(token);
+    if (token.task) markTaskDue(token);
   },
   renderer: {
     // Task checkboxes stay clickable; the view maps a click to taskIndex.
@@ -116,6 +125,28 @@ marked.use({
     },
   },
 });
+
+// GFM knows `[ ]` and `[x]` only: a list item starting with `[/]` or `[-]`
+// becomes a task too, its box drawn by the taskState renderer.
+function taskState(token) {
+  const m = /^\[([/-])\] +(?=\S)/.exec(token.text);
+  const block = token.tokens[0];
+  const first = block && (block.type === "text" || block.type === "paragraph") && block.tokens?.[0];
+  if (!m || !first || first.type !== "text" || !first.text.startsWith(m[0])) return;
+  first.text = first.text.slice(m[0].length);
+  first.raw = first.raw.slice(m[0].length);
+  block.tokens.unshift({ type: "taskState", raw: "", state: STATES[m[1]] });
+  token.task = true;
+}
+
+// The date at the end of a task's first line becomes its chip (before the first line break).
+function markTaskDue(token) {
+  const block = token.tokens.find(t => t.type === "text" || t.type === "paragraph");
+  for (const t of block?.tokens || []) {
+    if (t.type === "br" || (t.type === "text" && t.raw.includes("\n"))) return;
+    if (t.type === "taskDue") { t.inTask = true; return; }
+  }
+}
 
 export function renderMarkdown(body) {
   // A table sits in a box that scrolls sideways (backlog #44), so it keeps its natural width on the phone.

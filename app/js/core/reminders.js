@@ -1,8 +1,9 @@
 // Due-date reminders (backlog #1): one notification per due day, at one
-// time of day set on this device, for the open notes due that day.
+// time of day set on this device, for the open notes due that day (by their own due date or an open task's, #41).
 // Pure logic; the platforms (web timer, Android local notifications) live in
 // ui/reminders.js.
 import { noteTitle } from "./markdown.js";
+import { noteDueDays } from "./task-due.js";
 import { refOf } from "./note-ref.js";
 
 // `show`: what a reminder says (backlog #57, as Signal's notification content): "count" only how many notes
@@ -35,9 +36,12 @@ export function reminderText(notes, show = DEFAULT_REMINDERS.show) {
 export function reminderSchedule(notes, time, now = new Date(), show = DEFAULT_REMINDERS.show) {
   const byDay = new Map();
   for (const n of notes) {
-    if (n.status === "closed" || n.deleted || !n.due) continue;
-    if (!byDay.has(n.due)) byDay.set(n.due, []);
-    byDay.get(n.due).push(n);
+    if (n.status === "closed" || n.deleted) continue;
+    // The note's own due date and each open task's date (backlog #41) remind on their day.
+    for (const day of noteDueDays(n)) {
+      if (!byDay.has(day)) byDay.set(day, []);
+      byDay.get(day).push(n);
+    }
   }
   return [...byDay.entries()]
     .map(([day, list]) => ({ day, at: reminderAt(day, time), ids: list.map(refOf), ...reminderText(list, show) }))

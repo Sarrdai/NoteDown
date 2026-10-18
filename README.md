@@ -32,7 +32,9 @@ table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. Tasks can
 also be in progress (`[/]`) or cancelled (`[-]`), picked by a long-press
-on their box; a switch in the contents shows how many tasks of each
+on their box, and can carry their own due date (`📅 2026-10-24`, set
+from the toolbar or a tap on its chip), which sorts and reminds like the
+note's; a switch in the contents shows how many tasks of each
 section are done. A counter
 (`23,5 [-4 -1 +1 +8]`) shows its number; a tap on it pops up buttons that count up and down, e.g. for
 an hour tracker; counters of time (`3:45 [-0:15 +0:15]` or `23,5 h [-1 +1]`)

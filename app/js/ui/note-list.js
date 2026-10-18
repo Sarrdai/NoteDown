@@ -11,7 +11,9 @@ import { renderMarkdown, toggleTask, setTaskState, sections, noteTitle } from ".
 import { setRating } from "../core/rating.js";
 import { changeCounter } from "../core/counter.js";
 import { counterClick, fillWatches } from "./counter.js";
-import { holdForStates } from "./task-menu.js";
+import { holdForStates, boxState } from "./task-menu.js";
+import { openTaskDueMenu, fillTaskDue } from "./due-menu.js";
+import { taskDue, setTaskDue } from "../core/task-due.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
@@ -166,7 +168,9 @@ function noteElement(n, view = state.view) {
   wrapSections(body, sections(n.body));
   markHits(body);
   if (state.settings.tocProgress) addProgress(body, n.body);
-  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter, .rating .star").forEach(cb => (cb.disabled = true));
+  const readOnly = n.status === "closed" || n.news || n.deleted;
+  fillTaskDues(body, readOnly);
+  if (readOnly) body.querySelectorAll("input.task, .counter, .rating .star").forEach(cb => (cb.disabled = true));
   else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(refOf(n), setTaskState(note(refOf(n)).body, index, s))));
   body.addEventListener("click", e => onBodyClick(e, refOf(n)));
 
@@ -275,6 +279,17 @@ function metaHtml(n, view = state.view) {
   return parts.join("");
 }
 
+// Task due dates (backlog #41): each chip belongs to the task whose box opens its list item.
+const ownBox = chip => chip.closest("li")?.querySelector("input.task");
+const taskIndexOf = (chip, body) => [...body.querySelectorAll("input.task")].indexOf(ownBox(chip));
+function fillTaskDues(body, readOnly) {
+  for (const chip of body.querySelectorAll("button.task-due")) {
+    const box = ownBox(chip);
+    const state = box ? boxState(box) : "open";
+    fillTaskDue(chip, { plain: readOnly || state === "done" || state === "cancelled", readOnly });
+  }
+}
+
 function onBodyClick(e, id) {
   const n = note(id);
   if (!n || state.editingId === id) return;
@@ -294,6 +309,13 @@ function onBodyClick(e, id) {
     if (n.status === "closed" || n.deleted || star.closest(".app.selecting")) return;
     const index = [...e.currentTarget.querySelectorAll(".rating")].indexOf(star.closest(".rating"));
     setBody(id, setRating(n.body, index, Number(star.dataset.star)));
+    return;
+  }
+  const chip = e.target.closest("button.task-due");
+  if (chip) {
+    if (n.status === "closed" || n.deleted || chip.closest(".app.selecting")) return;
+    const index = taskIndexOf(chip, e.currentTarget);
+    if (index >= 0) openTaskDueMenu(chip, taskDue(n.body, index), due => setBody(id, setTaskDue(note(id).body, index, due)));
     return;
   }
   const cb = e.target.closest("input.task");

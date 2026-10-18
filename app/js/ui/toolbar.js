@@ -4,9 +4,10 @@
 // note's due chip opens (the toolbar has no due-date button since 2026-10-16).
 import { state, note, setDue } from "../store.js";
 import { currentEditor, endEdit, onEditingChange } from "./note-list.js";
-import { openMenu } from "./menu.js";
-import { today, addDays } from "./format.js";
+import { openDateMenu, openTaskDueMenu } from "./due-menu.js";
 import { icon } from "./icons.js";
+import { lineDue, setLineDue } from "../core/task-due.js";
+import { toggleTaskItem, listPrefix } from "../core/md-commands.js";
 import { openSettings } from "./settings.js";
 import { openLookPicker } from "./look-picker.js";
 
@@ -14,6 +15,7 @@ const BUTTONS = [
   ["heading", "Heading", "heading"],
   ["bullet", "Bullet list", "list"],
   ["task", "Checkbox", "checkbox"],
+  ["taskDue", "Task due date", "calendar"],   // backlog #41: the date of the task the caret is on
   ["outdent", "Outdent (Shift+Tab)", "outdent"],
   ["indent", "Indent (Tab)", "indent"],
   ["bold", "Bold (Ctrl+B)", "bold"],
@@ -68,12 +70,8 @@ export function initToolbar({ onDue }) {
     if (held) { held = false; return; }
     if (b.id === "toolbarDone") return endEdit();
     if (b.dataset.cmd === "look") return openLookPicker(b, [state.editingId]);
+    if (b.dataset.cmd === "taskDue") return caretTaskDue(b);
     currentEditor()?.run(b.dataset.cmd);
-  });
-
-  $("dueInput").addEventListener("change", e => {
-    if (dueTarget && e.target.value) { setDue(dueTarget, e.target.value); dueSet(dueTarget); }
-    refocus(dueTarget);
   });
 
   onEditingChange(id => {
@@ -99,31 +97,34 @@ export function initToolbar({ onDue }) {
   new ResizeObserver(reveal).observe(bar);
 }
 
-// The note whose date "Pick a date…" sets.
-let dueTarget = null;
 let dueSet = () => {};
 const refocus = id => { if (id && id === state.editingId) currentEditor()?.view.focus(); };
 
-/** The due-date menu of a note: from the toolbar and from the note's due chip. */
+/** The due-date menu of a note: from the note's due chip. */
 export function openDueMenu(anchor, id) {
   const n = note(id);
   if (!n) return;
-  const t = today();
-  const pick = due => { setDue(id, due); dueSet(id); refocus(id); };
-  openMenu(anchor, [
-    { section: "Due date" },
-    { label: "Today", checked: n.due === t, onSelect: () => pick(t) },
-    { label: "Tomorrow", checked: n.due === addDays(t, 1), onSelect: () => pick(addDays(t, 1)) },
-    { label: "In a week", checked: n.due === addDays(t, 7), onSelect: () => pick(addDays(t, 7)) },
-    { label: "Pick a date…", onSelect: () => {
-      dueTarget = id;
-      const input = $("dueInput");
-      input.value = n.due || t;
-      try { input.showPicker(); } catch { input.focus(); input.click(); }
-    } },
-    ...(n.due ? [{ separator: true }, { label: "Remove due date", onSelect: () => pick(null) }] : []),
+  openDateMenu(anchor, {
+    title: "Due date",
+    current: n.due || null,
+    pick: due => { setDue(id, due); dueSet(id); },
+    done: () => refocus(id),
     // Reminders are set in the settings; here is where they are looked for.
-    { separator: true },
-    { label: "Reminders…", icon: "bell", onSelect: () => openSettings("reminders") },
-  ]);
+    more: [{ separator: true }, { label: "Reminders…", icon: "bell", onSelect: () => openSettings("reminders") }],
+  });
+}
+
+// The toolbar's Task due date: sets the date of the task the caret is on; any other line becomes a task first.
+function caretTaskDue(anchor) {
+  const ed = currentEditor();
+  if (!ed) return;
+  const id = state.editingId;
+  const lineNo = ed.view.state.doc.lineAt(ed.view.state.selection.main.head).number;
+  openTaskDueMenu(anchor, lineDue(ed.view.state.doc.line(lineNo).text), due => {
+    if (currentEditor() !== ed) return;
+    const line = ed.view.state.doc.line(Math.min(lineNo, ed.view.state.doc.lines));
+    const task = listPrefix(line.text)?.task ? line.text : toggleTaskItem(line.text);
+    const text = setLineDue(task, due);
+    if (text !== line.text) ed.view.dispatch({ changes: { from: line.from, to: line.to, insert: text }, userEvent: "input" });
+  }, () => refocus(id));
 }
