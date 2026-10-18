@@ -79,6 +79,7 @@ Done by bank transfer, reference number in the banking app.
 | `copied` | with `copyof` | The original's `modified` when the copy last took its text (Private copy, Update copy); an original with another `modified` has changed since |
 | `color` | no | The note's background color: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple` or `pink` (`docs/requirements.md` → "Note colors and motifs"); an unknown value reads as none |
 | `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves`, `stars`, `birthday`, `christmas`, `gifts`, `travel`, `packing`, `camper` or `shopping`; an unknown value reads as none |
+| `keep` | no | A note imported from Google Keep: `<creation time in µs>~<file name, percent-encoded>` of the Keep note, so a later import recognises it (`docs/requirements.md` → "Import from Google Keep") |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of
