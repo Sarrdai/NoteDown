@@ -20,6 +20,7 @@ const BUTTONS = [
   ["italic", "Italic (Ctrl+I)", "italic"],
   ["highlight", "Highlight", "highlight"],
   ["link", "Link (Ctrl+K)", "link"],
+  ["noteLink", "Link to a note ([[)", "notelink"],
   ["media", "Image or video from the web", "image"],
   ["counter", "Counter (hold: time counter with stopwatch)", "counter"],
   ["rating", "Star rating", "star"],

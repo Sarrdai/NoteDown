@@ -86,6 +86,12 @@ export const COMMANDS = {
   italic: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "*")),
   highlight: v => selectionEdit(v, (t, f, to) => toggleWrap(t, f, to, "==")),
   link: v => selectionEdit(v, insertLink),
+  // Link to a note: types the `[[` that opens the picker (ui/note-links.js).
+  noteLink: v => {
+    const { from, to } = v.state.selection.main;
+    v.dispatch({ changes: { from, to, insert: "[[" }, selection: { anchor: from + 2 }, scrollIntoView: true, userEvent: "input" });
+    return true;
+  },
   rating: v => {
     const { from, to } = v.state.selection.main;
     const ins = newRating(v.state.doc.sliceString(Math.max(0, from - 1), from));
@@ -142,13 +148,15 @@ function revealCaret(view) {
   });
 }
 
-/** `media`: the circle's media setting for embedded images and videos (ui/external.js). */
-export function createEditor({ parent, doc, onChange, onEscape, media = "click" }) {
+/** `media`: the circle's media setting for embedded images and videos (ui/external.js); `extensions`: more
+ *  CodeMirror extensions (the [[ picker, ui/note-links.js). */
+export function createEditor({ parent, doc, onChange, onEscape, media = "click", extensions = [] }) {
   const view = new EditorView({
     parent,
     state: EditorState.create({
       doc,
       extensions: [
+        ...extensions,
         markdown,
         history(),
         drawSelection(),

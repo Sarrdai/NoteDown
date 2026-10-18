@@ -137,6 +137,7 @@ is deleted from code, menu and this table.
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
+| `compare` | `unified` (A) · `split` (B) | Open decision (backlog #45): comparing a private copy with its original in one column, or side by side from the tablet up |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |

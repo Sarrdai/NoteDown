@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
-import { state, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile } from "./core/notes-file.js";
@@ -38,6 +38,7 @@ import { isNativeApp, privacyPlugin } from "./platform.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
+import { initCompare } from "./ui/compare.js";
 import { openSettings, FLAVORS } from "./ui/settings.js";
 import { setAppInfo } from "./app-info.js";
 import { exportFileName } from "./core/export.js";
@@ -479,6 +480,9 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    // Open decision (backlog #45): how the comparison of a private copy with its original is laid out.
+    { section: "Prototype: compare copy" },
+    ...[["unified", "One column (A)"], ["split", "Side by side (B)"]].map(([v, label]) => ({ label, checked: s.compareLayout === v, onSelect: () => updateSettings({ compareLayout: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -552,6 +556,24 @@ function showDue(ids) {
   ids.forEach(flashNote);
 }
 
+// A note link (ui/note-links.js) or "Go to original" shows its note: in the view it belongs to, and with search
+// and filters cleared when they hide it, scrolled into view.
+function showNote(id) {
+  const n = note(id);
+  if (!n) return;
+  endSelection();
+  const view = n.status === "closed" ? "closed" : "open";
+  if (state.view !== view) setView(view);
+  const find = () => document.querySelector(`#list .note[data-id="${id}"]`);
+  if (!find()) {
+    setPicking(null);
+    setUi({ search: "", circles: [], labels: [] });
+    app.classList.remove("searching");
+  }
+  find()?.scrollIntoView({ block: "center" });
+  flashNote(id);
+}
+
 function wire() {
   for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
@@ -603,6 +625,8 @@ function wire() {
   initMenu();
   initConfirm();
   initExternal();
+  initCompare();
+  document.addEventListener("notedown:show-note", e => showNote(e.detail.id));
   initArrange();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
@@ -648,6 +672,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (["unified", "split"].includes(p.get("compare"))) patch.compareLayout = p.get("compare");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

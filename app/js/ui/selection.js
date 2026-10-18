@@ -16,7 +16,7 @@ import {
   rangeIds, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectSections, selectedParts, partText, partPreview,
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings, movingParts, targetSections, mergeInto,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge, applyMergeInto, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, applyMergeInto, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
 import { noteTitle } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
@@ -278,6 +278,8 @@ function update() {
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
+    // A private copy of shared notes, linked back to the original (backlog #45).
+    !archive && { id: "privatecopy", label: "Private copy", run: privateCopies, disabled: !whole || !ids.every(id => circleOf(id).length), menu: true },
     !archive && { id: permanent ? "permanent" : "closable", label: permanent ? "Make permanent" : "Make closable", run: () => setPermanent(permanent), disabled: !whole, menu: true },
     { id: "trash", label: "Delete", run: remove, disabled: !whole },
     !archive && { id: "outdent", label: "Promote headings", run: () => shift(-1), disabled: !canShift(-1), menu: true },
@@ -334,6 +336,14 @@ function share() {
   const ids = noteIds();
   endSelection();
   afterLeave(() => openShareDialog(ids));
+}
+
+// Private copies of the selected shared notes, on top of the private notes; each links back to its original.
+function privateCopies() {
+  const ids = noteIds();
+  endSelection();
+  const { notes, undo } = makePrivateCopies(ids);
+  if (notes.length) opts.onMerged(notes[0], undo, notes.length === 1 ? "Private copy made" : `${notes.length} private copies made`);
 }
 
 function setPermanent(on) {
