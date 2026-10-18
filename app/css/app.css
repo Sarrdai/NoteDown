@@ -199,7 +199,8 @@ button { font: inherit; color: inherit; }
   content: ""; position: absolute; top: 8px; left: 26px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--danger); box-shadow: 0 0 0 2px var(--bg);
 }
-#dueBtn .count { position: relative; margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; box-shadow: 0 0 0 2px var(--bg); }
+/* Placed on the button, not in its flow, so the icon stays centered in the ring. */
+#dueBtn .count { position: absolute; top: 2px; left: 50%; margin-left: 3px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; box-sizing: border-box; box-shadow: 0 0 0 2px var(--bg); }
 #dueBtn .count:not(.has) { display: none; }
 #dueBtn .count.has { background: var(--accent); }
 #dueBtn .count.has.overdue { background: var(--danger); }
