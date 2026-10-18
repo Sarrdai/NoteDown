@@ -690,7 +690,7 @@ paid features per user.
   time of day for all notes (default 09:00), one notification lists the
   open notes due that day — by their own due date or an open task's date
   ("Due date per task") — ("2 notes due today" and their titles); tapping
-  it shows the main list, unfiltered, with those notes highlighted. Closed
+  it opens the **Due view** (below). Closed
   notes and notes without a due date never remind; no per-note times.
   Off until turned on under **Settings → Reminders** (a switch and the
   time), which is when the platform asks for notification permission;
@@ -703,6 +703,26 @@ paid features per user.
   2026-10-16.* Why in the settings: it is set once, a top-bar bell
   took room for it all the time; offered only in the due-date menu it
   would read as per note, so the menu only links there.
+- **Due view** (backlog #65, decided 2026-10-18): one place that lists
+  everything due, item by item — every open note with its own due date
+  and every open or in-progress task with a date ("Due date per task"),
+  each as its own row; closed and deleted notes don't show, permanent
+  ones do. Groups **Overdue**, **Today**, **Next 7 days** and **Later**
+  (collapsed until tapped), each with its count; within a group by date.
+  A note row has the note's round close button, its title and the date; a
+  task row the task's checkbox, its text, "in" its note's title and the
+  date (no date in Today; red when overdue). Ticking a task or closing a
+  note works right there; the row stays in place, shown done, and can be
+  undone until the view is left — rows never jump away under the finger.
+  A tap on the rest of a row shows the note in the list. Empty: "Nothing
+  is due." Opened from a **calendar icon in the top bar** whose corner
+  shows how many items are overdue or due today (red when any is
+  overdue), in every view, and by a tapped reminder. It is a panel like
+  the settings: a full-screen sheet on the phone, a centered dialog on
+  tablet and desktop. Why: notes and their tasks carry dates, but the
+  list shows notes — only an item-by-item list answers "what is due
+  now"; a section above the list and a "due until today" filter were
+  tried as mockups and not chosen. *Prototype: 2026-10-18.*
 
 ### Sorting and search
 
@@ -1049,11 +1069,12 @@ Decided 2026-10-16 (user request).
   only were tried and not chosen.
 - **Task dates count for the note**: an open or in-progress task's date
   sorts the note by due date (the earliest of the note's own date and its
-  tasks' dates) and reminds on its day like a note's due date. The note's
-  chip keeps showing only the note's own date. Why: a dated task that
-  neither sorts nor reminds would be decoration. How note and task dates
-  relate (and whether a note's date becomes a reminder instead of a due
-  date) is still open: backlog #65.
+  tasks' dates), reminds on its day like a note's due date and shows in
+  the Due view. The note's chip keeps showing only the note's own date,
+  which stays a due date (backlog #65, decided 2026-10-18). Why: a dated
+  task that neither sorts nor reminds would be decoration; every note is
+  a to-do, so its date is a due date like a task's, and the Due view —
+  not the chip — shows which task is due.
 
 ### Counters
 
