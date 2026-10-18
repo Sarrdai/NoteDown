@@ -437,6 +437,18 @@ members are a subset or a superset of the old ones; otherwise the edit
 becomes a private copy. Likewise a trashed note leaves the trash only
 when it is back in the very file it came from (`kept`).
 
+**The same note id in two files** (backlog #63): a member can write a note
+with the id of a note in another of the user's files. Both stay and show;
+the app addresses a note by file and id (the first file — private, then the
+shared ones by circle — keeps the plain id, the others get `id@circle` as
+address), so each opens, edits, closes, shares and is deleted on its own.
+Nothing is renamed on arrival: a legitimate move shows its id in both
+files for a moment (the new file is uploaded before the old one's moved
+marker), so a rename on sight would be wrong. The address exists only in
+the app; files and the server never see it. A private copy's link to its
+original (`copyof`) and `[[note links]]` name the id only and find the
+first file's note.
+
 The merged file keeps the remote order and appends notes only the local
 side has, so a merge that adds nothing equals the remote file and two
 devices don't keep re-uploading the same notes in each other's order.

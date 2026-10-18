@@ -3,6 +3,7 @@
 // Pure logic; the platforms (web timer, Android local notifications) live in
 // ui/reminders.js.
 import { noteTitle } from "./markdown.js";
+import { refOf } from "./note-ref.js";
 
 // `show`: what a reminder says (backlog #57, as Signal's notification content): "count" only how many notes
 // are due — the default, since a notification shows on the lock screen and Android keeps a scheduled one's text
@@ -39,7 +40,7 @@ export function reminderSchedule(notes, time, now = new Date(), show = DEFAULT_R
     byDay.get(n.due).push(n);
   }
   return [...byDay.entries()]
-    .map(([day, list]) => ({ day, at: reminderAt(day, time), ids: list.map(n => n.id), ...reminderText(list, show) }))
+    .map(([day, list]) => ({ day, at: reminderAt(day, time), ids: list.map(refOf), ...reminderText(list, show) }))
     .filter(r => r.at > now)
     .sort((a, b) => a.at - b.at);
 }

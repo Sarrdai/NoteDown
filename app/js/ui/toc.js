@@ -15,6 +15,7 @@ import { flashNote, unsortedDivider, sectionHeader } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { markHits } from "./search-hits.js";
+import { refOf } from "../core/note-ref.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -47,19 +48,19 @@ export function renderToc(notes) {
 export function tocItems(notes, search = state.search, view = state.view) {
   const { entries, maxLevel } = tableOfContents(notes);
   const depth = Math.min(state.settings.tocDepth, maxLevel);
-  const progress = state.settings.tocProgress && new Map(notes.map(n => [n.id, sectionProgress(n.body)]));
+  const progress = state.settings.tocProgress && new Map(notes.map(n => [refOf(n), sectionProgress(n.body)]));
   if (!entries.length) return [Object.assign(document.createElement("p"), { className: "toc-empty", textContent: search ? "No matches" : "No notes" })];
   const shown = [];
   // The notes from the first one not sorted yet on (they come last in a custom order).
   const first = custom.dividerOf(view, notes);
-  const from = first ? notes.findIndex(n => n.id === first) : -1;
-  const unsorted = new Set(from < 0 ? [] : notes.slice(from).map(n => n.id));
+  const from = first ? notes.findIndex(n => refOf(n) === first) : -1;
+  const unsorted = new Set(from < 0 ? [] : notes.slice(from).map(refOf));
   let divided = !unsorted.size;
   const onArrange = view === state.view && custom.onArrange
     ? () => { if (phone.matches) setTocOpen(false); custom.onArrange(); } : null;
   // A custom order's sections head their notes' entries; a folded one hides them.
   const sectionOf = custom.sectionsOf(view, notes);
-  const byId = new Map(notes.map(n => [n.id, n]));
+  const byId = new Map(notes.map(n => [refOf(n), n]));
   let lastNote = null, current = null, folded = false;
   entries.forEach((e, i) => {
     if (e.noteId !== lastNote) {

@@ -254,7 +254,9 @@ before the first live test).
   #47; rules: `docs/sync-and-sharing.md` → "Merging"). A concurrent edit
   of a note another member moved follows it only into the file the move
   names, so a member can't catch it with a note of the same id (backlog
-  #32). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
+  #32). A note with the id of one in another shared file stays a note of
+  its own: notes are addressed by file and id, so both open, edit and
+  share independently (backlog #63). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
   used by real sync.*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
