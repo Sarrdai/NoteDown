@@ -33,6 +33,8 @@ import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
 import { initReminders } from "./ui/reminders.js";
+import { openDue } from "./ui/due.js";
+import { dueItems, dueNowCount } from "./core/due-list.js";
 import { initAppLock } from "./ui/app-lock.js";
 import { isNativeApp, privacyPlugin } from "./platform.js";
 import { initExport, openExport } from "./ui/export.js";
@@ -111,6 +113,19 @@ function renderSyncStatus() {
   btn.title = "Sync & sharing · " + statusText();
 }
 
+// The Due button's badge: the items overdue or due today (red when one is overdue).
+function renderDueCount() {
+  const items = dueItems(allNotes(), today());
+  const now = dueNowCount(items, today());
+  const badge = $("dueCount");
+  badge.textContent = now;
+  badge.classList.toggle("has", now > 0);
+  badge.classList.toggle("overdue", items.some(it => it.day < today()));
+  const label = now ? `Due · ${now} now` : "Due";
+  $("dueBtn").setAttribute("aria-label", label);
+  $("dueBtn").title = label;
+}
+
 function render() {
   const s = state.settings;
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
@@ -127,6 +142,7 @@ function render() {
   const count = closedOn(allNotes(), today());
   $("archiveCount").textContent = count;
   $("archiveCount").classList.toggle("has", count > 0);
+  renderDueCount();
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? `Archive, ${count} closed today` : "Notes");
   $("viewBtn").title = state.view === "open" ? `Archive · ${count} closed today` : "Notes";
   $("viewHint").hidden = state.view !== "trash";
@@ -458,9 +474,11 @@ async function loadWelcome() {
   replaceFiles({ file });
 }
 
-// The top bar's actions, left to right; what doesn't fit moves under ⋮,
-// from the right end (Export first). The sort label goes before any button.
+// The top bar's actions, left to right; what doesn't fit moves under ⋮ in
+// FOLD_ORDER — Export first, the view button last, so the switch between the
+// views stays in reach, with Due just before it. The sort label goes before any button.
 const ACTIONS = [
+  { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
   { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
   { id: "viewBtn", menu: () => state.view === "open"
     ? { label: `Archive (${closedOn(allNotes(), today())} today)`, icon: "archive", onSelect: () => setView("closed") }
@@ -468,6 +486,7 @@ const ACTIONS = [
   { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
 ];
+const FOLD_ORDER = ["exportBtn", "syncBtn", "sortBtn", "dueBtn", "viewBtn"];
 const wide = window.matchMedia("(min-width: 1024px)");
 
 function fitTopbar() {
@@ -486,8 +505,8 @@ function fitTopbar() {
   const text = title.textContent;
   title.textContent = "Archive";
   if (tight()) label.hidden = true;
-  for (let i = ACTIONS.length - 1; i >= 0 && tight(); i--) {
-    const btn = $(ACTIONS[i].id);
+  for (let i = 0; i < FOLD_ORDER.length && tight(); i++) {
+    const btn = $(FOLD_ORDER[i]);
     if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
   }
   title.textContent = text;
@@ -564,18 +583,6 @@ function exportDialog() {
   });
 }
 
-// A tapped reminder shows its notes: the open notes, unfiltered, the first one scrolled into view.
-function showDue(ids) {
-  endSelection();
-  if (state.view !== "open") setView("open");
-  setPicking(null);
-  setUi({ search: "", circles: [], labels: [] });
-  app.classList.remove("searching");
-  const first = document.querySelector(`.note[data-id="${ids[0]}"]`);
-  first?.scrollIntoView({ block: "center" });
-  ids.forEach(flashNote);
-}
-
 // A note link (ui/note-links.js) or "Go to original" shows its note: in the view it belongs to, and with search
 // and filters cleared when they hide it, scrolled into view.
 function showNote(id) {
@@ -597,6 +604,8 @@ function showNote(id) {
 function wire() {
   for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
+  $("dueBtn").querySelector(".btn-icon").innerHTML = icon("calendar");
+  $("dueBtn").addEventListener("click", openDue);
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
   $("viewBtn").querySelector(".to-notes .btn-icon").innerHTML = icon("notes");
   $("searchIcon").innerHTML = icon("search");
@@ -733,8 +742,8 @@ async function start() {
   initSync(readApi() || config.api, webAddress(config.web));
   render();
   initInviteLinks(openInvite);
-  // After the notes are loaded: a reminder tapped while the app was closed opens its notes.
-  initReminders({ open: showDue });
+  // After the notes are loaded: a reminder tapped while the app was closed opens the Due page.
+  initReminders({ open: openDue });
   initExport();
   initStorageHint({ onSync: openSyncPanel, onExport: exportDialog });
   initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel });

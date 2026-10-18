@@ -122,7 +122,7 @@ registerPage("settingsReminders", {
   },
 });
 
-/** `open(ids)` shows the notes a tapped reminder lists. */
+/** `open(ids)` is called when a reminder is tapped (it opens the Due page). */
 export function initReminders({ open }) {
   onOpen = open;
   Native?.addListener("localNotificationActionPerformed", e => onOpen(e.notification.extra?.ids || []));

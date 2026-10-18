@@ -411,7 +411,7 @@ document.addEventListener("click", e => {
   if (other && other.isConnected) window.scrollBy(0, other.getBoundingClientRect().top - top);
 }, true);
 
-function toggleStatus(id) {
+export function toggleStatus(id) {
   const n = note(id);
   if (!n) return;
   if (state.editingId === id) endEdit();

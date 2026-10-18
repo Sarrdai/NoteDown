@@ -27,8 +27,9 @@ Current state, edited in place when a decision changes.
 
 - **Top bar actions** are icons with a tooltip; sort shows its label
   when there is room. Whatever doesn't fit goes under ⋮, with its icon,
-  from the right end: Export first, then Sync & sharing, archive, sort,
-  Due last (the label goes before any button). Both views keep the same buttons,
+  Export first, then Sync & sharing, sort, Due, and the archive button
+  last, so the switch between the views stays in reach (the label goes
+  before any button). Both views keep the same buttons,
   so the view button keeps its place. ⋮ holds what didn't fit, the
   trash, **Settings…** and the prototype's tools. Settings (theme,
   reminders, links & media) never get a top-bar icon of their own.
