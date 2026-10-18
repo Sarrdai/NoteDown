@@ -288,3 +288,15 @@ test("rehomeNote: the note drops left, the old file keeps a moved marker", () =>
   assert.equal("left" in to.notes[0], false);
   assert.equal(to.notes[0].body, s01.body);
 });
+
+test("merged source (backlog #35): the other member sees a move, no trash entry; a concurrent edit lands as a displaced edit", () => {
+  const merged = { ...s03, id: "m1" };
+  const base = file(s01, s03);
+  const remote = { ...file(merged), moved: [{ id: "s01", moved: "2026-10-13T10:00", to: ["bob", "me"] }, { id: "s03", moved: "2026-10-13T10:00", to: ["bob", "me"] }] };
+  const local = file(edit(s01, 1, "2026-10-13T09:00"), s03);
+  const out = mergeNotesFiles(base, local, remote);
+  assert.deepEqual(out.file.notes.map(n => n.id), ["m1"]);
+  assert.deepEqual(out.file.moved.map(m => m.id).sort(), ["s01", "s03"]);
+  assert.deepEqual(deletedFromShared(local, out.file, "bob", "2026-10-13T11:00"), [], "no trash entry for a moved source");
+  assert.deepEqual(out.displaced.map(d => [d.note.id, d.to]), [["s01", ["bob", "me"]]]);
+});

@@ -3,7 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
-import { state, replaceFiles, shareNotes, applyMerge, applyMergeInto, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses } from "../app/js/store.js";
+import { refOf } from "../app/js/core/note-ref.js";
+import { state, replaceFiles, shareNotes, applyMerge, applyMergeInto, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses, setBody } from "../app/js/store.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [n1, n2, n3] = sample.notes;
@@ -148,4 +149,103 @@ test("merge into a shared note: a private source gives its part up", () => {
   assert.equal(note(n1.id).body, "merged");
   undo();
   assert.equal(note(n3.id).id, n3.id);
+});
+
+// ---------- the same note id in two shared files (backlog #63) ----------
+
+const twin = () => replaceFiles({
+  file: { preamble: "", notes: [{ ...n3 }], moved: [] },
+  shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }], moved: [] } },
+    { members: ["lea"], file: { preamble: "", notes: [{ ...n2, id: n1.id, body: "Lea's note" }], moved: [] } }],
+  sync: { enabled: true },
+});
+
+test("two shared files with a note of the same id: both open, edit, close and share on their own", () => {
+  twin();
+  const [a, b] = ["bob", "lea"].map(k => circleNotes(k)[0]);
+  assert.equal(allNotes().length, 3, "both show in the list");
+  const refs = allNotes().map(n => refOf(n));
+  assert.equal(new Set(refs).size, 3, "each has its own address");
+  assert.equal(refOf(a), n1.id, "the first file keeps the plain id");
+  assert.equal(refOf(b), `${n1.id}@lea`);
+  assert.equal(note(refOf(b)).body, "Lea's note");
+  assert.equal(note(refOf(a)).body, n1.body);
+  assert.deepEqual(circleOf(refOf(a)), ["bob"]);
+  assert.deepEqual(circleOf(refOf(b)), ["lea"]);
+  setBody(refOf(b), "edited");
+  assert.equal(a.body, n1.body, "the other note is untouched");
+  assert.equal(b.body, "edited");
+  setStatuses([refOf(b)], "closed");
+  assert.equal(a.status, n1.status);
+  assert.equal(b.status, "closed");
+  shareNotes([refOf(b)], ["bob", "lea"]);
+  assert.deepEqual(circleOf(refOf(b)), ["bob", "lea"], "shared on, the other stays in its file");
+  assert.deepEqual(circleOf(refOf(a)), ["bob"]);
+});
+
+test("the address is neither written to a file nor copied along", () => {
+  twin();
+  assert.doesNotMatch(texts().lea, /@lea/);
+  assert.equal(parseNotesFile(texts().lea).notes[0].id, n1.id);
+  assert.equal(Object.keys(circleNotes("lea")[0]).includes("ref"), false);
+});
+
+test("deleting one of two notes with the same id leaves the other and restores to its own circle", () => {
+  twin();
+  const b = circleNotes("lea")[0];
+  const undo = removeNotes([refOf(b)]);
+  assert.deepEqual(circleNotes("bob").map(n => n.body), [n1.body], "the other file keeps its note");
+  assert.equal(circleNotes("lea").filter(n => !n.deleted).length, 0);
+  assert.deepEqual(trashNotes().filter(n => n.kept).map(n => n.kept), ["lea"]);
+  restoreNotes(trashNotes().filter(n => n.kept).map(refOf));
+  assert.deepEqual(circleNotes("lea").map(n => n.body), ["Lea's note"]);
+  assert.deepEqual(circleNotes("bob").map(n => n.body), [n1.body]);
+  undo();
+});
+
+test("merge and leave address the right one of two notes with the same id", () => {
+  twin();
+  replaceFiles({ file: state.file, shared: state.shared, sync: { enabled: true, identity: "me" } });
+  const b = circleNotes("lea")[0];
+  leaveNotes([refOf(b)]);
+  assert.equal(circleNotes("bob").length, 1, "the bob note still shows");
+  assert.equal(allNotes().some(n => n.body === "Lea's note"), false, "the lea note is left");
+});
+
+// ---------- merged sources leave moved markers (backlog #35) ----------
+
+const bobPair = () => replaceFiles({
+  file: { preamble: "", notes: [{ ...n3 }], moved: [] },
+  shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }, { ...n2, id: "s-two" }], moved: [] } },
+    { members: ["lea"], file: { preamble: "", notes: [{ ...n2 }], moved: [] } }],
+  sync: { enabled: true, identity: "me" },
+});
+const bobFile = () => sharedFiles().find(s => s.key === "bob").file;
+
+test("merging notes of a shared file leaves a moved marker per source, not a plain delete, and Undo takes them back", () => {
+  bobPair();
+  const { note: merged, undo } = applyMerge([{ id: n1.id, body: null }, { id: "s-two", body: null }], { body: "merged", created: n1.created, due: null });
+  assert.deepEqual(bobFile().notes.map(n => n.id), [merged.id]);
+  assert.deepEqual(bobFile().moved.map(m => m.id).sort(), [n1.id, "s-two"].sort());
+  assert.deepEqual(bobFile().moved[0].to, ["bob", "me"], "the marker names the file the merged note is in");
+  assert.match(texts().bob, new RegExp(`<!-- note id=${n1.id} moved=\\S+ to=bob\\+me -->`));
+  undo();
+  assert.deepEqual(bobFile().notes.map(n => n.id).sort(), [n1.id, "s-two"].sort());
+  assert.deepEqual(bobFile().moved, []);
+});
+
+test("merging across circles with Share with ... marks the sources in both files; a private source needs none", () => {
+  bobPair();
+  applyMerge([{ id: n1.id, body: null }, { id: n2.id, body: null }, { id: n3.id, body: null }], { body: "merged", created: n1.created, due: null }, "share");
+  assert.deepEqual(sharedFiles().map(s => [s.key, s.file.moved.map(m => m.id)]).filter(([k]) => k !== "bob+lea"), [["bob", [n1.id]], ["lea", [n2.id]]]);
+  assert.deepEqual(state.file.moved, [], "the private file leaves none");
+});
+
+test("merging into a shared note marks the sources that gave up their part; a source that keeps it gets none", () => {
+  bobPair();
+  const undo = applyMergeInto(n1.id, "merged", [{ id: "s-two", body: null }, { id: n2.id, body: null }]);
+  assert.deepEqual(bobFile().moved.map(m => m.id), ["s-two"]);
+  assert.deepEqual(sharedFiles().find(s => s.key === "lea").file.moved, [], "the lea source keeps its part");
+  undo();
+  assert.deepEqual(bobFile().moved, []);
 });

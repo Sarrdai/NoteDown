@@ -14,7 +14,6 @@ import { ratingStart, ratingAt, ratings, ratingHtml, setRating } from "../core/r
 import { holdForStates } from "./task-menu.js";
 import { DUE_AT_END, lineDue, setLineDue } from "../core/task-due.js";
 import { openTaskDueMenu, fillTaskDue } from "./due-menu.js";
-import { state as appState } from "../store.js";
 
 /** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
 export const mediaMode = StateField.define({ create: () => "click", update: v => v });
@@ -56,9 +55,7 @@ class CheckboxWidget extends WidgetType {
       e.preventDefault();
       set(this.state === "open" || this.state === "doing" ? "done" : "open");
     });
-    holdForStates(box, set, () => appState.settings.taskDueSet !== "menu" ? [] : [{ separator: true }, {
-      label: "Due date…", icon: "calendar", onSelect: () => openTaskDueMenu(box, lineDue(view.state.doc.lineAt(this.pos).text), due => setDueAt(view, this.pos, due)),
-    }]);
+    holdForStates(box, set);
     wrap.append(box);
     return wrap;
   }

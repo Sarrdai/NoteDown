@@ -49,6 +49,11 @@ Done by bank transfer, reference number in the banking app.
 - Task states are plain Markdown too: `[ ]` open, `[x]` done, `[/]` in
   progress, `[-]` cancelled (as Obsidian themes write them;
   `docs/requirements.md` → "Task states and progress").
+- A task's due date is plain text at the end of its line in the Obsidian
+  Tasks syntax: `- [ ] Winter tyres 📅 2026-10-24` (a calendar day,
+  `YYYY-MM-DD`, like the note's `due`; `docs/requirements.md` → "Due date
+  per task"). Only the date at the end of a task's first line counts;
+  other renderers show it as text.
 - Counters (`23,5 [-4 -1 +1 +8]`, `docs/requirements.md` → "Counters")
   are plain text in the body too: the app changes only the number, and a
   stopwatch's start time in the brackets.
@@ -79,6 +84,7 @@ Done by bank transfer, reference number in the banking app.
 | `copied` | with `copyof` | The original's `modified` when the copy last took its text (Private copy, Update copy); an original with another `modified` has changed since |
 | `color` | no | The note's background color: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple` or `pink` (`docs/requirements.md` → "Note colors and motifs"); an unknown value reads as none |
 | `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves`, `stars`, `birthday`, `christmas`, `gifts`, `travel`, `packing`, `camper` or `shopping`; an unknown value reads as none |
+| `keep` | no | A note imported from Google Keep: `<creation time in µs>~<file name, percent-encoded>` of the Keep note, so a later import recognises it (`docs/requirements.md` → "Import from Google Keep") |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of

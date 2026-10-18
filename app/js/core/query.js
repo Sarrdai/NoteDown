@@ -2,6 +2,8 @@
 // over them. Pure functions on the note objects from notes-file.js.
 import { sections, noteTitle } from "./markdown.js";
 import { localTime } from "./notes-file.js";
+import { refOf } from "./note-ref.js";
+import { noteDue } from "./task-due.js";
 
 // `views`: the views a key is offered in (absent = all).
 export const SORT_KEYS = {
@@ -70,8 +72,8 @@ export function matchRanges(text, search) {
 export function customSplit(notes, ids) {
   const pos = new Map(ids.map((id, i) => [id, i]));
   return {
-    sorted: notes.filter(n => pos.has(n.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id)),
-    unsorted: sortNotes(notes.filter(n => !pos.has(n.id)), { key: "modified", dir: "desc" }),
+    sorted: notes.filter(n => pos.has(refOf(n))).sort((a, b) => pos.get(refOf(a)) - pos.get(refOf(b))),
+    unsorted: sortNotes(notes.filter(n => !pos.has(refOf(n))), { key: "modified", dir: "desc" }),
   };
 }
 
@@ -98,7 +100,7 @@ export function orderSections(ids) {
 /** The arrange dialog's rows above the line: every section entry of `ids`
  *  ({ section: id }) and the `notes` listed in `ids`, in the order's order. */
 export function arrangeRows(notes, ids) {
-  const byId = new Map(notes.map(n => [n.id, n]));
+  const byId = new Map(notes.map(n => [refOf(n), n]));
   return ids.flatMap(id => isSectionId(id) ? [{ section: id }] : byId.has(id) ? [byId.get(id)] : []);
 }
 
@@ -125,7 +127,9 @@ export function rearrange(order, shown, arranged) {
 export function sortNotes(notes, { key, dir }) {
   const sign = dir === "asc" ? 1 : -1;
   const field = SORT_KEYS[key] && SORT_KEYS[key].field;
-  const keyed = notes.map(n => ({ n, k: field ? n[field] || null : noteTitle(n.body).text.toLowerCase() }));
+  // By due date a note's open tasks count too (backlog #41).
+  const value = n => key === "due" ? noteDue(n) : field ? n[field] || null : noteTitle(n.body).text.toLowerCase();
+  const keyed = notes.map(n => ({ n, k: value(n) }));
   keyed.sort((a, b) => {
     // Notes without the value (e.g. no due date) go last in either direction.
     if (a.k === null || b.k === null) return a.k === b.k ? 0 : a.k === null ? 1 : -1;
@@ -155,7 +159,7 @@ export function tableOfContents(notes) {
   for (const { n, ss } of perNote) {
     ss.forEach((s, index) => {
       const level = s.depth ? (last = s.depth - top + 1) : last + 1;
-      entries.push({ key: sectionKey(n.id, index), noteId: n.id, index, level, text: s.text, fromHeading: !!s.depth });
+      entries.push({ key: sectionKey(refOf(n), index), noteId: refOf(n), index, level, text: s.text, fromHeading: !!s.depth });
     });
   }
   const maxLevel = entries.reduce((m, e) => Math.max(m, e.level), 1);

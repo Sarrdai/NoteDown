@@ -1,11 +1,14 @@
-// The Google Keep import (`<web app>/import/`, no link from the app;
-// docs/requirements.md → "Import from Google Keep"): reads a Google Takeout
-// ZIP in the browser, shows every note as it will look in NoteDown, all
-// selected except those without text; a tap on a card deselects it, and
+// The import page (`<web app>/import/`; docs/requirements.md → "Import from
+// Google Keep" and "Import of exported files"): reads a Google Takeout ZIP or
+// a NoteDown export (.md or ZIP) in the browser, shows every note as it will
+// look in NoteDown, all selected except those without text and those already
+// here ("Already imported"); a tap on a card toggles it, and
 // "Import n notes" asks once more before the notes go into the private file
 // of this browser's NoteDown (an open app tab follows, sync uploads them).
-// `?sample` previews app/sample/keep.json instead of a file.
+// `?sample` previews app/sample/keep.json instead of a file, `?sample=export` app/sample/notes.md as a NoteDown export.
 import { readKeepZip, keepNotes, toNoteDown, droppedText } from "../js/core/keep-import.js";
+import { readExport, markExisting, exportToNoteDown } from "../js/core/export-import.js";
+import { zipEntries } from "../js/core/zip.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { fillMedia } from "../js/ui/external.js";
 import { state, load, importNotes, flushStored } from "../js/store.js";
@@ -18,8 +21,11 @@ const FLAVORS = ["latte", "frappe", "macchiato", "mocha"];
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-let items = [];          // [{ note (core/keep-import.js → keepNote), on }]
+let items = [];          // [{ note (core/keep-import.js → keepNote, or core/export-import.js → exportNotes), on }]
 let trashed = 0;
+let source = "keep";    // "keep" or "export"
+
+const existingNotes = () => [state.file, ...state.shared.map(s => s.file)].flatMap(f => f.notes);
 
 function applyTheme() {
   const wanted = state.settings.flavor;
@@ -37,17 +43,30 @@ function show(step) {
 async function readFile(file) {
   $("pickError").hidden = true;
   try {
-    const result = await readKeepZip(new Uint8Array(await file.arrayBuffer()));
-    if (!result.notes.length) throw new Error("No Keep notes in this file. Export Keep alone from Google Takeout and choose that ZIP.");
-    preview(result);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const zip = /\.zip$/i.test(file.name);
+    // A ZIP with .json files is a Takeout; a ZIP of .md files or a single .md/.txt is a NoteDown export.
+    const isExport = !zip || (() => { const names = zipEntries(bytes).map(e => e.name); return !names.some(n => /\.json$/i.test(n)) && names.some(n => /\.md$/i.test(n)); })();
+    if (isExport) {
+      if (!zip && !/\.(md|markdown|txt)$/i.test(file.name)) throw new Error("This is neither a Takeout ZIP nor a NoteDown export (.md or .zip).");
+      const result = await readExport(file.name, bytes);
+      if (!result.notes.length) throw new Error("No notes in this file.");
+      preview(result, "export");
+    } else {
+      const result = await readKeepZip(bytes);
+      if (!result.notes.length) throw new Error("No Keep notes in this file. Export Keep alone from Google Takeout and choose that ZIP.");
+      preview(result, "keep");
+    }
   } catch (err) {
     $("pickError").textContent = /not a zip|broken zip/.test(err.message) ? "This is not a ZIP file from Google Takeout." : err.message;
     $("pickError").hidden = false;
   }
 }
 
-function preview(result) {
-  items = result.notes.map(note => ({ note, on: note.hasText }));
+function preview(result, kind) {
+  source = kind;
+  markExisting(result.notes, existingNotes());
+  items = result.notes.map(note => ({ note, on: note.hasText && !note.exists }));
   trashed = result.trashed;
   $("list").replaceChildren(...items.map(card));
   show("previewStep");
@@ -59,7 +78,7 @@ function preview(result) {
 function card(item, i) {
   const n = item.note;
   const el = document.createElement("article");
-  el.className = "note imp-card" + (n.status === "closed" ? " archived" : "") + (n.hasText ? "" : " no-text");
+  el.className = "note imp-card" + (n.status === "closed" ? " archived" : "") + (n.hasText ? "" : " no-text") + (n.exists ? " exists" : "");
   el.dataset.i = i;
   const body = document.createElement("div");
   body.className = "note-body md";
@@ -74,17 +93,25 @@ function card(item, i) {
   const meta = document.createElement("div");
   meta.className = "note-meta";
   const chips = [];
+  if (n.exists) chips.push(`<span class="chip imp-known">Already imported</span>`);
   if (n.status === "closed") chips.push(`<span class="chip">${icon("archive")}To the archive</span>`);
   if (n.status === "permanent") chips.push(`<span class="chip">${icon("permanent")}Permanent</span>`);
   if (n.hasText && Object.keys(n.dropped).length) chips.push(`<span class="chip imp-lost">${esc(droppedText(n.dropped))} not imported</span>`);
   if (n.shared) chips.push(`<span class="chip">Shared in Keep · imported as private</span>`);
-  chips.push(`<span>Edited ${esc(relativeTime(n.modified))}</span>`);
+  if (source === "keep" || n.id) chips.push(`<span>Edited ${esc(relativeTime(n.modified))}</span>`);
   meta.innerHTML = chips.join("");
   const check = document.createElement("span");
   check.className = "imp-check";
   check.setAttribute("role", "checkbox");
   check.innerHTML = icon("check");
   el.append(body, meta, check);
+  if (n.exists) {
+    const copy = document.createElement("span");
+    copy.className = "chip imp-copy";
+    copy.hidden = true;
+    copy.textContent = "Will be imported as a copy";
+    meta.prepend(copy);
+  }
   if (n.hasText) {
     el.tabIndex = 0;
     el.addEventListener("click", e => { if (!e.target.closest("a")) toggle(i); });
@@ -99,7 +126,7 @@ function toggle(i) {
 }
 
 function setAll(on) {
-  for (const it of items) it.on = on && it.note.hasText;
+  for (const it of items) it.on = on && it.note.hasText && !it.note.exists;
   refresh();
 }
 
@@ -107,12 +134,15 @@ function refresh() {
   [...$("list").children].forEach((el, i) => {
     el.classList.toggle("selected", items[i].on);
     el.querySelector(".imp-check").setAttribute("aria-checked", String(items[i].on));
+    el.querySelector(".imp-copy")?.toggleAttribute("hidden", !items[i].on);
   });
   const n = items.filter(it => it.on).length;
   const count = status => items.filter(it => it.note.status === status).length;
-  const parts = [plural(items.length, "note") + " from Keep"];
-  if (count("closed")) parts.push(`${count("closed")} archived`);
-  if (count("permanent")) parts.push(`${count("permanent")} pinned → permanent`);
+  const parts = [plural(items.length, "note") + (source === "keep" ? " from Keep" : " from a NoteDown export")];
+  const known = items.filter(it => it.note.exists).length;
+  if (known) parts.push(`${known} already imported`);
+  if (count("closed")) parts.push(source === "keep" ? `${count("closed")} archived` : `${count("closed")} in the archive`);
+  if (source === "keep" && count("permanent")) parts.push(`${count("permanent")} pinned → permanent`);
   if (trashed) parts.push(`${trashed} in Keep's trash left out`);
   $("summary").textContent = parts.join(" · ");
   $("count").textContent = `${n} of ${items.length}`;
@@ -122,14 +152,17 @@ function refresh() {
 
 function confirmImport() {
   const chosen = items.filter(it => it.on).map(it => it.note);
+  const copies = chosen.filter(n => n.exists).length;
   openConfirm({
     title: `Import ${plural(chosen.length, "note")}?`,
-    text: "They go to your private notes in this browser, archived ones to the archive. With sync on, your other devices get them too.",
+    text: "They go to your private notes in this browser, archived ones to the archive. With sync on, your other devices get them too."
+      + (copies ? ` ${plural(copies, "note")} already imported before come in as a copy; the existing ones stay as they are.` : ""),
     danger: false,
     okLabel: () => "Import",
     onConfirm: async () => {
       await load();   // the newest state, should the app have changed it meanwhile
-      importNotes(chosen.map(toNoteDown));
+      const taken = new Set(existingNotes().map(n => n.id));
+      importNotes(chosen.map(n => (n.fromExport ? exportToNoteDown(n, taken) : toNoteDown(n))));
       await flushStored();
       $("doneText").textContent = `${plural(chosen.length, "note")} imported`;
       show("doneStep");
@@ -164,9 +197,13 @@ async function start() {
   $("noneBtn").addEventListener("click", () => setAll(false));
   $("otherBtn").addEventListener("click", () => show("pickStep"));
   $("importBtn").addEventListener("click", confirmImport);
-  if (new URLSearchParams(location.search).has("sample")) {
+  if (new URLSearchParams(location.search).get("sample") === "export") {
+    // The sample notes as an export with metadata (the app's own sample file).
+    const text = await (await fetch(new URL("../sample/notes.md", import.meta.url))).text();
+    preview(await readExport("NoteDown-sample.md", new TextEncoder().encode(text)), "export");
+  } else if (new URLSearchParams(location.search).has("sample")) {
     const { files } = await (await fetch(new URL("../sample/keep.json", import.meta.url))).json();
-    preview(keepNotes(files.map(f => ({ name: f.name, text: JSON.stringify(f.json) }))));
+    preview(keepNotes(files.map(f => ({ name: f.name, text: JSON.stringify(f.json) }))), "keep");
   }
   document.body.dataset.ready = "1";
 }

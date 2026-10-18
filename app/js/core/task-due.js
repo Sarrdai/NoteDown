@@ -33,3 +33,19 @@ export function setTaskDue(body, index, due) {
   lines[t.line] = setLineDue(lines[t.line], due);
   return lines.join("\n");
 }
+
+// Open and in-progress tasks carry their date into the note (decided 2026-10-18); done and cancelled ones don't.
+function openTaskDues(n) {
+  const lines = n.body.split("\n");
+  return tasks(n.body).filter(t => t.state === "open" || t.state === "doing").map(t => lineDue(lines[t.line])).filter(Boolean);
+}
+
+/** The date a note sorts by under "Due date": the earliest of its own due date and its open tasks' dates, or null. */
+export function noteDue(n) {
+  return [n.due, ...openTaskDues(n)].filter(Boolean).sort()[0] || null;
+}
+
+/** Every day a note is due on (its own due date and its open tasks' dates), for the reminders; sorted, no repeats. */
+export function noteDueDays(n) {
+  return [...new Set([n.due, ...openTaskDues(n)].filter(Boolean))].sort();
+}

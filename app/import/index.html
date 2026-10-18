@@ -15,21 +15,24 @@
   <div class="imp" id="imp">
     <header class="imp-top">
       <div class="imp-top-row">
-        <h1>Import from Keep</h1>
+        <h1>Import notes</h1>
         <a class="btn" href="../">Open NoteDown</a>
       </div>
     </header>
 
     <main class="imp-wrap" id="pickStep">
       <section class="imp-intro">
+        <h2 class="imp-source">From Google Keep</h2>
         <ol class="imp-steps">
           <li>Open <a href="https://takeout.google.com/" target="_blank" rel="noopener">Google Takeout</a>, choose <b>Deselect all</b>, then tick only <b>Keep</b>.</li>
           <li>Export once as a <b>.zip</b> file and download it.</li>
           <li>Choose the ZIP here. You see every note first and pick the ones to take over.</li>
         </ol>
+        <h2 class="imp-source">From a NoteDown export</h2>
+        <p class="imp-hint">Choose a Markdown file or ZIP exported from NoteDown. An export with <b>Keep metadata</b> brings back each note's id, dates, color and due date; one without comes in as new notes, cut at the <code>##</code> headings. Notes you already have are marked and not selected.</p>
         <div class="imp-drop" id="drop">
-          <p class="imp-drop-text">Drop the Takeout ZIP here</p>
-          <button class="btn primary" id="chooseBtn" type="button">Choose ZIP…</button>
+          <p class="imp-drop-text">Drop the Takeout ZIP or NoteDown export here</p>
+          <button class="btn primary" id="chooseBtn" type="button">Choose file…</button>
           <p class="imp-error" id="pickError" hidden></p>
         </div>
         <p class="imp-hint">The file is read in this browser and never uploaded. Imported notes go to the private notes of NoteDown in this browser; with sync on, they reach your other devices from there.</p>
@@ -62,7 +65,7 @@
     </div>
   </div>
 
-  <input type="file" id="fileInput" accept=".zip,application/zip" hidden>
+  <input type="file" id="fileInput" accept=".zip,.md,.markdown,.txt,application/zip,text/markdown,text/plain" hidden>
   <div class="dialog-scrim" id="confirmDialog" hidden>
     <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
       <h2 class="dialog-title" id="confirmTitle"></h2>

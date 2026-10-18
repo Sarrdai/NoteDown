@@ -44,6 +44,7 @@ import { setAppInfo } from "./app-info.js";
 import { exportFileName } from "./core/export.js";
 import { today } from "./ui/format.js";
 import { icon } from "./ui/icons.js";
+import { refOf } from "./core/note-ref.js";
 
 const $ = id => document.getElementById(id);
 const app = $("app");
@@ -82,7 +83,7 @@ const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one 
 
 function currentNotes() {
   const notes = inView(listed());
-  const i = notes.findIndex(n => n.id === state.topId);
+  const i = notes.findIndex(n => refOf(n) === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
   return notes;
 }
@@ -154,9 +155,9 @@ function tilesOf(view, notes) {
   const onTop = view === "open" && state.settings.permanentFirst;
   const tiles = onTop ? permanentFirst(notes) : notes;
   const sorted = new Set(orderIds(view));
-  const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(n.id) && !(onTop && n.status === "permanent") && n.id !== state.topId) : null;
-  const sectionOf = sectionsOf(view, tiles, n => (onTop && n.status === "permanent") || n.id === state.topId);
-  return { tiles, dividerBefore: unsorted?.id ?? null, sectionOf };
+  const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(refOf(n)) && !(onTop && n.status === "permanent") && refOf(n) !== state.topId) : null;
+  const sectionOf = sectionsOf(view, tiles, n => (onTop && n.status === "permanent") || refOf(n) === state.topId);
+  return { tiles, dividerBefore: unsorted ? refOf(unsorted) : null, sectionOf };
 }
 
 // A custom order's sections (#24): for a note, the section it is in with how
@@ -165,7 +166,7 @@ function tilesOf(view, notes) {
 function sectionsOf(view, notes, outside = () => false) {
   if (!isCustom(view)) return () => null;
   const of = orderSections(orderIds(view));
-  const idOf = n => (!outside(n) && of.get(n.id)) || null;
+  const idOf = n => (!outside(n) && of.get(refOf(n))) || null;
   const counts = new Map();
   for (const n of notes) { const id = idOf(n); if (id) counts.set(id, (counts.get(id) || 0) + 1); }
   const folded = new Set(state.search ? [] : state.settings.collapsedSections);
@@ -182,7 +183,8 @@ function toggleSection(id) {
 function tocDividerOf(view, notes) {
   if (!isCustom(view)) return null;
   const sorted = new Set(orderIds(view));
-  return notes.find(n => !sorted.has(n.id) && n.id !== state.topId)?.id ?? null;
+  const first = notes.find(n => !sorted.has(refOf(n)) && refOf(n) !== state.topId);
+  return first ? refOf(first) : null;
 }
 
 function emptyText(view, search) {
@@ -354,10 +356,10 @@ function createNote(key) {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
   const n = addNote("", newNoteMembers(key));
-  state.topId = n.id;
+  state.topId = refOf(n);
   render();
   window.scrollTo(0, 0);
-  startEdit(n.id);
+  startEdit(refOf(n));
 }
 
 // A dictated note: no heading, the transcript is its text.
@@ -365,20 +367,20 @@ function addDictatedNote(text) {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
   const n = addNote(text, newNoteMembers());
-  state.topId = n.id;
+  state.topId = refOf(n);
   render();
   window.scrollTo(0, 0);
-  flashNote(n.id);
-  showSnackbar("Dictated note added", () => purgeNotes([n.id]));
+  flashNote(refOf(n));
+  showSnackbar("Dictated note added", () => purgeNotes([refOf(n)]));
 }
 
 // A merged note (or one made from moved sections) appears at the top of the list.
 function onMerged(n, undo, message) {
   setTocOpen(false);
-  state.topId = n.id;
+  state.topId = refOf(n);
   render();
   window.scrollTo(0, 0);
-  flashNote(n.id);
+  flashNote(refOf(n));
   showSnackbar(message, undo);
 }
 
@@ -389,7 +391,7 @@ function arrange() {
   const key = sortOf().key === "shared" ? sharedCircle() : null;
   const { unsorted } = customSplit(shown, orderIds());
   const sorted = arrangeRows(shown, orderIds());
-  const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
+  const next = ids => rearrange(orderIds(), shown.map(n => refOf(n)), ids);
   openArrange(key ? {
     view: state.view,
     title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
@@ -429,10 +431,10 @@ function sortMenu(anchor = $("sortBtn")) {
 // ticked, as they go for everyone in their circle.
 function emptyArchive() {
   const closed = allNotes().filter(n => n.status === "closed");
-  const shared = closed.filter(n => circleOf(n.id).length);
+  const shared = closed.filter(n => circleOf(refOf(n)).length);
   const own = closed.length - shared.length;
   const notes = n => n === 1 ? "1 note" : `${n} notes`;
-  const ids = withShared => closed.filter(n => withShared || !circleOf(n.id).length).map(n => n.id);
+  const ids = withShared => closed.filter(n => withShared || !circleOf(refOf(n)).length).map(n => refOf(n));
   openConfirm({
     title: "Empty archive?",
     text: (own ? `Moves ${notes(own)} to the trash.` : "No private notes to move.") + ` The trash keeps them for ${TRASH_DAYS} days.`,
@@ -501,10 +503,6 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    // Open decision (backlog #41): how a task's due date is set.
-    { section: "Prototype: task due date" },
-    ...[["toolbar", "Toolbar button (A)"], ["menu", "Task long-press menu (B)"], ["typing", "Typing only (C)"]].map(([v, label]) => (
-      { label, checked: s.taskDueSet === v, onSelect: () => updateSettings({ taskDueSet: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -636,7 +634,7 @@ function wire() {
     if (e.key === "/") { e.preventDefault(); app.classList.add("searching"); $("searchInput").focus(); }
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
-  initToc({ dividerOf: tocDividerOf, sectionsOf: (view, notes) => sectionsOf(view, notes, n => n.id === state.topId), onArrange: arrange, onToggleSection: toggleSection });
+  initToc({ dividerOf: tocDividerOf, sectionsOf: (view, notes) => sectionsOf(view, notes, n => refOf(n) === state.topId), onArrange: arrange, onToggleSection: toggleSection });
   initWatchBar();
   initSearchHits();
   // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.
@@ -694,7 +692,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["toolbar", "menu", "typing"].includes(p.get("taskdue"))) patch.taskDueSet = p.get("taskdue");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

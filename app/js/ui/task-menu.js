@@ -14,9 +14,8 @@ export const boxState = box => box.dataset.state || (box.checked ? "done" : "ope
 /**
  * Makes a long-press or right-click on `box` open the state menu; `pick(state)`
  * sets the chosen one. The click that ends a long-press doesn't tick the box.
- * `more()` returns menu items added below the states (variant B of backlog #41: "Due date…").
  */
-export function holdForStates(box, pick, more = () => []) {
+export function holdForStates(box, pick) {
   let press = null;   // { x, y, timer }
   let held = false;
   const open = () => {
@@ -24,7 +23,7 @@ export function holdForStates(box, pick, more = () => []) {
     const current = boxState(box);
     openMenu(box, Object.entries(LABELS).map(([state, label]) => ({
       label, checked: state === current, onSelect: () => { if (state !== current) pick(state); },
-    })).concat(more()));
+    })));
   };
   const cancel = () => { if (press) clearTimeout(press.timer); press = null; };
   // While notes are selected, a tap or hold on a box belongs to the selection.

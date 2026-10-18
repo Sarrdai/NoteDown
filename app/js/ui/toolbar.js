@@ -15,7 +15,7 @@ const BUTTONS = [
   ["heading", "Heading", "heading"],
   ["bullet", "Bullet list", "list"],
   ["task", "Checkbox", "checkbox"],
-  ["taskDue", "Task due date", "calendar"],   // variant A of backlog #41 (taskDueSet "toolbar")
+  ["taskDue", "Task due date", "calendar"],   // backlog #41: the date of the task the caret is on
   ["outdent", "Outdent (Shift+Tab)", "outdent"],
   ["indent", "Indent (Tab)", "indent"],
   ["bold", "Bold (Ctrl+B)", "bold"],
@@ -76,7 +76,6 @@ export function initToolbar({ onDue }) {
 
   onEditingChange(id => {
     bar.hidden = !id;
-    bar.querySelector('[data-cmd="taskDue"]').hidden = state.settings.taskDueSet !== "toolbar";
     document.getElementById("app").classList.toggle("is-editing", Boolean(id));
     place();
   });

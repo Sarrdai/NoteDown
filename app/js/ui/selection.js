@@ -30,6 +30,7 @@ import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { openExport } from "./export.js";
 import { icon } from "./icons.js";
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
+import { refOf } from "../core/note-ref.js";
 
 const HOLD_MS = 450;
 const SPLIT_MS = 900;   // held this long, a note's sections are selected one by one instead of the whole note
@@ -258,7 +259,7 @@ function update() {
   const canShift = delta => byNote.some(([n, ps]) => canShiftHeadings(n.body, ps, delta))
     && byNote.every(([n, ps]) => canShiftHeadings(n.body, ps, delta) || !hasHeadings(n.body, ps));
   // Close, Share, Permanent and Delete act on whole notes; `menu` = under ⋮ in every tier.
-  const ids = byNote.map(([n]) => n.id);
+  const ids = byNote.map(([n]) => refOf(n));
   const permanent = ids.some(id => note(id)?.status !== "permanent");
   // News posts are read-only and only this user's: close or reopen, copy, delete.
   const news = byNote.every(([n]) => n.news);
@@ -364,7 +365,7 @@ function remove() {
 // Clear done tasks: the ticked tasks of the selection (whole notes, or only the selected sections) leave their
 // notes after asking and go into the archive, one closed note per source note, with Undo.
 function clearDoneTasks() {
-  const changes = current().byNote.map(([n, ps]) => ({ id: n.id, ...clearDone(n.body, ps) })).filter(c => c.count);
+  const changes = current().byNote.map(([n, ps]) => ({ id: refOf(n), ...clearDone(n.body, ps) })).filter(c => c.count);
   const total = changes.reduce((sum, c) => sum + c.count, 0);
   const tasks = total === 1 ? "1 done task" : `${total} done tasks`;
   const from = changes.length === 1 ? `“${noteTitle(note(changes[0].id).body).text || "Untitled"}”` : `${changes.length} notes`;
@@ -386,7 +387,7 @@ function backToNote() {
 }
 
 function shift(delta) {
-  for (const [n, ps] of current().byNote) setBody(n.id, shiftHeadings(n.body, ps, delta));
+  for (const [n, ps] of current().byNote) setBody(refOf(n), shiftHeadings(n.body, ps, delta));
 }
 
 const what = (parts, whole) => `${parts.length} ${whole ? "notes" : "parts"}`;

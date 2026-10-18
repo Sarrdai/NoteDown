@@ -4,6 +4,7 @@
 // selected when all its sections are. Here: toggling and ranges, the
 // selection as parts, their text, heading shifts and the merged note.
 import { sections, noteTitle } from "./markdown.js";
+import { refOf } from "./note-ref.js";
 
 /** Ids from `fromId` to `toId` (both included) in the order of `orderIds`. */
 export function rangeIds(orderIds, fromId, toId) {
@@ -204,7 +205,7 @@ export function mergeParts(notes, parts) {
     body: copyText(alignParts(parts.map(p => partText(notes[p.noteId].body, p)))),
     created: earliest(involved.map(n => n.created)),
     due: earliest(involved.map(n => n.due)),
-    changes: involved.map(n => ({ id: n.id, body: withoutParts(n.body, parts.filter(p => p.noteId === n.id)) })),
+    changes: involved.map(n => ({ id: refOf(n), body: withoutParts(n.body, parts.filter(p => p.noteId === refOf(n))) })),
   };
 }
 
