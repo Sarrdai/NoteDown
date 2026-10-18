@@ -467,6 +467,12 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .order-item.unsorted { counter-increment: none; }
 .order-item.unsorted::before { display: none; }
 .order-item.unsorted .order-text { color: var(--text-muted); }
+/* A section divider (#24): a tinted row whose title is edited in place. */
+.order-item.arrange-section { counter-increment: none; min-height: 48px; margin-top: 10px; border-color: transparent; background: var(--accent-soft); padding-left: 14px; gap: 4px; }
+.order-item.arrange-section::before { display: none; }
+.arrange-section-title { flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 800; outline: none; }
+.arrange-section-title:focus { box-shadow: inset 0 -2px 0 var(--accent); }
+.dialog-actions .add-section { display: inline-flex; align-items: center; gap: 4px; padding: 0 14px 0 10px; margin-right: auto; }
 .arrange-line {
   display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.78rem; font-weight: 700;
   letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
@@ -1000,6 +1006,23 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .unsorted-divider .link-btn { order: 2; border: 0; padding: 4px 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; letter-spacing: 0; text-transform: none; font-size: 0.85rem; cursor: pointer; }
 .unsorted-divider .link-btn:hover { background: var(--surface-hover); }
 .toc-list .unsorted-divider { margin: 6px 0 2px 10px; font-size: 0.7rem; }
+/* A custom order section's header (#24): title, count and a rule; a tap folds its notes. */
+.section-header {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); margin: 4px 0 -4px; padding: 0 2px;
+  border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.section-header::after { content: ""; flex: 1; height: 1px; margin-left: 4px; background: var(--border); }
+.section-header svg { flex: none; width: 18px; height: 18px; color: var(--text-muted); transition: transform 0.15s; }
+.section-header.collapsed svg { transform: rotate(-90deg); }
+.list .section-header.collapsed + .section-header { margin-top: -8px; }   /* folded sections sit close together */
+.section-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.05rem; font-weight: 800; }
+.section-count { flex: none; font-size: 0.82rem; color: var(--text-muted); }
+.section-header:hover .section-title { color: var(--accent); }
+.section-header:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
+.toc-list .section-header { min-height: 36px; margin: 8px 0 0; padding: 0 6px; color: var(--accent); }
+.toc-list .section-header::after { display: none; }
+.toc-list .section-header svg { width: 14px; height: 14px; color: inherit; }
+.toc-list .section-title { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
 .empty { max-width: 780px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-muted); }
 
 /* ---------- table of contents ---------- */

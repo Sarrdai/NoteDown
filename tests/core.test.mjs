@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask, tasks, setTaskState, renderMarkdown } from "../app/js/core/markdown.js";
-import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, tableOfContents, closedOn, permanentFirst, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
+import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, isSectionId, sectionId, sectionTitle, orderSections, arrangeRows, tableOfContents, closedOn, permanentFirst, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -111,13 +111,35 @@ test("rearrange: shown notes refill their old places, new ones go last, hidden o
   assert.deepEqual(rearrange([], ["a"], ["a"]), ["a"]);
 });
 
+test("custom order sections: an id entry with the encoded title, notes belong to the one above them", () => {
+  const id = sectionId(" Home, garden & more ");
+  assert.equal(id, "~Home%2C%20garden%20%26%20more");
+  assert.ok(isSectionId(id) && !isSectionId("s01"));
+  assert.equal(sectionTitle(id), "Home, garden & more");
+  assert.equal(sectionTitle("~100%"), "100%");   // not decodable: kept as written
+  const of = orderSections(["a", "~One", "b", "c", "~Two", "~Three", "d"]);
+  assert.deepEqual([...of], [["b", "~One"], ["c", "~One"], ["d", "~Three"]]);
+});
+
+test("custom order sections: the dialog lists every section, sections survive rearranging and the file", () => {
+  const notes = ["a", "b", "c"].map(id => ({ id }));
+  assert.deepEqual(arrangeRows(notes, ["~One", "a", "x", "~Two", "c"]), [{ section: "~One" }, notes[0], { section: "~Two" }, notes[2]]);
+  // x is hidden by a search: it keeps its place; the sections move like shown notes.
+  assert.deepEqual(rearrange(["~One", "a", "x", "~Two", "c"], ["a", "c"], ["~Two", "c", "~One", "a"]), ["~Two", "c", "x", "~One", "a"]);
+  // A removed section's place is refilled; a new one and two of the same title are kept.
+  assert.deepEqual(rearrange(["~One", "a"], ["a"], ["a", "~New", "~New"]), ["a", "~New", "~New"]);
+  const file = parseNotesFile(sample);
+  const ids = [sectionId("Home & garden"), "s01"];
+  assert.deepEqual(parseNotesFile(serializeNotesFile({ ...file, order: { ids, modified: "2026-10-14T09:00Z" } })).order.ids, ids);
+});
+
 test("file format: an order marker round-trips; without ids it is an empty order", () => {
   const file = parseNotesFile(sample);
   const text = serializeNotesFile({ ...file, order: { ids: ["s02", "s01"], modified: "2026-10-14T09:00Z" } });
   assert.match(text, /<!-- order modified=2026-10-14T09:00Z ids=s02,s01 -->\n$/);
   assert.deepEqual(parseNotesFile(text).order, { ids: ["s02", "s01"], modified: "2026-10-14T09:00Z" });
   assert.deepEqual(parseNotesFile(serializeNotesFile({ notes: [], order: { ids: [], modified: "2026-10-14T09:00Z" } })).order, { ids: [], modified: "2026-10-14T09:00Z" });
-  assert.equal(parseNotesFile(sample).order, null);
+  assert.deepEqual(parseNotesFile(sample).order.ids.filter(isSectionId), ["~Home", "~Travel", "~Paperwork"]);   // the sample shows sections
 });
 
 test("file format: contacts round-trip after the devices and before the order, text after a marker is dropped", () => {

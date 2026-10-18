@@ -65,7 +65,8 @@ export function matchRanges(text, search) {
 }
 
 /** A custom order (backlog #24): the notes listed in `ids`, in that order,
- *  and the rest — "not sorted yet", new notes among them — by last edited. */
+ *  and the rest — "not sorted yet", new notes among them — by last edited.
+ *  Section entries in `ids` (isSectionId) match no note and are skipped. */
 export function customSplit(notes, ids) {
   const pos = new Map(ids.map((id, i) => [id, i]));
   return {
@@ -74,21 +75,51 @@ export function customSplit(notes, ids) {
   };
 }
 
+// A section divider in a custom order (backlog #24): an entry "~" + the
+// URI-encoded title among the note ids, so the order stays one id list.
+export const isSectionId = id => id.startsWith("~");
+export const sectionId = title => "~" + encodeURIComponent(title.trim());
+export function sectionTitle(id) {
+  try { return decodeURIComponent(id.slice(1)); } catch { return id.slice(1); }
+}
+
+/** Which section each note of a custom order is in: note id → the section
+ *  entry above it. Notes above the first section have none. */
+export function orderSections(ids) {
+  const of = new Map();
+  let current = null;
+  for (const id of ids) {
+    if (isSectionId(id)) current = id;
+    else if (current) of.set(id, current);
+  }
+  return of;
+}
+
+/** The arrange dialog's rows above the line: every section entry of `ids`
+ *  ({ section: id }) and the `notes` listed in `ids`, in the order's order. */
+export function arrangeRows(notes, ids) {
+  const byId = new Map(notes.map(n => [n.id, n]));
+  return ids.flatMap(id => isSectionId(id) ? [{ section: id }] : byId.has(id) ? [byId.get(id)] : []);
+}
+
 /**
- * The custom order after arranging: `shown` are the ids the arrange dialog
- * listed (the current view, filter and search), `arranged` its sorted part
- * in the new order. The shown notes' old places are refilled with the new
- * order, further ones go to the end; ids not shown keep their places.
+ * The custom order after arranging: `shown` are the note ids the arrange
+ * dialog listed (the current view, filter and search), `arranged` its sorted
+ * part in the new order, section entries included (the dialog shows them
+ * all). The shown entries' old places are refilled with the new order,
+ * further ones go to the end; ids not shown keep their places.
  */
 export function rearrange(order, shown, arranged) {
   const visible = new Set(shown);
-  const queue = arranged.filter(id => visible.has(id));
+  const isShown = id => visible.has(id) || isSectionId(id);
+  const queue = arranged.filter(isShown);
   const out = [];
   for (const id of order) {
-    if (!visible.has(id)) out.push(id);
+    if (!isShown(id)) out.push(id);
     else if (queue.length) out.push(queue.shift());
   }
-  return [...new Set([...out, ...queue])];
+  const seen = new Set();
+  return [...out, ...queue].filter(id => isSectionId(id) || (!seen.has(id) && seen.add(id)));
 }
 
 export function sortNotes(notes, { key, dir }) {

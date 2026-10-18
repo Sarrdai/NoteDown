@@ -26,7 +26,7 @@ private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by persons or
 groups, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
 after a long-press). A note can get a background color from a fixed palette and a built-in motif
-(patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, notes can be put in a custom order.
+(patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, notes can be put in a custom order, grouped under foldable section titles.
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a

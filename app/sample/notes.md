@@ -173,3 +173,5 @@ The best ones are in [Tom's photo album](note:t07).
 
 <!-- note id=s19 status=closed created=2026-09-15T12:00Z modified=2026-09-29T13:00Z closed=2026-09-29T13:00Z deleted=2026-10-01T09:00Z -->
 Cancel the old phone contract. Confirmation arrived, ends on 31 December.
+
+<!-- order modified=2026-10-13T09:00Z ids=~Home,s01,s06,s07,~Travel,s03,~Paperwork,s04,s12 -->

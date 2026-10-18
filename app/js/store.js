@@ -7,7 +7,7 @@
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote, moveTarget, hasLeft } from "./core/merge.js";
 import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
-import { DEFAULT_SORT, expiredTrash } from "./core/query.js";
+import { DEFAULT_SORT, expiredTrash, isSectionId } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
 import { privateCopy } from "./core/note-links.js";
 import { DEFAULT_EXTERNAL } from "./core/external.js";
@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS = {
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
   permanentFirst: false,     // "Permanent first" in the main view
+  collapsedSections: [],     // custom order sections (#24) folded in the list and contents: their section ids, this device only
   reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
   lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
   privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only
@@ -452,12 +453,12 @@ export function customOrder() {
   return state.file.order?.ids || [];
 }
 
-/** Sets the custom order, without ids of notes that are gone; returns a
- *  function that undoes it. */
+/** Sets the custom order, without ids of notes that are gone (section
+ *  entries stay); returns a function that undoes it. */
 export function setCustomOrder(ids) {
   const before = state.file.order || null;
   const known = new Set(allNotes().map(n => n.id));
-  state.file.order = { ids: ids.filter(id => known.has(id)), modified: timestamp() };
+  state.file.order = { ids: ids.filter(id => known.has(id) || isSectionId(id)), modified: timestamp() };
   saveFiles();
   emit("structure");
   return () => { state.file.order = before; saveFiles(); emit("structure"); };
@@ -474,7 +475,7 @@ export function setCircleOrder(key, ids) {
   const file = fileFor(key.split("+"));
   const before = file.order || null;
   const known = new Set(file.notes.map(n => n.id));
-  file.order = { ids: ids.filter(id => known.has(id)), modified: timestamp() };
+  file.order = { ids: ids.filter(id => known.has(id) || isSectionId(id)), modified: timestamp() };
   saveFiles();
   emit("structure");
   return () => { file.order = before; saveFiles(); emit("structure"); };
