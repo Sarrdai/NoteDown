@@ -225,6 +225,32 @@ function sectionsOf(view, notes, outside = () => false) {
   return n => { const id = idOf(n); return id && { id, title: sectionTitle(id), count: counts.get(id), collapsed: folded.has(id) }; };
 }
 
+// Ending the search (×, back, Esc) keeps the place the user is reading:
+// the note with the current hit — or, scrolled away from it, the topmost
+// note in view — stays where it is on the screen while the other notes
+// come back around it, and flashes. A folded section (or pile) holding it
+// unfolds. Back ends the search too: it has a history entry while a text is in.
+function endSearch({ fromHistory = false } = {}) {
+  const topbar = $("topbar").getBoundingClientRect().bottom;
+  const onScreen = el => { const r = el.getBoundingClientRect(); return r.bottom > topbar && r.top < window.innerHeight; };
+  const hit = $("list").querySelector("mark.hit.current");
+  const anchor = (hit && onScreen(hit) ? hit.closest(".note") : null) || [...$("list").querySelectorAll(".note")].find(onScreen);
+  const id = anchor?.dataset.id;
+  const top = anchor?.getBoundingClientRect().top;
+  app.classList.remove("searching");
+  $("searchInput").blur();
+  if (!fromHistory) leaveEntry("search");
+  if (!state.search) return;
+  setUi({ search: "", topId: null });
+  if (!id) return;
+  const find = () => $("list").querySelector(`.note[data-id="${CSS.escape(id)}"]`);
+  if (!find() && isCustom()) toggleSection(orderSections(orderIds()).get(id) || PILE_ID);
+  const el = find();
+  if (!el) return;
+  window.scrollBy(0, el.getBoundingClientRect().top - top);
+  flashNote(id);
+}
+
 function toggleSection(id) {
   const folded = state.settings.collapsedSections;
   updateSettings({ collapsedSections: folded.includes(id) ? folded.filter(x => x !== id) : [...folded, id] });
@@ -403,6 +429,7 @@ function setView(view, { fromHistory = false } = {}) {
   if (state.view === view) return;
   endSelection();
   hideSnackbar();
+  leaveEntry("search");   // a view change ends the search, and with it its back step
   if (state.view === "trash" && !fromHistory) afterLeave(() => leaveEntry("trash"));
   if (view === "trash") enterTrash();
   setUi({ view, search: "", topId: null });
@@ -645,6 +672,7 @@ function showNote(id) {
   const find = () => document.querySelector(`#list .note[data-id="${id}"]`);
   if (!find()) {
     setPicking(null);
+    leaveEntry("search");
     setUi({ search: "", circles: [], labels: [] });
     app.classList.remove("searching");
   }
@@ -676,9 +704,19 @@ function wire() {
   $("sortBtn").addEventListener("click", () => sortMenu());
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("moreBtn").addEventListener("click", moreMenu);
-  $("searchInput").addEventListener("input", e => setUi({ search: e.target.value, topId: null }));
-  $("searchBtn").addEventListener("click", () => { app.classList.add("searching"); $("searchInput").focus(); });
-  $("searchClose").addEventListener("click", () => { app.classList.remove("searching"); setUi({ search: "" }); });
+  $("searchInput").addEventListener("input", e => {
+    if (e.target.value && !history.state?.search) pushEntry({ search: true });
+    setUi({ search: e.target.value, topId: null });
+  });
+  $("searchBtn").addEventListener("click", () => {
+    app.classList.add("searching");
+    if (!history.state?.search) pushEntry({ search: true });
+    $("searchInput").focus();
+  });
+  $("searchClose").addEventListener("click", () => endSearch());
+  window.addEventListener("popstate", () => {
+    if ((state.search || app.classList.contains("searching")) && !history.state?.search) endSearch({ fromHistory: true });
+  });
   systemDark.addEventListener("change", render);
   window.addEventListener("scroll", () => $("topbar").classList.toggle("scrolled", window.scrollY > 4), { passive: true });
 
@@ -687,7 +725,7 @@ function wire() {
     const typing = e.target.closest("input, textarea, [contenteditable]");
     if (e.key === "Escape") {
       closeMenu(); setTocOpen(false);
-      if (e.target === $("searchInput")) { app.classList.remove("searching"); setUi({ search: "" }); e.target.blur(); }
+      if (e.target === $("searchInput")) endSearch();
       return;
     }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;

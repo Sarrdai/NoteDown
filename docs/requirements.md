@@ -839,6 +839,13 @@ paid features per user.
   the current hit is marked more strongly and scrolled into the middle of
   the screen. A new search text starts at its first hit, scrolled to when
   it is out of view. *Prototype: 2026-10-15.*
+- **Ending the search keeps the place** (user request 2026-10-18, found
+  on Android): ×, the back key or `Esc` end it, and the note with the
+  current hit — scrolled away from it, the topmost note in view — stays
+  where it is on the screen while the other notes come back around it,
+  and flashes; a folded section or pile holding it unfolds. Back ends the
+  search once a text is typed (on the phone: once the field is open).
+  *Prototype: 2026-10-18.*
 - The search field **suggests** (backlog #66, user idea 2026-10-18): a
   tap into the empty field offers the filters — "∞ Permanent", every
   label and every circle (contacts, groups, Private), each with its count;
