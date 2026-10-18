@@ -38,14 +38,17 @@ section are done. A counter
 an hour tracker; counters of time (`3:45 [-0:15 +0:15]` or `23,5 h [-1 +1]`)
 can carry a stopwatch (`⏱15`) that adds the time it ran. `==Highlights==`,
 tables (scrolling sideways on the phone) and star ratings (`★★★☆☆`, set
-with a tap) are plain Markdown too. Images and
+with a tap) are plain Markdown too. Typing `[[` links to another note by its id, so
+renaming it never breaks the link. Images and
 videos from the web can be embedded; whether they load by themselves,
 after a tap or never, and whether links open, ask first or stay text, is
 set per device — for all notes and per circle — so no one else's note
 makes a device contact another host. A
 long-press on a note starts multi-select to close, copy, share, merge,
 make permanent (notes of lasting value that can't be closed) or delete
-several notes at once, or to clear ticked tasks out of a list into the
+several notes at once, to make a private copy of shared notes (it stays
+linked to the original, shows when that changed and can be compared and
+updated from it), or to clear ticked tasks out of a list into the
 archive (with a way back into the note). Deleted notes wait in a trash for 30 days —
 also shared notes someone else deleted, which can be restored for
 everyone or kept as one's own; a long-press on a heading (in a note or in the table of

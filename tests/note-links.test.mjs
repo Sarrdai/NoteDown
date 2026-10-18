@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { noteLinkId, noteLink, linkTrigger, linkCandidates, privateCopy, copyState } from "../app/js/core/note-links.js";
-import { lineDiff, diffCounts, foldSame, sideBySide } from "../app/js/core/line-diff.js";
+import { lineDiff, diffCounts, foldSame } from "../app/js/core/line-diff.js";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { mergeNotesFiles } from "../app/js/core/merge.js";
 
@@ -87,14 +87,10 @@ test("line diff: the lines only the copy has, only the original has, and both", 
   assert.equal(sample.filter(o => o.type !== "add").map(o => o.text).join("\n"), byId("s21").body);
 });
 
-test("line diff: long unchanged runs fold, side by side pairs a changed run", () => {
+test("line diff: long unchanged runs fold", () => {
   const ops = lineDiff("1\n2\n3\n4\n5\n6\n7\nx\n8", "1\n2\n3\n4\n5\n6\n7\ny\n8");
   const folded = foldSame(ops, 2);
   assert.deepEqual(folded[0], { type: "fold", count: 5 });
   assert.deepEqual(folded.slice(1).map(o => o.text), ["6", "7", "x", "y", "8"]);
   assert.deepEqual(foldSame(lineDiff("a\nb", "a\nc")), lineDiff("a\nb", "a\nc"));
-  const rows = sideBySide(folded);
-  assert.deepEqual(rows[0], { fold: 5 });
-  assert.deepEqual(rows[3], { left: { type: "del", text: "x" }, right: { type: "add", text: "y" } });
-  assert.deepEqual(sideBySide(lineDiff("a", "a\nb"))[1], { left: null, right: { type: "add", text: "b" } });
 });

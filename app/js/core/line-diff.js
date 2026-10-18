@@ -60,18 +60,3 @@ export function foldSame(ops, context = 2) {
   return out;
 }
 
-/** Side-by-side rows: [{ left, right }] where each side is { type, text } or null; a changed run pairs its
- *  deleted lines (left) with its added lines (right). Fold entries become a row of their own ({ fold }). */
-export function sideBySide(ops) {
-  const rows = [];
-  for (let k = 0; k < ops.length;) {
-    const o = ops[k];
-    if (o.type === "fold") { rows.push({ fold: o.count }); k++; continue; }
-    if (o.type === "same") { rows.push({ left: o, right: o }); k++; continue; }
-    const dels = [], adds = [];
-    while (k < ops.length && ops[k].type === "del") dels.push(ops[k++]);
-    while (k < ops.length && ops[k].type === "add") adds.push(ops[k++]);
-    for (let r = 0; r < Math.max(dels.length, adds.length); r++) rows.push({ left: dels[r] || null, right: adds[r] || null });
-  }
-  return rows;
-}

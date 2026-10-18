@@ -516,26 +516,18 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .link-pick-tag { flex: none; font-size: 0.75rem; color: var(--text-faint); }
 .link-pick-empty { padding: 10px; font-size: 0.9rem; color: var(--text-muted); }
 
-/* Comparing a private copy with its original (ui/compare.js): A one column, B side by side. */
+/* Comparing a private copy with its original (ui/compare.js). */
 .dialog.compare { width: min(560px, 100%); }
-.dialog.compare.split { width: min(920px, 100%); }
 .compare-diff { flex: 1; min-height: 0; overflow-y: auto; margin: 0 4px; font-size: 0.92rem; overflow-wrap: anywhere; }
 .diff-legend { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 4px 8px; background: var(--ctp-base); font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
 .diff-key { padding: 1px 8px; border-radius: 6px; }
-.diff-key.del, .diff-line.del, .diff-cell.del { background: var(--diff-del); }
-.diff-key.add, .diff-line.add, .diff-cell.add { background: var(--diff-add); }
+.diff-key.del, .diff-line.del { background: var(--diff-del); }
+.diff-key.add, .diff-line.add { background: var(--diff-add); }
 .diff-lines { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .diff-line { display: flex; gap: 6px; padding: 3px 10px 3px 6px; white-space: pre-wrap; }
 .diff-sign { flex: none; width: 1em; text-align: center; font-weight: 700; color: var(--text-muted); }
 .diff-line.same .diff-text { color: var(--text-muted); }
 .diff-fold { display: block; width: 100%; padding: 4px 10px; border: 0; background: var(--surface-hover); color: var(--text-faint); font: inherit; font-size: 0.8rem; text-align: center; cursor: pointer; }
-.diff-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.diff-head { position: sticky; top: 0; padding: 6px 10px; background: var(--ctp-base); border-bottom: 1px solid var(--border); font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
-.diff-cell { padding: 3px 10px; white-space: pre-wrap; color: var(--text-muted); }
-.diff-cell.left { border-right: 1px solid var(--border); }
-.diff-cell.del, .diff-cell.add { color: var(--text); }
-.diff-cell.blank { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--surface-hover) 6px 8px); }
-.diff-span { grid-column: 1 / -1; }
 .dialog.compare .compare-open { margin-right: auto; }
 @media (max-width: 599px) {
   .dialog.compare .dialog-actions { flex-wrap: wrap; }

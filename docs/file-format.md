@@ -41,6 +41,9 @@ Done by bank transfer, reference number in the banking app.
 - A note starts at its marker line `<!-- note … -->` and runs until the
   next marker or the end of the file. Its body is plain Markdown and may
   contain any headings, so the marker — not a heading — is the boundary.
+- Links to other notes are plain Markdown links to `note:<id>`
+  (`[Trip to Lisbon](note:s03)`, `docs/requirements.md` → "Links between
+  notes and private copies"); other editors show their text.
 - Labels (`#travel`, `#😉`) are plain text in the body; the format has no
   attribute for them (`docs/requirements.md` → "Labels").
 - Task states are plain Markdown too: `[ ]` open, `[x]` done, `[/]` in
@@ -72,6 +75,8 @@ Done by bank transfer, reference number in the banking app.
 | `left` | no | Shared files only: identity IDs of members who left the note, comma-separated (see "Leaving a shared note") |
 | `deleted` | no | Private file only: time (UTC) the note went into the trash; it is removed for good 30 days later (`docs/sync-and-sharing.md` → "Trash") |
 | `from` | no | A closed note of done tasks (Clear done tasks): the id of the note they came from, for Back to note (`docs/requirements.md` → "Multi-select") |
+| `copyof` | no | A private copy of a shared note: the id of its original |
+| `copied` | with `copyof` | The original's `modified` when the copy last took its text (Private copy, Update copy); an original with another `modified` has changed since |
 | `color` | no | The note's background color: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple` or `pink` (`docs/requirements.md` → "Note colors and motifs"); an unknown value reads as none |
 | `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves`, `stars`, `birthday`, `christmas`, `gifts`, `travel`, `packing`, `camper` or `shopping`; an unknown value reads as none |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |

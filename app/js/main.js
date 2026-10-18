@@ -480,9 +480,6 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    // Open decision (backlog #45): how the comparison of a private copy with its original is laid out.
-    { section: "Prototype: compare copy" },
-    ...[["unified", "One column (A)"], ["split", "Side by side (B)"]].map(([v, label]) => ({ label, checked: s.compareLayout === v, onSelect: () => updateSettings({ compareLayout: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -672,7 +669,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["unified", "split"].includes(p.get("compare"))) patch.compareLayout = p.get("compare");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).
