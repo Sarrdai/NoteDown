@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS = {
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
   collapsedSections: [],     // My order's sections (#24) and its pile ("pile") folded in the list and contents, this device only
-  tidy: {},                  // tidy-up reminder per circle (core/tidy.js): circleKey → off | often | normal | rarely, this device only
+  tidy: {},                  // tidy-up reminder (core/tidy.js): bars, notes, days, circles: circleKey → counted, this device only
   reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
   lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
   privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only

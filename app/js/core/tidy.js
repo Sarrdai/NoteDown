@@ -1,58 +1,62 @@
 // The tidy-up reminder: how full the pile of "My order" is (the notes not
-// sorted into the order yet). Each circle (circleKey, "" = private) has its
-// own choice — off or a threshold of notes or days — private on by default,
-// shared circles off (decided 2026-10-18: shared notes are often sorted by
-// someone else). The pile's level is the highest of its circles' levels.
+// sorted into the order yet), as a gauge of bars. One bar fills per `notes`
+// notes on the pile and one per `days` days its oldest note has waited, up to
+// `bars` (decided 2026-10-18: both pressures add up, half bars don't count).
+// The three numbers hold for every circle; a circle (circleKey, "" = private)
+// is counted or ignored — private counted by default, shared circles ignored
+// (shared notes are often sorted by someone else).
 
-/** The thresholds: a pile is due for tidying from `notes` notes or once its oldest is `days` old. */
-export const TIDY_PRESETS = {
-  often: { notes: 5, days: 3 },
-  normal: { notes: 10, days: 7 },
-  rarely: { notes: 20, days: 28 },
-};
+/** The numbers at first, and the range the settings allow. */
+export const TIDY_DEFAULTS = { bars: 5, notes: 2, days: 2 };
+export const TIDY_LIMITS = { bars: [1, 10], notes: [1, 20], days: [1, 30] };
 
-/** The choices in the settings, off first. */
-export const TIDY_CHOICES = ["off", "often", "normal", "rarely"];
-
-/** The levels from low to high; null = no reminder. */
-export const TIDY_LEVELS = ["calm", "growing", "tidy"];
-
-/** A circle's choice: its own from `settings` (circleKey → choice), else private "normal", shared "off". */
-export function tidyChoice(settings, key) {
-  const own = settings?.[key];
-  if (TIDY_CHOICES.includes(own)) return own;
-  return key === "" ? "normal" : "off";
+/** The gauge's numbers from the settings (`settings.tidy`), whole and within the limits. */
+export function tidyConfig(settings) {
+  const cfg = {};
+  for (const [k, [min, max]] of Object.entries(TIDY_LIMITS)) {
+    const v = Math.round(Number(settings?.[k]));
+    cfg[k] = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : TIDY_DEFAULTS[k];
+  }
+  return cfg;
 }
 
-/** The level of one circle's pile notes: "tidy" at the threshold, "growing" from half of it, else "calm". */
-export function circleLevel(count, ageDays, preset) {
-  if (count >= preset.notes || ageDays >= preset.days) return "tidy";
-  if (count >= Math.ceil(preset.notes / 2) || ageDays >= preset.days / 2) return "growing";
+/** Whether a circle's pile notes count: its own choice in `settings.circles`, else private yes, shared no.
+ *  (Before 2026-10-18 a circle's entry was a preset name directly in `settings`; "off" meant ignored.) */
+export function tidyCounted(settings, key) {
+  const own = settings?.circles?.[key];
+  if (typeof own === "boolean") return own;
+  const legacy = settings?.[key];
+  if (typeof legacy === "string") return legacy !== "off";
+  return key === "";
+}
+
+/** Filled bars for `count` notes whose oldest waited `ageDays`: whole steps of each, added, at most `cfg.bars`. */
+export function filledBars(count, ageDays, cfg) {
+  return Math.min(cfg.bars, Math.floor(count / cfg.notes) + Math.floor(Math.max(0, ageDays) / cfg.days));
+}
+
+/** The gauge's colour: "full" (red) at all bars, "warn" (yellow) from 75 % but at the latest one bar
+ *  before full, else "calm". */
+export function tidyLevel(filled, bars) {
+  if (filled >= bars) return "full";
+  if (bars > 1 && filled >= Math.min(Math.ceil(bars * 0.75), bars - 1)) return "warn";
   return "calm";
 }
 
 /**
  * The pile's state: `pile` are its notes as { created (ISO time), circle (circleKey) },
- * `choiceOf(circle)` gives a circle's choice, `now` is in ms. Returns `level` (null when
- * no circle of the pile has a reminder on), `count` (all notes) and `oldest` (the oldest
- * creation time among the notes with a reminder, or null).
+ * `counted(circle)` says whether a circle counts, `cfg` from tidyConfig, `now` in ms.
+ * The counted notes are taken together. Returns `count` (all notes), `bars`, `filled`
+ * and `level` — `level` null (no gauge) when none of the notes counts.
  */
-export function pileState(pile, choiceOf, now = Date.now()) {
-  const byCircle = new Map();
-  for (const n of pile) {
-    const preset = TIDY_PRESETS[choiceOf(n.circle)];
-    if (!preset) continue;
-    if (!byCircle.has(n.circle)) byCircle.set(n.circle, { preset, count: 0, oldest: null });
-    const c = byCircle.get(n.circle);
-    c.count++;
-    if (!c.oldest || n.created < c.oldest) c.oldest = n.created;
+export function pileState(pile, counted, cfg, now = Date.now()) {
+  let n = 0, oldest = null;
+  for (const note of pile) {
+    if (!counted(note.circle)) continue;
+    n++;
+    if (!oldest || note.created < oldest) oldest = note.created;
   }
-  let level = null, oldest = null;
-  for (const c of byCircle.values()) {
-    const age = (now - Date.parse(c.oldest)) / 86400000;
-    const l = circleLevel(c.count, age, c.preset);
-    if (TIDY_LEVELS.indexOf(l) > TIDY_LEVELS.indexOf(level)) level = l;
-    if (!oldest || c.oldest < oldest) oldest = c.oldest;
-  }
-  return { level, count: pile.length, oldest };
+  if (!n) return { count: pile.length, bars: cfg.bars, filled: 0, level: null };
+  const filled = filledBars(n, (now - Date.parse(oldest)) / 86400000, cfg);
+  return { count: pile.length, bars: cfg.bars, filled, level: tidyLevel(filled, cfg.bars) };
 }

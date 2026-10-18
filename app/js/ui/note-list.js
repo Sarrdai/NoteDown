@@ -20,7 +20,6 @@ import { sectionKey } from "../core/query.js";
 import { state, setUi, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
 import { relativeTime, dueLabel, shortDate } from "./format.js";
-import { localTime } from "../core/notes-file.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
@@ -38,7 +37,6 @@ import { openCompare } from "./compare.js";
 import { refOf } from "../core/note-ref.js";
 
 const list = () => document.getElementById("list");
-const localDay = ts => localTime(ts).slice(0, 10);
 
 /** Renders the tiles; `pile` heads My order's pile (backlog #24), see listItems. */
 export function renderList(notes, options) {
@@ -98,26 +96,28 @@ export function sectionHeader({ id, title, count, collapsed }, onToggle) {
 }
 
 const notesCount = count => count === 1 ? "1 note" : `${count} notes`;
-const LEVEL_TEXT = { calm: "calm", growing: "growing", tidy: "time to tidy up" };
+const LEVEL_TEXT = { warn: "Tidy up", full: "Time to tidy up" };
 
 /** My order's pile header (also in the contents): a tap on it folds or unfolds the pile,
- *  its gauge shows the tidy-up reminder's level (core/tidy.js; none when it is off),
- *  Tidy up… opens the arrange dialog. */
-export function pileHeader({ count, level, oldest, collapsed }, onToggle, onArrange) {
+ *  its gauge shows the tidy-up reminder's filled bars (core/tidy.js; none when no note counts),
+ *  Tidy up… opens the arrange dialog. An empty pile shows a check only. */
+export function pileHeader({ count, level, bars, filled, collapsed }, onToggle, onArrange) {
   const el = document.createElement("div");
   el.className = "pile-header" + (level ? " level-" + level : "") + (count ? "" : " empty") + (collapsed ? " collapsed" : "");
   if (count) {
     const b = document.createElement("button");
     b.className = "pile-toggle";
     b.setAttribute("aria-expanded", String(!collapsed));
-    const gauge = level ? `<span class="pile-gauge" role="img" aria-label="Tidy-up reminder: ${LEVEL_TEXT[level]}"><i></i><i></i><i></i></span>` : "";
-    const status = level === "tidy" ? "Time to tidy up" : level === "growing" && oldest ? `oldest ${shortDate(localDay(oldest))}` : "";
+    const gauge = level ? `<span class="pile-gauge" role="img" aria-label="Tidy-up reminder: ${filled} of ${bars}">`
+      + Array.from({ length: bars }, (_, i) => i < filled ? `<i class="on"></i>` : "<i></i>").join("") + "</span>" : "";
+    const status = LEVEL_TEXT[level] || "";
     b.innerHTML = `${icon("down")}<span class="pile-title">Pile</span><span class="pile-count">${collapsed ? notesCount(count) : count}</span>${gauge}`
       + (status ? `<span class="pile-status">${status}</span>` : "");
     if (onToggle) b.addEventListener("click", onToggle);
     el.append(b);
   } else {
     el.insertAdjacentHTML("beforeend", `<span class="pile-done">${icon("check")}Pile empty</span>`);
+    return el;
   }
   const link = Object.assign(document.createElement("button"), { className: "link-btn", textContent: "Tidy up…" });
   if (onArrange) link.addEventListener("click", onArrange);

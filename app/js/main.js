@@ -1,6 +1,6 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
-import { pileState, tidyChoice } from "./core/tidy.js";
+import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
 import { circleKey } from "./core/sharing.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
@@ -142,7 +142,7 @@ function render() {
   const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   // Time to tidy up My order's pile: a dot on the sort button, whatever the list is sorted by.
-  const due = state.view === "open" && mainPile().level === "tidy";
+  const due = state.view === "open" && mainPile().level === "full";
   $("sortBtn").classList.toggle("tidy-due", due);
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
   $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : "");
@@ -191,12 +191,12 @@ function listArgs(view, notes) {
   return [tiles, { pile, sectionOf, onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection }];
 }
 
-// How full a pile is (core/tidy.js): only in the main view, by each note's circle's choice.
+// How full a pile is (core/tidy.js): only in the main view, ignored circles' notes left out.
 function pileLevel(view, piled) {
-  const notes = piled.filter(n => !n.news);
-  if (view !== "open") return { level: null, count: piled.length, oldest: null };
-  const level = pileState(notes.map(n => ({ created: n.created, circle: circleKey(circleOf(refOf(n))) })), k => tidyChoice(state.settings.tidy, k));
-  return { ...level, count: piled.length };
+  if (view !== "open") return { level: null, count: piled.length };
+  const notes = piled.filter(n => !n.news).map(n => ({ created: n.created, circle: circleKey(circleOf(refOf(n))) }));
+  const t = state.settings.tidy;
+  return { ...pileState(notes, k => tidyCounted(t, k), tidyConfig(t)), count: piled.length };
 }
 
 // My order's pile in the main view with the current filters, whatever the list is sorted by.
