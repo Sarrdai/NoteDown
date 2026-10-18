@@ -138,6 +138,7 @@ is deleted from code, menu and this table.
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
+| `taskdue` | `toolbar` · `menu` · `typing` | Backlog #41, how a task's due date is set: a Task due date button in the editing toolbar (A, default) · "Due date…" in the task's long-press menu (B) · typing `📅 YYYY-MM-DD` only (C); ⋮ → "Prototype: task due date" |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |

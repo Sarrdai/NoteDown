@@ -501,6 +501,10 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    // Open decision (backlog #41): how a task's due date is set.
+    { section: "Prototype: task due date" },
+    ...[["toolbar", "Toolbar button (A)"], ["menu", "Task long-press menu (B)"], ["typing", "Typing only (C)"]].map(([v, label]) => (
+      { label, checked: s.taskDueSet === v, onSelect: () => updateSettings({ taskDueSet: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -690,6 +694,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (["toolbar", "menu", "typing"].includes(p.get("taskdue"))) patch.taskDueSet = p.get("taskdue");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

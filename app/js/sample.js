@@ -23,7 +23,9 @@ export async function loadSample(name = "notes.md") {
   const newest = days[days.length - 1];
   if (!newest) return text;
   const shift = Math.round((Date.parse(today()) - Date.parse(newest)) / 86400000);
-  return text.replace(/^<!-- note .*-->$/gm, line => line.replace(/\d{4}-\d{2}-\d{2}/g, d => addDays(d, shift)));
+  return text
+    .replace(/^<!-- note .*-->$/gm, line => line.replace(/\d{4}-\d{2}-\d{2}/g, d => addDays(d, shift)))
+    .replace(/(📅\uFE0F?[ \t]?)(\d{4}-\d{2}-\d{2})/g, (_, mark, d) => mark + addDays(d, shift));   // task due dates (#41)
 }
 
 let sharing = null;
