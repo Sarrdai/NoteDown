@@ -1,6 +1,6 @@
 // What a view shows: which notes, in which order, and the table of contents
 // over them. Pure functions on the note objects from notes-file.js.
-import { sections, noteTitle } from "./markdown.js";
+import { sections, noteTitle, doneTasksOn } from "./markdown.js";
 import { localTime } from "./notes-file.js";
 import { refOf } from "./note-ref.js";
 import { noteDue } from "./task-due.js";
@@ -169,6 +169,12 @@ export function tableOfContents(notes) {
 /** How many notes were closed on the given local day ("YYYY-MM-DD"). */
 export function closedOn(notes, day) {
   return notes.filter(n => n.status === "closed" && !n.deleted && n.closed && localTime(n.closed).startsWith(day)).length;
+}
+
+/** What was done on the given local day: the notes closed and the tasks ticked then (their done date), in
+ *  every note not deleted — planned or not. The Due button's ring (docs/requirements.md → "Due view"). */
+export function doneOn(notes, day) {
+  return closedOn(notes, day) + notes.filter(n => !n.deleted).reduce((sum, n) => sum + doneTasksOn(n.body, day), 0);
 }
 
 /** The pile's entry in the folded sections (settings.collapsedSections); section ids start with "~". */

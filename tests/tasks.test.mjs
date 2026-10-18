@@ -14,7 +14,7 @@ const section = (b, text) => { const i = sections(b).findIndex(s => s.text === t
 test("clearDone takes the ticked tasks out of a whole note, under its title", () => {
   const r = clearDone(body("s01"), whole);
   assert.equal(r.count, 1);
-  assert.equal(r.done, "## Weekly groceries\n- [x] Oat milk");
+  assert.equal(r.done, "## Weekly groceries\n- [x] Oat milk ✅ 2026-10-13");
   assert.ok(!r.body.includes("Oat milk"));
   assert.ok(r.body.startsWith("## Weekly groceries\n- [ ] Coffee beans"));
 });

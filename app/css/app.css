@@ -183,18 +183,23 @@ button { font: inherit; color: inherit; }
 #viewBtn { display: inline-grid; }
 .view-face { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .app[data-view="open"] .to-notes, .app:not([data-view="open"]) .to-archive { visibility: hidden; }
-/* The archive count sits on the icon's corner. */
-#viewBtn .count { margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; }
 #viewBtn { padding: 0 6px; }
-/* The Due button's count: red when something is overdue, else the accent color. */
-#dueBtn { padding: 0 6px; }
+/* The Due button's count: red when something is overdue, else the accent color. Its ring around the icon
+   fills with what was done today (renderDueCount). */
+#dueBtn { padding: 0 6px; position: relative; }
+.due-ring { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; fill: none; stroke-width: 2.5; pointer-events: none; transform: rotate(-90deg); }
+.due-ring:not(.has) { display: none; }
+.due-ring .track { stroke: var(--border); }
+.due-ring .done { stroke: var(--done); stroke-linecap: round; transition: stroke-dasharray 0.4s ease; }
+.due-ring .done.empty { stroke: none; }
+@media (prefers-reduced-motion: reduce) { .due-ring .done { transition: none; } }
 /* Time to tidy up My order's pile (core/tidy.js): a dot on the sort button. */
 #sortBtn, #moreBtn { position: relative; }
 :is(#sortBtn, #moreBtn).tidy-due::after {
   content: ""; position: absolute; top: 8px; left: 26px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--danger); box-shadow: 0 0 0 2px var(--bg);
 }
-#dueBtn .count { margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; }
+#dueBtn .count { position: relative; margin-left: -14px; margin-top: -18px; min-width: 18px; height: 18px; line-height: 18px; font-size: 0.7rem; padding: 0 5px; box-shadow: 0 0 0 2px var(--bg); }
 #dueBtn .count:not(.has) { display: none; }
 #dueBtn .count.has { background: var(--accent); }
 #dueBtn .count.has.overdue { background: var(--danger); }

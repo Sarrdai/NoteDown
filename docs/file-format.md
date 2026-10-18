@@ -54,6 +54,10 @@ Done by bank transfer, reference number in the banking app.
   `YYYY-MM-DD`, like the note's `due`; `docs/requirements.md` → "Due date
   per task"). Only the date at the end of a task's first line counts;
   other renderers show it as text.
+- A done task's done date follows it, also Obsidian Tasks' syntax:
+  `- [x] Winter tyres 📅 2026-10-24 ✅ 2026-10-18` — written when the
+  app ticks the task, removed when it is unticked (`docs/requirements.md`
+  → "Task states and progress").
 - Counters (`23,5 [-4 -1 +1 +8]`, `docs/requirements.md` → "Counters")
   are plain text in the body too: the app changes only the number, and a
   stopwatch's start time in the brackets.

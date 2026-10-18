@@ -70,3 +70,10 @@ test("Clear done tasks takes a dated done task along with its date", () => {
   assert.match(r.done, /- \[x\] Winter tyres 📅 2026-10-24/);
   assert.ok(!r.body.includes("Winter tyres"));
 });
+
+test("a done date after the due date: the due date still counts, setLineDue keeps the done date last", () => {
+  assert.equal(lineDue("- [x] Winter tyres 📅 2026-10-24 ✅ 2026-10-18"), "2026-10-24");
+  assert.equal(setLineDue("- [x] Winter tyres 📅 2026-10-24 ✅ 2026-10-18", "2026-10-30"), "- [x] Winter tyres 📅 2026-10-30 ✅ 2026-10-18");
+  assert.equal(setLineDue("- [x] Winter tyres ✅ 2026-10-18", "2026-10-30"), "- [x] Winter tyres 📅 2026-10-30 ✅ 2026-10-18");
+  assert.equal(setLineDue("- [x] Winter tyres 📅 2026-10-24 ✅ 2026-10-18", null), "- [x] Winter tyres ✅ 2026-10-18");
+});

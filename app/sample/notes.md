@@ -1,6 +1,6 @@
 <!-- note id=s01 status=open created=2026-10-13T08:05Z modified=2026-10-13T08:40Z due=2026-10-13 decor=shopping -->
 ## Weekly groceries
-- [x] Oat milk
+- [x] Oat milk ✅ 2026-10-13
 - [ ] Coffee beans (the Ethiopian ones)
 - [ ] Tomatoes, basil, mozzarella
 - [ ] Dishwasher tablets

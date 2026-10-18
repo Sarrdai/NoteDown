@@ -80,11 +80,27 @@ marked.use({
       return i < 0 ? undefined : i;
     },
     tokenizer(src) {
-      const m = /^📅\uFE0F?[ \t]?(\d{4}-\d{2}-\d{2})(?=[ \t]*(?:\n|$))/.exec(src);
+      const m = /^📅\uFE0F?[ \t]?(\d{4}-\d{2}-\d{2})(?=[ \t]*(?:✅\uFE0F?[ \t]?\d{4}-\d{2}-\d{2}[ \t]*)?(?:\n|$))/.exec(src);
       if (m) return { type: "taskDue", raw: m[0], due: m[1], inTask: false };
     },
     renderer({ raw, due, inTask }) {
       return inTask ? `<button type="button" class="chip task-due" data-due="${due}">${escapeHtml(raw)}</button>` : escapeHtml(raw);
+    },
+  }, {
+    // A done task's done date (DONE_AT_END): hidden at the end of a task's first line, which only counts it
+    // for "done today"; anywhere else it stays text.
+    name: "taskDone",
+    level: "inline",
+    start(src) {
+      const i = src.indexOf("✅");
+      return i < 0 ? undefined : i;
+    },
+    tokenizer(src) {
+      const m = /^✅\uFE0F?[ \t]?(\d{4}-\d{2}-\d{2})(?=[ \t]*(?:\n|$))/.exec(src);
+      if (m) return { type: "taskDone", raw: m[0], inTask: false };
+    },
+    renderer({ raw, inTask }) {
+      return inTask ? "" : escapeHtml(raw);
     },
   }, {
     // A task in progress or cancelled (`[/]`, `[-]`), set up by walkTokens below.
@@ -144,7 +160,7 @@ function markTaskDue(token) {
   const block = token.tokens.find(t => t.type === "text" || t.type === "paragraph");
   for (const t of block?.tokens || []) {
     if (t.type === "br" || (t.type === "text" && t.raw.includes("\n"))) return;
-    if (t.type === "taskDue") { t.inTask = true; return; }
+    if (t.type === "taskDue" || t.type === "taskDone") t.inTask = true;
   }
 }
 
@@ -228,20 +244,38 @@ export function tasks(body) {
   return out;
 }
 
-/** Sets the n-th task (0-based, document order) to `state` in the source. */
-export function setTaskState(body, index, state) {
+/** A done task's done date at the end of its first line, Obsidian Tasks' `✅ YYYY-MM-DD` (docs/file-format.md). */
+export const DONE_AT_END = /[ \t]*✅\uFE0F?[ \t]?(\d{4}-\d{2}-\d{2})[ \t]*$/;
+
+/** A task line's state set to `state`: ticked with a `day` ("YYYY-MM-DD") it gets that done date (one it has
+ *  stays); any other state drops it. */
+export function setLineState(line, state, day = null) {
+  let out = line.replace(TASK_LINE, (_, a, __, c) => a + MARKS[state] + c);
+  if (state !== "done") out = out.replace(DONE_AT_END, "");
+  else if (day && !DONE_AT_END.test(out)) out = `${out.trimEnd()} ✅ ${day}`;
+  return out;
+}
+
+/** Sets the n-th task (0-based, document order) to `state` in the source; `day` as setLineState. */
+export function setTaskState(body, index, state, day = null) {
   const t = tasks(body)[index];
   if (!t) return body;
   const lines = body.split("\n");
-  lines[t.line] = lines[t.line].replace(TASK_LINE, (_, a, __, c) => a + MARKS[state] + c);
+  lines[t.line] = setLineState(lines[t.line], state, day);
   return lines.join("\n");
 }
 
-/** What a tap on the n-th task does: open ↔ done, in progress → done, cancelled → open. */
-export function toggleTask(body, index) {
+/** What a tap on the n-th task does: open ↔ done, in progress → done, cancelled → open; `day` as setLineState. */
+export function toggleTask(body, index, day = null) {
   const t = tasks(body)[index];
   if (!t) return body;
-  return setTaskState(body, index, t.state === "open" || t.state === "doing" ? "done" : "open");
+  return setTaskState(body, index, t.state === "open" || t.state === "doing" ? "done" : "open", day);
+}
+
+/** How many tasks of a body were ticked on `day` (their done date). */
+export function doneTasksOn(body, day) {
+  const lines = body.split("\n");
+  return tasks(body).filter(t => t.state === "done" && DONE_AT_END.exec(lines[t.line])?.[1] === day).length;
 }
 
 // Markdown inline syntax stripped to plain text.

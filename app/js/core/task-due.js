@@ -1,7 +1,7 @@
 // Due dates per task (backlog #41): the Obsidian Tasks syntax, a `📅 YYYY-MM-DD`
-// at the end of a task's line (docs/file-format.md). The rendered note shows it
+// at the end of a task's line (before a done date `✅ YYYY-MM-DD`, if any) (docs/file-format.md). The rendered note shows it
 // as a chip (core/markdown.js, ui/note-list.js); its menu sets it here.
-import { tasks, TASK_LINE } from "./markdown.js";
+import { tasks, TASK_LINE, DONE_AT_END } from "./markdown.js";
 
 /** The date at the end of a line: "📅 2026-10-20" (the emoji may carry its variation selector). */
 export const DUE_AT_END = /[ \t]*📅️?[ \t]?(\d{4}-\d{2}-\d{2})[ \t]*$/;
@@ -9,14 +9,16 @@ export const DUE_AT_END = /[ \t]*📅️?[ \t]?(\d{4}-\d{2}-\d{2})[ \t]*$/;
 /** A line's task due date, or null (also null on a line that is no task). */
 export function lineDue(line) {
   if (!TASK_LINE.test(line)) return null;
-  const m = DUE_AT_END.exec(line);
+  const m = DUE_AT_END.exec(line.replace(DONE_AT_END, ""));
   return m ? m[1] : null;
 }
 
 /** Sets (`due` "YYYY-MM-DD") or removes (`due` null) the date at the end of a line. */
 export function setLineDue(line, due) {
-  const rest = line.replace(DUE_AT_END, "").trimEnd();
-  return due ? `${rest} 📅 ${due}` : rest;
+  // A done date stays last, after the due date (Obsidian Tasks' order).
+  const done = DONE_AT_END.exec(line);
+  const rest = (done ? line.slice(0, done.index) : line).replace(DUE_AT_END, "").trimEnd();
+  return (due ? `${rest} 📅 ${due}` : rest) + (done ? ` ✅ ${done[1]}` : "");
 }
 
 /** The due date of the n-th task (0-based, document order as core/markdown.js → tasks), or null. */

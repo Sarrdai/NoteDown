@@ -13,6 +13,8 @@ import { counterClick, fillWatches } from "./counter.js";
 import { ratingStart, ratingAt, ratings, ratingHtml, setRating } from "../core/rating.js";
 import { holdForStates } from "./task-menu.js";
 import { DUE_AT_END, lineDue, setLineDue } from "../core/task-due.js";
+import { DONE_AT_END, TASK_LINE, setLineState } from "../core/markdown.js";
+import { today } from "./format.js";
 import { openTaskDueMenu, fillTaskDue } from "./due-menu.js";
 
 /** The media setting of the edited note's circle: auto | click | never (set with mediaMode.init). */
@@ -35,7 +37,6 @@ class BulletWidget extends WidgetType {
 // A task's box; a tap ticks it (in progress → done, cancelled → open), a
 // long-press or right-click picks its state (ui/task-menu.js). `pos` is the
 // state character's position in the doc.
-const MARKS = { open: " ", done: "x", doing: "/", cancelled: "-" };
 class CheckboxWidget extends WidgetType {
   constructor(level, state, pos) { super(); this.level = level; this.state = state; this.pos = pos; }
   eq(o) { return o.level === this.level && o.state === this.state && o.pos === this.pos; }
@@ -48,7 +49,11 @@ class CheckboxWidget extends WidgetType {
     box.className = "task";
     box.checked = this.state === "done";
     if (this.state === "doing" || this.state === "cancelled") box.dataset.state = this.state;
-    const set = state => view.dispatch({ changes: { from: this.pos, to: this.pos + 1, insert: MARKS[state] }, userEvent: "input" });
+    // Ticked, the line gets today's done date; any other state drops it (core/markdown.js → setLineState).
+    const set = state => {
+      const line = view.state.doc.lineAt(this.pos);
+      view.dispatch({ changes: { from: line.from, to: line.to, insert: setLineState(line.text, state, today()) }, userEvent: "input" });
+    };
     // Toggle without moving the cursor onto the line.
     box.addEventListener("mousedown", e => e.preventDefault());
     box.addEventListener("click", e => {
@@ -264,13 +269,18 @@ function ratingMarks(line, state, deco, raw) {
 }
 
 // A task line's due date becomes its chip on lines that aren't being edited; a done or cancelled task's is plain.
+// A done date (core/markdown.js → DONE_AT_END) is hidden there too: it only counts the task for "done today".
 function taskDueMarks(line, state, deco, raw) {
-  if (raw || !lineDue(line.text) || inCode(state, line.from)) return;
-  const m = DUE_AT_END.exec(line.text);
+  if (raw || !TASK_LINE.test(line.text) || inCode(state, line.from)) return;
+  const done = DONE_AT_END.exec(line.text);
+  const text = done ? line.text.slice(0, done.index) : line.text;
+  if (done) deco.push(hide.range(line.from + done.index, line.to));
+  if (!lineDue(text)) return;
+  const m = DUE_AT_END.exec(text);
   const box = /\[([ xX/-])\]/.exec(line.text)[1];
   const plain = box !== " " && box !== "/";
   const from = line.from + m.index + (m[0].length - m[0].trimStart().length);
-  deco.push(Decoration.replace({ widget: new TaskDueWidget(m[1], from, plain) }).range(from, line.to));
+  deco.push(Decoration.replace({ widget: new TaskDueWidget(m[1], from, plain) }).range(from, line.from + text.length));
 }
 
 // ==text== : the text is highlighted; the marks hide on lines that aren't being edited.

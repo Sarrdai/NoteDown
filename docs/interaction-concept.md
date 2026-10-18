@@ -18,7 +18,7 @@ Current state, edited in place when a decision changes.
 
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
-| Top bar | Title; icons for search, Due (count on its corner), sort, archive (count on its corner), Sync & sharing (sync status), Export, ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards; the same icons right of it |
+| Top bar | Title; icons for search, Due (count on its corner, ring of what is done today), sort, Sync & sharing (sync status), Export, archive, ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards; the same icons right of it |
 | Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People", always | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field; with a text it shows the hit counter and ▲ / ▼ | Always visible field, wider with a text for the counter and ▲ / ▼ | Always visible field, counter and ▲ / ▼ inside |

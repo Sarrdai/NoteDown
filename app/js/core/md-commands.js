@@ -1,6 +1,7 @@
 // Markdown editing commands as pure text transforms, used by the editor's
 // toolbar and shortcuts. Line commands take and return one line; selection
 // commands take the text and a selection and return { text, from, to }.
+import { DONE_AT_END } from "./markdown.js";
 
 const LIST = /^(\s*)(?:([-*+])|(\d+)([.)]))\s+(\[[ xX/-]\]\s+)?/;
 const TASK_STATE = { " ": "open", x: "checked", X: "checked", "/": "doing", "-": "cancelled" };
@@ -47,12 +48,16 @@ export function toggleTaskItem(line) {
   return indent + "- [ ] " + stripHeading(rest);
 }
 
-/** Ticks / unticks a task line as a tap does (in progress → done, cancelled → open); any other line becomes an open task. */
-export function toggleTaskChecked(line) {
+/** Ticks / unticks a task line as a tap does (in progress → done, cancelled → open); any other line becomes an
+ *  open task. Ticked with a `day` ("YYYY-MM-DD") the line gets that done date, unticked it drops it. */
+export function toggleTaskChecked(line, day = null) {
   const p = listPrefix(line);
   if (!p || !p.task) return toggleTaskItem(line);
-  const box = line.slice(0, p.length).replace(/\[[ xX/-]\]/, p.task === "open" || p.task === "doing" ? "[x]" : "[ ]");
-  return box + line.slice(p.length);
+  const ticking = p.task === "open" || p.task === "doing";
+  const box = line.slice(0, p.length).replace(/\[[ xX/-]\]/, ticking ? "[x]" : "[ ]");
+  const rest = line.slice(p.length);
+  if (!ticking) return box + rest.replace(DONE_AT_END, "");
+  return day && !DONE_AT_END.test(rest) ? `${(box + rest).trimEnd()} ✅ ${day}` : box + rest;
 }
 
 export function indentLine(line, unit = "  ") {

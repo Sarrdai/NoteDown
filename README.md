@@ -36,7 +36,7 @@ on their box, and can carry their own due date (`📅 2026-10-24`, set
 from the toolbar or a tap on its chip), which sorts and reminds like the
 note's. The **Due** view (calendar icon in the top bar) lists every due note
 and task item by item — overdue, today, next 7 days, later — and ticks them
-off right there. A switch in the contents shows how many tasks of each
+off right there; a ring around its icon fills with what you got done today. A switch in the contents shows how many tasks of each
 section are done. A counter
 (`23,5 [-4 -1 +1 +8]`) shows its number; a tap on it pops up buttons that count up and down, e.g. for
 an hour tracker; counters of time (`3:45 [-0:15 +0:15]` or `23,5 h [-1 +1]`)

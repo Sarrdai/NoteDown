@@ -1,5 +1,5 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
+import { viewNotes, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
 import { circleKey } from "./core/sharing.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
@@ -118,15 +118,21 @@ function renderSyncStatus() {
   btn.title = "Sync & sharing · " + statusText();
 }
 
-// The Due button's badge: the items overdue or due today (red when one is overdue).
+// The Due button: its badge counts the items overdue or due today (red when one is overdue), its ring fills
+// with what was done today, planned or not — done ÷ (done + still due now); no ring on a day with neither.
 function renderDueCount() {
   const items = dueItems(allNotes(), today());
   const now = dueNowCount(items, today());
+  const done = doneOn(allNotes(), today());
   const badge = $("dueCount");
   badge.textContent = now;
   badge.classList.toggle("has", now > 0);
   badge.classList.toggle("overdue", items.some(it => it.day < today()));
-  const label = now ? `Due · ${now} now` : "Due";
+  $("dueRing").classList.toggle("has", done + now > 0);
+  const share = done + now ? Math.round(100 * done / (done + now)) : 0;
+  $("dueRingDone").setAttribute("stroke-dasharray", `${share} 100`);
+  $("dueRingDone").classList.toggle("empty", share === 0);
+  const label = ["Due", now && `${now} now`, done && `${done} done today`].filter(Boolean).join(" · ");
   $("dueBtn").setAttribute("aria-label", label);
   $("dueBtn").title = label;
 }
@@ -147,12 +153,9 @@ function render() {
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
   $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : "");
   renderWatchBar();
-  const count = closedOn(allNotes(), today());
-  $("archiveCount").textContent = count;
-  $("archiveCount").classList.toggle("has", count > 0);
   renderDueCount();
-  $("viewBtn").setAttribute("aria-label", state.view === "open" ? `Archive, ${count} closed today` : "Notes");
-  $("viewBtn").title = state.view === "open" ? `Archive · ${count} closed today` : "Notes";
+  $("viewBtn").setAttribute("aria-label", state.view === "open" ? "Archive" : "Notes");
+  $("viewBtn").title = state.view === "open" ? "Archive" : "Notes";
   $("viewHint").hidden = state.view !== "trash";
   renderFab();
   if ($("searchInput").value !== state.search) $("searchInput").value = state.search;
@@ -346,6 +349,7 @@ subscribe(kind => {
     patchNote(kind.slice(5));
     renderToc(currentNotes());
     renderWatchBar();
+    renderDueCount();   // a ticked task or a changed date moves the Due button's count and ring
   } else if (!state.editingId) {
     render();
   }
@@ -498,7 +502,7 @@ const ACTIONS = [
   { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
   { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
   { id: "viewBtn", menu: () => state.view === "open"
-    ? { label: `Archive (${closedOn(allNotes(), today())} today)`, icon: "archive", onSelect: () => setView("closed") }
+    ? { label: "Archive", icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
   { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
