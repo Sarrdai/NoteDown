@@ -741,7 +741,8 @@ paid features per user.
   line by drag (or arrow keys) or with + / −, and are ordered there. The
   list shows the sorted notes first, then a thin divider "Not sorted
   yet" and the rest by last edited (decided 2026-10-14: new notes always
-  land there, so nothing reshuffles the arranged part). A custom order has
+  land there, so nothing reshuffles the arranged part); with every note
+  sorted the divider closes the list, so its Arrange… stays at hand. A custom order has
   no direction. The dialog arranges what the list shows (circle filter
   and search applied); other notes keep their places in the order. Below
   the list, "Not sorted yet by …" sorts the unsorted rows with any sort
@@ -807,8 +808,8 @@ paid features per user.
 - A table of contents over all notes of the current view, in the current
   sort order and search filter. *Prototype: round 1.* Sorted by a custom
   order, it shows the list's "Not sorted yet" divider with **Arrange…**
-  above the first note not sorted yet (on the phone the link closes the
-  sheet). *Prototype: 2026-10-17 (user request: arranging is reachable
+  above the first note not sorted yet, or at its end when all are sorted
+  (on the phone the link closes the sheet). *Prototype: 2026-10-17 (user request: arranging is reachable
   from the contents too).*
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
