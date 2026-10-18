@@ -11,6 +11,7 @@ import {
   cycleHeading, toggleBullet, toggleTaskItem, toggleTaskChecked, indentLine, outdentLine,
   continueList, toggleWrap, insertLink, insertMedia,
 } from "../core/md-commands.js";
+import { today } from "./format.js";
 import { appendCounter } from "../core/counter.js";
 import { newRating } from "../core/rating.js";
 
@@ -168,7 +169,7 @@ export function createEditor({ parent, doc, onChange, onEscape, media = "click",
           { key: "Mod-b", run: COMMANDS.bold },
           { key: "Mod-i", run: COMMANDS.italic },
           { key: "Mod-k", run: COMMANDS.link },
-          { key: "Mod-Enter", run: v => mapLines(v, toggleTaskChecked) },
+          { key: "Mod-Enter", run: v => mapLines(v, line => toggleTaskChecked(line, today())) },
           { key: "Tab", run: indentMore, shift: indentLess },
           { key: "Escape", run: () => { onEscape(); return true; } },
         ])),

@@ -40,7 +40,7 @@ function tick(it, done) {
   if (done) ticked.set(keyOf(it), it); else ticked.delete(keyOf(it));
   if (it.kind === "task") {
     const n = allNotes().find(x => refOf(x) === it.id);
-    if (n) setBody(it.id, toggleTask(n.body, it.index));
+    if (n) setBody(it.id, toggleTask(n.body, it.index, today()));
   } else {
     if (done) for (const t of dueItems(allNotes(), today())) if (t.id === it.id) kept.set(keyOf(t), t);
     toggleStatus(it.id);

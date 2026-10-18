@@ -19,7 +19,7 @@ import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
 import { state, setUi, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
-import { relativeTime, dueLabel, shortDate } from "./format.js";
+import { relativeTime, dueLabel, shortDate, today } from "./format.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 import { createEditor } from "./editor.js";
@@ -212,7 +212,7 @@ function noteElement(n, view = state.view) {
   const readOnly = n.status === "closed" || n.news || n.deleted;
   fillTaskDues(body, readOnly);
   if (readOnly) body.querySelectorAll("input.task, .counter, .rating .star").forEach(cb => (cb.disabled = true));
-  else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(refOf(n), setTaskState(note(refOf(n)).body, index, s))));
+  else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(refOf(n), setTaskState(note(refOf(n)).body, index, s, today()))));
   body.addEventListener("click", e => onBodyClick(e, refOf(n)));
 
   const meta = document.createElement("div");
@@ -364,7 +364,7 @@ function onBodyClick(e, id) {
     e.preventDefault();
     if (n.status === "closed" || n.deleted) return;
     const index = [...e.currentTarget.querySelectorAll("input.task")].indexOf(cb);
-    setBody(id, toggleTask(n.body, index));
+    setBody(id, toggleTask(n.body, index, today()));
     return;
   }
   if (e.target.closest("a, video")) return;

@@ -70,3 +70,9 @@ test("insertMedia puts the image on its own line and selects the url placeholder
   assert.equal(empty.text, "![](url)");
   assert.equal(empty.text.slice(empty.from, empty.to), "url");
 });
+
+test("toggleTaskChecked with a day writes and drops the done date", () => {
+  assert.equal(toggleTaskChecked("- [ ] Milk", "2026-10-18"), "- [x] Milk ✅ 2026-10-18");
+  assert.equal(toggleTaskChecked("- [x] Milk ✅ 2026-10-18", "2026-10-19"), "- [ ] Milk");
+  assert.equal(toggleTaskChecked("- [/] Milk 📅 2026-10-20", "2026-10-18"), "- [x] Milk 📅 2026-10-20 ✅ 2026-10-18");
+});

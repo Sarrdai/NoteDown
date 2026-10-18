@@ -589,13 +589,15 @@ paid features per user.
   (decided 2026-10-14 over a left column with the round button, which
   narrowed every note). *Prototype: round 1; bottom bar
   2026-10-14.*
-- The **archive button** in the main view shows how many notes were closed
-  today; the count resets at midnight. In the archive the same button
-  reads **Notes** (no count) and leads back, so one place switches
-  between both views. It is an icon (count on its corner, tooltip) right
-  after sort, and keeps its place in both views: the top bar keeps the
-  same buttons in both. *Prototype: round 1; Notes button 2026-10-13;
-  place 2026-10-15.*
+- The **archive button** in the main view leads to the archive; in the
+  archive the same button reads **Notes** and leads back, so one place
+  switches between both views. It is an icon (tooltip) at the right end of
+  the top bar, just before ⋮, and keeps its place in both views: the top
+  bar keeps the same buttons in both. It carries no count: what was done
+  today shows in the Due button's ring ("Due view"). *Prototype: round 1;
+  Notes button 2026-10-13; place and no count 2026-10-18.* Why: a second
+  "today" count next to the Due button read as overloaded, so the archive
+  became the less important button.
 - On phone and tablet, **swiping sideways** anywhere on the list
   switches between both views like pages: the archive lies to
   the right of the notes (swipe left to open it, right to go back); the
@@ -723,7 +725,14 @@ paid features per user.
   A tap on the rest of a row shows the note in the list. Empty: "Nothing
   is due." Opened from a **calendar icon in the top bar** whose corner
   shows how many items are overdue or due today (red when any is
-  overdue), in every view, and by a tapped reminder. It is a panel like
+  overdue), in every view, and by a tapped reminder. A green **ring**
+  around the icon fills with what was **done today**: notes closed and
+  tasks ticked today, planned or not, as done ÷ (done + still due now) —
+  full once nothing is left, and at once on a day without plans; no ring
+  on a day with neither (decided 2026-10-18 over a "done today" line in
+  the Due view and a badge that turns into a check). Why: "I got
+  something done today" and "what is still planned for today" in one
+  place instead of two counts. It is a panel like
   the settings: a full-screen sheet on the phone, a centered dialog on
   tablet and desktop. Why: notes and their tasks carry dates, but the
   list shows notes — only an item-by-item list answers "what is due
@@ -1075,6 +1084,13 @@ Decided 2026-10-16 (user request).
   note and in the editor; on the box it doesn't start multi-select.
   Ctrl/Cmd+Enter in the editor ticks like a tap; Enter after any task
   continues with an open one.
+- **Done date**: ticking a task writes the day at the end of its line in
+  the Obsidian Tasks syntax, `✅ YYYY-MM-DD` (after a due date;
+  `docs/file-format.md`); unticking or another state removes it, setting
+  done again keeps it. The app doesn't show it (rendered note, editor
+  lines the cursor isn't on); it counts the task for the Due button's
+  "done today" ring (decided 2026-10-18). Why in the file: it syncs, so
+  every device counts the same; other editors show it as text.
 - **Task progress** ("done/total") is shown when the switch next to the
   contents' − / + is on, and then both in the contents and at the
   notes' headings — nowhere else (user request). A heading counts its
