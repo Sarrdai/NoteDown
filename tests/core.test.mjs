@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask, tasks, setTaskState, renderMarkdown } from "../app/js/core/markdown.js";
-import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, isSectionId, sectionId, sectionTitle, orderSections, arrangeRows, tableOfContents, closedOn, permanentFirst, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
+import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, isSectionId, sectionId, sectionTitle, orderSections, arrangeRows, tableOfContents, closedOn, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -74,12 +74,6 @@ test("time: timestamps are written in UTC and shown in the device's time zone", 
   }
 });
 
-test("query: permanent first keeps the order inside both groups", () => {
-  const notes = ["a", "b", "c", "d"].map(id => n(id, { status: id === "c" || id === "a" ? "permanent" : "open" }));
-  assert.deepEqual(permanentFirst(notes).map(x => x.id), ["a", "c", "b", "d"]);
-  assert.deepEqual(permanentFirst(notes.map(x => ({ ...x, status: "open" }))).map(x => x.id), ["a", "b", "c", "d"]);
-});
-
 test("query: the main view shows open and permanent notes, the trash every deleted note", () => {
   const notes = [n("o"), n("p", { status: "permanent" }), n("c", { status: "closed" }), n("d", { deleted: "2026-10-13T08:00Z" }), n("dc", { status: "closed", deleted: "2026-10-13T08:00Z" })];
   const ids = view => notes.filter(x => inViewOf(x, view)).map(x => x.id);
@@ -94,7 +88,7 @@ test("query: trashed notes expire after TRASH_DAYS", () => {
   assert.deepEqual(expiredTrash(notes, now).map(x => x.id), ["old"]);
 });
 
-test("custom order: listed notes in list order, the rest by last edited, newest first", () => {
+test("custom order: listed notes in list order, the pile by last edited, newest first, and first in the view", () => {
   const notes = parseNotesFile(sample).notes.filter(n => n.status === "open");
   const [a, b, c] = notes.map(n => n.id);
   const { sorted, unsorted } = customSplit(notes, [c, "gone", a]);
@@ -102,7 +96,8 @@ test("custom order: listed notes in list order, the rest by last edited, newest 
   assert.equal(unsorted.length, notes.length - 2);
   assert.ok(unsorted.every((n, i) => !i || unsorted[i - 1].modified >= n.modified));
   const view = viewNotes(notes, { status: "open", sort: { key: "custom", dir: "asc" }, order: [b] });
-  assert.equal(view[0].id, b);
+  assert.equal(view.at(-1).id, b);
+  assert.notEqual(view[0].id, b);
 });
 
 test("rearrange: shown notes refill their old places, new ones go last, hidden ones stay", () => {

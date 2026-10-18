@@ -26,8 +26,8 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
-  permanentFirst: false,     // "Permanent first" in the main view
-  collapsedSections: [],     // custom order sections (#24) folded in the list and contents: their section ids, this device only
+  collapsedSections: [],     // My order's sections (#24) and its pile ("pile") folded in the list and contents, this device only
+  tidy: {},                  // tidy-up reminder per circle (core/tidy.js): circleKey → off | often | normal | rarely, this device only
   reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
   lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
   privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only
@@ -81,6 +81,7 @@ export const state = {
   search: "",
   panelTab: "toc",           // sidebar / sheet tab: toc | people | labels
   labels: [],                // label filter: the picked label names, none = all (core/filters.js); not remembered
+  permanent: false,          // filter to permanent notes (a tap on ∞, the Labels tab's first entry); not remembered
   circles: [],               // people filter (#23): the picked circleKeys ("" = private), none = all; not remembered
   picking: null,             // the tab picking several entries (ui/filter-pick.js): null | "people" | "labels"
   editingId: null,
@@ -140,6 +141,7 @@ export async function load() {
       ...structuredClone(DEFAULT_SETTINGS), ...s,
       sort: { ...structuredClone(DEFAULT_SORT), ...(s.sort || {}) },
       external: { ...structuredClone(DEFAULT_EXTERNAL), ...(s.external || {}) },
+      tidy: { ...(s.tidy || {}) },
       lock: { ...DEFAULT_LOCK, ...(s.lock || {}) },
       privacy: { ...DEFAULT_SETTINGS.privacy, ...(s.privacy || {}) },
     };

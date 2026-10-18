@@ -1,5 +1,7 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS } from "./core/query.js";
+import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
+import { pileState, tidyChoice } from "./core/tidy.js";
+import { circleKey } from "./core/sharing.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
@@ -67,8 +69,11 @@ function sortOf(view = state.view) {
 }
 const orderIds = (view = state.view) => sortOf(view).key === "shared" ? circleOrder(sharedCircle()) : customOrder();
 const inView = (notes, view = state.view, search = state.search) => viewNotes(notes, { status: view, search, sort: sortOf(view), order: orderIds(view) });
-// The notes the list shows before view and search: the picked circles, then the picked labels.
-const withLabel = notes => notes.filter(n => hasAnyLabel(n.body, state.labels));
+// The notes the list shows before view and search: the picked circles, then the picked labels,
+// then permanent ones only when that filter is on.
+const byLabel = notes => notes.filter(n => hasAnyLabel(n.body, state.labels));
+const byPermanent = notes => state.permanent ? notes.filter(n => n.status === "permanent") : notes;
+const withLabel = notes => byPermanent(byLabel(notes));
 const inCircles = () => state.circles.length ? state.circles.flatMap(k => circleNotes(k)) : circleNotes(null);
 const listed = () => withLabel(inCircles());
 const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
@@ -136,8 +141,11 @@ function render() {
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
-  $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label);
-  $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label;
+  // Time to tidy up My order's pile: a dot on the sort button, whatever the list is sorted by.
+  const due = state.view === "open" && mainPile().level === "tidy";
+  $("sortBtn").classList.toggle("tidy-due", due);
+  $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
+  $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : "");
   renderWatchBar();
   const count = closedOn(allNotes(), today());
   $("archiveCount").textContent = count;
@@ -153,8 +161,7 @@ function render() {
   fitTopbar();
   renderCircleFilter();
   const notes = currentNotes();
-  const { tiles, dividerBefore, dividerAtEnd, sectionOf } = tilesOf(state.view, notes);
-  renderList(tiles, { dividerBefore, dividerAtEnd, sectionOf, onArrange: arrange, onToggleSection: toggleSection });
+  renderList(...listArgs(state.view, notes));
   trackNews();
   syncSelection(notes);
   renderToc(notes);
@@ -163,17 +170,39 @@ function render() {
   empty.textContent = emptyText(state.view, state.search);
 }
 
-// The tiles of a view: "Permanent first" (main view) orders only the tiles (the
-// contents keep the sort order); the custom order puts a divider above the first
-// note not sorted yet (permanent ones stay on top with "Permanent first", outside
-// any section) or, with all sorted, below the last note, and its sections head their notes.
+// The tiles of a view (a new note kept on top comes first, currentNotes) and,
+// sorted by a custom order, its pile: the notes not sorted in yet, which come
+// next under their header (they come first in the view, core/query.js), then
+// the sections with their notes.
 function tilesOf(view, notes) {
-  const onTop = view === "open" && state.settings.permanentFirst;
-  const tiles = onTop ? permanentFirst(notes) : notes;
+  if (!isCustom(view)) return { tiles: notes, pile: null, sectionOf: () => null };
+  const isTop = n => refOf(n) === state.topId;
   const sorted = new Set(orderIds(view));
-  const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(refOf(n)) && !(onTop && n.status === "permanent") && refOf(n) !== state.topId) : null;
-  const sectionOf = sectionsOf(view, tiles, n => (onTop && n.status === "permanent") || refOf(n) === state.topId);
-  return { tiles, dividerBefore: unsorted ? refOf(unsorted) : null, dividerAtEnd: isCustom(view) && !unsorted, sectionOf };
+  const piled = notes.filter(n => !sorted.has(refOf(n)) && !isTop(n));
+  const ids = new Set(piled.map(refOf));
+  const collapsed = !state.search && state.settings.collapsedSections.includes(PILE_ID);
+  const pile = { has: id => ids.has(id), top: state.topId, collapsed, ...pileLevel(view, piled) };
+  return { tiles: notes, pile, sectionOf: sectionsOf(view, notes, isTop) };
+}
+
+// renderList's and reorderList's arguments for a view's notes.
+function listArgs(view, notes) {
+  const { tiles, pile, sectionOf } = tilesOf(view, notes);
+  return [tiles, { pile, sectionOf, onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection }];
+}
+
+// How full a pile is (core/tidy.js): only in the main view, by each note's circle's choice.
+function pileLevel(view, piled) {
+  const notes = piled.filter(n => !n.news);
+  if (view !== "open") return { level: null, count: piled.length, oldest: null };
+  const level = pileState(notes.map(n => ({ created: n.created, circle: circleKey(circleOf(refOf(n))) })), k => tidyChoice(state.settings.tidy, k));
+  return { ...level, count: piled.length };
+}
+
+// My order's pile in the main view with the current filters, whatever the list is sorted by.
+function mainPile() {
+  const sorted = new Set(orderIds("open"));
+  return pileLevel("open", viewNotes(listed(), { status: "open", sort: { key: "modified", dir: "desc" } }).filter(n => !sorted.has(refOf(n))));
 }
 
 // A custom order's sections (#24): for a note, the section it is in with how
@@ -194,18 +223,10 @@ function toggleSection(id) {
   updateSettings({ collapsedSections: folded.includes(id) ? folded.filter(x => x !== id) : [...folded, id] });
 }
 
-// The contents keep the plain sort order, so their divider sits above the first
-// note not sorted yet there (permanent notes not sorted yet included).
-function tocDividerOf(view, notes) {
-  if (!isCustom(view)) return null;
-  const sorted = new Set(orderIds(view));
-  const first = notes.find(n => !sorted.has(refOf(n)) && refOf(n) !== state.topId);
-  return first ? refOf(first) : null;
-}
-
 function emptyText(view, search) {
   const circle = activeCircle();
   return search ? `No notes match “${search}”.`
+    : state.permanent && !state.labels.length ? "No permanent notes here."
     : state.labels.length ? `No notes labelled ${state.labels.map(l => "#" + l).join(" or ")} here.`
     : view === "trash" ? "The trash is empty."
     : circle === NEWS ? (view === "open" ? "No news right now." : "No archived news.")
@@ -262,12 +283,12 @@ function tabLanes() {
 // the circle filter chip and the list as setView will render them, not live.
 function previewView(view) {
   const notes = inView(listed(), view, "");
-  const { tiles, dividerBefore, dividerAtEnd, sectionOf } = tilesOf(view, notes);
+  const [tiles, options] = listArgs(view, notes);
   const nodes = [];
   if (!$("filterBar").hidden) nodes.push($("filterBar").cloneNode(true));
   const list = document.createElement("div");
   list.className = "list";
-  list.append(...listItems(tiles, { dividerBefore, dividerAtEnd, sectionOf, view }));
+  list.append(...listItems(tiles, { ...options, onArrange: null, onTogglePile: null, onToggleSection: null, view }));
   nodes.push(list);
   if (!notes.length) {
     const empty = document.createElement("p");
@@ -290,7 +311,7 @@ function renderCircleFilter() {
   app.dataset.tab = state.panelTab;
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   renderPeople(key => inView(withLabel(circleNotes(key))).length);
-  renderLabels(inView(inCircles()));
+  renderLabels(inView(byPermanent(inCircles())), state.view === "open" ? inView(byLabel(inCircles())).filter(n => n.status === "permanent").length : null);
   // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
   const fresh = freshCount(newsNotes());
   document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
@@ -306,16 +327,17 @@ function renderCircleFilter() {
     return el;
   };
   // With several chips, a × in front of them clears all filters.
-  const many = state.circles.length + state.labels.length > 1;
+  const many = state.circles.length + state.labels.length + state.permanent > 1;
   const clearAll = many && Object.assign(document.createElement("button"), { className: "icon-btn small filter-clear-all", type: "button", innerHTML: icon("close") });
   if (clearAll) {
     clearAll.setAttribute("aria-label", "Clear all filters");
-    clearAll.addEventListener("click", () => { setPicking(null); setUi({ circles: [], labels: [], topId: null }); });
+    clearAll.addEventListener("click", () => { setPicking(null); setUi({ circles: [], labels: [], permanent: false, topId: null }); });
   }
   $("filterBar").replaceChildren(...[clearAll].filter(Boolean),
     ...state.circles.map(k => chip(circleLeadHtml(k, "small"), circleName(k), `Stop showing ${circleName(k)}`, () => { toggleCircleFilter(k); settlePicking(); })),
-    ...state.labels.map(l => chip("", "#" + l, `Stop showing #${l}`, () => { toggleLabelFilter(l); settlePicking(); })));
-  $("filterBar").hidden = !state.circles.length && !state.labels.length;
+    ...state.labels.map(l => chip("", "#" + l, `Stop showing #${l}`, () => { toggleLabelFilter(l); settlePicking(); })),
+    ...(state.permanent ? [chip(icon("permanent"), "Permanent", "Stop showing permanent notes only", () => setUi({ permanent: false, topId: null }))] : []));
+  $("filterBar").hidden = !state.circles.length && !state.labels.length && !state.permanent;
 }
 
 subscribe(kind => {
@@ -335,8 +357,8 @@ function sortInByDue(id) {
   if (sortOf().key !== "due") return;
   const top = () => document.querySelector(`#list .note[data-id="${id}"]`)?.getBoundingClientRect().top;
   const before = top();
-  const { tiles, dividerBefore, dividerAtEnd } = tilesOf(state.view, currentNotes());
-  reorderList(tiles, { keepId: id, dividerBefore, dividerAtEnd, onArrange: arrange });
+  const [tiles, options] = listArgs(state.view, currentNotes());
+  reorderList(tiles, { keepId: id, ...options });
   if (before !== undefined) window.scrollBy(0, top() - before);
 }
 
@@ -426,20 +448,15 @@ function sortMenu(anchor = $("sortBtn")) {
   // A sort change ends a new note's place on top, like a view or search change.
   const reorder = patch => { state.topId = null; updateSettings(patch); };
   const setSort = next => reorder({ sort: { ...state.settings.sort, [state.view]: next } });
-  const onTop = state.settings.permanentFirst;
   openMenu(anchor, [
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
     // A custom order has no direction; it is arranged instead.
-    ...(SORT_KEYS[sort.key].custom ? [{ label: "Arrange…", onSelect: arrange }] : [
+    ...(SORT_KEYS[sort.key].custom ? [{ label: "Tidy up…", onSelect: arrange }] : [
       { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
       { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     ]),
-    ...(state.view === "open" ? [
-      { separator: true },
-      { label: "Permanent first", checked: onTop, onSelect: () => reorder({ permanentFirst: !onTop }) },
-    ] : []),
   ]);
 }
 
@@ -510,6 +527,8 @@ function fitTopbar() {
     if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
   }
   title.textContent = text;
+  // The tidy-up dot follows the sort button into ⋮.
+  $("moreBtn").classList.toggle("tidy-due", $("sortBtn").hidden && $("sortBtn").classList.contains("tidy-due"));
 }
 
 function moreMenu() {
@@ -643,7 +662,7 @@ function wire() {
     if (e.key === "/") { e.preventDefault(); app.classList.add("searching"); $("searchInput").focus(); }
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
-  initToc({ isCustom, dividerOf: tocDividerOf, sectionsOf: (view, notes) => sectionsOf(view, notes, n => refOf(n) === state.topId), onArrange: arrange, onToggleSection: toggleSection });
+  initToc({ pileOf: (view, notes) => tilesOf(view, notes), onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection });
   initWatchBar();
   initSearchHits();
   // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.

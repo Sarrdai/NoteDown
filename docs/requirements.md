@@ -639,7 +639,13 @@ paid features per user.
   to explain; with the trash nothing is lost by a delete, and what is
   meant to last is now visibly marked as such. The mark alone, no colored
   card edge (decided 2026-10-15: permanent notes are rare, the mark is
-  enough). *Prototype: 2026-10-15.*
+  enough). A tap on the mark **filters the list to the permanent notes**,
+  as a tap on a label does: a chip "∞ Permanent ×" above the list, next to
+  the circles' and labels' chips, combined with them (it narrows them);
+  not remembered across starts. The Labels tab lists the same filter as
+  its first entry ("Labels"). Decided 2026-10-18 over the switch
+  "Permanent first" in the sort menu, which competed with My order's pile
+  and sections. *Prototype: 2026-10-15; filter 2026-10-18.*
 - **Trash** (decided 2026-10-15, user request): **Delete** moves notes
   into the trash at once, with Undo (no confirmation, as nothing is
   lost). The trash keeps them for **30 days**, then they are gone for
@@ -733,31 +739,53 @@ paid features per user.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
-- **Custom** (backlog #24) is one more sort option, in the main view and
-  the archive: the user's own order. Notes start **not sorted yet**; the
-  sort menu's **Arrange…** (and the same link on the divider in the list
-  and in the table of contents)
-  opens a dialog like the merge order dialog, where notes move above a
-  line by drag (or arrow keys) or with + / −, and are ordered there. The
-  list shows the sorted notes first, then a thin divider "Not sorted
-  yet" and the rest by last edited (decided 2026-10-14: new notes always
-  land there, so nothing reshuffles the arranged part); with every note
-  sorted the divider closes the list, so its Arrange… stays at hand. A custom order has
-  no direction. The dialog arranges what the list shows (circle filter
-  and search applied); other notes keep their places in the order. Below
-  the list, "Not sorted yet by …" sorts the unsorted rows with any sort
+- **My order** (backlog #24) is one more sort option, in the main view
+  and the archive: the user's own order — the core of the app, turning
+  spontaneous notes into an order of one's own without asking for one when
+  a note is written. Named "My order" (decided 2026-10-18 over "Custom",
+  which is correct but says nothing). Notes start on the **Pile**: the
+  notes not sorted in yet, **first in the list** under a tinted header
+  "Pile" with their count and **Tidy up…**, by last edited, newest first;
+  then the sorted notes (decided 2026-10-18 over the pile at the end: a new
+  note appears where the user looks, as in every other sort, and folding
+  keeps the order in view). A tap on the header **folds** the pile to that
+  one line, remembered per device like a section; a search shows it
+  unfolded. With the pile empty the header reads "Pile empty" and keeps
+  Tidy up… at hand. The sort menu's **Tidy up…** (and the same link on
+  the header in the list and in the table of contents) opens a dialog like
+  the merge order dialog, where notes move above a line by drag (or arrow
+  keys) or with + / −, and are ordered there; the pile is below the line.
+  My order has no direction. The dialog arranges what the list shows
+  (circle filter and search applied); other notes keep their places in the
+  order. Below the list, "Pile by …" sorts the pile's rows with any sort
   but the custom ones, both directions (last edited, newest first, at
   first), so the next notes to sort in are easy to find; the control sits
   under the list so nothing but the line stands between the rows
   (decided 2026-10-15). Save
-  offers Undo. There is one custom order only (several named orders go
+  offers Undo. There is one such order only (several named orders go
   too far for now). It is **synced but private**: one marker in the
   private file lists the note ids (`docs/file-format.md`), so shared notes
   can be ordered too without the other members seeing it; when two devices
-  changed it, the newer list wins. *Prototype: 2026-10-14.*
-- **Sections** in a custom order (and a shared order): the arrange
-  dialog's **+ Section** adds a titled divider right above the "Not sorted
-  yet" line; it moves like a note, its title is edited in place and its ×
+  changed it, the newer list wins. *Prototype: 2026-10-14; named, pile on
+  top 2026-10-18.*
+- **Tidy-up reminder** (decided 2026-10-18, user request): the pile header
+  shows how full the pile is as a three-step gauge — **calm**, **growing**
+  (tinted, "oldest" and the date of its oldest note), **time to tidy up**
+  (stronger tint, "Time to tidy up", and a dot on the sort button, or on ⋮
+  when the sort button is folded there, whatever the list is sorted by).
+  Each circle (Private, each contact, each group) has its own choice under
+  **Settings → Tidy-up reminder**: Off, 5 notes · 3 days, 10 notes · 1
+  week, 20 notes · 4 weeks; **Private on (10 notes · 1 week) by default,
+  shared circles off** (others often sort shared notes). A circle's pile
+  notes reach "time to tidy up" at its number of notes or once its oldest
+  is that old, "growing" at half of either; the pile shows its circles'
+  highest level, and no gauge when none has the reminder on. Main view
+  only; a setting of this device. A gauge rather than a score or push
+  messages: it should invite tidying, never make it a chore.
+  *Prototype: 2026-10-18 (mockup variant B).*
+- **Sections** in My order (and a shared order): the arrange
+  dialog's **+ Section** adds a titled divider right above the pile's
+  line; it moves like a note, its title is edited in place and its ×
   removes it (its notes stay where they are and join the section above).
   A section groups the sorted notes below it up to the next one; it is no
   note (no body, no status, not exported) and exists only above the line.
@@ -765,24 +793,19 @@ paid features per user.
   section heads its notes with a title line and their count; a tap folds
   or unfolds it, remembered per device; a search shows every section
   unfolded, so all hits show. A section without notes in the current view
-  isn't shown. With "Permanent first" the permanent notes on top stand
-  outside any section. Stored as entries in the order's id list
+  isn't shown. Stored as entries in the order's id list
   (`docs/file-format.md`). *Prototype: 2026-10-18 (user request; the
   title-line look chosen over a grouping box and a sticky band, as the
-  lightest one beside the "Not sorted yet" line).*
+  lightest one beside the pile's header).*
 - **Shared order** (backlog #25): in the view of a circle with people
   ("People circles as a filter") the sort menu also offers "Shared
   order" — an order of that circle's notes kept in the circle's own file,
   so every member sees and edits the same one; any member may set it,
-  none has to. It works like Custom (Arrange…, "Not sorted yet", Undo; the
+  none has to. It works like My order (Tidy up…, the pile with its reminder by that circle's choice, Undo; the
   dialog says who sees it) and merges the same way, the newer list
   winning. Outside a circle's view a view set to it shows the user's own
-  Custom order. *Prototype: 2026-10-14; real on shared files since
+  My order. *Prototype: 2026-10-14; real on shared files since
   milestone 2, simulated in the sample (Lea's circle carries one).*
-- **Permanent first** (a switch in the main view's sort menu, off by
-  default) shows permanent notes first, then the others, each group in
-  the chosen order. It only orders the notes in the list; the table of
-  contents keeps the plain sort order. *Prototype: 2026-10-15.*
 - A finished edit doesn't reorder the list right away, so a note never
   jumps away under the user's finger; the order updates on the next view
   change, sort or search. *Prototype: round 1.*
@@ -806,11 +829,11 @@ paid features per user.
 ### Table of contents
 
 - A table of contents over all notes of the current view, in the current
-  sort order and search filter. *Prototype: round 1.* Sorted by a custom
-  order, it shows the list's "Not sorted yet" divider with **Arrange…**
-  above the first note not sorted yet, or at its end when all are sorted
-  (on the phone the link closes the sheet). *Prototype: 2026-10-17 (user request: arranging is reachable
-  from the contents too).*
+  sort order and search filter. *Prototype: round 1.* Sorted by My
+  order, it shows the pile's header with its gauge and **Tidy up…** on
+  top, folding with the list's (on the phone the link closes the sheet),
+  then the sections. *Prototype: 2026-10-17 (user request: arranging is
+  reachable from the contents too); pile on top 2026-10-18.*
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
   and the deepest level present). The level count is remembered. The
@@ -912,7 +935,10 @@ whose labels need a place).
   label shows as a **chip with ×** above the list, next to the circles'
   chips; the filter is not remembered across starts.
 - A third tab **"Contents | People | Labels"** lists every label of the
-  current view (circle filter and search applied) A–Z with its count;
+  current view (circle filter and search applied) A–Z with its count; in
+  the main view **"∞ Permanent"** with the count of permanent notes heads
+  the list, set off by a line — a tap shows the permanent notes only,
+  again all ("Permanent notes");
   tapping one filters, tapping it again clears it. Several labels are
   picked like several circles (long-press, "People circles as a
   filter"); a note then shows when it carries **any** of them (decided
@@ -1492,7 +1518,8 @@ place instead of the top bar and ⋮.
   Esc and the Android back key go one page back). Under ⋮, as settings
   are rarely needed and the phone's top bar is full.
 - Sections: **Appearance** — Theme (System, Latte, Frappé, Macchiato,
-  Mocha); **Notes** — Reminders, Links & media (each a page, its line
+  Mocha); **Notes** — Reminders, Tidy-up reminder (every circle with its
+  choice, "Sorting and search"), Links & media (each a page, its line
   saying what is set); **Sync** — Sync & sharing (the panel's own pages,
   its line the sync status; its top-bar icon stays for the status);
   **Privacy** (Android app only) — Screen lock, Screen security,

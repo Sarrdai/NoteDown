@@ -13,7 +13,7 @@ export const SORT_KEYS = {
   title: { label: "Alphabetical", field: null },
   closed: { label: "Closed", field: "closed", views: ["closed"] },
   deleted: { label: "Deleted", field: "deleted", views: ["trash"] },
-  custom: { label: "Custom", field: null, custom: true, views: ["open", "closed"] },
+  custom: { label: "My order", field: null, custom: true, views: ["open", "closed"] },
   shared: { label: "Shared order", field: null, custom: true, circleOnly: true, views: ["open", "closed"] },
 };
 
@@ -46,13 +46,13 @@ export function expiredTrash(notes, now = Date.now()) {
 }
 
 /** Notes of one view ("open" | "closed" | "trash", see inViewOf), filtered by a search text and
- *  sorted; a custom sort key orders by the note ids in `order`. */
+ *  sorted; a custom sort key puts the pile (the notes not in `order`) first, then the notes in `order`. */
 export function viewNotes(notes, { status, search = "", sort, order = [] }) {
   const q = search.trim().toLowerCase();
   const list = notes.filter(n => inViewOf(n, status) && (!q || n.body.toLowerCase().includes(q)));
   if (SORT_KEYS[sort.key]?.custom) {
     const { sorted, unsorted } = customSplit(list, order);
-    return [...sorted, ...unsorted];
+    return [...unsorted, ...sorted];
   }
   return sortNotes(list, sort);
 }
@@ -67,7 +67,7 @@ export function matchRanges(text, search) {
 }
 
 /** A custom order (backlog #24): the notes listed in `ids`, in that order,
- *  and the rest — "not sorted yet", new notes among them — by last edited.
+ *  and the rest — the pile, new notes among them — by last edited.
  *  Section entries in `ids` (isSectionId) match no note and are skipped. */
 export function customSplit(notes, ids) {
   const pos = new Map(ids.map((id, i) => [id, i]));
@@ -171,8 +171,5 @@ export function closedOn(notes, day) {
   return notes.filter(n => n.status === "closed" && !n.deleted && n.closed && localTime(n.closed).startsWith(day)).length;
 }
 
-/** The tile order with "Permanent first": permanent notes first, each group in
- *  its given order. The contents keep the plain sort order. */
-export function permanentFirst(notes) {
-  return [...notes.filter(n => n.status === "permanent"), ...notes.filter(n => n.status !== "permanent")];
-}
+/** The pile's entry in the folded sections (settings.collapsedSections); section ids start with "~". */
+export const PILE_ID = "pile";
