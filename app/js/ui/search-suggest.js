@@ -34,15 +34,10 @@ export function closeSuggest() {
   active = -1;
 }
 
-// Under the search field (list) or as one row under the top bar (chips), above the phone's keyboard.
+// Under the search field, above the phone's keyboard.
 function place(box) {
   const view = window.visualViewport;
   const bottom = view ? view.offsetTop + view.height : window.innerHeight;
-  if (document.getElementById("app").classList.contains("suggest-chips")) {
-    const bar = $("topbar").getBoundingClientRect();
-    Object.assign(box.style, { top: bar.bottom + "px", left: bar.left + "px", width: bar.width + "px", maxHeight: "" });
-    return;
-  }
   const r = $("search").getBoundingClientRect();
   const width = Math.min(Math.max(r.width, 320), window.innerWidth - 16);
   const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
@@ -68,7 +63,7 @@ function show() {
   box.hidden = false;
   $("searchInput").setAttribute("aria-expanded", "true");
   place(box);
-  box.querySelector(".active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  box.querySelector(".active")?.scrollIntoView({ block: "nearest" });
 }
 
 function pick(s) {

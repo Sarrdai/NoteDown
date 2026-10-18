@@ -147,7 +147,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  app.classList.toggle("suggest-chips", s.suggestLook === "chips");
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -574,8 +573,6 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    { section: "Prototype: search suggestions" },
-    ...[["list", "List (A)"], ["chips", "Chips (B)"]].map(([v, label]) => ({ label, checked: s.suggestLook === v, onSelect: () => updateSettings({ suggestLook: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -756,7 +753,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["list", "chips"].includes(p.get("suggest"))) patch.suggestLook = p.get("suggest");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

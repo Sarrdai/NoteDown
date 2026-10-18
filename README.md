@@ -28,7 +28,9 @@ groups, a Labels tab by the #labels written in the notes (emoji like `#😉` wor
 after a long-press). A note can get a background color from a fixed palette and a built-in motif
 (patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, notes can be put into **My order**, grouped under foldable section titles: new notes land on a pile on top, and a small gauge of bars fills with the number and age of those notes and says when it is time to tidy it up (adjustable, and circles can be ignored).
 The search filters the list and highlights its hits in the notes and the
-table of contents; ▲ / ▼ step from hit to hit.
+table of contents; ▲ / ▼ step from hit to hit. A tap into it suggests the
+filters (permanent notes, labels, people) and, while typing, matching
+headings, found fuzzily.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. Tasks can
 also be in progress (`[/]`) or cancelled (`[-]`), picked by a long-press
