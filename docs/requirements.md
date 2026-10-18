@@ -188,7 +188,13 @@ backup, a user without sync needs a way to a new device.
 - **No keys inside:** no identity, device or file keys and no sync state,
   so restoring never links or clones a device.
 - **Restore from a backup** (the same page, any device, sync on or off):
-  pick the file, type the key; it adds the backup's notes this device
+  pick the file, type the key; when the key opens the backup and this
+  device has no backup key or a different one, a checkbox (on by
+  default) offers "Keep this backup key for future backups": it is stored
+  like a created key, so later backups use it and no new key is shown (a
+  different one is replaced; backups made with it still need it). Same
+  key: no offer. There is deliberately no "type my key" in Create backup:
+  a mistyped key can't be checked without a backup file (backlog #62). It adds the backup's notes this device
   doesn't have — as private notes, since sharing belongs to an identity —
   and takes over the backup's settings (not the screen lock or the
   privacy switches). Nothing here is overwritten; with sync on, the
