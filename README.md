@@ -32,7 +32,9 @@ table of contents; ▲ / ▼ step from hit to hit.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. Tasks can
 also be in progress (`[/]`) or cancelled (`[-]`), picked by a long-press
-on their box; a switch in the contents shows how many tasks of each
+on their box, and can carry their own due date (`📅 2026-10-24`, set
+from the toolbar or a tap on its chip), which sorts and reminds like the
+note's; a switch in the contents shows how many tasks of each
 section are done. A counter
 (`23,5 [-4 -1 +1 +8]`) shows its number; a tap on it pops up buttons that count up and down, e.g. for
 an hour tracker; counters of time (`3:45 [-0:15 +0:15]` or `23,5 h [-1 +1]`)
@@ -97,8 +99,8 @@ history per identity, blocking or deleting an identity, news posts for everyone
 using the server (they show as **News** at the top of the people
 overview), and backup / restore — `app/admin/?sample` shows it with
 sample data. Notes from Google Keep come in through `/import/`: choose
-the Google Takeout ZIP, check the preview of every note, import the ones
-you want (`app/import/?sample` shows it with sample data). Your sync
+the Google Takeout ZIP (or a NoteDown export), check the preview of every note, import the ones
+you want; notes you already imported are marked and not selected (`app/import/?sample` shows it with sample data). Your sync
 data is deleted with the recovery key under Sync & sharing or on
 `/delete/` (`app/delete/?sample`).
 Settings → About shows the version, the open-source licenses of

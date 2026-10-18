@@ -11,6 +11,7 @@ import { SORT_KEYS, DIR_LABELS, sortNotes, sectionId, sectionTitle } from "../co
 import { orderGrip } from "./selection.js";
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
+import { refOf } from "../core/note-ref.js";
 
 const $ = id => document.getElementById(id);
 let onSave = null;
@@ -23,7 +24,7 @@ let unsortedBy = { key: "modified", dir: "desc" };   // as the list shows them
  *  ids above the line, in order, section entries included. */
 export function openArrange({ title = "Custom order", hint = "Only you see this order.", sorted, unsorted, save, view: inView = "open" }) {
   onSave = save;
-  notes = new Map([...sorted, ...unsorted].filter(n => n.id).map(n => [n.id, n]));
+  notes = new Map([...sorted, ...unsorted].filter(n => n.id).map(n => [refOf(n), n]));
   view = inView;
   unsortedBy = { key: "modified", dir: "desc" };
   $("arrangeSortLabel").textContent = SORT_KEYS[unsortedBy.key].label;
@@ -45,7 +46,7 @@ function close() {
 function row(n) {
   const li = document.createElement("li");
   li.className = "order-item";
-  li.dataset.id = n.id;
+  li.dataset.id = refOf(n);
   const t = noteTitle(n.body);
   const label = document.createElement("span");
   label.className = "order-text" + (t.fromHeading ? "" : " plain");
@@ -104,7 +105,7 @@ function sortUnsorted(by) {
   const list = $("arrangeList");
   const rows = [...list.querySelectorAll(".order-item.unsorted")];
   const byId = new Map(rows.map(li => [li.dataset.id, li]));
-  list.append(...sortNotes(rows.map(li => notes.get(li.dataset.id)), by).map(n => byId.get(n.id)));
+  list.append(...sortNotes(rows.map(li => notes.get(li.dataset.id)), by).map(n => byId.get(refOf(n))));
 }
 
 function sortMenu() {

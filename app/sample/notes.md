@@ -15,7 +15,7 @@ Remind Lea that the bike needs new brake pads before the [trip](note:s03) on Sat
 ### Before we go
 - [x] Book flights
   - Seats 14A and 14B, return on Sunday evening
-- [ ] Reserve the apartment in Alfama
+- [ ] Reserve the apartment in Alfama 📅 2026-10-13
 - [ ] Ask Tom for the restaurant list
 ### Things to see
 #### Lisbon
@@ -38,7 +38,7 @@ Remind Lea that the bike needs new brake pads before the [trip](note:s03) on Sat
 The deadline was extended, but ==the accountant wants the papers this week==.
 - [/] Collect the craftsman invoices
 - [x] Download the annual bank statement
-- [ ] Find the donation receipts
+- [ ] Find the donation receipts 📅 2026-10-11
 
 #paperwork
 
@@ -135,7 +135,7 @@ Network `Cabin-5G`, the password is on the router. Reset button only works when 
 
 <!-- note id=s12 status=open created=2026-09-30T08:30Z modified=2026-10-02T17:00Z due=2026-10-31 -->
 ## Car
-- [ ] Winter tyres
+- [ ] Winter tyres 📅 2026-10-24
 - [ ] Inspection sticker expires end of October
 
 #paperwork

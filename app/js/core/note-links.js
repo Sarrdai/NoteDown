@@ -6,6 +6,7 @@
 // took its text), so the app can say when the original changed since.
 import { createNote } from "./notes-file.js";
 import { noteTitle } from "./markdown.js";
+import { refOf } from "./note-ref.js";
 
 const NOTE_HREF = /^note:([A-Za-z0-9_-]+)$/;
 
@@ -39,8 +40,8 @@ export function linkCandidates(notes, { from, circle, query = "", limit = 6 }) {
   const q = query.trim().toLowerCase();
   const scored = [];
   for (const n of notes) {
-    if (n.id === from || n.news || n.deleted) continue;
-    if (own !== "" && circle(n.id) !== own) continue;
+    if (refOf(n) === from || n.news || n.deleted) continue;
+    if (own !== "" && circle(refOf(n)) !== own) continue;
     const title = noteTitle(n.body).text || "Untitled";
     const at = q ? title.toLowerCase().indexOf(q) : 0;
     if (at < 0) continue;

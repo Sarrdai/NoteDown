@@ -69,3 +69,8 @@ body { background: var(--bg); }
 .imp-done { text-align: center; }
 .imp-done h2 { margin: 0; }
 .imp-done .btn { display: inline-flex; align-items: center; margin-top: 16px; text-decoration: none; }
+.imp-source { margin: 20px 0 8px; font-size: 1.05em; }
+.imp-source:first-child { margin-top: 0; }
+.imp-card.exists:not(.selected) { opacity: .6; }
+.chip.imp-known { background: var(--surface-hover); color: var(--text-faint); }
+.imp-intro .imp-hint { margin-bottom: 14px; }

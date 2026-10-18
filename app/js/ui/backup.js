@@ -60,7 +60,9 @@ function pickFile() {
   input.addEventListener("change", async () => {
     const file = input.files[0];
     input.remove();
-    if (file) go("settingsRestore", { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()), key: "" });
+    if (!file) return;
+    const deviceKey = await getSecret("backup").catch(() => null);   // the key this device backs up with, if any
+    go("settingsRestore", { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()), key: "", deviceKey: normalizeBackupKey(deviceKey) || "", keep: true });
   });
   document.body.append(input);
   expectReturn();
@@ -123,6 +125,9 @@ async function restore(data) {
   try { contents = await openBackup(data.bytes, data.key); } catch (e) {
     throw e instanceof BackupError ? e : new BackupError("This file couldn't be read as a backup.");
   }
+  // The key opened the backup: keep it for later backups when asked (backlog #62), exactly like a created one.
+  const digits = normalizeBackupKey(data.key);
+  if (data.keep && digits && digits !== data.deviceKey) { await setSecret("backup", digits); data.deviceKey = digits; data.kept = true; }
   const notes = notesToRestore(contents, noteIds());
   if (notes.length) addRestoredNotes(notes);
   const { lock, privacy, lastBackup, ...settings } = contents.settings || {};
@@ -135,6 +140,7 @@ registerPage("settingsRestore", {
   render: data => {
     if (data.result !== undefined) {
       return [
+        data.kept && text("This backup key is now the key for your future backups."),
         text(data.result
           ? `${data.result === 1 ? "1 note" : `${data.result} notes`} restored — they are private notes on this device; with sync on they go to your other devices too.`
           : "Nothing to restore — every note of this backup is here already."),
@@ -142,16 +148,23 @@ registerPage("settingsRestore", {
       ];
     }
     const { btn, error } = action("Restore", async () => { await restore(data); refreshPage(); });
-    btn.disabled = !data.key.trim();
+    // The offer (backlog #62) shows while the typed key is a full key this device doesn't back up with.
+    const keep = h("input", { type: "checkbox", id: "backupKeyKeep", checked: data.keep, onchange: e => { data.keep = e.target.checked; } });
+    const offer = h("label", { class: "check-row" }, keep, h("span", {}, data.deviceKey
+      ? "Keep this backup key for future backups. It replaces this device's current key; backups made with the old key still need the old key."
+      : "Keep this backup key for future backups"));
+    const sync = () => { btn.disabled = !data.key.trim(); const d = normalizeBackupKey(data.key); offer.hidden = !d || d === data.deviceKey; };
+    sync();
     const input = h("input", {
       type: "text", class: "input mono", inputmode: "numeric", autocomplete: "off", spellcheck: "false", "data-autofocus": true,
       "aria-label": "Backup key", value: data.key, placeholder: "30 digits",
-      oninput: e => { data.key = e.target.value; btn.disabled = !data.key.trim(); },
+      oninput: e => { data.key = e.target.value; sync(); },
       onkeydown: e => { if (e.key === "Enter" && !btn.disabled) btn.click(); },
     });
     return [
       h("p", { class: "file-name" }, data.name),
       h("label", { class: "field" }, h("span", { class: "field-label" }, "Backup key"), input),
+      offer,
       error,
       h("div", { class: "sheet-actions" }, btn),
     ];

@@ -188,7 +188,13 @@ backup, a user without sync needs a way to a new device.
 - **No keys inside:** no identity, device or file keys and no sync state,
   so restoring never links or clones a device.
 - **Restore from a backup** (the same page, any device, sync on or off):
-  pick the file, type the key; it adds the backup's notes this device
+  pick the file, type the key; when the key opens the backup and this
+  device has no backup key or a different one, a checkbox (on by
+  default) offers "Keep this backup key for future backups": it is stored
+  like a created key, so later backups use it and no new key is shown (a
+  different one is replaced; backups made with it still need it). Same
+  key: no offer. There is deliberately no "type my key" in Create backup:
+  a mistyped key can't be checked without a backup file (backlog #62). It adds the backup's notes this device
   doesn't have — as private notes, since sharing belongs to an identity —
   and takes over the backup's settings (not the screen lock or the
   privacy switches). Nothing here is overwritten; with sync on, the
@@ -254,7 +260,9 @@ before the first live test).
   #47; rules: `docs/sync-and-sharing.md` → "Merging"). A concurrent edit
   of a note another member moved follows it only into the file the move
   names, so a member can't catch it with a note of the same id (backlog
-  #32). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
+  #32). A note with the id of one in another shared file stays a note of
+  its own: notes are addressed by file and id, so both open, edit and
+  share independently (backlog #63). *Prototype: `app/js/core/merge.js`, `app/js/core/text-merge.js`,
   used by real sync.*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
@@ -680,7 +688,8 @@ paid features per user.
   scrolled out of view on the phone. *Prototype: 2026-10-14.*
 - **Reminders for due dates** (backlog #1): on a note's due day, at one
   time of day for all notes (default 09:00), one notification lists the
-  open notes due that day ("2 notes due today" and their titles); tapping
+  open notes due that day — by their own due date or an open task's date
+  ("Due date per task") — ("2 notes due today" and their titles); tapping
   it shows the main list, unfiltered, with those notes highlighted. Closed
   notes and notes without a due date never remind; no per-note times.
   Off until turned on under **Settings → Reminders** (a switch and the
@@ -701,7 +710,8 @@ paid features per user.
   **alphabetically** (first heading, else first sentence); the archive
   additionally by **closed** date. Each option can be reversed. Defaults:
   last edited, newest first; in the archive closed, newest first.
-  Notes without the sort value (no due date) always come last. The choice
+  Notes without the sort value (no due date) always come last; by due
+  date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
 - **Custom** (backlog #24) is one more sort option, in the main view and
   the archive: the user's own order. Notes start **not sorted yet**; the
@@ -965,11 +975,12 @@ this needs none of it.
   and its toolbar; the tapped target then acts normally (e.g. starts
   editing that note). *Prototype: round 2; back button 2026-10-14.*
 - A **toolbar** helps with typical actions (as in Obsidian): heading
-  (cycles # → ## → ### → #### → none), bullet list, task checkbox, outdent /
+  (cycles # → ## → ### → #### → none), bullet list, task checkbox, **task
+  due date** (backlog #41, "Due date per task"), outdent /
   indent, bold, italic, **highlight**, link, **link to a note** (types the
   `[[` that opens the note picker, backlog #45), image or video (backlog #30),
-  **counter**, **star rating**, undo / redo, and Done. No due-date and no
-  microphone button (removed
+  **counter**, **star rating**, undo / redo, and Done. No button for the
+  note's due date and no microphone button (removed
   2026-10-16): the due date has its chip on the note, dictation the
   long-press on +. On phone and tablet it sits above the on-screen
   keyboard and scrolls sideways; on the desktop it floats at the bottom
@@ -1021,7 +1032,28 @@ Decided 2026-10-16 (user request).
   shows green. The switch is a setting of this device, off by default,
   and remembered like the level count.
 - **Clear done tasks** takes cancelled tasks along with the done ones;
-  tasks in progress stay.
+  tasks in progress stay. A dated task goes like any other, its date with
+  it (decided 2026-10-18).
+- **Due date per task** (backlog #41, decided 2026-10-18): a task carries
+  its own date in the Obsidian Tasks syntax, `📅 YYYY-MM-DD` at the end of
+  its line (`docs/file-format.md`). The rendered note and the editor (on
+  lines the cursor isn't on) show it as a chip in the due chip's look —
+  red when overdue, accent-colored today; plain for a done or cancelled
+  task and in the archive. A tap on the chip opens the **due-date menu**
+  (as the note's: today, tomorrow, in a week, pick a date, remove) without
+  entering edit mode. The editor toolbar's **Task due date** button
+  (calendar) opens the same menu for the line the cursor is on, which
+  becomes a task if it isn't one; typing the syntax works too. Why the
+  toolbar: easiest to find, the same in all tiers, like counter and star
+  rating; a "Due date…" entry in the task's long-press menu and typing
+  only were tried and not chosen.
+- **Task dates count for the note**: an open or in-progress task's date
+  sorts the note by due date (the earliest of the note's own date and its
+  tasks' dates) and reminds on its day like a note's due date. The note's
+  chip keeps showing only the note's own date. Why: a dated task that
+  neither sorts nor reminds would be decoration. How note and task dates
+  relate (and whether a note's date becomes a reminder instead of a due
+  date) is still open: backlog #65.
 
 ### Counters
 
@@ -1265,7 +1297,12 @@ that host its IP address and the reading time.
   ones give up their parts — or **Share with …** (names and avatars) —
   the new note goes to the circle of everyone involved and all sources
   give up their parts. Removing a shared note for the others stays a
-  separate Delete. *Prototype: 2026-10-14.*
+  separate Delete: a source that disappears from a shared file leaves a
+  moved marker, so the other members' devices see a move and not a delete
+  and don't put the source into their trash — its text lives on in the
+  merged note (backlog #35; a concurrent edit of the source lands as a
+  displaced edit, `docs/sync-and-sharing.md` → "Merging"). The same holds
+  for "Merge into". *Prototype: 2026-10-14.*
 - **Merge into an existing note** (decided 2026-10-15, user request: to
   insert a note into another at a chosen place): the merge dialog's
   **Into** picker offers "New note" (default) or one of the notes
@@ -1316,8 +1353,9 @@ that host its IP address and the reading time.
 ### Export
 
 Decided 2026-10-14 (user request): to pull content out in a structured
-way and to keep an independent local backup. No import for now — whether
-one is worth it is discussed separately (backlog #31).
+way and to keep an independent local backup. The import page reads an
+export back (see "Import from Google Keep" → "Import of exported files";
+backlog #31).
 
 - **What:** the top bar's **Export** button (⋮ → "Export…" when it
   doesn't fit) offers **This view** — the notes the list
@@ -1377,9 +1415,42 @@ bring their notes along without copying them one by one.
   imported"; a note with nothing but those can't be selected); a note
   shared in Keep comes in private. Not in the export at all: reminders,
   colors. Notes in Keep's trash are left out.
-- A second import of the same export brings the notes in again (no
-  duplicate detection yet, backlog #37). *Prototype: `app/import/`
-  (`?sample` previews `app/sample/keep.json`).*
+- **Notes imported before are recognised** (backlog #37): a note from
+  Keep keeps its Keep origin (creation time and file name, `keep=` in its
+  marker, `docs/file-format.md`), so the same note in a later export —
+  also from another Takeout folder — is marked **Already imported** in the
+  preview and is not selected. Why: importing the same export twice would
+  otherwise double every note.
+
+#### Import of exported files
+
+Decided 2026-10-18 (backlog #31): the import page takes a NoteDown export
+as a second source next to the Takeout ZIP, with the same preview, so
+notes can be restored or moved to another device without sync.
+
+- **Source:** an export as one Markdown file or as the "All files" ZIP
+  (the page tells the two sources apart by content: a ZIP with `.json`
+  files is Takeout).
+- **With Keep metadata** each note comes back as it was: id, status,
+  dates, due date, color and motif from its marker. The table of contents
+  and the archive label of the export are left out; notes in the archive
+  come back closed. **Without metadata** the file has no note boundaries
+  left, so it is cut at the `## ` headings into new notes (text before the
+  first heading is one note); archive notes come in closed, everything
+  else open, dated now.
+- **Recognising existing notes** (same rule for both sources): a
+  NoteDown note by its id (in the private file, the circles' files or the
+  trash), a Keep note by its Keep origin. These cards say **Already
+  imported** and are unselected; All selects only the new ones.
+- **Selecting an existing note anyway** imports it as a **copy with a new
+  id** ("Will be imported as a copy" on the card, mentioned in the
+  confirmation). Existing notes are never overwritten or merged: simplest
+  and loses nothing.
+- Not in an export, so not restored: contacts, devices, orders, copy
+  links and notes from the trash.
+
+*Prototype: `app/import/` (`?sample` previews `app/sample/keep.json`,
+`?sample=export` the sample notes as an export).*
 
 ### Quick capture
 

@@ -11,7 +11,9 @@ import { renderMarkdown, toggleTask, setTaskState, sections, noteTitle } from ".
 import { setRating } from "../core/rating.js";
 import { changeCounter } from "../core/counter.js";
 import { counterClick, fillWatches } from "./counter.js";
-import { holdForStates } from "./task-menu.js";
+import { holdForStates, boxState } from "./task-menu.js";
+import { openTaskDueMenu, fillTaskDue } from "./due-menu.js";
+import { taskDue, setTaskDue } from "../core/task-due.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
@@ -32,6 +34,7 @@ import { externalPolicy } from "../core/external.js";
 import { copyState } from "../core/note-links.js";
 import { applyNoteLinks, followNoteLink, linkPicker } from "./note-links.js";
 import { openCompare } from "./compare.js";
+import { refOf } from "../core/note-ref.js";
 
 const list = () => document.getElementById("list");
 
@@ -59,7 +62,7 @@ export function reorderList(notes, { keepId, ...options }) {
 export function listItems(notes, { dividerBefore = null, onArrange, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
   let current = null;
   return notes.flatMap(n => {
-    const items = n.id === dividerBefore ? [unsortedDivider(onArrange)] : [];
+    const items = refOf(n) === dividerBefore ? [unsortedDivider(onArrange)] : [];
     const s = sectionOf(n);
     if (s && s.id !== current) items.push(sectionHeader(s, onToggleSection));
     current = s?.id ?? null;
@@ -138,7 +141,7 @@ function noteElement(n, view = state.view) {
   const el = document.createElement("article");
   el.className = "note" + (n.status === "closed" ? " closed" : "") + (n.status === "permanent" ? " permanent" : "")
     + (n.deleted ? " trashed" : "") + (n.news ? " news" : "") + (n.fresh ? " fresh" : "");
-  el.dataset.id = n.id;
+  el.dataset.id = refOf(n);
   applyLook(el, n);
 
   // The round button closes or reopens; a permanent note has its mark there instead, a trashed note neither.
@@ -153,21 +156,23 @@ function noteElement(n, view = state.view) {
     status.className = "status";
     status.setAttribute("aria-label", n.status === "closed" ? (n.news ? "Reopen post" : "Reopen note") : n.news ? "Archive post" : "Close note");
     status.innerHTML = `<span class="ring">${icon("check")}</span>`;
-    status.addEventListener("click", () => toggleStatus(n.id));
+    status.addEventListener("click", () => toggleStatus(refOf(n)));
   }
 
   const body = document.createElement("div");
   body.className = "note-body md";
   body.innerHTML = renderMarkdown(n.body);
-  applyExternal(body, circleKey(circleOf(n.id)));
+  applyExternal(body, circleKey(circleOf(refOf(n))));
   applyNoteLinks(body);
   fillWatches(body);
   wrapSections(body, sections(n.body));
   markHits(body);
   if (state.settings.tocProgress) addProgress(body, n.body);
-  if (n.status === "closed" || n.news || n.deleted) body.querySelectorAll("input.task, .counter, .rating .star").forEach(cb => (cb.disabled = true));
-  else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(n.id, setTaskState(note(n.id).body, index, s))));
-  body.addEventListener("click", e => onBodyClick(e, n.id));
+  const readOnly = n.status === "closed" || n.news || n.deleted;
+  fillTaskDues(body, readOnly);
+  if (readOnly) body.querySelectorAll("input.task, .counter, .rating .star").forEach(cb => (cb.disabled = true));
+  else body.querySelectorAll("input.task").forEach((cb, index) => holdForStates(cb, s => setBody(refOf(n), setTaskState(note(refOf(n)).body, index, s))));
+  body.addEventListener("click", e => onBodyClick(e, refOf(n)));
 
   const meta = document.createElement("div");
   meta.className = "note-meta";
@@ -224,7 +229,7 @@ export function markSelected(el) {
 // deleted from a shared file shows the circle crossed out.
 function markerHtml(n) {
   if (n.deleted) return n.kept ? trashMarkerHtml(n) : "";
-  const members = circleOf(n.id);
+  const members = circleOf(refOf(n));
   if (!members.length) return "";
   const attrs = `class="shared-mark" aria-label="${esc("Shared with " + membersLabel(members))}"`;
   const inner = avatarStackHtml(members);
@@ -241,7 +246,7 @@ function newsMetaHtml(n) {
 // A private copy of a shared note (backlog #45): "Copy of …", marked while its original changed since; a tap
 // compares the two. Once the user no longer sees the original, it only says so.
 function copyChipHtml(n) {
-  const o = copyOriginal(n.id);
+  const o = copyOriginal(refOf(n));
   if (!o) return `<span class="chip copy-chip gone">${icon("privatecopy")}Copy · original not available</span>`;
   const changed = copyState(n, o) === "changed";
   const title = esc(noteTitle(o.body).text || "Untitled");
@@ -274,6 +279,17 @@ function metaHtml(n, view = state.view) {
   return parts.join("");
 }
 
+// Task due dates (backlog #41): each chip belongs to the task whose box opens its list item.
+const ownBox = chip => chip.closest("li")?.querySelector("input.task");
+const taskIndexOf = (chip, body) => [...body.querySelectorAll("input.task")].indexOf(ownBox(chip));
+function fillTaskDues(body, readOnly) {
+  for (const chip of body.querySelectorAll("button.task-due")) {
+    const box = ownBox(chip);
+    const state = box ? boxState(box) : "open";
+    fillTaskDue(chip, { plain: readOnly || state === "done" || state === "cancelled", readOnly });
+  }
+}
+
 function onBodyClick(e, id) {
   const n = note(id);
   if (!n || state.editingId === id) return;
@@ -293,6 +309,13 @@ function onBodyClick(e, id) {
     if (n.status === "closed" || n.deleted || star.closest(".app.selecting")) return;
     const index = [...e.currentTarget.querySelectorAll(".rating")].indexOf(star.closest(".rating"));
     setBody(id, setRating(n.body, index, Number(star.dataset.star)));
+    return;
+  }
+  const chip = e.target.closest("button.task-due");
+  if (chip) {
+    if (n.status === "closed" || n.deleted || chip.closest(".app.selecting")) return;
+    const index = taskIndexOf(chip, e.currentTarget);
+    if (index >= 0) openTaskDueMenu(chip, taskDue(n.body, index), due => setBody(id, setTaskDue(note(id).body, index, due)));
     return;
   }
   const cb = e.target.closest("input.task");
