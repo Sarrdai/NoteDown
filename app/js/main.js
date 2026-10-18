@@ -1,8 +1,8 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
-import { circleKey } from "./core/sharing.js";
-import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
+import { circleKey, circleEntries } from "./core/sharing.js";
+import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile } from "./core/notes-file.js";
@@ -23,6 +23,10 @@ import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } f
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderWatchBar, initWatchBar } from "./ui/watch-bar.js";
 import { initSearchHits } from "./ui/search-hits.js";
+import { initSearchSuggest } from "./ui/search-suggest.js";
+import { labelCounts, labelKey } from "./core/labels.js";
+import { headings } from "./core/markdown.js";
+import { nameOf } from "./ui/people.js";
 import { renderPeople, initPeople, circleName, circleLeadHtml, pickCircle, toggleCircleFilter, newsBadgeHtml } from "./ui/people-list.js";
 import { renderLabels, initLabels, toggleLabelFilter } from "./ui/labels.js";
 import { setPicking } from "./ui/filter-pick.js";
@@ -143,6 +147,7 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
+  app.classList.toggle("suggest-chips", s.suggestLook === "chips");
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -302,6 +307,30 @@ function previewView(view) {
   for (const node of nodes) for (const el of [node, ...node.querySelectorAll("[id]")]) el.removeAttribute("id");
   return nodes;
 }
+
+// Search suggestions (backlog #66, ui/search-suggest.js): what can still be
+// picked in this view, counted without the search text.
+function suggestData() {
+  const unsearched = notes => inView(notes, state.view, "");
+  const permanent = state.view === "open" && !state.permanent ? unsearched(byLabel(inCircles())).filter(n => n.status === "permanent").length : 0;
+  const labels = labelCounts(unsearched(byPermanent(inCircles()))).filter(l => !state.labels.some(p => labelKey(p) === labelKey(l.name)));
+  const circles = circleEntries(contacts(), sharedCircles(), nameOf).filter(e => e.key !== null && !state.circles.includes(e.key))
+    .map(e => ({ key: e.key, name: circleName(e.key, e.members), count: unsearched(withLabel(circleNotes(e.key))).length }));
+  const heads = unsearched(listed()).flatMap(n => headings(n.body).map(h => h.text));
+  return { permanent, labels, circles, headings: heads };
+}
+
+// A picked filter becomes a chip and empties the field; a heading becomes the search text.
+function pickSuggestion(s) {
+  if (s.kind === "heading") return setUi({ search: s.value, topId: null });
+  setUi({ search: "" }, "silent");
+  if (s.kind === "permanent") { setUi({ permanent: true, topId: null }); window.scrollTo(0, 0); }
+  else if (s.kind === "label") toggleLabelFilter(s.value);
+  else toggleCircleFilter(s.value);
+}
+
+const suggestionLead = s => s.kind === "permanent" ? icon("permanent") : s.kind === "heading" ? icon("heading")
+  : s.kind === "circle" ? circleLeadHtml(s.value, "small") : "";
 
 // Picking several in a tab ends once its last entry is taken out (e.g. by a chip's ×).
 function settlePicking() {
@@ -545,6 +574,8 @@ function moreMenu() {
     ...hidden,
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    { section: "Prototype: search suggestions" },
+    ...[["list", "List (A)"], ["chips", "Chips (B)"]].map(([v, label]) => ({ label, checked: s.suggestLook === v, onSelect: () => updateSettings({ suggestLook: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -668,6 +699,7 @@ function wire() {
   });
   initToc({ pileOf: (view, notes) => tilesOf(view, notes), onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection });
   initWatchBar();
+  initSearchSuggest({ data: suggestData, pick: pickSuggestion, lead: suggestionLead });
   initSearchHits();
   // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.
   // Adding one to the filter keeps it open (ui/filter-pick.js).
@@ -724,6 +756,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (["list", "chips"].includes(p.get("suggest"))) patch.suggestLook = p.get("suggest");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).
