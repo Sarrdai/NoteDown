@@ -724,6 +724,21 @@ paid features per user.
   private file lists the note ids (`docs/file-format.md`), so shared notes
   can be ordered too without the other members seeing it; when two devices
   changed it, the newer list wins. *Prototype: 2026-10-14.*
+- **Sections** in a custom order (and a shared order): the arrange
+  dialog's **+ Section** adds a titled divider right above the "Not sorted
+  yet" line; it moves like a note, its title is edited in place and its ×
+  removes it (its notes stay where they are and join the section above).
+  A section groups the sorted notes below it up to the next one; it is no
+  note (no body, no status, not exported) and exists only above the line.
+  In the list and the table of contents (as the top level there) each
+  section heads its notes with a title line and their count; a tap folds
+  or unfolds it, remembered per device; a search shows every section
+  unfolded, so all hits show. A section without notes in the current view
+  isn't shown. With "Permanent first" the permanent notes on top stand
+  outside any section. Stored as entries in the order's id list
+  (`docs/file-format.md`). *Prototype: 2026-10-18 (user request; the
+  title-line look chosen over a grouping box and a sticky band, as the
+  lightest one beside the "Not sorted yet" line).*
 - **Shared order** (backlog #25): in the view of a circle with people
   ("People circles as a filter") the sort menu also offers "Shared
   order" — an order of that circle's notes kept in the circle's own file,

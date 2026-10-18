@@ -11,7 +11,7 @@
 import { tableOfContents } from "../core/query.js";
 import { sectionProgress } from "../core/tasks.js";
 import { state, updateSettings } from "../store.js";
-import { flashNote, unsortedDivider } from "./note-list.js";
+import { flashNote, unsortedDivider, sectionHeader } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { markHits } from "./search-hits.js";
@@ -31,7 +31,7 @@ const app = () => $("app");
 const phone = window.matchMedia("(max-width: 599px)");
 let press = null;     // { key, x, y, timer } while an entry is held
 let swallowClick = false;
-let custom = { dividerOf: () => null, onArrange: null };   // set by initToc
+let custom = { dividerOf: () => null, sectionsOf: () => () => null, onArrange: null, onToggleSection: null };   // set by initToc
 
 export function renderToc(notes) {
   const { maxLevel } = tableOfContents(notes);
@@ -57,8 +57,19 @@ export function tocItems(notes, search = state.search, view = state.view) {
   let divided = !unsorted.size;
   const onArrange = view === state.view && custom.onArrange
     ? () => { if (phone.matches) setTocOpen(false); custom.onArrange(); } : null;
+  // A custom order's sections head their notes' entries; a folded one hides them.
+  const sectionOf = custom.sectionsOf(view, notes);
+  const byId = new Map(notes.map(n => [n.id, n]));
+  let lastNote = null, current = null, folded = false;
   entries.forEach((e, i) => {
-    if (e.level > depth) return;
+    if (e.noteId !== lastNote) {
+      lastNote = e.noteId;
+      const s = sectionOf(byId.get(e.noteId));
+      if (s && s.id !== current) shown.push(sectionHeader(s, view === state.view ? custom.onToggleSection : null));
+      current = s?.id ?? null;
+      folded = !!s?.collapsed;
+    }
+    if (folded || e.level > depth) return;
     if (!divided && unsorted.has(e.noteId)) { shown.push(unsortedDivider(onArrange)); divided = true; }
     const b = document.createElement("button");
     b.className = `toc-entry level-${Math.min(e.level, 6)}` + (e.fromHeading ? "" : " plain")
@@ -88,9 +99,10 @@ export function progressBadge({ done, total }) {
   });
 }
 
-/** `dividerOf(view, notes)`: the first note not sorted yet in a custom order, or null; `onArrange` opens the dialog. */
-export function initToc({ dividerOf, onArrange } = {}) {
-  if (dividerOf) custom = { dividerOf, onArrange };
+/** `dividerOf(view, notes)`: the first note not sorted yet in a custom order, or null; `onArrange` opens the dialog;
+ *  `sectionsOf(view, notes)`: a function giving a note's custom order section (ui/note-list.js → listItems), `onToggleSection(id)` folds one. */
+export function initToc({ dividerOf, sectionsOf, onArrange, onToggleSection } = {}) {
+  if (dividerOf) custom = { dividerOf, sectionsOf: sectionsOf || (() => () => null), onArrange, onToggleSection };
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
   $("tocProgress").addEventListener("click", () => {

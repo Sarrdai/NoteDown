@@ -7,7 +7,7 @@ import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js
 import { mergeNotesFiles } from "../app/js/core/merge.js";
 
 const text = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
-const { notes } = parseNotesFile(text);
+const { notes, order } = parseNotesFile(text);
 const byId = id => notes.find(n => n.id === id);
 
 test("look: color and motif are marker attributes and survive a round trip", () => {
@@ -15,7 +15,7 @@ test("look: color and motif are marker attributes and survive a round trip", () 
   assert.equal(byId("s03").decor, "travel");
   assert.equal(byId("s01").color, undefined);
   assert.equal(byId("s01").decor, "shopping");
-  assert.equal(serializeNotesFile({ notes }), text);
+  assert.equal(serializeNotesFile({ notes, order }), text);
 });
 
 test("look: unknown values read as none", () => {

@@ -1,5 +1,5 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, TRASH_DAYS } from "./core/query.js";
+import { viewNotes, closedOn, SORT_KEYS, DIR_LABELS, permanentFirst, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS } from "./core/query.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
@@ -136,8 +136,8 @@ function render() {
   fitTopbar();
   renderCircleFilter();
   const notes = currentNotes();
-  const { tiles, dividerBefore } = tilesOf(state.view, notes);
-  renderList(tiles, { dividerBefore, onArrange: arrange });
+  const { tiles, dividerBefore, sectionOf } = tilesOf(state.view, notes);
+  renderList(tiles, { dividerBefore, sectionOf, onArrange: arrange, onToggleSection: toggleSection });
   trackNews();
   syncSelection(notes);
   renderToc(notes);
@@ -148,13 +148,33 @@ function render() {
 
 // The tiles of a view: "Permanent first" (main view) orders only the tiles (the
 // contents keep the sort order); the custom order puts a divider above the first
-// note not sorted yet (permanent ones stay on top with "Permanent first").
+// note not sorted yet (permanent ones stay on top with "Permanent first", outside
+// any section), and its sections head their notes.
 function tilesOf(view, notes) {
   const onTop = view === "open" && state.settings.permanentFirst;
   const tiles = onTop ? permanentFirst(notes) : notes;
   const sorted = new Set(orderIds(view));
   const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(n.id) && !(onTop && n.status === "permanent") && n.id !== state.topId) : null;
-  return { tiles, dividerBefore: unsorted?.id ?? null };
+  const sectionOf = sectionsOf(view, tiles, n => (onTop && n.status === "permanent") || n.id === state.topId);
+  return { tiles, dividerBefore: unsorted?.id ?? null, sectionOf };
+}
+
+// A custom order's sections (#24): for a note, the section it is in with how
+// many of `notes` that holds and whether it is folded on this device (never
+// while searching, so every hit shows), or null. `outside` notes are in none.
+function sectionsOf(view, notes, outside = () => false) {
+  if (!isCustom(view)) return () => null;
+  const of = orderSections(orderIds(view));
+  const idOf = n => (!outside(n) && of.get(n.id)) || null;
+  const counts = new Map();
+  for (const n of notes) { const id = idOf(n); if (id) counts.set(id, (counts.get(id) || 0) + 1); }
+  const folded = new Set(state.search ? [] : state.settings.collapsedSections);
+  return n => { const id = idOf(n); return id && { id, title: sectionTitle(id), count: counts.get(id), collapsed: folded.has(id) }; };
+}
+
+function toggleSection(id) {
+  const folded = state.settings.collapsedSections;
+  updateSettings({ collapsedSections: folded.includes(id) ? folded.filter(x => x !== id) : [...folded, id] });
 }
 
 // The contents keep the plain sort order, so their divider sits above the first
@@ -224,12 +244,12 @@ function tabLanes() {
 // the circle filter chip and the list as setView will render them, not live.
 function previewView(view) {
   const notes = inView(listed(), view, "");
-  const { tiles, dividerBefore } = tilesOf(view, notes);
+  const { tiles, dividerBefore, sectionOf } = tilesOf(view, notes);
   const nodes = [];
   if (!$("filterBar").hidden) nodes.push($("filterBar").cloneNode(true));
   const list = document.createElement("div");
   list.className = "list";
-  list.append(...listItems(tiles, { dividerBefore, view }));
+  list.append(...listItems(tiles, { dividerBefore, sectionOf, view }));
   nodes.push(list);
   if (!notes.length) {
     const empty = document.createElement("p");
@@ -367,7 +387,8 @@ function onMerged(n, undo, message) {
 function arrange() {
   const shown = inView(listed());
   const key = sortOf().key === "shared" ? sharedCircle() : null;
-  const { sorted, unsorted } = customSplit(shown, orderIds());
+  const { unsorted } = customSplit(shown, orderIds());
+  const sorted = arrangeRows(shown, orderIds());
   const next = ids => rearrange(orderIds(), shown.map(n => n.id), ids);
   openArrange(key ? {
     view: state.view,
@@ -611,7 +632,7 @@ function wire() {
     if (e.key === "/") { e.preventDefault(); app.classList.add("searching"); $("searchInput").focus(); }
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
-  initToc({ dividerOf: tocDividerOf, onArrange: arrange });
+  initToc({ dividerOf: tocDividerOf, sectionsOf: (view, notes) => sectionsOf(view, notes, n => n.id === state.topId), onArrange: arrange, onToggleSection: toggleSection });
   initWatchBar();
   initSearchHits();
   // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.

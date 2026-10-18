@@ -53,9 +53,32 @@ export function reorderList(notes, { keepId, ...options }) {
   kept.after(...items.slice(i + 1));
 }
 
-/** The tiles' elements without placing them (also the swipe's preview of the other view). */
-export function listItems(notes, { dividerBefore = null, onArrange, view = state.view } = {}) {
-  return notes.flatMap(n => n.id === dividerBefore ? [unsortedDivider(onArrange), noteElement(n, view)] : [noteElement(n, view)]);
+/** The tiles' elements without placing them (also the swipe's preview of the other view).
+ *  `sectionOf(note)` gives a custom order's section ({ id, title, count, collapsed }) or
+ *  null: a header heads each section's notes, a folded one hides them (backlog #24). */
+export function listItems(notes, { dividerBefore = null, onArrange, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
+  let current = null;
+  return notes.flatMap(n => {
+    const items = n.id === dividerBefore ? [unsortedDivider(onArrange)] : [];
+    const s = sectionOf(n);
+    if (s && s.id !== current) items.push(sectionHeader(s, onToggleSection));
+    current = s?.id ?? null;
+    if (!s?.collapsed) items.push(noteElement(n, view));
+    return items;
+  });
+}
+
+/** A custom order section's header (also in the contents): a tap folds or unfolds it. */
+export function sectionHeader({ id, title, count, collapsed }, onToggle) {
+  const b = document.createElement("button");
+  b.className = "section-header" + (collapsed ? " collapsed" : "");
+  b.dataset.section = id;
+  b.setAttribute("aria-expanded", String(!collapsed));
+  b.innerHTML = `${icon("down")}<span class="section-title"></span><span class="section-count"></span>`;
+  b.querySelector(".section-title").textContent = title;
+  b.querySelector(".section-count").textContent = collapsed ? (count === 1 ? "1 note" : `${count} notes`) : String(count);
+  if (onToggle) b.addEventListener("click", () => onToggle(id));
+  return b;
 }
 
 /** The custom order's "Not sorted yet" line with its Arrange… link (also in the contents). */
