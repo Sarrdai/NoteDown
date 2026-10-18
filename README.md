@@ -97,8 +97,8 @@ history per identity, blocking or deleting an identity, news posts for everyone
 using the server (they show as **News** at the top of the people
 overview), and backup / restore — `app/admin/?sample` shows it with
 sample data. Notes from Google Keep come in through `/import/`: choose
-the Google Takeout ZIP, check the preview of every note, import the ones
-you want (`app/import/?sample` shows it with sample data). Your sync
+the Google Takeout ZIP (or a NoteDown export), check the preview of every note, import the ones
+you want; notes you already imported are marked and not selected (`app/import/?sample` shows it with sample data). Your sync
 data is deleted with the recovery key under Sync & sharing or on
 `/delete/` (`app/delete/?sample`).
 Settings → About shows the version, the open-source licenses of

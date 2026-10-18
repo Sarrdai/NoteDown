@@ -1322,8 +1322,9 @@ that host its IP address and the reading time.
 ### Export
 
 Decided 2026-10-14 (user request): to pull content out in a structured
-way and to keep an independent local backup. No import for now — whether
-one is worth it is discussed separately (backlog #31).
+way and to keep an independent local backup. The import page reads an
+export back (see "Import from Google Keep" → "Import of exported files";
+backlog #31).
 
 - **What:** the top bar's **Export** button (⋮ → "Export…" when it
   doesn't fit) offers **This view** — the notes the list
@@ -1383,9 +1384,42 @@ bring their notes along without copying them one by one.
   imported"; a note with nothing but those can't be selected); a note
   shared in Keep comes in private. Not in the export at all: reminders,
   colors. Notes in Keep's trash are left out.
-- A second import of the same export brings the notes in again (no
-  duplicate detection yet, backlog #37). *Prototype: `app/import/`
-  (`?sample` previews `app/sample/keep.json`).*
+- **Notes imported before are recognised** (backlog #37): a note from
+  Keep keeps its Keep origin (creation time and file name, `keep=` in its
+  marker, `docs/file-format.md`), so the same note in a later export —
+  also from another Takeout folder — is marked **Already imported** in the
+  preview and is not selected. Why: importing the same export twice would
+  otherwise double every note.
+
+#### Import of exported files
+
+Decided 2026-10-18 (backlog #31): the import page takes a NoteDown export
+as a second source next to the Takeout ZIP, with the same preview, so
+notes can be restored or moved to another device without sync.
+
+- **Source:** an export as one Markdown file or as the "All files" ZIP
+  (the page tells the two sources apart by content: a ZIP with `.json`
+  files is Takeout).
+- **With Keep metadata** each note comes back as it was: id, status,
+  dates, due date, color and motif from its marker. The table of contents
+  and the archive label of the export are left out; notes in the archive
+  come back closed. **Without metadata** the file has no note boundaries
+  left, so it is cut at the `## ` headings into new notes (text before the
+  first heading is one note); archive notes come in closed, everything
+  else open, dated now.
+- **Recognising existing notes** (same rule for both sources): a
+  NoteDown note by its id (in the private file, the circles' files or the
+  trash), a Keep note by its Keep origin. These cards say **Already
+  imported** and are unselected; All selects only the new ones.
+- **Selecting an existing note anyway** imports it as a **copy with a new
+  id** ("Will be imported as a copy" on the card, mentioned in the
+  confirmation). Existing notes are never overwritten or merged: simplest
+  and loses nothing.
+- Not in an export, so not restored: contacts, devices, orders, copy
+  links and notes from the trash.
+
+*Prototype: `app/import/` (`?sample` previews `app/sample/keep.json`,
+`?sample=export` the sample notes as an export).*
 
 ### Quick capture
 

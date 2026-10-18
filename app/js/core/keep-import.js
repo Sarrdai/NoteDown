@@ -5,13 +5,22 @@
 // #labels, the dates kept; archived → closed, pinned → permanent; the note
 // color → the matching NoteDown color (core/look.js). Images, recordings and
 // drawings, collaborators and reminders don't come along; notes in Keep's
-// trash are left out.
+// trash are left out. A note keeps where it came from (`keep=`, see keepOrigin)
+// so a second import of the same export can recognise it.
 import { zipEntries } from "./zip.js";
 import { createNote, timestamp, newId } from "./notes-file.js";
 import { toLabel } from "./labels.js";
 import { keepColor } from "./look.js";
 
 const KIND = [["image/", "image"], ["audio/", "recording"]];
+
+/** What identifies a Keep note across exports: its creation time (µs) and the file's base name,
+ *  "<usec>~<encoded name>" (the marker value of `keep=`); null without a creation time. */
+export function keepOrigin(json, file = "") {
+  const created = Number(json.createdTimestampUsec);
+  if (!(created > 0)) return null;
+  return `${created}~${encodeURIComponent(file.split("/").pop())}`;
+}
 
 /** One Keep note (its parsed JSON) as the preview shows it; null when the JSON is no Keep note. */
 export function keepNote(json, file = "") {
@@ -39,6 +48,7 @@ export function keepNote(json, file = "") {
   const modified = usec(json.userEditedTimestampUsec) || usec(json.createdTimestampUsec) || timestamp();
   return {
     file,
+    keep: keepOrigin(json, file),
     body: lines.join("\n"),
     hasText,
     status: json.isArchived ? "closed" : json.isPinned ? "permanent" : "open",
@@ -82,6 +92,7 @@ export function toNoteDown(k) {
   n.status = k.status;
   if (k.status === "closed") n.closed = k.modified;
   if (k.color) n.color = k.color;
+  if (k.keep) n.keep = k.keep;
   return n;
 }
 
