@@ -437,6 +437,17 @@ members are a subset or a superset of the old ones; otherwise the edit
 becomes a private copy. Likewise a trashed note leaves the trash only
 when it is back in the very file it came from (`kept`).
 
+**Merged sources** (backlog #35): a device that merges notes of a shared
+file (also "move to a new note" and "merge into") leaves a moved marker
+for each source that disappears, naming the merged note's file (`to`, as
+for any move). The other members' devices therefore see a move, not a
+delete, and the sources stay out of their trash — the text lives on in
+the merged note. A source edited concurrently on another device lands as a
+displaced edit: a note of its own in the file the marker names when that
+file holds a note of its id, else in the editor's private file (nothing is
+lost). A private source needs no marker, and a source in another circle
+that keeps its part isn't touched.
+
 **The same note id in two files** (backlog #63): a member can write a note
 with the id of a note in another of the user's files. Both stay and show;
 the app addresses a note by file and id (the first file — private, then the

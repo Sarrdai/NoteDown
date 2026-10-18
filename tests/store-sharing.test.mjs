@@ -211,3 +211,41 @@ test("merge and leave address the right one of two notes with the same id", () =
   assert.equal(circleNotes("bob").length, 1, "the bob note still shows");
   assert.equal(allNotes().some(n => n.body === "Lea's note"), false, "the lea note is left");
 });
+
+// ---------- merged sources leave moved markers (backlog #35) ----------
+
+const bobPair = () => replaceFiles({
+  file: { preamble: "", notes: [{ ...n3 }], moved: [] },
+  shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }, { ...n2, id: "s-two" }], moved: [] } },
+    { members: ["lea"], file: { preamble: "", notes: [{ ...n2 }], moved: [] } }],
+  sync: { enabled: true, identity: "me" },
+});
+const bobFile = () => sharedFiles().find(s => s.key === "bob").file;
+
+test("merging notes of a shared file leaves a moved marker per source, not a plain delete, and Undo takes them back", () => {
+  bobPair();
+  const { note: merged, undo } = applyMerge([{ id: n1.id, body: null }, { id: "s-two", body: null }], { body: "merged", created: n1.created, due: null });
+  assert.deepEqual(bobFile().notes.map(n => n.id), [merged.id]);
+  assert.deepEqual(bobFile().moved.map(m => m.id).sort(), [n1.id, "s-two"].sort());
+  assert.deepEqual(bobFile().moved[0].to, ["bob", "me"], "the marker names the file the merged note is in");
+  assert.match(texts().bob, new RegExp(`<!-- note id=${n1.id} moved=\\S+ to=bob\\+me -->`));
+  undo();
+  assert.deepEqual(bobFile().notes.map(n => n.id).sort(), [n1.id, "s-two"].sort());
+  assert.deepEqual(bobFile().moved, []);
+});
+
+test("merging across circles with Share with ... marks the sources in both files; a private source needs none", () => {
+  bobPair();
+  applyMerge([{ id: n1.id, body: null }, { id: n2.id, body: null }, { id: n3.id, body: null }], { body: "merged", created: n1.created, due: null }, "share");
+  assert.deepEqual(sharedFiles().map(s => [s.key, s.file.moved.map(m => m.id)]).filter(([k]) => k !== "bob+lea"), [["bob", [n1.id]], ["lea", [n2.id]]]);
+  assert.deepEqual(state.file.moved, [], "the private file leaves none");
+});
+
+test("merging into a shared note marks the sources that gave up their part; a source that keeps it gets none", () => {
+  bobPair();
+  const undo = applyMergeInto(n1.id, "merged", [{ id: "s-two", body: null }, { id: n2.id, body: null }]);
+  assert.deepEqual(bobFile().moved.map(m => m.id), ["s-two"]);
+  assert.deepEqual(sharedFiles().find(s => s.key === "lea").file.moved, [], "the lea source keeps its part");
+  undo();
+  assert.deepEqual(bobFile().moved, []);
+});

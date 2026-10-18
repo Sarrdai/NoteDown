@@ -1267,7 +1267,12 @@ that host its IP address and the reading time.
   ones give up their parts — or **Share with …** (names and avatars) —
   the new note goes to the circle of everyone involved and all sources
   give up their parts. Removing a shared note for the others stays a
-  separate Delete. *Prototype: 2026-10-14.*
+  separate Delete: a source that disappears from a shared file leaves a
+  moved marker, so the other members' devices see a move and not a delete
+  and don't put the source into their trash — its text lives on in the
+  merged note (backlog #35; a concurrent edit of the source lands as a
+  displaced edit, `docs/sync-and-sharing.md` → "Merging"). The same holds
+  for "Merge into". *Prototype: 2026-10-14.*
 - **Merge into an existing note** (decided 2026-10-15, user request: to
   insert a note into another at a chosen place): the merge dialog's
   **Into** picker offers "New note" (default) or one of the notes

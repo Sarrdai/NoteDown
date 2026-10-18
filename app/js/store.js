@@ -608,7 +608,24 @@ function takeOut(ids) {
   }
   const putBack = () => { for (const [file, i, n] of removed) file.notes.splice(i, 0, n); };
   putBack.notes = removed.map(([, , n]) => n);
+  putBack.removed = removed;
   return putBack;
+}
+
+// A merge's source notes taken out of shared files (`putBack`, from `takeOut`) each leave a moved marker (target: the
+// file of `toMembers`, core/merge.js → moveTarget), so the other members' devices see a move and not a delete: the
+// text lives on in the merged note (backlog #35). Returns a function that takes the markers back out.
+function markMerged(putBack, toMembers, now) {
+  const added = [];
+  for (const [file, , n] of putBack.removed) {
+    const entry = state.shared.find(s => s.file === file);
+    if (!entry) continue;
+    const to = moveTarget(entry.members, toMembers, state.sync.identity);
+    const marker = { id: n.id, moved: now, ...(to && { to }) };
+    added.push([file, marker, file.moved.filter(m => m.id === n.id)]);
+    file.moved = [...file.moved.filter(m => m.id !== n.id), marker];
+  }
+  return () => { for (const [file, marker, before] of added) file.moved = [...file.moved.filter(m => m !== marker), ...before]; };
 }
 
 /** Closes, reopens or makes permanent a note; returns a function that undoes it. */
@@ -657,6 +674,7 @@ export function applyMerge(changes, merged, mode = "copy") {
     return [n, before];
   });
   const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  const unmark = markMerged(putBack, members, now);
   const n = createNote(merged.body, now);
   n.created = merged.created || n.created;
   n.due = merged.due;
@@ -672,6 +690,7 @@ export function applyMerge(changes, merged, mode = "copy") {
     note: n,
     undo: () => {
       target.notes = target.notes.filter(x => x !== n);
+      unmark();
       putBack();
       for (const [x, before] of edited) Object.assign(x, before);
       saveFiles();
@@ -697,9 +716,11 @@ export function applyMergeInto(targetId, body, changes) {
     return [n, before];
   });
   const putBack = takeOut(changes.filter(c => c.body === null).map(c => c.id));
+  const unmark = markMerged(putBack, target, now);
   saveFiles();
   emit("structure");
   return () => {
+    unmark();
     putBack();
     for (const [x, before] of edited) Object.assign(x, before);
     saveFiles();
