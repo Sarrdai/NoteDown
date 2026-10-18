@@ -32,7 +32,7 @@ const app = () => $("app");
 const phone = window.matchMedia("(max-width: 599px)");
 let press = null;     // { key, x, y, timer } while an entry is held
 let swallowClick = false;
-let custom = { dividerOf: () => null, sectionsOf: () => () => null, onArrange: null, onToggleSection: null };   // set by initToc
+let custom = { isCustom: () => false, dividerOf: () => null, sectionsOf: () => () => null, onArrange: null, onToggleSection: null };   // set by initToc
 
 export function renderToc(notes) {
   const { maxLevel } = tableOfContents(notes);
@@ -55,7 +55,8 @@ export function tocItems(notes, search = state.search, view = state.view) {
   const first = custom.dividerOf(view, notes);
   const from = first ? notes.findIndex(n => refOf(n) === first) : -1;
   const unsorted = new Set(from < 0 ? [] : notes.slice(from).map(refOf));
-  let divided = !unsorted.size;
+  // With all notes sorted the line (and its Arrange…) closes the list instead.
+  let divided = !unsorted.size && !custom.isCustom(view);
   const onArrange = view === state.view && custom.onArrange
     ? () => { if (phone.matches) setTocOpen(false); custom.onArrange(); } : null;
   // A custom order's sections head their notes' entries; a folded one hides them.
@@ -87,7 +88,7 @@ export function tocItems(notes, search = state.search, view = state.view) {
     if (p) b.prepend(progressBadge(p));
     shown.push(b);
   });
-  if (!divided) shown.push(unsortedDivider(onArrange));   // their entries are all on hidden levels
+  if (!divided) shown.push(unsortedDivider(onArrange));   // all sorted, or their entries are all on hidden levels
   return shown;
 }
 
@@ -100,10 +101,11 @@ export function progressBadge({ done, total }) {
   });
 }
 
-/** `dividerOf(view, notes)`: the first note not sorted yet in a custom order, or null; `onArrange` opens the dialog;
+/** `isCustom(view)`: whether the view is sorted by a custom order (the line then closes the contents once all are sorted);
+ *  `dividerOf(view, notes)`: the first note not sorted yet in a custom order, or null; `onArrange` opens the dialog;
  *  `sectionsOf(view, notes)`: a function giving a note's custom order section (ui/note-list.js → listItems), `onToggleSection(id)` folds one. */
-export function initToc({ dividerOf, sectionsOf, onArrange, onToggleSection } = {}) {
-  if (dividerOf) custom = { dividerOf, sectionsOf: sectionsOf || (() => () => null), onArrange, onToggleSection };
+export function initToc({ isCustom, dividerOf, sectionsOf, onArrange, onToggleSection } = {}) {
+  if (dividerOf) custom = { isCustom: isCustom || (() => false), dividerOf, sectionsOf: sectionsOf || (() => () => null), onArrange, onToggleSection };
   $("tocLess").addEventListener("click", () => stepDepth(-1));
   $("tocMore").addEventListener("click", () => stepDepth(1));
   $("tocProgress").addEventListener("click", () => {

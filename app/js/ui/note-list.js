@@ -39,7 +39,8 @@ import { refOf } from "../core/note-ref.js";
 const list = () => document.getElementById("list");
 
 /** Renders the tiles; `dividerBefore` (a note id) puts the custom order's
- *  "Not sorted yet" divider above that note (backlog #24). */
+ *  "Not sorted yet" divider above that note, `dividerAtEnd` below the last one
+ *  when all are sorted, so Arrange… stays at hand (backlog #24). */
 export function renderList(notes, options) {
   list().replaceChildren(...listItems(notes, options));
 }
@@ -59,9 +60,9 @@ export function reorderList(notes, { keepId, ...options }) {
 /** The tiles' elements without placing them (also the swipe's preview of the other view).
  *  `sectionOf(note)` gives a custom order's section ({ id, title, count, collapsed }) or
  *  null: a header heads each section's notes, a folded one hides them (backlog #24). */
-export function listItems(notes, { dividerBefore = null, onArrange, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
+export function listItems(notes, { dividerBefore = null, dividerAtEnd = false, onArrange, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
   let current = null;
-  return notes.flatMap(n => {
+  const items = notes.flatMap(n => {
     const items = refOf(n) === dividerBefore ? [unsortedDivider(onArrange)] : [];
     const s = sectionOf(n);
     if (s && s.id !== current) items.push(sectionHeader(s, onToggleSection));
@@ -69,6 +70,8 @@ export function listItems(notes, { dividerBefore = null, onArrange, sectionOf = 
     if (!s?.collapsed) items.push(noteElement(n, view));
     return items;
   });
+  if (dividerAtEnd && notes.length) items.push(unsortedDivider(onArrange));
+  return items;
 }
 
 /** A custom order section's header (also in the contents): a tap folds or unfolds it. */

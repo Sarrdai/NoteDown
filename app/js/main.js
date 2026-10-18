@@ -153,8 +153,8 @@ function render() {
   fitTopbar();
   renderCircleFilter();
   const notes = currentNotes();
-  const { tiles, dividerBefore, sectionOf } = tilesOf(state.view, notes);
-  renderList(tiles, { dividerBefore, sectionOf, onArrange: arrange, onToggleSection: toggleSection });
+  const { tiles, dividerBefore, dividerAtEnd, sectionOf } = tilesOf(state.view, notes);
+  renderList(tiles, { dividerBefore, dividerAtEnd, sectionOf, onArrange: arrange, onToggleSection: toggleSection });
   trackNews();
   syncSelection(notes);
   renderToc(notes);
@@ -166,14 +166,14 @@ function render() {
 // The tiles of a view: "Permanent first" (main view) orders only the tiles (the
 // contents keep the sort order); the custom order puts a divider above the first
 // note not sorted yet (permanent ones stay on top with "Permanent first", outside
-// any section), and its sections head their notes.
+// any section) or, with all sorted, below the last note, and its sections head their notes.
 function tilesOf(view, notes) {
   const onTop = view === "open" && state.settings.permanentFirst;
   const tiles = onTop ? permanentFirst(notes) : notes;
   const sorted = new Set(orderIds(view));
   const unsorted = isCustom(view) ? tiles.find(n => !sorted.has(refOf(n)) && !(onTop && n.status === "permanent") && refOf(n) !== state.topId) : null;
   const sectionOf = sectionsOf(view, tiles, n => (onTop && n.status === "permanent") || refOf(n) === state.topId);
-  return { tiles, dividerBefore: unsorted ? refOf(unsorted) : null, sectionOf };
+  return { tiles, dividerBefore: unsorted ? refOf(unsorted) : null, dividerAtEnd: isCustom(view) && !unsorted, sectionOf };
 }
 
 // A custom order's sections (#24): for a note, the section it is in with how
@@ -262,12 +262,12 @@ function tabLanes() {
 // the circle filter chip and the list as setView will render them, not live.
 function previewView(view) {
   const notes = inView(listed(), view, "");
-  const { tiles, dividerBefore, sectionOf } = tilesOf(view, notes);
+  const { tiles, dividerBefore, dividerAtEnd, sectionOf } = tilesOf(view, notes);
   const nodes = [];
   if (!$("filterBar").hidden) nodes.push($("filterBar").cloneNode(true));
   const list = document.createElement("div");
   list.className = "list";
-  list.append(...listItems(tiles, { dividerBefore, sectionOf, view }));
+  list.append(...listItems(tiles, { dividerBefore, dividerAtEnd, sectionOf, view }));
   nodes.push(list);
   if (!notes.length) {
     const empty = document.createElement("p");
@@ -335,8 +335,8 @@ function sortInByDue(id) {
   if (sortOf().key !== "due") return;
   const top = () => document.querySelector(`#list .note[data-id="${id}"]`)?.getBoundingClientRect().top;
   const before = top();
-  const { tiles, dividerBefore } = tilesOf(state.view, currentNotes());
-  reorderList(tiles, { keepId: id, dividerBefore, onArrange: arrange });
+  const { tiles, dividerBefore, dividerAtEnd } = tilesOf(state.view, currentNotes());
+  reorderList(tiles, { keepId: id, dividerBefore, dividerAtEnd, onArrange: arrange });
   if (before !== undefined) window.scrollBy(0, top() - before);
 }
 
@@ -643,7 +643,7 @@ function wire() {
     if (e.key === "/") { e.preventDefault(); app.classList.add("searching"); $("searchInput").focus(); }
     else if (e.key === "n") { e.preventDefault(); newNote(); }
   });
-  initToc({ dividerOf: tocDividerOf, sectionsOf: (view, notes) => sectionsOf(view, notes, n => refOf(n) === state.topId), onArrange: arrange, onToggleSection: toggleSection });
+  initToc({ isCustom, dividerOf: tocDividerOf, sectionsOf: (view, notes) => sectionsOf(view, notes, n => refOf(n) === state.topId), onArrange: arrange, onToggleSection: toggleSection });
   initWatchBar();
   initSearchHits();
   // Picking a single circle or label on the phone closes the sheet; the chips above the list show it.
