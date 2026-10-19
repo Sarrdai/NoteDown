@@ -1,5 +1,5 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
+import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
 import { circleKey, circleEntries } from "./core/sharing.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles } from "./store.js";
@@ -19,7 +19,7 @@ import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { pushEntry, leaveEntry, afterLeave } from "./ui/dom.js";
-import { renderList, reorderList, listItems, patchNote, startEdit, flashNote } from "./ui/note-list.js";
+import { renderList, reorderList, listItems, patchNote, startEdit, flashNote, onEditEnded, collapseNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderWatchBar, initWatchBar } from "./ui/watch-bar.js";
 import { initSearchHits } from "./ui/search-hits.js";
@@ -92,12 +92,21 @@ function newNoteMembers(key = activeCircle()) {
 }
 const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one circle only" : null;
 
+// A new note kept on top shows even when the filters leave it out (a label
+// filter, permanent only): it must open visibly and editable.
 function currentNotes() {
   const notes = inView(listed());
   const i = notes.findIndex(n => refOf(n) === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
+  const top = i < 0 && state.topId && note(state.topId);
+  if (top && inViewOf(top, state.view)) notes.unshift(top);
   return notes;
 }
+
+// The notes in the order the list shows them right now: the contents follow
+// it while a note is edited, when the list doesn't reorder (sortIn).
+let shownNotes = [];
+const stillShown = () => shownNotes.filter(n => note(refOf(n)));
 
 // The sync status: a cloud icon in the top bar while sync is on.
 const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloudOff", error: "cloudOff" };
@@ -165,6 +174,7 @@ function render() {
   fitTopbar();
   renderCircleFilter();
   const notes = currentNotes();
+  shownNotes = notes;
   renderList(...listArgs(state.view, notes));
   trackNews();
   syncSelection(notes);
@@ -398,7 +408,7 @@ subscribe(kind => {
   if (kind === "sync") { renderSyncStatus(); return fitTopbar(); }   // the sync panel follows these itself
   if (kind.startsWith("note:")) {
     patchNote(kind.slice(5));
-    renderToc(currentNotes());
+    renderToc(stillShown());
     renderWatchBar();
     renderDueCount();   // a ticked task or a changed date moves the Due button's count and ring
   } else if (!state.editingId) {
@@ -406,16 +416,31 @@ subscribe(kind => {
   }
 });
 
-// Sorted by due date, a new due date sorts its note in at once; the note
-// stays where it is on screen and the list moves around it.
-function sortInByDue(id) {
-  if (sortOf().key !== "due") return;
-  const top = () => document.querySelector(`#list .note[data-id="${id}"]`)?.getBoundingClientRect().top;
-  const before = top();
-  const [tiles, options] = listArgs(state.view, currentNotes());
-  reorderList(tiles, { keepId: id, ...options });
-  if (before !== undefined) window.scrollBy(0, top() - before);
+// When an edit ends the note sorts in at once, and sorted by due date a new
+// due date does so even while it is edited: the note stays where it is on the
+// screen and the list moves around it. A note the filters leave out now folds
+// away first. Changes skipped while editing (structure events) come in too.
+function sortIn(id) {
+  if (state.editingId && state.editingId !== id) return;
+  const notes = currentNotes();
+  const gone = id && !state.editingId && !notes.some(n => refOf(n) === id) && document.querySelector(`#list .note[data-id="${id}"]`);
+  const place = () => {
+    const now = currentNotes();
+    shownNotes = now;
+    const [tiles, options] = listArgs(state.view, now);
+    reorderList(tiles, { keepId: gone ? state.editingId : (state.editingId || id), ...options });
+    renderToc(now);
+    syncSelection(now);
+    renderCircleFilter();
+    $("empty").hidden = now.length > 0;
+    $("empty").textContent = emptyText(state.view, state.search);
+  };
+  if (!gone) return place();
+  collapseNote(id).then(place);
+  showSnackbar("Note hidden by the filter");
 }
+const sortInByDue = id => { if (sortOf().key === "due") sortIn(id); };
+onEditEnded(sortIn);
 
 // The trash lies right of the archive (ui/view-swipe.js): the back key leads
 // from it to the archive, so it sits on a history entry of its own.
