@@ -648,8 +648,8 @@ paid features per user.
   the circles' and labels' chips, combined with them (it narrows them);
   not remembered across starts. The Labels tab lists the same filter as
   its first entry ("Labels"). Decided 2026-10-18 over the switch
-  "Permanent first" in the sort menu, which competed with My order's pile
-  and sections. *Prototype: 2026-10-15; filter 2026-10-18.*
+  "Permanent first" in the sort menu, which competed with the Shelves'
+  pile and shelves. *Prototype: 2026-10-15; filter 2026-10-18.*
 - **Trash** (decided 2026-10-15, user request): **Delete** moves notes
   into the trash at once, with Undo (no confirmation, as nothing is
   lost). The trash keeps them for **30 days**, then they are gone for
@@ -750,11 +750,13 @@ paid features per user.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
-- **My order** (backlog #24) is one more sort option, in the main view
+- **Shelves** (backlog #24) is one more sort option, in the main view
   and the archive: the user's own order — the core of the app, turning
   spontaneous notes into an order of one's own without asking for one when
-  a note is written. Named "My order" (decided 2026-10-18 over "Custom",
-  which is correct but says nothing). Notes start on the **Pile**: the
+  a note is written: notes are put onto shelves. Named "Shelves"
+  (2026-10-19, user request, over "My order", itself chosen 2026-10-18
+  over "Custom"; the picture of putting notes onto shelves says what it
+  does). Notes start on the **Pile**: the
   notes not sorted in yet, **first in the list** under a tinted header
   "Pile" with their count and **Tidy up…**, by last edited, newest first;
   then the sorted notes (decided 2026-10-18 over the pile at the end: a new
@@ -771,7 +773,7 @@ paid features per user.
   the header in the list and in the table of contents) opens a dialog like
   the merge order dialog, where notes move above a line by drag (or arrow
   keys) or with + / −, and are ordered there; the pile is below the line.
-  My order has no direction. The dialog arranges what the list shows
+  Shelves have no direction. The dialog arranges what the list shows
   (circle filter and search applied); other notes keep their places in the
   order. Below the list, "Pile by …" sorts the pile's rows with any sort
   but the custom ones, both directions (last edited, newest first, at
@@ -804,28 +806,28 @@ paid features per user.
   together. Main view only; a setting of this device. A gauge rather than
   a score or push messages: it should invite tidying, never make it a
   chore. *Prototype: 2026-10-18.*
-- **Sections** in My order (and a shared order): the arrange
-  dialog's **+ Section** adds a titled divider right above the pile's
-  line; it moves like a note, its title is edited in place and its ×
-  removes it (its notes stay where they are and join the section above).
-  A section groups the sorted notes below it up to the next one; it is no
-  note (no body, no status, not exported) and exists only above the line.
-  In the list and the table of contents (as the top level there) each
-  section heads its notes with a title line and their count; a tap folds
-  or unfolds it, remembered per device; a search shows every section
-  unfolded, so all hits show. A section without notes in the current view
+- **A shelf** in Shelves (and in shared shelves), called a section until
+  2026-10-19: the arrange dialog's **+ Shelf** adds a named divider right
+  above the pile's line; it moves like a note, its name is edited in place
+  and its × removes it (its notes stay where they are and join the shelf
+  above). A shelf holds the sorted notes below it up to the next one; it
+  is no note (no body, no status, not exported) and exists only above the
+  line. In the list and the table of contents (as the top level there)
+  each shelf heads its notes with a title line and their count; a tap
+  folds or unfolds it, remembered per device; a search shows every shelf
+  unfolded, so all hits show. A shelf without notes in the current view
   isn't shown. Stored as entries in the order's id list
   (`docs/file-format.md`). *Prototype: 2026-10-18 (user request; the
   title-line look chosen over a grouping box and a sticky band, as the
   lightest one beside the pile's header).*
-- **Shared order** (backlog #25): in the view of a circle with people
-  ("People circles as a filter") the sort menu also offers "Shared
-  order" — an order of that circle's notes kept in the circle's own file,
-  so every member sees and edits the same one; any member may set it,
-  none has to. It works like My order (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
+- **Shared shelves** (backlog #25, "Shared order" until 2026-10-19): in
+  the view of a circle with people ("People circles as a filter") the sort
+  menu also offers "Shared shelves" — an order of that circle's notes kept
+  in the circle's own file, so every member sees and edits the same one;
+  any member may set it, none has to. It works like Shelves (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
   dialog says who sees it) and merges the same way, the newer list
   winning. Outside a circle's view a view set to it shows the user's own
-  My order. *Prototype: 2026-10-14; real on shared files since
+  Shelves. *Prototype: 2026-10-14; real on shared files since
   milestone 2, simulated in the sample (Lea's circle carries one).*
 - A finished edit doesn't reorder the list right away, so a note never
   jumps away under the user's finger; the order updates on the next view
@@ -850,7 +852,7 @@ paid features per user.
   on Android): ×, the back key or `Esc` end it, and the note with the
   current hit — scrolled away from it, the topmost note in view — stays
   where it is on the screen while the other notes come back around it,
-  and flashes; a folded section or pile holding it unfolds. Back ends the
+  and flashes; a folded shelf or pile holding it unfolds. Back ends the
   search once a text is typed (on the phone: once the field is open).
   *Prototype: 2026-10-18.*
 - The search field **suggests** (backlog #66, user idea 2026-10-18): a
@@ -875,10 +877,10 @@ paid features per user.
 ### Table of contents
 
 - A table of contents over all notes of the current view, in the current
-  sort order and search filter. *Prototype: round 1.* Sorted by My
-  order, it shows the pile's header with its gauge and **Tidy up…** on
+  sort order and search filter. *Prototype: round 1.* Sorted by
+  Shelves, it shows the pile's header with its gauge and **Tidy up…** on
   top, folding with the list's (on the phone the link closes the sheet),
-  then the sections. *Prototype: 2026-10-17 (user request: arranging is
+  then the shelves. *Prototype: 2026-10-17 (user request: arranging is
   reachable from the contents too); pile on top 2026-10-18.*
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1

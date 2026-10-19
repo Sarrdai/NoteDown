@@ -1434,6 +1434,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 }
 .sort-fab .icon { width: 18px; height: 18px; color: var(--accent); }
 .sort-fab-dir { color: var(--text-muted); font-weight: 500; }
+.sort-fab.short { gap: 4px; padding: 0 14px 0 10px; }
 .sort-fab-dir::before { content: "· "; }
 .sort-fab.tidy-due::after {
   content: ""; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%;

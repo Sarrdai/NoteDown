@@ -1,4 +1,4 @@
-// The tidy-up reminder: how full the pile of "My order" is (the notes not
+// The tidy-up reminder: how full the pile of "Shelves" is (the notes not
 // sorted into the order yet), as a gauge of bars. One bar fills per `notes`
 // notes on the pile and one per `days` days its oldest note has waited, up to
 // `bars` (decided 2026-10-18: both pressures add up, half bars don't count).

@@ -13,8 +13,8 @@ export const SORT_KEYS = {
   title: { label: "Alphabetical", field: null },
   closed: { label: "Closed", field: "closed", views: ["closed"] },
   deleted: { label: "Deleted", field: "deleted", views: ["trash"] },
-  custom: { label: "My order", field: null, custom: true, views: ["open", "closed"] },
-  shared: { label: "Shared order", field: null, custom: true, circleOnly: true, views: ["open", "closed"] },
+  custom: { label: "Shelves", field: null, custom: true, views: ["open", "closed"] },
+  shared: { label: "Shared shelves", field: null, custom: true, circleOnly: true, views: ["open", "closed"] },
 };
 
 /** The two directions of a sort key, ascending first. */

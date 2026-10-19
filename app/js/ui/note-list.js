@@ -38,7 +38,7 @@ import { refOf } from "../core/note-ref.js";
 
 const list = () => document.getElementById("list");
 
-/** Renders the tiles; `pile` heads My order's pile (backlog #24), see listItems. */
+/** Renders the tiles; `pile` heads the Shelves' pile (backlog #24), see listItems. */
 export function renderList(notes, options) {
   list().replaceChildren(...listItems(notes, options));
 }
@@ -56,7 +56,7 @@ export function reorderList(notes, { keepId, ...options }) {
 }
 
 /** The tiles' elements without placing them (also the swipe's preview of the other view).
- *  `pile` ({ has(id), top, count, level, oldest, collapsed } or null) puts My order's pile
+ *  `pile` ({ has(id), top, count, level, oldest, collapsed } or null) puts the Shelves' pile
  *  header above its notes, which come first — after `top`, a new note kept on top — and
  *  folds them; with an empty pile the header stands alone so Arrange… stays at hand.
  *  `sectionOf(note)` gives a section ({ id, title, count, collapsed }) or null: a header
@@ -83,7 +83,7 @@ export function listItems(notes, { pile = null, onArrange, onTogglePile, section
   return items;
 }
 
-/** A section's header in My order (also in the contents): a tap folds or unfolds it. */
+/** A shelf's header (a section divider) in Shelves (also in the contents): a tap folds or unfolds it. */
 export function sectionHeader({ id, title, count, collapsed }, onToggle) {
   const b = document.createElement("button");
   b.className = "section-header" + (collapsed ? " collapsed" : "");
@@ -99,7 +99,7 @@ export function sectionHeader({ id, title, count, collapsed }, onToggle) {
 const notesCount = count => count === 1 ? "1 note" : `${count} notes`;
 const LEVEL_TEXT = { warn: "Tidy up", full: "Time to tidy up" };
 
-/** My order's pile header (also in the contents): a tap on it folds or unfolds the pile,
+/** The Shelves' pile header (also in the contents): a tap on it folds or unfolds the pile,
  *  its gauge shows the tidy-up reminder's filled bars (core/tidy.js; none when no note counts),
  *  Tidy up… opens the arrange dialog — Arrange… beside the check of an empty pile. */
 export function pileHeader({ count, level, bars, filled, collapsed }, onToggle, onArrange) {

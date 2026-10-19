@@ -64,7 +64,7 @@ const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
 
 const phone = window.matchMedia("(max-width: 599px)");
 
-// "Shared order" (#25) exists only in the view of a circle with people;
+// "Shared shelves" (#25) exists only in the view of a circle with people;
 // elsewhere a view set to it shows the user's own custom order.
 const sharedCircle = () => (activeCircle() && activeCircle() !== NEWS ? activeCircle() : null);
 function sortOf(view = state.view) {
@@ -151,7 +151,7 @@ function render() {
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
   $("sortLabel").textContent = SORT_KEYS[sort.key].label;
-  // Time to tidy up My order's pile: a dot on the sort button, whatever the list is sorted by.
+  // Time to tidy up the Shelves' pile: a dot on the sort button, whatever the list is sorted by.
   const due = state.view === "open" && mainPile().level === "full";
   $("sortBtn").classList.toggle("tidy-due", due);
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
@@ -207,7 +207,7 @@ function pileLevel(view, piled) {
   return { ...pileState(notes, k => tidyCounted(t, k), tidyConfig(t)), count: piled.length };
 }
 
-// My order's pile in the main view with the current filters, whatever the list is sorted by.
+// The Shelves' pile in the main view with the current filters, whatever the list is sorted by.
 function mainPile() {
   const sorted = new Set(orderIds("open"));
   return pileLevel("open", viewNotes(listed(), { status: "open", sort: { key: "modified", dir: "desc" } }).filter(n => !sorted.has(refOf(n))));
@@ -492,30 +492,38 @@ function arrange() {
   const next = ids => rearrange(orderIds(), shown.map(n => refOf(n)), ids);
   openArrange(key ? {
     view: state.view,
-    title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
-    save: ids => showSnackbar("Shared order saved", setCircleOrder(key, next(ids))),
+    title: "Shared shelves", hint: `You and ${circleName(key)} see and can change these shelves.`, sorted, unsorted,
+    save: ids => showSnackbar("Shared shelves saved", setCircleOrder(key, next(ids))),
   } : {
     view: state.view,
     sorted, unsorted,
-    save: ids => showSnackbar("Order saved", setCustomOrder(next(ids))),
+    save: ids => showSnackbar("Shelves saved", setCustomOrder(next(ids))),
   });
 }
 
 // The floating sort button (Prototype variant, settings.sortFab): the sort the
-// list has, with its direction, as a label; a tap opens the sort menu (My order:
+// list has, with its direction, as a label; a tap opens the sort menu (Shelves:
 // Tidy up… / Arrange… in it). On the phone the open contents sheet carries the
 // same button beside its level stepper, as the sheet covers the floating one.
 const SORT_FABS = { above: "Above + (A)", beside: "Beside + (B)", topbar: "Top bar only (C)", below: "Below + (D)" };
+// Short label (Prototype option, settings.sortLabel): one word and an arrow for the direction
+// (up ascending, down descending; Shelves have none and show a shelf).
+const SORT_SHORT = { modified: "Edit", created: "New", due: "Due", title: "ABC", closed: "Closed", deleted: "Deleted", custom: "Shelves", shared: "Shared" };
+const SORT_LABELS = { short: "Short label: ↓ Edit", full: "Full label: Last edited · Newest" };
 function renderSortFab(sort, due) {
   for (const v of Object.keys(SORT_FABS)) app.classList.toggle("sortfab-" + v, state.settings.sortFab === v);
-  const label = SORT_KEYS[sort.key].label;
-  const dir = SORT_KEYS[sort.key].custom ? "" : (DIR_LABELS[sort.key] || DIR_LABELS.default)[sort.dir === "desc" ? 1 : 0];
-  const text = "Sort: " + label + (dir ? ", " + dir : "") + (due ? " · time to tidy up" : "");
+  const short = state.settings.sortLabel === "short";
+  const custom = SORT_KEYS[sort.key].custom;
+  const label = short ? SORT_SHORT[sort.key] : SORT_KEYS[sort.key].label;
+  const dir = custom ? "" : (DIR_LABELS[sort.key] || DIR_LABELS.default)[sort.dir === "desc" ? 1 : 0];
+  const text = "Sort: " + SORT_KEYS[sort.key].label + (dir ? ", " + dir : "") + (due ? " · time to tidy up" : "");
+  const lead = !short ? "sort" : custom ? "shelf" : sort.dir === "desc" ? "arrowDown" : "arrowUp";
   for (const b of [$("sortFab"), $("tocSort")]) {
-    // The direction in one word ("Newest", "A–Z"), so the label stays short.
-    b.innerHTML = icon("sort") + `<span class="sort-fab-label"></span>` + (dir ? `<span class="sort-fab-dir"></span>` : "");
+    // Full: the direction in one word ("Newest", "A–Z") after the sort.
+    b.innerHTML = icon(lead) + `<span class="sort-fab-label"></span>` + (dir && !short ? `<span class="sort-fab-dir"></span>` : "");
+    b.classList.toggle("short", short);
     b.querySelector(".sort-fab-label").textContent = label;
-    if (dir) b.querySelector(".sort-fab-dir").textContent = dir.split(" ")[0];
+    if (dir && !short) b.querySelector(".sort-fab-dir").textContent = dir.split(" ")[0];
     b.classList.toggle("tidy-due", due);
     b.setAttribute("aria-label", text);
     b.title = text;
@@ -639,6 +647,7 @@ function moreMenu() {
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype: sort button" },
     ...Object.entries(SORT_FABS).map(([v, label]) => ({ label, checked: sortFab === v, onSelect: () => setSortFab(v) })),
+    ...(sortFab !== "topbar" ? Object.entries(SORT_LABELS).map(([v, label]) => ({ label, checked: s.sortLabel === v, onSelect: () => updateSettings({ sortLabel: v }) })) : []),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -833,6 +842,7 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   if (SORT_FABS[p.get("sortfab")]) patch.sortFab = p.get("sortfab");
+  if (SORT_LABELS[p.get("sortlabel")]) patch.sortLabel = p.get("sortlabel");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

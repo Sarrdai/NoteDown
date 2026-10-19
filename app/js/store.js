@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
-  collapsedSections: [],     // My order's sections (#24) and its pile ("pile") folded in the list and contents, this device only
+  collapsedSections: [],     // the Shelves' shelves (section dividers, #24) and its pile ("pile") folded in the list and contents, this device only
   tidy: {},                  // tidy-up reminder (core/tidy.js): bars, notes, days, circles: circleKey → counted, this device only
   reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
   lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS = {
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   sortFab: "above",          // Prototype variant: the sort button floats above the + (above), beside it (beside), below it (below) or stays in the top bar (topbar)
+  sortLabel: "short",        // Prototype option: the floating sort button's label, short ("↓ Edit") or full ("Last edited · Newest")
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 

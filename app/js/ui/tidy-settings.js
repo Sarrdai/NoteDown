@@ -47,7 +47,7 @@ function preview() {
 registerPage("settingsTidy", {
   title: "Tidy-up reminder",
   render: () => [
-    h("p", { class: "sheet-text" }, "New notes land on the pile of My order. Its gauge fills one bar for every few notes on it and one for every few days its oldest note has waited; it turns yellow shortly before full and red when full. On this device only — not synced."),
+    h("p", { class: "sheet-text" }, "New notes land on the pile until they are put on a shelf (sorted by Shelves). Its gauge fills one bar for every few notes on it and one for every few days its oldest note has waited; it turns yellow shortly before full and red when full. On this device only — not synced."),
     section("Gauge"),
     stepper("bars", "Bars"),
     stepper("notes", "Notes per bar"),
