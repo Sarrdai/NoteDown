@@ -67,7 +67,7 @@ export function tocItems(notes, search = state.search, view = state.view) {
       if (pile?.has(e.noteId)) {
         putPile();
         current = null;
-        folded = pile.collapsed;
+        folded = pile.collapsed && e.noteId !== pile.top;
       } else {
         if (e.noteId !== pile?.top) putPile();
         const s = sectionOf(byId.get(e.noteId));

@@ -179,13 +179,13 @@ function render() {
 
 // The tiles of a view (a new note kept on top comes first, currentNotes) and,
 // sorted by a custom order, its pile: the notes not sorted in yet, which come
-// next under their header (they come first in the view, core/query.js), then
-// the sections with their notes.
+// first under their header (core/query.js; a new note is one of them, on top of
+// the pile), then the sections with their notes.
 function tilesOf(view, notes) {
   if (!isCustom(view)) return { tiles: notes, pile: null, sectionOf: () => null };
   const isTop = n => refOf(n) === state.topId;
   const sorted = new Set(orderIds(view));
-  const piled = notes.filter(n => !sorted.has(refOf(n)) && !isTop(n));
+  const piled = notes.filter(n => !sorted.has(refOf(n)));
   const ids = new Set(piled.map(refOf));
   const collapsed = !state.search && state.settings.collapsedSections.includes(PILE_ID);
   const pile = { has: id => ids.has(id), top: state.topId, collapsed, ...pileLevel(view, piled) };
@@ -511,8 +511,8 @@ function sortMenu(anchor = $("sortBtn")) {
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
-    // A custom order has no direction; it is arranged instead.
-    ...(SORT_KEYS[sort.key].custom ? [{ label: "Tidy up…", onSelect: arrange }] : [
+    // A custom order has no direction; it is arranged instead (named like the pile header's link).
+    ...(SORT_KEYS[sort.key].custom ? [{ label: customSplit(inView(listed()), orderIds()).unsorted.length ? "Tidy up…" : "Arrange…", onSelect: arrange }] : [
       { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
       { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     ]),
@@ -550,19 +550,20 @@ async function loadWelcome() {
   replaceFiles({ file });
 }
 
-// The top bar's actions, left to right; what doesn't fit moves under ⋮ in
-// FOLD_ORDER — Export first, the view button last, so the switch between the
-// views stays in reach, with Due just before it. The sort label goes before any button.
+// The top bar's actions, left to right (search before them, ⋮ after them; Export
+// lives under ⋮). What doesn't fit moves under ⋮ in FOLD_ORDER — Due first, the
+// view button last, so the switch between the views stays in reach. The sort
+// label goes before any button; on the desktop the search gives up its centered
+// place and narrows before that.
 const ACTIONS = [
-  { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
   { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
+  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "viewBtn", menu: () => state.view === "open"
     ? { label: "Archive", icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
-  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
-  { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
+  { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
 ];
-const FOLD_ORDER = ["exportBtn", "syncBtn", "sortBtn", "dueBtn", "viewBtn"];
+const FOLD_ORDER = ["dueBtn", "syncBtn", "sortBtn", "viewBtn"];
 const wide = window.matchMedia("(min-width: 1024px)");
 
 function fitTopbar() {
@@ -572,14 +573,22 @@ function fitTopbar() {
   const label = $("sortBtn").querySelector(".btn-label");
   for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
   label.hidden = false;
-  // Too tight: the title is cut, or (desktop) the buttons run into the centered search.
+  search.classList.toggle("centered", wide.matches);
+  // Too tight: the title is cut, the buttons run out of the bar, or (desktop)
+  // into the centered search.
   const tight = () => title.scrollWidth > title.clientWidth + 1
-    || (wide.matches && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
+    || $("moreBtn").getBoundingClientRect().right > bar.getBoundingClientRect().right + 1
+    || (search.classList.contains("centered") && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
   if (!bar.offsetWidth) return;
   // Measured with the longer title, so both views keep the same buttons and
   // the view button its place.
   const text = title.textContent;
   title.textContent = "Archive";
+  // Desktop: the title keeps the longer one's width, so the search stays in place too.
+  title.style.minWidth = "";
+  if (wide.matches) title.style.minWidth = title.scrollWidth + "px";
+  // Desktop: the search leaves the middle and sits after the title, narrower.
+  if (tight()) search.classList.remove("centered");
   if (tight()) label.hidden = true;
   for (let i = 0; i < FOLD_ORDER.length && tight(); i++) {
     const btn = $(FOLD_ORDER[i]);
@@ -598,6 +607,7 @@ function moreMenu() {
   const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
     ...hidden,
+    { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
@@ -681,7 +691,7 @@ function showNote(id) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("dueBtn").querySelector(".btn-icon").innerHTML = icon("calendar");
   $("dueBtn").addEventListener("click", openDue);
@@ -690,7 +700,6 @@ function wire() {
   $("searchIcon").innerHTML = icon("search");
   $("fab").querySelector(".fab-new").innerHTML = icon("plus");
   $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
-  $("exportBtn").addEventListener("click", exportDialog);
   window.addEventListener("resize", fitTopbar);
   $("syncBtn").addEventListener("click", openSyncPanel);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });

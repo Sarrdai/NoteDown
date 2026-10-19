@@ -123,7 +123,7 @@ button { font: inherit; color: inherit; }
 .icon-btn.small .icon { width: 18px; height: 18px; }
 .icon-btn[aria-pressed="true"] { color: var(--accent); }
 .btn-icon { display: contents; }
-.btn-label { font-size: 0.9rem; font-weight: 500; }
+.btn-label { font-size: 0.9rem; font-weight: 500; white-space: nowrap; }
 .count {
   min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
   font-size: 0.78rem; font-weight: 700; line-height: 22px; text-align: center;
@@ -1470,16 +1470,20 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .search { width: 190px; flex: none; }
   .app.has-search .search { width: 300px; }   /* room for the hit counter and ▲ / ▼ */
   .title { flex: 0 1 auto; }
-  /* The buttons sit at the right end: Due first, or the view button once Due is folded (and sort with it). */
-  #dueBtn, #dueBtn[hidden] ~ #viewBtn { margin-left: auto; }
+  /* The buttons sit at the right end: sort first, or the view button once sort is folded (and sync with it). */
+  #sortBtn, #sortBtn[hidden] ~ #viewBtn { margin-left: auto; }
 }
 @media (min-width: 1024px) {
   .topbar { padding-inline: 16px; }
-  /* The search sits centered over the notes, as wide as their cards. */
-  .search {
+  /* The search sits centered over the notes, as wide as their cards, while the
+     buttons fit right of it; otherwise right after the title, narrower (fitTopbar). */
+  .title { flex: none; }
+  .search { flex: 0 1 748px; min-width: 240px; margin-left: 12px; }
+  .search.centered {
     position: absolute; left: 50%; top: calc(var(--safe-top) + (var(--topbar-h) - 40px) / 2); transform: translateX(-50%);
-    width: min(748px, calc(100% - 340px));
+    width: min(748px, calc(100% - 340px)); margin: 0;
   }
+  #sortBtn, #sortBtn[hidden] ~ #viewBtn { margin-left: auto; }
   .list { padding-top: 12px; }
   .selectbar { padding-inline: 16px; }
   .sel-count { flex: 1 0 auto; }
@@ -1500,7 +1504,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .search { display: none; }
   #searchBtn { display: inline-flex; }
   .app.searching .search { display: flex; flex: 1; width: auto; min-width: 0; }
-  .app.searching :is(.title, #searchBtn, #dueBtn, #sortBtn, #viewBtn, #syncBtn, #exportBtn),
+  .app.searching :is(.title, #searchBtn, #dueBtn, #sortBtn, #viewBtn, #syncBtn),
   .app.searching #moreBtn { display: none; }
   .app.searching #searchClose { visibility: visible; }
   .list { padding-left: 12px; padding-right: 12px; gap: 10px; }

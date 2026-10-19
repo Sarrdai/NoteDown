@@ -591,11 +591,13 @@ paid features per user.
   2026-10-14.*
 - The **archive button** in the main view leads to the archive; in the
   archive the same button reads **Notes** and leads back, so one place
-  switches between both views. It is an icon (tooltip) at the right end of
-  the top bar, just before ⋮, and keeps its place in both views: the top
-  bar keeps the same buttons in both. It carries no count: what was done
-  today shows in the Due button's ring ("Due view"). *Prototype: round 1;
-  Notes button 2026-10-13; place and no count 2026-10-18.* Why: a second
+  switches between both views. It is an icon (tooltip) in the top bar
+  right after sort and Sync & sharing, before Due and ⋮
+  (`docs/interaction-concept.md` → "Layout per tier"), and keeps its place
+  in both views: the top bar keeps the same buttons in both. It carries no
+  count: what was done today shows in the Due button's ring ("Due view").
+  *Prototype: round 1; Notes button 2026-10-13; place and no count
+  2026-10-18; top bar order 2026-10-19.* Why: a second
   "today" count next to the Due button read as overloaded, so the archive
   became the less important button.
 - On phone and tablet, **swiping sideways** anywhere on the list
@@ -759,8 +761,13 @@ paid features per user.
   note appears where the user looks, as in every other sort, and folding
   keeps the order in view). A tap on the header **folds** the pile to that
   one line, remembered per device like a section; a search shows it
-  unfolded. With the pile empty the header reads "Pile empty" with a check
-  and nothing else (arranging stays in the sort menu). The sort menu's **Tidy up…** (and the same link on
+  unfolded. A new note lands on top of the pile at once, also when it was
+  empty, and shows there even with the pile folded (user request
+  2026-10-19: an empty pile's header stayed below it). With the pile empty
+  the header reads "Pile empty" with a check and the link **Arrange…**
+  (user request 2026-10-19: re-arranging a fully sorted order from the
+  list and the contents). The sort menu's **Tidy up…** — **Arrange…** with
+  the pile empty — (and the same link on
   the header in the list and in the table of contents) opens a dialog like
   the merge order dialog, where notes move above a line by drag (or arrow
   keys) or with + / −, and are ordered there; the pile is below the line.
@@ -1171,6 +1178,10 @@ Decided 2026-10-16 (user request).
   2026-10-16 over always visible buttons, a menu and a centered card).
   A tap on the number in the pop-up types an amount of one's own
   (without sign it adds, `-2` subtracts); it joins the pending change.
+  When the on-screen keyboard comes up for it, the list scrolls the counter
+  into the part left visible and the pop-up follows it, never behind the
+  keyboard or the toolbar (found on Android 2026-10-19 with a counter low on
+  the screen).
   Only the current value is kept, no history (the version history covers
   that). Archived, deleted and news notes show their counters read-only.
   Counters inside code are plain text.
@@ -1351,7 +1362,7 @@ that host its IP address and the reading time.
   the actions as icons (with labels on the desktop): the frequent ones —
   Close, Clear done tasks, Copy, Share, Merge, Delete — in the bar, the
   rarer ones — Export, Private copy, Make permanent, Promote / Demote headings — under
-  ⋮, the same in every tier (decided 2026-10-17 by the user's own use,
+  ⋮ with icon and label, the same in every tier (decided 2026-10-17 by the user's own use,
   backlog #36; all of them overran the desktop bar); the + button is
   hidden. On the phone the contents sheet's handle stays at the bottom,
   so the selection can be refined in the contents and back; the bar shows
@@ -1452,8 +1463,8 @@ way and to keep an independent local backup. The import page reads an
 export back (see "Import from Google Keep" → "Import of exported files";
 backlog #31).
 
-- **What:** the top bar's **Export** button (⋮ → "Export…" when it
-  doesn't fit) offers **This view** — the notes the list
+- **What:** ⋮ → **Export…** in the top bar (an icon of its own until
+  2026-10-19, now one of the rarer actions) offers **This view** — the notes the list
   shows (main view or archive, circle and label filter and search applied), in the
   order it shows them — as one Markdown file, or **All files** — one
   Markdown file per NoteDown file, private plus one per circle with notes

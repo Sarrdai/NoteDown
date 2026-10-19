@@ -59,7 +59,7 @@ archive (with a way back into the note). Deleted notes wait in a trash for 30 da
 also shared notes someone else deleted, which can be restored for
 everyone or kept as one's own; a long-press on a heading (in a note or in the table of
 contents) selects its section, which can be moved together into a new note.
-The Export button in the top bar saves the current view, or all files as a ZIP for a local
+Export (under ⋮ in the top bar) saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden
 metadata; the selection exports single notes or sections the same way.
 

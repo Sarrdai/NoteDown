@@ -124,7 +124,27 @@ function place() {
   const row = v.parentElement;
   const left = r.left + r.width / 2 - (row.offsetLeft + v.offsetLeft + v.offsetWidth / 2);
   pop.style.left = Math.max(8, Math.min(left, window.innerWidth - pop.offsetWidth - 8)) + "px";
-  pop.style.top = Math.max(8, r.top + r.height / 2 - (row.offsetTop + row.offsetHeight / 2)) + "px";
+  // Never below what is visible: above the on-screen keyboard and the editor's toolbar on it.
+  const top = Math.max(8, r.top + r.height / 2 - (row.offsetTop + row.offsetHeight / 2));
+  pop.style.top = Math.max(8, Math.min(top, visibleBottom() - pop.offsetHeight - 8)) + "px";
+}
+
+// The bottom of the visible area: the visual viewport (the keyboard left out), above the toolbar.
+function visibleBottom() {
+  const vv = window.visualViewport;
+  const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const bar = document.getElementById("toolbar");
+  return bar && !bar.hidden ? Math.min(bottom, bar.getBoundingClientRect().top) : bottom;
+}
+
+// While an amount is typed, the keyboard comes up (and may cover the counter, low on the
+// screen): the page scrolls the counter into the visible part, the pop-up follows it.
+function keepVisible() {
+  if (!open || !document.activeElement?.classList.contains("counter-input")) return;
+  const r = open.chip.getBoundingClientRect();
+  const below = r.bottom + open.pop.offsetHeight / 2 + 8 - visibleBottom();
+  if (below > 0) window.scrollBy(0, below);
+  place();
 }
 
 export function closePop({ fromHistory = false, apply = true } = {}) {
@@ -170,5 +190,6 @@ document.addEventListener("keydown", e => {
   e.stopPropagation();
   closePop();
 }, true);
-window.addEventListener("resize", () => { if (!document.activeElement?.classList.contains("counter-input")) closePop(); });
+window.addEventListener("resize", () => { if (document.activeElement?.classList.contains("counter-input")) keepVisible(); else closePop(); });
+window.visualViewport?.addEventListener("resize", keepVisible);
 window.addEventListener("popstate", () => { if (open && !history.state?.counter) closePop({ fromHistory: true }); });
