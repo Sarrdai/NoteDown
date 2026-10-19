@@ -15,6 +15,7 @@
   - [People circles as a filter](#people-circles-as-a-filter)
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
+  - [Folder sources](#folder-sources)
   - [Creating and editing](#creating-and-editing)
   - [Task states and progress](#task-states-and-progress)
   - [Counters](#counters)
@@ -945,7 +946,8 @@ paid features per user.
 
 - Next to the table of contents a **People** overview lists the circles
   the user shares with (backlog #23): **All notes** and **Private** on
-  top, then every contact A–Z — each entry is only the circle of that one
+  top, then the user's **folder sources** A–Z ("Folder sources"), then
+  every contact A–Z — each entry is only the circle of that one
   person, also a contact nothing is shared with yet — then every group
   (a circle of several, named by its members, A–Z). Each entry shows how
   many of its notes the current view holds. *Prototype: 2026-10-14.*
@@ -1068,6 +1070,48 @@ this needs none of it.
 - *Prototype: 2026-10-15 — the sample shows three posts (one new, one
   updated, one closed) from `app/sample/news.md`; real sync fetches the
   server's feed.*
+
+### Folder sources
+
+Decided 2026-10-19 (user request: get the voice notes of the Index 01
+ring, which the Pebble app writes as files, into NoteDown without a
+server or a cloud in between). Built generally, for any app that writes
+notes into a folder.
+
+- A **folder source** is a named folder on an Android device that another
+  app writes notes into, one file each — e.g. the Pebble app's Obsidian
+  connection in "one file per note" mode. The name is free ("Pebble").
+- **Settings → Data → Folder sources** lists them; **Add folder source**
+  (Android app) asks for the name, then opens the system's folder picker.
+  A source's page renames it, chooses another folder and **Remove
+  source** (confirmed; the notes read from it stay as private notes).
+  The sources and their names are synced (private file); which folder a
+  source reads is a **setting of this device**, so the web app and the
+  desktop show the sources but read no folder ("Read by the Android
+  app"). When the folder's access is gone, the page says so and the
+  folder is chosen again.
+- **Reading:** the Android app reads every folder of its sources when it
+  starts, when it comes back to the front and every 5 minutes while it is
+  open. Each Markdown or text file directly in the folder becomes a
+  **private note** (no heading, like a dictated note — sorted later), a
+  YAML front matter block is dropped and its `created` time becomes the
+  note's (else the file's time). Then the file is **deleted** (user
+  decision: the folder stays empty; a file that can't be deleted is
+  remembered and not read twice). A snackbar says "Note added from
+  Pebble". Files over 1 MB and subfolders are left alone.
+- **In the People overview** each source is an entry with a folder icon
+  after Private, filtering to the notes read from it; they also show
+  under All notes and Private (user decision: ordinary private notes, the
+  source is a filter). It combines with other entries like a circle; +
+  from a source starts a private note under All notes.
+- **No storage permission:** the folder is reached through the system's
+  folder picker, which grants access to that folder only (read and
+  write, to delete what was read), kept across restarts.
+- Reading while the app is closed is a separate step (backlog #68).
+- Tiers: the People entry and the settings show on every tier; reading a
+  folder is Android-only (phone and tablet), as only there another app
+  writes files NoteDown can reach. *Prototype and app: 2026-10-19
+  (`?platform=android` simulates a folder holding the sample transcript).*
 
 ### Creating and editing
 
@@ -1641,7 +1685,9 @@ place instead of the top bar and ⋮.
   **Privacy** (Android app only) — Screen lock, Screen security,
   Incognito keyboard, Speech recognition ("Privacy on the device",
   "Dictation"); **Data** — Backup
-  ("Encrypted backup"), Import from Google Keep (opens the import page);
+  ("Encrypted backup"), Folder sources (in the Android app, elsewhere once
+  there is one; "Folder sources"), Import from Google Keep (opens the
+  import page);
   **About** — see below.
 - Every setting here is a **setting of this device**, never synced.
   *Prototype: 2026-10-16.*

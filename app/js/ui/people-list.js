@@ -4,13 +4,15 @@
 // list to those circles; a long-press starts picking several
 // (ui/filter-pick.js). The groups a contact is in show on the contact's page
 // (ui/verify-contact.js). The server owner's news are pinned on top, with a
-// badge while posts are new or updated, and are picked only on their own.
+// badge while posts are new or updated, and are picked only on their own. The user's folder sources
+// (core/folder-source.js) follow Private, each filtering to the notes read from its folder.
 // Without contacts it still shows, with a hint and Add contact, so the
 // feature is there to be found.
 import { circleEntries } from "../core/sharing.js";
 import { toggleCircle } from "../core/filters.js";
 import { NEWS, freshCount } from "../core/news.js";
-import { state, setUi, sharedCircles, contacts, newsNotes } from "../store.js";
+import { sourceKey, sourceIdOf } from "../core/folder-source.js";
+import { state, setUi, sharedCircles, contacts, newsNotes, sources } from "../store.js";
 import { avatarHtml, avatarStackHtml, membersLabel, nameOf, esc } from "./people.js";
 import { icon } from "./icons.js";
 import { h, button } from "./dom.js";
@@ -20,13 +22,16 @@ const $ = id => document.getElementById(id);
 let onPicked = () => {};
 let onAddContact = () => {};
 
-/** Label of a circle key: "All notes", "Private", "Lea", "Lea & Tom". */
+/** Label of a circle key: "All notes", "Private", "News", a folder source's name, "Lea", "Lea & Tom". */
 export function circleName(key, members = key ? key.split("+") : []) {
+  const source = sourceIdOf(key);
+  if (source) return sources().find(s => s.id === source)?.name || "Folder";
   return key === null ? "All notes" : key === "" ? "Private" : key === NEWS ? "News" : membersLabel(members);
 }
 
 /** The leading icon or avatar(s) of a circle key, as HTML. */
 export function circleLeadHtml(key, cls = "") {
+  if (sourceIdOf(key)) return icon("folder");
   const members = key && key !== NEWS ? key.split("+") : [];
   return key === null ? icon("notes") : key === NEWS ? icon("news") : !members.length ? icon("lock")
     : members.length === 1 ? avatarHtml(members[0], cls) : avatarStackHtml(members);
@@ -40,7 +45,10 @@ export function newsBadgeHtml(n) {
 /** Renders the overview; `count(key)` gives a circle's notes in the current view. */
 export function renderPeople(count) {
   const news = newsNotes();
-  const entries = [...(news.length ? [{ key: NEWS, kind: "news", members: [] }] : []), ...circleEntries(contacts(), sharedCircles(), nameOf)];
+  const circles = circleEntries(contacts(), sharedCircles(), nameOf);
+  const folders = [...sources()].sort((a, b) => a.name.localeCompare(b.name)).map(s => ({ key: sourceKey(s.id), kind: "source", members: [] }));
+  const at = circles.findIndex(e => e.key === "") + 1;
+  const entries = [...(news.length ? [{ key: NEWS, kind: "news", members: [] }] : []), ...circles.slice(0, at), ...folders, ...circles.slice(at)];
   const picked = state.circles;
   $("peopleList").replaceChildren(...[pickBar("people", picked.length)].filter(Boolean), ...entries.map(e => {
     const b = document.createElement("button");

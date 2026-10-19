@@ -14,6 +14,7 @@ import { privateCopy } from "./core/note-links.js";
 import { DEFAULT_EXTERNAL } from "./core/external.js";
 import { DEFAULT_LOCK } from "./core/app-lock.js";
 import { NEWS, newsNotes as feedNotes, markNews, pruneNews } from "./core/news.js";
+import { sourceKey, sourceIdOf, newSourceId } from "./core/folder-source.js";
 import { openVault, onVaultChange } from "./vault.js";
 
 const FILE_KEY = "notedown.file";
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS = {
   reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
   lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced
   privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only
+  folders: {},               // folder sources read on this device (core/folder-source.js): sourceId → { uri, label, lost?, skip? }, this device only
   dictation: "device",       // Android: speech recognized "device" (nothing leaves the phone) or "online" (the phone's speech service), this device only
   lastBackup: null,          // ISO time of the last backup made on this device (#56)
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
@@ -318,6 +320,45 @@ export function updateContact(id, patch) {
   else setContacts(list);
 }
 
+// ---------- folder sources (core/folder-source.js) ----------
+
+/** The user's folder sources, [{ id, name }]: markers of the private file, so every device shows them. */
+export function sources() {
+  return state.file.sources || [];
+}
+
+function setSources(list) {
+  state.file.sources = list;
+  saveFiles();
+  emit("structure");
+}
+
+/** Adds a folder source named `name`; returns it. */
+export function addSource(name) {
+  const source = { id: newSourceId(), name };
+  setSources([...sources(), source]);
+  return source;
+}
+
+export function renameSource(id, name) {
+  setSources(sources().map(s => (s.id === id ? { ...s, name } : s)));
+}
+
+/** Removes a source; the notes read from it stay as private notes (their `source=` then names no source). */
+export function removeSource(id) {
+  setSources(sources().filter(s => s.id !== id));
+  if (state.circles.includes(sourceKey(id))) setUi({ circles: state.circles.filter(k => k !== sourceKey(id)) });
+}
+
+/** Private notes read from a source's folder: `items` [{ body, created }], each on top, marked with the source. */
+export function addSourceNotes(id, items) {
+  const notes = items.map(({ body, created }) => ({ ...createNote(body, created), source: id }));
+  state.file.notes.unshift(...notes);
+  saveFiles();
+  emit("structure");
+  return notes;
+}
+
 // ---------- news (core/news.js) ----------
 
 const newsPosts = () => (state.sync.enabled && state.sync.news?.posts) || [];
@@ -365,6 +406,8 @@ export function activeCircle() {
 export function circleNotes(key) {
   if (key === null) return [...allNotes(), ...trashNotes()];
   if (key === NEWS) return newsNotes();
+  const source = sourceIdOf(key);
+  if (source) return state.file.notes.filter(n => n.source === source && !n.kept);
   if (key === "") return state.file.notes.filter(n => !n.kept);
   const shared = (state.shared.find(s => circleKey(s.members) === key)?.file.notes || []).filter(visible);
   return [...shared, ...state.file.notes.filter(n => n.kept === key)];

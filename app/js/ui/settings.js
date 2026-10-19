@@ -2,7 +2,7 @@
 // instead of the top bar and ⋮ — the theme, the Android-only Privacy section (screen lock, screen security,
 // incognito keyboard, speech recognition), the due-date reminders
 // (ui/reminders.js), the tidy-up reminder (ui/tidy-settings.js), links & media (ui/external-settings.js), a way to the
-// Sync & sharing panel, the Google Keep import and "About" (version,
+// Sync & sharing panel, the backup, the folder sources (ui/folder-sources.js), the Google Keep import and "About" (version,
 // open-source licenses (ui/licenses.js), privacy policy, terms of use,
 // source code). Its pages live in the
 // Sync & sharing panel's container (ui/sync-panel.js), so they look and go
@@ -21,6 +21,7 @@ import { lockSummary } from "../core/app-lock.js";
 import { fullDate } from "./format.js";
 import "./app-lock-settings.js";
 import "./backup.js";
+import { sourcesSummary, showSourcesRow } from "./folder-sources.js";
 
 export const FLAVORS = { system: "System", latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
 
@@ -100,6 +101,7 @@ registerPage("settings", {
     section("Data"),
     h("ul", { class: "sheet-card" },
       row({ icon: "protect", title: "Backup", sub: backupSub(), open: () => go("settingsBackup") }),
+      showSourcesRow() ? row({ icon: "folder", title: "Folder sources", sub: sourcesSummary(), open: () => go("settingsSources") }) : null,
       row({ icon: "restore", title: "Import from Google Keep", sub: "From a Google Takeout ZIP file", open: () => { location.href = legalUrl("import"); } })),
     section("About"),
     aboutCard(),

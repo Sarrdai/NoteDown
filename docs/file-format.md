@@ -10,6 +10,7 @@
 - [Members](#members)
 - [Contacts](#contacts)
 - [News](#news)
+- [Folder sources](#folder-sources)
 - [Custom order](#custom-order)
 - [Open points](#open-points)
 <!-- /toc -->
@@ -89,6 +90,7 @@ Done by bank transfer, reference number in the banking app.
 | `color` | no | The note's background color: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple` or `pink` (`docs/requirements.md` → "Note colors and motifs"); an unknown value reads as none |
 | `decor` | no | The note's motif: `dots`, `grid`, `waves`, `leaves`, `stars`, `birthday`, `christmas`, `gifts`, `travel`, `packing`, `camper` or `shopping`; an unknown value reads as none |
 | `keep` | no | A note imported from Google Keep: `<creation time in µs>~<file name, percent-encoded>` of the Keep note, so a later import recognises it (`docs/requirements.md` → "Import from Google Keep") |
+| `source` | no | Private file only: the ID of the folder source the note was read from (a `<!-- source … -->` marker, "Folder sources"); a note keeps it when the source is removed |
 | `kept` | no | Private file only, with `deleted`: the circle (member IDs joined with `+`, sorted) of the shared file the note was deleted from; it shows under that circle and can be restored for it |
 
 **Times are stored in UTC** (the `Z` suffix), so devices and members of
@@ -235,6 +237,22 @@ was edited since: it shows as open and updated, whatever the status was.
 A post without a marker is new. Markers of posts that are no longer in
 the feed are dropped after each fetch. Merging works per ID like device
 names. Any text after a news marker is dropped.
+
+## Folder sources
+
+The private file names the user's folder sources (`docs/requirements.md`
+→ "Folder sources"), one marker each after the news markers, so every
+device shows them in the People overview:
+
+```markdown
+<!-- source id=f1 name=Pebble -->
+```
+
+`id` is the source's ID, `name` the name the user gave it
+(percent-encoded). The folder a source reads is a setting of the device
+that reads it and is not in the file. Merging works per ID like device
+names: the side that changed a source wins, a removal stays. Any text
+after a source marker is dropped.
 
 ## Custom order
 
