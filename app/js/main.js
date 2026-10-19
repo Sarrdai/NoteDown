@@ -156,6 +156,7 @@ function render() {
   $("sortBtn").classList.toggle("tidy-due", due);
   $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
   $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : "");
+  renderSortFab(sort, due);
   renderWatchBar();
   renderDueCount();
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? "Archive" : "Notes");
@@ -500,6 +501,28 @@ function arrange() {
   });
 }
 
+// The floating sort button (Prototype variant, settings.sortFab): the sort the
+// list has, with its direction, as a label; a tap opens the sort menu (My order:
+// Tidy up… / Arrange… in it). On the phone the open contents sheet carries the
+// same button beside its level stepper, as the sheet covers the floating one.
+const SORT_FABS = { above: "Above + (A)", beside: "Beside + (B)", topbar: "Top bar only (C)" };
+function renderSortFab(sort, due) {
+  for (const v of Object.keys(SORT_FABS)) app.classList.toggle("sortfab-" + v, state.settings.sortFab === v);
+  const label = SORT_KEYS[sort.key].label;
+  const dir = SORT_KEYS[sort.key].custom ? "" : (DIR_LABELS[sort.key] || DIR_LABELS.default)[sort.dir === "desc" ? 1 : 0];
+  const text = "Sort: " + label + (dir ? ", " + dir : "") + (due ? " · time to tidy up" : "");
+  for (const b of [$("sortFab"), $("tocSort")]) {
+    // The direction in one word ("Newest", "A–Z"), so the label stays short.
+    b.innerHTML = icon("sort") + `<span class="sort-fab-label"></span>` + (dir ? `<span class="sort-fab-dir"></span>` : "");
+    b.querySelector(".sort-fab-label").textContent = label;
+    if (dir) b.querySelector(".sort-fab-dir").textContent = dir.split(" ")[0];
+    b.classList.toggle("tidy-due", due);
+    b.setAttribute("aria-label", text);
+    b.title = text;
+  }
+}
+function setSortFab(v) { updateSettings({ sortFab: v }); fitTopbar(); }
+
 function sortMenu(anchor = $("sortBtn")) {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.views || v.views.includes(state.view)) && (!v.circleOnly || sharedCircle()));
@@ -573,6 +596,9 @@ function fitTopbar() {
   const label = $("sortBtn").querySelector(".btn-label");
   for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
   label.hidden = false;
+  // A floating sort button (Prototype variant) takes sort out of the top bar.
+  const fabSort = state.settings.sortFab !== "topbar";
+  $("sortBtn").hidden = fabSort;
   search.classList.toggle("centered", wide.matches);
   // Too tight: the title is cut, the buttons run out of the bar, or (desktop)
   // into the centered search.
@@ -596,13 +622,14 @@ function fitTopbar() {
   }
   title.textContent = text;
   // The tidy-up dot follows the sort button into ⋮.
-  $("moreBtn").classList.toggle("tidy-due", $("sortBtn").hidden && $("sortBtn").classList.contains("tidy-due"));
+  $("moreBtn").classList.toggle("tidy-due", !fabSort && $("sortBtn").hidden && $("sortBtn").classList.contains("tidy-due"));
 }
 
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
   const hidden = ACTIONS.filter(a => $(a.id).dataset.folded).map(a => a.menu());
+  const sortFab = s.sortFab;
   // The trash is reached under ⋮ only (decided 2026-10-15 over a button in the archive: deleted notes are rarely needed); swiping and back lead out of it to the archive.
   const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
@@ -610,6 +637,8 @@ function moreMenu() {
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    { section: "Prototype: sort button" },
+    ...Object.entries(SORT_FABS).map(([v, label]) => ({ label, checked: sortFab === v, onSelect: () => setSortFab(v) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -711,6 +740,8 @@ function wire() {
     if (state.view === "trash" && (history.state?.depth ?? 0) < trashDepth) setView("closed", { fromHistory: true });
   });
   $("sortBtn").addEventListener("click", () => sortMenu());
+  $("sortFab").addEventListener("click", () => sortMenu($("sortFab")));
+  $("tocSort").addEventListener("click", () => sortMenu($("tocSort")));
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => {
@@ -780,10 +811,11 @@ function wire() {
     lanes: swipeLanes,
     // The + turns into the bin as the archive comes in (--archive: 0 notes, 1 archive).
     follow: (pos, ms) => {
-      const fab = $("fab");
-      if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); return; }
-      fab.style.setProperty("--archive", Math.min(pos, 1));   // the trash keeps the archive's bin
-      fab.style.setProperty("--archive-ms", ms + "ms");
+      for (const fab of [$("fab"), $("sortFab")]) {
+        if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); continue; }
+        fab.style.setProperty("--archive", Math.min(pos, 1));   // the trash keeps the archive's bin
+        fab.style.setProperty("--archive-ms", ms + "ms");
+      }
     },
   });
   initViewSwipe({
@@ -800,6 +832,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (SORT_FABS[p.get("sortfab")]) patch.sortFab = p.get("sortfab");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

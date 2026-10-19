@@ -32,12 +32,15 @@
         <nav class="people-list" id="labelList"></nav>
       </section>
     </aside>
+    <div class="toc-float">
+    <button class="sort-fab toc-sort" id="tocSort" aria-haspopup="menu"></button>
     <div class="stepper toc-stepper" role="group" aria-label="Heading levels">
       <button class="icon-btn small" id="tocLess" aria-label="Fewer levels"></button>
       <span class="stepper-value" id="tocDepth">2</span>
       <button class="icon-btn small" id="tocMore" aria-label="More levels"></button>
       <span class="stepper-sep"></span>
       <button class="icon-btn small" id="tocProgress" aria-label="Task progress" title="Task progress" aria-pressed="false"></button>
+    </div>
     </div>
     <div class="scrim" id="scrim"></div>
 
@@ -79,6 +82,7 @@
     </main>
 
     <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"><span class="fab-face fab-new"></span><span class="fab-face fab-empty"></span></button>
+    <button class="sort-fab keep-editing" id="sortFab" aria-haspopup="menu"></button>
     <div class="recorder keep-editing" id="recorder" hidden>
       <div class="rec-preview" id="recPreview" aria-live="polite"></div>
       <div class="rec-bar">

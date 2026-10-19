@@ -1157,13 +1157,15 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
    Contents tab, on the phone only while the sheet is open. */
 .toc-head { display: flex; padding: 10px 8px 8px 10px; flex: none; }
 .toc-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.toc-stepper {
+.toc-float {
   position: fixed; z-index: 21; right: calc(100% - var(--toc-w) + 18px); bottom: calc(28px + var(--safe-bottom) + var(--fab-lift, 0px));
-  padding: 4px; box-shadow: var(--shadow-high);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
 }
+.app.sortfab-beside .toc-float { flex-direction: row; align-items: center; }
+.toc-stepper { padding: 4px; box-shadow: var(--shadow-high); }
 .stepper.toc-stepper { background: var(--ctp-base); }
 .toc-stepper .icon-btn.small { height: 32px; }
-.app:is([data-tab="people"], [data-tab="labels"]) .toc-stepper { display: none; }
+.app:is([data-tab="people"], [data-tab="labels"]) :is(.toc-stepper, .toc-sort) { display: none !important; }
 .stepper { display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-hover); }
 .stepper-value { min-width: 18px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); }
 .stepper .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
@@ -1421,6 +1423,34 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .fab-empty { opacity: var(--archive); transform: rotate(calc((var(--archive) - 1) * 90deg)) scale(calc(0.4 + var(--archive) * 0.6)); }
 .app:not([data-view="open"]) .fab { --archive: 1; }
 .app:not([data-view="open"]) .fab.inert { box-shadow: none; cursor: default; }
+/* The floating sort button (Prototype variants: A above the +, B beside it; C keeps sort in the
+   top bar): a small pill with the sort and its direction. In the archive, where the + turns into
+   the bin at the left, it takes the + button's corner, following --archive like the +. */
+.sort-fab {
+  display: none; position: relative; align-items: center; gap: 6px; height: 40px; padding: 0 14px 0 12px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface-raised); color: var(--text);
+  box-shadow: var(--shadow-high); font: inherit; font-size: 0.88rem; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.sort-fab .icon { width: 18px; height: 18px; color: var(--accent); }
+.sort-fab-dir { color: var(--text-muted); font-weight: 500; }
+.sort-fab-dir::before { content: "· "; }
+.sort-fab.tidy-due::after {
+  content: ""; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--danger); box-shadow: 0 0 0 2px var(--bg);
+}
+#sortFab { position: fixed; z-index: 15; --archive: 0; transition: --archive var(--archive-ms, 0.35s) cubic-bezier(.3,.7,.3,1); }
+.app:not([data-view="open"]) #sortFab { --archive: 1; }
+.app.sortfab-above #sortFab {
+  display: inline-flex; right: 20px;
+  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) + 12px) * (1 - var(--archive)) + (var(--fab-size) - 40px) / 2 * var(--archive));
+}
+.app.sortfab-beside #sortFab {
+  display: inline-flex; right: calc(20px + (var(--fab-size) + 12px) * (1 - var(--archive)));
+  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2);
+}
+.app:is(.is-editing, .selecting, .recording, [data-view="trash"]) #sortFab { display: none; }
+.app.sortfab-above .list { padding-bottom: calc(var(--fab-size) + 92px + var(--safe-bottom)); }
+
 /* The snackbar steps aside for the bin. */
 .app:not([data-view="open"]) .snackbar { left: calc(var(--fab-left) + var(--fab-size) + 16px); max-width: calc(100% - var(--fab-left) - var(--fab-size) - 32px); }
 
@@ -1470,8 +1500,8 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .search { width: 190px; flex: none; }
   .app.has-search .search { width: 300px; }   /* room for the hit counter and ▲ / ▼ */
   .title { flex: 0 1 auto; }
-  /* The buttons sit at the right end: sort first, or the view button once sort is folded (and sync with it). */
-  #sortBtn, #sortBtn[hidden] ~ #viewBtn { margin-left: auto; }
+  /* The buttons sit at the right end, from the first one shown. */
+  #sortBtn, #sortBtn[hidden] + #syncBtn, #sortBtn[hidden] + #syncBtn[hidden] + #viewBtn { margin-left: auto; }
 }
 @media (min-width: 1024px) {
   .topbar { padding-inline: 16px; }
@@ -1483,7 +1513,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
     position: absolute; left: 50%; top: calc(var(--safe-top) + (var(--topbar-h) - 40px) / 2); transform: translateX(-50%);
     width: min(748px, calc(100% - 340px)); margin: 0;
   }
-  #sortBtn, #sortBtn[hidden] ~ #viewBtn { margin-left: auto; }
+  #sortBtn, #sortBtn[hidden] + #syncBtn, #sortBtn[hidden] + #syncBtn[hidden] + #viewBtn { margin-left: auto; }
   .list { padding-top: 12px; }
   .selectbar { padding-inline: 16px; }
   .sel-count { flex: 1 0 auto; }
@@ -1534,8 +1564,11 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .app.toc-dragging .toc-panel { transition: none; }
   .app:not(.toc-open):not(.toc-dragging) .toc-panel > :not(.toc-handle) { visibility: hidden; }
   .app:is(.is-editing, .recording) .toc-panel { display: none; }
-  .app:not(.toc-open) .toc-stepper { display: none; }
-  .toc-stepper { right: 20px; }   /* where the + button is, which the open sheet covers */
+  .app:not(.toc-open) .toc-float { display: none; }
+  .toc-float { right: 20px; }   /* where the + button is, which the open sheet covers */
+  /* The open sheet covers the floating sort button: it carries its own (Prototype variants A, B). */
+  .app:is(.sortfab-above, .sortfab-beside) .toc-sort { display: inline-flex; }
+  .app.sortfab-above .list { padding-bottom: calc(var(--fab-size) + 92px + var(--peek)); }
   .toc-handle {
     display: block; position: relative; flex: none; width: 100%; height: 26px; padding: 0; border: 0;
     background: transparent; cursor: grab; touch-action: none;
