@@ -2,6 +2,7 @@ package io.github.sarrdai.notedown;
 
 import android.Manifest;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -22,6 +23,8 @@ import java.util.ArrayList;
  * recognition session; it emits "partial" {text}, "final" {text},
  * "level" {value 0..1}, "error" {code} with Web Speech error codes, and
  * "end" when the session is over. Continuous listening restarts from JS.
+ * start({onDevice: true}) uses the on-device recognizer only (Android 12+),
+ * never the online one: without it, it rejects with "on-device-unavailable".
  */
 @CapacitorPlugin(
     name = "Dictation",
@@ -30,6 +33,8 @@ import java.util.ArrayList;
 public class DictationPlugin extends Plugin {
 
     private SpeechRecognizer recognizer;
+    private boolean recognizerOnDevice; // which kind `recognizer` is
+    private SpeechRecognizer downloader; // kept until destroy, so the download request reaches the service
     private boolean session; // between startListening and its one "end"
     private volatile boolean cancelled; // stop() or cancel() came while the permission dialog was open
 
@@ -76,26 +81,59 @@ public class DictationPlugin extends Plugin {
         });
     }
 
+    /** Asks the on-device recognizer to download the language's speech pack (Android 13+). */
+    @PluginMethod
+    public void downloadLanguage(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !SpeechRecognizer.isOnDeviceRecognitionAvailable(getContext())) {
+            call.reject("Speech pack download needs Android 13", "unsupported");
+            return;
+        }
+        Intent intent = recognizerIntent(call.getString("lang"));
+        getActivity().runOnUiThread(() -> {
+            if (downloader == null) downloader = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext());
+            downloader.triggerModelDownload(intent);
+            call.resolve();
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         if (recognizer != null) recognizer.destroy();
+        if (downloader != null) downloader.destroy();
     }
 
-    private void listen(PluginCall call) {
+    private static Intent recognizerIntent(String lang) {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-        String lang = call.getString("lang");
         if (lang != null) intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
+        return intent;
+    }
+
+    private void listen(PluginCall call) {
+        Intent intent = recognizerIntent(call.getString("lang"));
+        boolean onDevice = Boolean.TRUE.equals(call.getBoolean("onDevice", true));
 
         getActivity().runOnUiThread(() -> {
-            if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+            if (onDevice) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !SpeechRecognizer.isOnDeviceRecognitionAvailable(getContext())) {
+                    call.reject("No on-device speech recognition on this device", "on-device-unavailable");
+                    return;
+                }
+            } else if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
                 call.reject("No speech recognition on this device", "service-not-allowed");
                 return;
             }
+            if (recognizer != null && recognizerOnDevice != onDevice) {
+                recognizer.destroy();
+                recognizer = null;
+            }
             if (recognizer == null) {
-                recognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
+                recognizer = onDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    ? SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext())
+                    : SpeechRecognizer.createSpeechRecognizer(getContext());
+                recognizerOnDevice = onDevice;
                 recognizer.setRecognitionListener(new Listener());
             }
             session = true;
@@ -179,8 +217,9 @@ public class DictationPlugin extends Plugin {
             case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
                 return "busy";
             case SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED:
-            case SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE:
                 return "language-not-supported";
+            case SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE: // supported, but its speech pack isn't on the phone
+                return "language-unavailable";
             default:
                 return "error-" + error;
         }

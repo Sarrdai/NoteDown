@@ -181,7 +181,8 @@ Decided on 2026-10-13, once function and look stood:
 - **Editor:** CodeMirror 6, as in the prototype.
 - **Speech:** the browser's Web Speech API on the web; on Android (whose
   web view has none) Android's `SpeechRecognizer` through the app's own
-  Capacitor plugin (`DictationPlugin.java`, see "Android app") behind the
+  Capacitor plugin (`DictationPlugin.java`, see "Android app"; on the
+  device or online by the setting) behind the
   same `startDictation` interface (`app/js/ui/dictation.js`) — the
   community plugin reports neither errors nor the input level.
 - A UI framework, if any, is decided later; `app/js/core/` stays

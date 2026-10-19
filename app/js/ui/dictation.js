@@ -2,10 +2,12 @@
 // Uses the browser's Web Speech API (Chrome, Edge, Safari; needs https or
 // localhost); in the Android app, whose web view has none, Android's
 // speech recognizer through the native Dictation plugin
-// (mobile/android/.../DictationPlugin.java). With ?dictation=demo the
+// (mobile/android/.../DictationPlugin.java), on the device or online as
+// Settings → Privacy → Speech recognition says. With ?dictation=demo the
 // prototype replays app/sample/dictation.md instead, so the flow can be
 // tried and tested without a microphone.
 import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
+import { state } from "../store.js";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const NativeDictation = Capacitor.isNativePlatform() ? registerPlugin("Dictation") : null;
@@ -28,7 +30,7 @@ export function startDictation(cb) {
 // restarted until stopped. Errors are Web Speech error codes.
 function nativeSession({ onInterim, onFinal, onLevel, onError }) {
   let active = true, cancelled = false, resolveStop = null;
-  const start = () => NativeDictation.start({ lang: navigator.language || "en-US" })
+  const start = () => NativeDictation.start({ lang: lang(), onDevice: state.settings.dictation !== "online" })
     .catch(err => fail(err.code || "start-failed"));
   const fail = code => { if (!active) return; active = false; onError(code); };
   const listeners = [
@@ -55,6 +57,14 @@ function nativeSession({ onInterim, onFinal, onLevel, onError }) {
     },
     cancel() { active = false; cancelled = true; NativeDictation.cancel(); close(); },
   };
+}
+
+const lang = () => navigator.language || "en-US";
+
+/** Asks Android to download the on-device speech pack of the device language (Android 13 and later;
+ *  rejects with code "unsupported" before). */
+export function downloadSpeechPack() {
+  return NativeDictation ? NativeDictation.downloadLanguage({ lang: lang() }) : Promise.reject({ code: "unsupported" });
 }
 
 function speechSession({ onInterim, onFinal, onLevel, onError }) {

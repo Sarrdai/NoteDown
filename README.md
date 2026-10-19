@@ -77,7 +77,8 @@ device only NoteDown reads them: everything it keeps there is encrypted
 system backup; an encrypted backup file takes the notes to a new device.
 The Android app can lock with the phone's screen lock, keeps its notes
 out of screenshots and the recent-apps preview, asks the keyboard not to
-learn what is typed, and its reminders show no note text unless chosen. The **web app** is available now and
+learn what is typed, recognizes dictation on the device unless set to
+online, and its reminders show no note text unless chosen. The **web app** is available now and
 convenient, but like any web app it is only as trustworthy as the host
 that serves its code — which is why Signal has no web client. The
 Android app is the secure way; a **desktop client** with signed updates

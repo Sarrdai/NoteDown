@@ -159,6 +159,8 @@ only look safe.
   Privacy. Text fields ask the keyboard not to learn from what is typed
   (`IME_FLAG_NO_PERSONALIZED_LEARNING`; keyboards honour it, it can't be
   enforced). Dictation is not affected.
+- **Speech recognition** (decided 2026-10-19): a choice under Privacy,
+  **On this device** by default or **Online** ("Dictation").
 - **Reminders without note text** (backlog #57): Settings → Reminders →
   **Show in reminders**: **Only the number** ("2 notes due today", the
   default) or **Note titles**, which says that titles show on the lock
@@ -1342,6 +1344,21 @@ that host its IP address and the reading time.
   localhost) and replays a sample transcript with `?dictation=demo`;
   the Android app uses Android's speech recognizer and asks for the
   microphone permission on first use.
+- **On the device or online** (Android app, decided 2026-10-19, user
+  request, for privacy): Settings → Privacy → **Speech recognition**:
+  **On this device** (the default) uses only Android's on-device
+  recognizer (Android 12 and later, with the speech pack of the device
+  language), so the recording never leaves the phone; **Online** uses the
+  phone's speech service, which may send it to its servers (often
+  Google's). On the device never falls back to online by itself: when it
+  can't recognize, dictation stops with a hint — "This phone can't
+  recognize speech on the device" or "Your language can't be recognized
+  on the device" with **Settings**, or "The speech pack for your language
+  isn't on this phone yet" with **Download** (Android 13 and later;
+  before, the hint points to Android's speech settings). The web app has
+  no such setting: the browser decides (Chrome sends the recording to
+  Google's servers), and neither the web nor Chrome promises an on-device
+  mode we could rely on.
 
 ### Multi-select
 
@@ -1605,7 +1622,8 @@ place instead of the top bar and ⋮.
   saying what is set); **Sync** — Sync & sharing (the panel's own pages,
   its line the sync status; its top-bar icon stays for the status);
   **Privacy** (Android app only) — Screen lock, Screen security,
-  Incognito keyboard ("Privacy on the device"); **Data** — Backup
+  Incognito keyboard, Speech recognition ("Privacy on the device",
+  "Dictation"); **Data** — Backup
   ("Encrypted backup"), Import from Google Keep (opens the import page);
   **About** — see below.
 - Every setting here is a **setting of this device**, never synced.

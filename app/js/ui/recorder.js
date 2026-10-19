@@ -2,8 +2,9 @@
 // like Signal's voice messages — hold to record, release to save, slide
 // left to cancel, slide up to lock for hands-free recording (then tap the
 // button to finish or the bin to cancel).
-import { dictationAvailable, startDictation } from "./dictation.js";
+import { dictationAvailable, startDictation, downloadSpeechPack } from "./dictation.js";
 import { showSnackbar } from "./snackbar.js";
+import { openSettings } from "./settings.js";
 import { icon } from "./icons.js";
 
 const HOLD_MS = 350;
@@ -12,6 +13,20 @@ const LOCK_DY = -90;
 const BARS = 36;
 
 const $ = id => document.getElementById(id);
+
+// Why dictation stopped. On-device recognition never falls back to online on its own: the hint offers
+// the speech pack's download or the setting instead.
+function dictationError(code) {
+  const settings = () => openSettings();
+  if (code === "not-allowed") showSnackbar("Microphone access was denied");
+  else if (code === "on-device-unavailable") showSnackbar("This phone can't recognize speech on the device", settings, "Settings");
+  else if (code === "language-not-supported") showSnackbar("Your language can't be recognized on the device", settings, "Settings");
+  else if (code === "language-unavailable") {
+    showSnackbar("The speech pack for your language isn't on this phone yet", () => downloadSpeechPack()
+      .then(() => showSnackbar("Downloading the speech pack. Try again in a moment"))
+      .catch(() => showSnackbar("Install it in Android's speech recognition settings")), "Download");
+  } else showSnackbar("Dictation stopped: " + code);
+}
 
 export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => null, onTranscript }) {
   const fab = $("fab");
@@ -54,7 +69,7 @@ export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => 
       onFinal: t => { if (rec) { rec.finals.push(t.trim()); rec.interim = ""; preview(); } },
       onLevel: level,
       // After cancel(), so its "Dictation cancelled" doesn't hide the reason.
-      onError: code => { cancel(); showSnackbar(code === "not-allowed" ? "Microphone access was denied" : "Dictation stopped: " + code); },
+      onError: code => { cancel(); dictationError(code); },
     });
     app.classList.add("recording");
     $("recorder").hidden = false;
