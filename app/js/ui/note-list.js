@@ -43,16 +43,28 @@ export function renderList(notes, options) {
   list().replaceChildren(...listItems(notes, options));
 }
 
-/** Renders the tiles in a new order but keeps `keepId`'s element (it may
- *  hold the editor): the others are placed around it. */
+/** Renders the tiles in a new order but keeps the elements of the notes already shown (one may hold the
+ *  editor, another may be under the finger), with `keepId`'s note staying where it is on the screen;
+ *  the others are placed around it, as far as the scroll range allows. */
 export function reorderList(notes, { keepId, ...options }) {
-  const kept = list().querySelector(`.note[data-id="${keepId}"]`);
-  const items = listItems(notes, options);
-  const i = items.findIndex(el => el.dataset.id === keepId);
-  if (!kept || i < 0) return list().replaceChildren(...items);
-  for (const el of [...list().children]) if (el !== kept) el.remove();
-  kept.before(...items.slice(0, i));
-  kept.after(...items.slice(i + 1));
+  const shown = new Map([...list().querySelectorAll(".note[data-id]")].map(el => [el.dataset.id, el]));
+  const top = () => list().querySelector(`.note[data-id="${keepId}"]`)?.getBoundingClientRect().top;
+  const before = keepId && top();
+  const items = listItems(notes, options).map(el => shown.get(el.dataset?.id) || el);
+  list().replaceChildren(...items);
+  if (before !== undefined && before !== null) { const after = top(); if (after !== undefined) window.scrollBy(0, after - before); }
+}
+
+/** Folds a note's tile away (it leaves the view, e.g. no longer matching a filter); resolves when done. */
+export function collapseNote(id) {
+  const el = list().querySelector(`.note[data-id="${id}"]`);
+  if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
+  const h = el.getBoundingClientRect().height;
+  const anim = el.animate([
+    { height: h + "px", opacity: 1, overflow: "hidden" },
+    { height: "0px", opacity: 0, marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px", borderWidth: "0px", overflow: "hidden" },
+  ], { duration: 320, easing: "ease-in", fill: "forwards" });
+  return anim.finished.then(() => {}, () => {});
 }
 
 /** The tiles' elements without placing them (also the swipe's preview of the other view).
@@ -382,6 +394,9 @@ function onBodyClick(e, id) {
 let editing = null; // { id, editor }
 const editListeners = new Set();
 export function onEditingChange(fn) { editListeners.add(fn); }
+// Called with the note's id once an edit has ended and the note was kept (not an empty one).
+const endListeners = new Set();
+export function onEditEnded(fn) { endListeners.add(fn); }
 export function currentEditor() { return editing && editing.editor; }
 
 /** Starts editing; `at` = { x, y } of the tap puts the caret there. */
@@ -429,6 +444,7 @@ export function endEdit({ fromHistory = false, keepEntry = false } = {}) {
   setBody(id, text.trim());
   const el = list().querySelector(`.note[data-id="${id}"]`);
   if (el) el.replaceWith(noteElement(note(id)));
+  endListeners.forEach(fn => fn(id));
 }
 
 window.addEventListener("popstate", () => {

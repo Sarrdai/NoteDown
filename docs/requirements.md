@@ -843,13 +843,18 @@ paid features per user.
   winning. Outside a circle's view a view set to it shows the user's own
   Shelves. *Prototype: 2026-10-14; real on shared files since
   milestone 2, simulated in the sample (Lea's circle carries one).*
-- A finished edit doesn't reorder the list right away, so a note never
-  jumps away under the user's finger; the order updates on the next view
-  change, sort or search. *Prototype: round 1.*
-- Sorted by due date, a **new due date sorts its note in at once** (also
-  while it is edited): the note stays where it is on the screen and the
-  list moves around it, as far as the scroll range allows (decided
-  2026-10-15: the user wants to see where it lands). *Prototype: 2026-10-15.*
+- When an edit ends, the note **sorts in at once**: it stays where it is
+  on the screen and the list moves around it, as far as the scroll range
+  allows; the table of contents always shows the list's order (decided
+  2026-10-19: a list that kept its old order while the contents re-sorted
+  looked unreliable). While a note is edited the list keeps its order.
+  Sorted by due date, a new due date sorts its note in the same way even
+  while it is edited (decided 2026-10-15: the user wants to see where it
+  lands). *Prototype: 2026-10-19.*
+- A note that **no longer matches the filters** when its edit ends (a
+  label filter, permanent only) folds away with a short animation and
+  "Note hidden by the filter", so its disappearing can be followed
+  (user request 2026-10-19). *Prototype: 2026-10-19.*
 - A **full-text search** in the top bar filters the current view; the
   table of contents follows the filter. *Prototype: round 1.*
 - Where the search text occurs it is **highlighted** in the notes and in
@@ -1064,8 +1069,11 @@ this needs none of it.
 
 - A **new note** starts empty in edit mode (no heading preset; the
   heading button adds one); it stays at the top of the list until editing
-  ends. A new note shown at the top (also a dictated or merged one) takes
-  its sorted place with the next view, sort, search or circle change.
+  ends, also when the filters would leave it out (user request
+  2026-10-19: under a label filter it opened hidden and stayed behind
+  empty). An edited new note sorts in when editing ends; a dictated or
+  merged one shown at the top takes its sorted place with the next view,
+  sort, search or circle change.
   *Prototype: round 1.*
 - **Tapping into a note's text** starts editing it with the cursor where
   the user tapped, except on task checkboxes (they toggle; a long-press

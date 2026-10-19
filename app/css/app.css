@@ -282,6 +282,8 @@ mark.hit.current { background: var(--hit-current); color: var(--on-hit-current);
 .note.closed .status .icon { opacity: 1; color: var(--on-accent); }
 
 .note-body { grid-area: body; min-width: 0; padding-right: 6px; cursor: text; overflow-wrap: anywhere; }
+/* An empty note (e.g. one synced in empty) still offers a line to tap into. */
+.note-body:not(.editor-host):has(> .md-section:only-child:empty) { min-height: 1.5em; }
 .note.closed .note-body { cursor: default; }
 .note-meta {
   grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
