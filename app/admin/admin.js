@@ -15,6 +15,7 @@ import { createApi } from "../js/sync/api.js";
 import { getSecret } from "../js/sync/keystore.js";
 import { readStored } from "../js/vault.js";
 import { serverUrl } from "../js/core/linking.js";
+import { deviceKeysFromSeeds } from "../js/core/crypto.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { fillMedia } from "../js/ui/external.js";
 import { parseNotesFile } from "../js/core/notes-file.js";
@@ -78,7 +79,9 @@ async function connect() {
     return true;
   }
   const sync = await readJson("notedown.sync");
-  const keys = sync && sync.enabled && sync.identity && !sync.simulated ? await getSecret("device").catch(() => null) : null;
+  // The vault keeps the device keys' seeds (sync/client.js → readKeys); the keys are imported from them.
+  const seeds = sync && sync.enabled && sync.identity && !sync.simulated ? await getSecret("device").catch(() => null) : null;
+  const keys = seeds ? await deviceKeysFromSeeds(seeds).catch(() => null) : null;
   if (!keys || !keys.sign || !sync.device) { S.status = "no-sync"; return false; }
   let config = {};
   try { config = await (await fetch(new URL("../config.json", import.meta.url), { cache: "no-store" })).json(); } catch { /* none */ }

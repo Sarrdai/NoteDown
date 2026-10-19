@@ -821,6 +821,16 @@ async function main() {
       assert.match(await noteBody(e, noteK), /after the contact was removed$/);
     });
 
+    await step("the admin page signs in with the device's keys (a server that doesn't know the identity says so)", async () => {
+      const page = await a.context().newPage();
+      try {
+        await page.goto(`http://127.0.0.1:${PORT}/app/admin/`);
+        await page.locator(".adm-state h2", { hasText: "is not an admin of" }).waitFor();
+      } finally {
+        await page.close();
+      }
+    });
+
     await step("the owner's news reach every device: seen on one is seen on all, an archived post goes with its marker", async () => {
       await converge(a, d);
       const admin = await startAdminServer(await ident(a));
