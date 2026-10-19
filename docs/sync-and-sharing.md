@@ -438,7 +438,7 @@ becomes a private copy. Likewise a trashed note leaves the trash only
 when it is back in the very file it came from (`kept`).
 
 **Merged sources** (backlog #35): a device that merges notes of a shared
-file (also "move to a new note" and "merge into") leaves a moved marker
+file (also "move to a new note" and "Move to") leaves a moved marker
 for each source that disappears, naming the merged note's file (`to`, as
 for any move). The other members' devices therefore see a move, not a
 delete, and the sources stay out of their trash — the text lives on in

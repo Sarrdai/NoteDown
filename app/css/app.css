@@ -521,13 +521,34 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .arrange-sort { flex: none; display: flex; align-items: center; gap: 4px; margin: 8px 8px 0; font-size: 0.88rem; color: var(--text-muted); }
 #arrangeSort { color: var(--text); }
 #arrangeSort .btn-label { display: inline; }
-/* Merge into an existing note: the target, and its sections as fixed rows the parts go between. */
-.merge-target { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; color: var(--text-muted); }
-.merge-target .pick { flex: 1; font-weight: 600; }
-.order-item.fixed { counter-increment: none; min-height: 36px; border-style: dashed; background: transparent; padding-left: calc(12px + var(--indent, 0) * 16px); }
-.order-item.fixed::before { display: none; }
-.order-item.fixed .order-text { font-weight: 500; color: var(--text-muted); }
 .dialog-hint.after { margin: 8px 8px 0; }
+/* Move to… (ui/move-to.js): notes and their sections to pick from; above the arrange dialog. */
+#moveDialog { z-index: 46; }
+.move-dialog { height: min(640px, 100%); }
+.move-tools { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px 4px 8px; }
+.move-search {
+  flex: 1; min-width: 0; height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg); color: var(--text); font: inherit;
+}
+.move-search:focus { outline: none; border-color: var(--accent); }
+.move-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0 2px; list-style: none; }
+.move-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 10px 0 calc(10px + var(--indent, 0) * 16px);
+  border: 0; border-radius: 10px; background: transparent; color: var(--text-muted); font: inherit; text-align: left; cursor: pointer;
+}
+.move-row:hover { background: var(--surface-hover); }
+.move-row.head { margin-top: 6px; min-height: 44px; color: var(--text); font-weight: 650; }
+.move-row.plain .move-text { font-style: italic; }
+.move-row[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+.move-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.move-tag { flex: none; display: inline-flex; color: var(--text-faint); }
+.move-tag .icon { width: 16px; height: 16px; }
+.move-more { flex: none; font-size: 0.8rem; color: var(--text-faint); }
+.move-empty { padding: 12px 10px; font-size: 0.9rem; color: var(--text-muted); }
+.move-where { flex: none; margin: 10px 8px 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.move-task { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; cursor: pointer; }
+.move-task input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.arrange-move { flex: none; margin-right: -6px; color: var(--text-muted); }
 /* Merge across circles: private copy or shared with everyone involved. */
 .merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .choice {
@@ -1574,6 +1595,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }
   .sel-word { display: none; }
+  .sel-action, #selMore { min-width: 40px; width: 40px; padding: 0; } /* seven actions and ⋮ fit 360 px */
 }
 @media (hover: none) {
   .icon-btn:hover, .toc-entry:hover, .people-entry:not(.active):hover, .menu-item:hover { background: transparent; }

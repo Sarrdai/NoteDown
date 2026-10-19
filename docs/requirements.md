@@ -789,6 +789,8 @@ paid features per user.
   the header in the list and in the table of contents) opens a dialog like
   the merge order dialog, where notes move above a line by drag (or arrow
   keys) or with + / −, and are ordered there; the pile is below the line.
+  Each note row's move button moves the note into a section of another
+  (Multi-select → "Move to").
   Shelves have no direction. The dialog arranges what the list shows
   (circle filter and search applied); other notes keep their places in the
   order. Below the list, "Pile by …" sorts the pile's rows with any sort
@@ -1401,7 +1403,7 @@ that host its IP address and the reading time.
   selected deeper ones right below it — 2026-10-15, so sections picked one
   by one also count and reorder one by one) and
   the actions as icons (with labels on the desktop): the frequent ones —
-  Close, Clear done tasks, Copy, Share, Merge, Delete — in the bar, the
+  Close, Clear done tasks, Copy, Share, Merge, Move to, Delete — in the bar, the
   rarer ones — Export, Private copy, Make permanent, Promote / Demote headings — under
   ⋮ with icon and label, the same in every tier (decided 2026-10-17 by the user's own use,
   backlog #36; all of them overran the desktop bar); the + button is
@@ -1412,7 +1414,7 @@ that host its IP address and the reading time.
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Clear done tasks**, **Copy**, **Export** ("Export"), **Share** ("Sync
-  and sharing"), **Merge**, **Private copy** (shared notes, "Links between
+  and sharing"), **Merge**, **Move to**, **Private copy** (shared notes, "Links between
   notes and private copies"), **Make permanent / Make closable**, **Delete**,
   **Promote / Demote headings**. Close, Share, Make permanent and Delete act on whole notes
   (disabled while only parts of a note are selected) and end the
@@ -1449,20 +1451,35 @@ that host its IP address and the reading time.
   and don't put the source into their trash — its text lives on in the
   merged note (backlog #35; a concurrent edit of the source lands as a
   displaced edit, `docs/sync-and-sharing.md` → "Merging"). The same holds
-  for "Merge into". *Prototype: 2026-10-14.*
-- **Merge into an existing note** (decided 2026-10-15, user request: to
-  insert a note into another at a chosen place): the merge dialog's
-  **Into** picker offers "New note" (default) or one of the notes
-  involved. With a target, its sections are shown as fixed rows (indented
-  by level) and the parts are dragged between them (start: at the end); a
-  target selected whole stays as it is, its selected sections move like any
-  other part. Each part becomes a **sibling of the section before it** —
-  of the next one when that is deeper, so it never takes over a section's
-  subsections; level 2 without a heading around. The target keeps its
-  dates, status and circle ("Merged into “…” · Undo"); the sources give
-  up their parts, except notes shared in another circle than the target's,
-  which keep them for their members (the dialog says so) — like a private
-  copy. *Prototype: 2026-10-15.*
+  for "Move to". *Prototype: 2026-10-14.*
+- **Move to** (decided 2026-10-19, user request: sort a dictated note
+  into an existing task list or section in a few taps, above all while
+  tidying up; replaces "Merge into", which only reached notes in the
+  selection — Merge now only makes a new note): the selected parts go
+  into **one section of another note** (or another section of their own
+  note), picked in a dialog that lists the notes of the view (search over
+  titles and headings) with their sections; rows of sections that end with
+  a task list carry a small checkbox mark. The parts land at the **end of
+  the section's own text** — before its subsections and before the label
+  line that closes it — in contents order, plain parts first. **Plain text
+  becomes tasks** when the section ends with a task list ("As tasks",
+  ticked by default then, switchable; each paragraph one task, list items
+  get a box) and joins that list; otherwise it follows as a paragraph. A
+  part with headings becomes a **subsection** of the target section (its
+  highest heading one level below it, at most `######`; `##` in a note's
+  untitled lead). The target keeps its dates, status and circle; a source
+  left empty disappears ("Moved to “…” · Undo"); the target comes into
+  view. Sources shared in another circle than the target's keep their part
+  for their members (the dialog says so), like a private copy. Reached
+  from the selection bar (whole notes and sections) and from each note row
+  of the **Tidy up** dialog (its move button; the row leaves the dialog).
+  The picker is **one outline**: every note with its headings, one tap
+  picks (decided 2026-10-19 over note first, then its sections: fewer
+  taps). **− / +** set how many levels it shows, as in the contents (the
+  note itself is level 1, its headings count from its highest one;
+  starts at 2, remembered on this device apart from the contents' count);
+  a note with sections on hidden levels shows "+n", and a search shows
+  every level of the notes it finds. *Prototype: 2026-10-19.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked and the cancelled task items
   (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the

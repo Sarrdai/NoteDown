@@ -38,6 +38,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
+import { initMoveTo } from "./ui/move-to.js";
 import { initReminders } from "./ui/reminders.js";
 import { openDue } from "./ui/due.js";
 import { dueItems, dueNowCount } from "./core/due-list.js";
@@ -503,6 +504,12 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
+// After Move to…: the target note comes into view and flashes.
+function onMoved(id, undo, message) {
+  showNote(id);
+  showSnackbar(message, undo);
+}
+
 // The arrange dialog over the notes the list shows: the user's own custom
 // order, or the shared order of the circle in view.
 function arrange() {
@@ -792,9 +799,10 @@ function wire() {
   initCompare();
   document.addEventListener("notedown:show-note", e => showNote(e.detail.id));
   initArrange();
+  initMoveTo();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => { renderToc(currentNotes()); renderFab(); } });
+  initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initSyncPanel();
   initContactRequests();
   initPullRefresh({

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { refOf } from "../app/js/core/note-ref.js";
-import { state, replaceFiles, shareNotes, applyMerge, applyMergeInto, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses, setBody } from "../app/js/store.js";
+import { state, replaceFiles, shareNotes, applyMerge, applyMoveInto, circleOf, sharedFiles, leaveNotes, allNotes, circleNotes, memberName, keptCircle, sharedCircles, removeNotes, trashNotes, restoreNotes, purgeNotes, purgeExpiredTrash, note, setStatuses, setBody } from "../app/js/store.js";
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [n1, n2, n3] = sample.notes;
@@ -127,24 +127,24 @@ test("a note merged from a permanent one is permanent", () => {
   assert.equal(merged.status, "permanent");
 });
 
-test("merge into a private note: a shared source keeps its part, a private target changes, Undo restores", () => {
+test("move into a private note: a shared source keeps its part, a private target changes, Undo restores", () => {
   start();
   const before = texts();
   const old = note(n3.id).body;
-  const undo = applyMergeInto(n3.id, "merged", [{ id: n1.id, body: null }]);
+  const undo = applyMoveInto(n3.id, "merged", [{ id: n1.id, body: null }]);
   assert.equal(note(n3.id).body, "merged");
   assert.deepEqual(texts(), before, "the shared source stays for bob");
   undo();
   assert.equal(note(n3.id).body, old);
 });
 
-test("merge into a shared note: a private source gives its part up", () => {
+test("move into a shared note: a private source gives its part up", () => {
   replaceFiles({
     file: { preamble: "", notes: [{ ...n3 }], moved: [] },
     shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }], moved: [] } }],
     sync: { enabled: true },
   });
-  const undo = applyMergeInto(n1.id, "merged", [{ id: n3.id, body: null }]);
+  const undo = applyMoveInto(n1.id, "merged", [{ id: n3.id, body: null }]);
   assert.equal(note(n3.id), undefined);
   assert.equal(note(n1.id).body, "merged");
   undo();
@@ -241,9 +241,9 @@ test("merging across circles with Share with ... marks the sources in both files
   assert.deepEqual(state.file.moved, [], "the private file leaves none");
 });
 
-test("merging into a shared note marks the sources that gave up their part; a source that keeps it gets none", () => {
+test("moving into a shared note marks the sources that gave up their part; a source that keeps it gets none", () => {
   bobPair();
-  const undo = applyMergeInto(n1.id, "merged", [{ id: "s-two", body: null }, { id: n2.id, body: null }]);
+  const undo = applyMoveInto(n1.id, "merged", [{ id: "s-two", body: null }, { id: n2.id, body: null }]);
   assert.deepEqual(bobFile().moved.map(m => m.id), ["s-two"]);
   assert.deepEqual(sharedFiles().find(s => s.key === "lea").file.moved, [], "the lea source keeps its part");
   undo();

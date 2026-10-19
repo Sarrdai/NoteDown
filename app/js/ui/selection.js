@@ -14,13 +14,14 @@
 import { tableOfContents, sectionKey } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectSections, selectedParts, partText, partPreview,
-  copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings, movingParts, targetSections, mergeInto,
+  copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
 } from "../core/selection.js";
-import { state, note, removeNotes, setStatuses, setBody, applyMerge, applyMergeInto, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
+import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
 import { noteTitle } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
-import { mergeCircle, keepsPart } from "../core/sharing.js";
+import { mergeCircle } from "../core/sharing.js";
+import { moveTo } from "./move-to.js";
 import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
@@ -38,7 +39,7 @@ const MOVE_TOLERANCE = 10;
 
 const $ = id => document.getElementById(id);
 const list = () => $("list");
-let opts = null;      // { viewNotes, onMerged, onChange }
+let opts = null;      // { viewNotes, onMerged, onMoved, onChange }
 let anchorNote = null; // last note toggled, start of a Shift range in the list
 let anchorKey = null;  // same for the contents
 let press = null;     // { id, key, split, x, y, timer } while a finger / button is down
@@ -58,10 +59,10 @@ export function initSelection(options) {
   $("selMore").innerHTML = icon("more");
   $("orderCancel").addEventListener("click", closeDialog);
   $("orderOk").addEventListener("click", () => {
-    const fn = dialog.onConfirm, ordered = orderedFromDialog(), target = dialog.target;
+    const fn = dialog.onConfirm, ordered = orderedFromDialog();
     const mode = $("orderChoice").querySelector("input:checked")?.value || "copy";
     closeDialog();
-    fn(ordered, mode, target);
+    fn(ordered, mode);
   });
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
@@ -279,6 +280,7 @@ function update() {
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
+    !archive && { id: "moveto", label: "Move to…", run: moveParts },
     // A private copy of shared notes, linked back to the original (backlog #45).
     !archive && { id: "privatecopy", label: "Private copy", run: privateCopies, disabled: !whole || !ids.every(id => circleOf(id).length), menu: true },
     !archive && { id: permanent ? "permanent" : "closable", label: permanent ? "Make permanent" : "Make closable", run: () => setPermanent(permanent), disabled: !whole, menu: true },
@@ -413,35 +415,28 @@ function exportParts() {
 // confirmed order, become a new note and leave their notes. Across circles
 // the dialog asks where it goes (core/sharing.js → mergeCircle): a private
 // copy that leaves the shared notes as they are, or shared with everyone involved.
-// Instead of a new note the dialog can take one of the notes involved as the
-// target: the parts are placed between its sections, in its circle.
+// Into an existing note goes Move to… (ui/move-to.js).
 function merge() {
   const { parts, notes, whole } = current();
   const single = parts.length === 1;
   const circles = Object.keys(notes).map(circleOf);
   const across = mergeCircle(circles, "copy").keepShared;
   const choice = across ? mergeCircle(circles, "share").members : null;
-  const into = {
-    targets: Object.keys(notes).filter(id => movingParts(parts, id).length > 0),
-    title: id => single ? (id ? "Move into a note" : "Move to a new note") : `Merge ${what(parts, whole)}`,
-    keeps: id => {
-      const kept = Object.keys(notes).filter(x => x !== id && keepsPart(circleOf(x), circleOf(id))).flatMap(circleOf);
-      return kept.length ? `Notes shared with ${membersLabel([...new Set(kept)])} keep their part for them.` : null;
-    },
-  };
-  openDialog(into.title(null), single ? "Move" : "Merge", parts, notes, (ordered, mode, target) => {
+  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, (ordered, mode) => {
     endSelection();
-    if (target) {
-      const m = mergeInto(notes, parts, target, ordered);
-      const undo = applyMergeInto(target, m.body, m.changes);
-      opts.onMerged(note(target), undo, `${single ? "Moved" : "Merged"} into “${noteTitle(note(target).body).text || "Untitled"}”`);
-      return;
-    }
     const m = mergeParts(notes, ordered);
     const { note: created, undo } = applyMerge(m.changes, m, mode);
     const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
     opts.onMerged(created, undo, message);
-  }, choice, into);
+  }, choice);
+}
+
+// Move to…: the parts go to the end of a section of another note (or of one of theirs), in contents order.
+function moveParts() {
+  const { parts, notes } = current();
+  const candidates = opts.viewNotes().filter(n => n.status !== "closed");
+  endSelection();
+  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: opts.onMoved }));
 }
 
 async function writeClipboard(text) {
@@ -461,41 +456,17 @@ async function writeClipboard(text) {
 
 // `shareWith` (member ids) adds the choice between a private copy and
 // sharing with these people; onConfirm gets the order and "copy" | "share".
-// `into` ({ targets, title, keeps }) offers merging into one of the notes involved.
-function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null, into = null) {
-  dialog = { onConfirm, parts, notes, shareWith, into, target: null };
+function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null) {
+  dialog = { onConfirm, parts, notes };
   $("orderTitle").textContent = title;
   $("orderOk").textContent = okLabel;
   $("orderChoice").innerHTML = shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
     + choiceHtml("share", `Share with ${esc(membersLabel(shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(shareWith)) : "";
-  $("orderTargetRow").hidden = !into?.targets.length;
-  $("orderTargetRow").replaceChildren("Into", pickButton("", [["", "New note"],
-    ...(into?.targets || []).map(id => [id, noteTitle(notes[id].body).text || "Untitled"])], v => renderDialog(v || null), { label: "Into" }));
-  $("orderList").replaceChildren();
-  renderDialog(null);
+  $("orderChoice").hidden = !shareWith;
+  $("orderHint").hidden = parts.length < 2;
+  $("orderList").replaceChildren(...parts.map((p, i) => orderItem(partPreview(notes[p.noteId].body, p), i)));
   $("orderDialog").hidden = false;
   $("orderOk").focus({ preventScroll: true, focusVisible: false });
-}
-
-// The rows for a new note (null) or a target note: its remaining sections
-// as fixed rows, the moving parts after them in their current order.
-function renderDialog(target) {
-  const { parts, notes, shareWith, into } = dialog;
-  dialog.target = target;
-  const placed = [...$("orderList").querySelectorAll("[data-part]")].map(li => Number(li.dataset.part));
-  const order = placed.length ? placed : parts.map((_, i) => i);
-  const moving = target ? new Set(movingParts(parts, target)) : null;
-  const rows = order.filter(i => !moving || moving.has(parts[i])).map(i => orderItem(partPreview(notes[parts[i].noteId].body, parts[i]), i));
-  const fixed = target ? targetSections(notes, parts, target) : [];
-  const top = Math.min(...fixed.map(f => f.depth || 99));
-  $("orderList").replaceChildren(...fixed.map((f, i) => fixedItem(f, i, f.depth ? f.depth - top : 0)), ...rows);
-  if (into) $("orderTitle").textContent = into.title(target);
-  $("orderHint").textContent = target ? "Drag the parts to where they go." : "Drag to change the order.";
-  $("orderHint").hidden = !target && parts.length < 2;
-  $("orderChoice").hidden = !shareWith || !!target;
-  const keep = target && into.keeps(target);
-  $("orderKeep").hidden = !keep;
-  $("orderKeep").textContent = keep || "";
 }
 
 function choiceHtml(value, title, hint, checked, extra = "") {
@@ -510,20 +481,7 @@ function closeDialog() {
 }
 
 function orderedFromDialog() {
-  return [...$("orderList").children].map(li => "section" in li.dataset ? { section: Number(li.dataset.section) } : dialog.parts[Number(li.dataset.part)]);
-}
-
-// A section of the target note: stays in place, the parts move around it.
-function fixedItem({ text, fromHeading }, i, indent) {
-  const li = document.createElement("li");
-  li.className = "order-item fixed";
-  li.dataset.section = i;
-  li.style.setProperty("--indent", indent);
-  const label = document.createElement("span");
-  label.className = "order-text" + (fromHeading ? "" : " plain");
-  label.textContent = text || "Untitled";
-  li.append(label);
-  return li;
+  return [...$("orderList").children].map(li => dialog.parts[Number(li.dataset.part)]);
 }
 
 function orderItem({ text, fromHeading }, i) {

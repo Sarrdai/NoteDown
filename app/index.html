@@ -114,14 +114,33 @@
     <div class="dialog-scrim keep-editing" id="orderDialog" hidden>
       <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="orderTitle">
         <h2 class="dialog-title" id="orderTitle"></h2>
-        <div class="merge-target" id="orderTargetRow" hidden></div>
         <p class="dialog-hint" id="orderHint">Drag to change the order.</p>
         <ol class="order-list" id="orderList"></ol>
-        <p class="dialog-hint after" id="orderKeep" hidden></p>
         <div class="merge-choice" id="orderChoice" role="radiogroup" aria-label="Shared notes" hidden></div>
         <div class="dialog-actions">
           <button class="btn" id="orderCancel">Cancel</button>
           <button class="btn primary" id="orderOk"></button>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-scrim keep-editing" id="moveDialog" hidden>
+      <div class="dialog move-dialog" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
+        <h2 class="dialog-title" id="moveTitle">Move to…</h2>
+        <div class="move-tools">
+          <input class="move-search" id="moveSearch" type="search" placeholder="Search" aria-label="Search notes and headings" autocomplete="off">
+          <div class="stepper" role="group" aria-label="Heading levels">
+            <button class="icon-btn small" id="moveLess" aria-label="Fewer levels"></button>
+            <span class="stepper-value" id="moveDepth">2</span>
+            <button class="icon-btn small" id="moveMore" aria-label="More levels"></button>
+          </div>
+        </div>
+        <ul class="move-list" id="moveList"></ul>
+        <p class="move-where" id="moveWhere"></p>
+        <label class="move-task" id="moveTaskRow" hidden><input type="checkbox" id="moveTask"><span>As tasks</span></label>
+        <p class="dialog-hint after" id="moveKeep" hidden></p>
+        <div class="dialog-actions">
+          <button class="btn" id="moveCancel">Cancel</button>
+          <button class="btn primary" id="moveOk" disabled>Move</button>
         </div>
       </div>
     </div>
