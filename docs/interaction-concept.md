@@ -18,7 +18,7 @@ Current state, edited in place when a decision changes.
 
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
-| Top bar | Title; icons for search, sort, Sync & sharing (sync status), archive, Due (count on its corner, ring of what is done today), ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards, while the icons fit right of it — otherwise right after the title and narrower (at least 240 px); the same icons right of it |
+| Top bar | Title; icons for search, Sync & sharing (sync status), archive, Due (count on its corner, ring of what is done today), ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards, while the icons fit right of it — otherwise right after the title and narrower (at least 240 px); the same icons right of it |
 | Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People", always | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field; with a text it shows the hit counter and ▲ / ▼; suggestions as a list under it; × or back ends it on the current hit | Always visible field, wider with a text for the counter and ▲ / ▼; suggestions under it | Always visible field, counter and ▲ / ▼ inside; suggestions under it |
@@ -26,12 +26,12 @@ Current state, edited in place when a decision changes.
 | Panels (Sync & sharing, share dialog, Settings) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
 - **Top bar actions** are icons with a tooltip, in this order: search,
-  sort, Sync & sharing, archive / Notes, Due, ⋮ (decided 2026-10-19, user
-  request). Sort shows its label when there is room. Whatever doesn't fit
+  Sync & sharing, archive / Notes, Due, ⋮ (decided 2026-10-19, user
+  request; sort floats above the +, see below). Whatever doesn't fit
   goes under ⋮, with its icon and label: Due first, then Sync & sharing,
-  sort, and the archive button last, so the switch between the views stays
-  in reach (the label goes before any button; on the desktop the search
-  first leaves the middle and narrows). Both views keep the same buttons,
+  and the archive button last, so the switch between the views stays
+  in reach (on the desktop the search first leaves the middle and
+  narrows). Both views keep the same buttons,
   so the view button keeps its place. ⋮ holds what didn't fit, then
   **Export…**, the trash, **Settings…** and the prototype's tools, each
   with icon and label. Settings (theme, reminders, links & media) never
@@ -44,6 +44,10 @@ Current state, edited in place when a decision changes.
   selection bar) (animated, during a
   swipe between the views in step with the finger; left, so it is never
   taken for +). The snackbar then sits right of it.
+- **Sorting** is the one secondary floating button: a small pill with the
+  sort's direction arrow and short name, right above + (in the archive in
+  its corner), opening the sort menu (decided 2026-10-19, user request;
+  `docs/requirements.md` → "Sorting and search").
 - The app draws edge-to-edge: top bars, the sidebar and full-screen
   panels extend their background behind the system status bar and keep
   their controls below it, bottom elements stay above the gesture bar

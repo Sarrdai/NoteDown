@@ -592,7 +592,7 @@ paid features per user.
 - The **archive button** in the main view leads to the archive; in the
   archive the same button reads **Notes** and leads back, so one place
   switches between both views. It is an icon (tooltip) in the top bar
-  right after sort and Sync & sharing, before Due and ⋮
+  right after Sync & sharing, before Due and ⋮
   (`docs/interaction-concept.md` → "Layout per tier"), and keeps its place
   in both views: the top bar keeps the same buttons in both. It carries no
   count: what was done today shows in the Due button's ring ("Due view").
@@ -750,6 +750,20 @@ paid features per user.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
+- **The sort button floats above the + button** (main view and archive; in
+  the archive, where + turns into the bin at the left, it takes the
+  corner): a small pill with an arrow for the direction (up ascending,
+  down descending) and the sort's short name — "Edit", "New", "Due",
+  "ABC", "Closed"; Shelves show a shelf icon and "Shelves", shared shelves
+  "Shared". A tap opens the sort menu (sort and direction; with Shelves
+  **Tidy up…** / **Arrange…**). It gives way while editing, selecting and
+  recording, and isn't in the trash. On the phone the open contents sheet
+  covers it, so the sheet carries the same pill above its level stepper.
+  The top bar has no sort button. Decided 2026-10-19 (user request:
+  switching the sort quickly is a core feature, arranging one tap
+  further) over the pill beside or below the + and the top bar's button;
+  the short label over the full name and direction, which took too much
+  room. *Prototype: 2026-10-19.*
 - **Shelves** (backlog #24) is one more sort option, in the main view
   and the archive: the user's own order — the core of the app, turning
   spontaneous notes into an order of one's own without asking for one when
@@ -793,8 +807,8 @@ paid features per user.
   (3 notes at 2 per bar and 11 days at 5 per bar fill 1 + 2 bars); more
   than fit show the gauge full. Filled bars are grey, **yellow** from 75 %
   but at the latest one bar before full, with "Tidy up"; **red** when
-  full, with "Time to tidy up" and a dot on the sort button (or on ⋮ when
-  the sort button is folded there, whatever the list is sorted by).
+  full, with "Time to tidy up" and a dot on the sort button, whatever the
+  list is sorted by.
   **Settings → Tidy-up reminder** sets the three numbers for every circle
   alike, each with − / +: Bars (1–10, default 5), Notes per bar (1–20,
   default 2), Days per bar (1–30, default 2) — about the old "10 notes or

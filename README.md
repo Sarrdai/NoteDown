@@ -26,7 +26,7 @@ private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by persons or
 groups, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
 after a long-press). A note can get a background color from a fixed palette and a built-in motif
-(patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, notes can be put onto **Shelves**, foldable groups with a name each: new notes land on a pile on top, and a small gauge of bars fills with the number and age of those notes and says when it is time to tidy it up (adjustable, and circles can be ignored).
+(patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, switched with a small button above +, notes can be put onto **Shelves**, foldable groups with a name each: new notes land on a pile on top, and a small gauge of bars fills with the number and age of those notes and says when it is time to tidy it up (adjustable, and circles can be ignored).
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit. A tap into it suggests the
 filters (permanent notes, labels, people) and, while typing, matching

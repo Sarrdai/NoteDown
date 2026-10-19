@@ -150,12 +150,8 @@ function render() {
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
-  $("sortLabel").textContent = SORT_KEYS[sort.key].label;
   // Time to tidy up the Shelves' pile: a dot on the sort button, whatever the list is sorted by.
   const due = state.view === "open" && mainPile().level === "full";
-  $("sortBtn").classList.toggle("tidy-due", due);
-  $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
-  $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : "");
   renderSortFab(sort, due);
   renderWatchBar();
   renderDueCount();
@@ -501,37 +497,27 @@ function arrange() {
   });
 }
 
-// The floating sort button (Prototype variant, settings.sortFab): the sort the
-// list has, with its direction, as a label; a tap opens the sort menu (Shelves:
-// Tidy up… / Arrange… in it). On the phone the open contents sheet carries the
-// same button beside its level stepper, as the sheet covers the floating one.
-const SORT_FABS = { above: "Above + (A)", beside: "Beside + (B)", topbar: "Top bar only (C)", below: "Below + (D)" };
-// Short label (Prototype option, settings.sortLabel): one word and an arrow for the direction
-// (up ascending, down descending; Shelves have none and show a shelf).
-const SORT_SHORT = { modified: "Edit", created: "New", due: "Due", title: "ABC", closed: "Closed", deleted: "Deleted", custom: "Shelves", shared: "Shared" };
-const SORT_LABELS = { short: "Short label: ↓ Edit", full: "Full label: Last edited · Newest" };
+// The floating sort button above the + (decided 2026-10-19 over beside / below the +
+// and the top bar's sort button; user request: sorting is a core feature): an arrow
+// for the direction (up ascending, down descending; Shelves show a shelf) and the
+// sort's short name; a tap opens the sort menu (Shelves: Tidy up… / Arrange… in it).
+// On the phone the open contents sheet carries the same button above its level
+// stepper, as the sheet covers the floating one.
 function renderSortFab(sort, due) {
-  for (const v of Object.keys(SORT_FABS)) app.classList.toggle("sortfab-" + v, state.settings.sortFab === v);
-  const short = state.settings.sortLabel === "short";
-  const custom = SORT_KEYS[sort.key].custom;
-  const label = short ? SORT_SHORT[sort.key] : SORT_KEYS[sort.key].label;
+  const { label, short, custom } = SORT_KEYS[sort.key];
   const dir = custom ? "" : (DIR_LABELS[sort.key] || DIR_LABELS.default)[sort.dir === "desc" ? 1 : 0];
-  const text = "Sort: " + SORT_KEYS[sort.key].label + (dir ? ", " + dir : "") + (due ? " · time to tidy up" : "");
-  const lead = !short ? "sort" : custom ? "shelf" : sort.dir === "desc" ? "arrowDown" : "arrowUp";
+  const text = "Sort: " + label + (dir ? ", " + dir : "") + (due ? " · time to tidy up" : "");
+  const lead = custom ? "shelf" : sort.dir === "desc" ? "arrowDown" : "arrowUp";
   for (const b of [$("sortFab"), $("tocSort")]) {
-    // Full: the direction in one word ("Newest", "A–Z") after the sort.
-    b.innerHTML = icon(lead) + `<span class="sort-fab-label"></span>` + (dir && !short ? `<span class="sort-fab-dir"></span>` : "");
-    b.classList.toggle("short", short);
-    b.querySelector(".sort-fab-label").textContent = label;
-    if (dir && !short) b.querySelector(".sort-fab-dir").textContent = dir.split(" ")[0];
+    b.innerHTML = icon(lead) + `<span class="sort-fab-label"></span>`;
+    b.querySelector(".sort-fab-label").textContent = short;
     b.classList.toggle("tidy-due", due);
     b.setAttribute("aria-label", text);
     b.title = text;
   }
 }
-function setSortFab(v) { updateSettings({ sortFab: v }); fitTopbar(); }
 
-function sortMenu(anchor = $("sortBtn")) {
+function sortMenu(anchor = $("sortFab")) {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.views || v.views.includes(state.view)) && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
@@ -582,31 +568,25 @@ async function loadWelcome() {
 }
 
 // The top bar's actions, left to right (search before them, ⋮ after them; Export
-// lives under ⋮). What doesn't fit moves under ⋮ in FOLD_ORDER — Due first, the
-// view button last, so the switch between the views stays in reach. The sort
-// label goes before any button; on the desktop the search gives up its centered
-// place and narrows before that.
+// lives under ⋮, sort floats above the +). What doesn't fit moves under ⋮ in
+// FOLD_ORDER — Due first, the view button last, so the switch between the views
+// stays in reach; on the desktop the search gives up its centered place and
+// narrows before that.
 const ACTIONS = [
-  { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
   { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "viewBtn", menu: () => state.view === "open"
     ? { label: "Archive", icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
   { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
 ];
-const FOLD_ORDER = ["dueBtn", "syncBtn", "sortBtn", "viewBtn"];
+const FOLD_ORDER = ["dueBtn", "syncBtn", "viewBtn"];
 const wide = window.matchMedia("(min-width: 1024px)");
 
 function fitTopbar() {
   const bar = $("topbar");
   const title = $("title");
   const search = $("search");
-  const label = $("sortBtn").querySelector(".btn-label");
   for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
-  label.hidden = false;
-  // A floating sort button (Prototype variant) takes sort out of the top bar.
-  const fabSort = state.settings.sortFab !== "topbar";
-  $("sortBtn").hidden = fabSort;
   search.classList.toggle("centered", wide.matches);
   // Too tight: the title is cut, the buttons run out of the bar, or (desktop)
   // into the centered search.
@@ -623,21 +603,17 @@ function fitTopbar() {
   if (wide.matches) title.style.minWidth = title.scrollWidth + "px";
   // Desktop: the search leaves the middle and sits after the title, narrower.
   if (tight()) search.classList.remove("centered");
-  if (tight()) label.hidden = true;
   for (let i = 0; i < FOLD_ORDER.length && tight(); i++) {
     const btn = $(FOLD_ORDER[i]);
     if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
   }
   title.textContent = text;
-  // The tidy-up dot follows the sort button into ⋮.
-  $("moreBtn").classList.toggle("tidy-due", !fabSort && $("sortBtn").hidden && $("sortBtn").classList.contains("tidy-due"));
 }
 
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
   const hidden = ACTIONS.filter(a => $(a.id).dataset.folded).map(a => a.menu());
-  const sortFab = s.sortFab;
   // The trash is reached under ⋮ only (decided 2026-10-15 over a button in the archive: deleted notes are rarely needed); swiping and back lead out of it to the archive.
   const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
@@ -645,9 +621,6 @@ function moreMenu() {
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    { section: "Prototype: sort button" },
-    ...Object.entries(SORT_FABS).map(([v, label]) => ({ label, checked: sortFab === v, onSelect: () => setSortFab(v) })),
-    ...(sortFab !== "topbar" ? Object.entries(SORT_LABELS).map(([v, label]) => ({ label, checked: s.sortLabel === v, onSelect: () => updateSettings({ sortLabel: v }) })) : []),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -730,7 +703,6 @@ function showNote(id) {
 
 function wire() {
   for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
-  $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
   $("dueBtn").querySelector(".btn-icon").innerHTML = icon("calendar");
   $("dueBtn").addEventListener("click", openDue);
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
@@ -748,8 +720,7 @@ function wire() {
   window.addEventListener("popstate", () => {
     if (state.view === "trash" && (history.state?.depth ?? 0) < trashDepth) setView("closed", { fromHistory: true });
   });
-  $("sortBtn").addEventListener("click", () => sortMenu());
-  $("sortFab").addEventListener("click", () => sortMenu($("sortFab")));
+  $("sortFab").addEventListener("click", () => sortMenu());
   $("tocSort").addEventListener("click", () => sortMenu($("tocSort")));
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("moreBtn").addEventListener("click", moreMenu);
@@ -841,8 +812,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (SORT_FABS[p.get("sortfab")]) patch.sortFab = p.get("sortfab");
-  if (SORT_LABELS[p.get("sortlabel")]) patch.sortLabel = p.get("sortlabel");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).
