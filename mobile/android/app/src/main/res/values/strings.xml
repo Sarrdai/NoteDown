@@ -4,4 +4,6 @@
     <string name="title_activity_main">NoteDown</string>
     <string name="package_name">io.github.sarrdai.notedown</string>
     <string name="custom_url_scheme">io.github.sarrdai.notedown</string>
+    <string name="shortcut_new_note">New note</string>
+    <string name="shortcut_dictate">Dictate</string>
 </resources>

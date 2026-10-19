@@ -46,8 +46,9 @@ export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => 
   const setFab = name => { fab.querySelector(".fab-new").innerHTML = icon(name); };
   const vibrate = ms => { try { navigator.vibrate?.(ms); } catch { /* not allowed */ } };
 
-  function begin() {
-    press.timer = null;
+  // `handsFree`: started from outside the app (the "Dictate" app shortcut), locked at once as if slid up.
+  function begin({ handsFree = false } = {}) {
+    if (press) press.timer = null;
     // A hold that can't record here says why (e.g. several circles shown: where would the note go?).
     const blocked = holdBlocked();
     if (blocked) {
@@ -77,6 +78,7 @@ export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => 
     preview();
     clock = setInterval(tick, 250);
     tick();
+    if (handsFree) lock();
   }
 
   function level(v) {
@@ -180,4 +182,5 @@ export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => 
   // Keyboard activation (Enter / Space) creates a note like a tap.
   fab.addEventListener("click", e => { if (e.detail === 0 && !rec) onTap(); });
   $("recTrash").addEventListener("click", cancel);
+  return { dictate: () => { if (!rec) begin({ handsFree: true }); } };
 }

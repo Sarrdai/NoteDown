@@ -1,4 +1,4 @@
-// Which platform NoteDown runs on, and the native plugins only the Android app has (Privacy, ShareFile, FolderSource, App).
+// Which platform NoteDown runs on, and the native plugins only the Android app has (Privacy, ShareFile, FolderSource, QuickCapture, App).
 // `?platform=android` (prototype only) simulates the Android app in a browser, so its settings and the lock
 // screen can be seen and screenshotted: every native call is then replaced by a stand-in kept in this file,
 // so the views never branch on the simulation themselves.
@@ -19,6 +19,9 @@ export const nativeApp = native ? registerPlugin("App") : null;
 const nativePrivacy = native ? registerPlugin("Privacy") : null;
 const nativeShare = native ? registerPlugin("ShareFile") : null;
 const nativeFolder = native ? registerPlugin("FolderSource") : null;
+
+/** The QuickCapture plugin (null outside the Android app): the action an app shortcut or the Quick Settings tile opened the app with. */
+export const quickCapturePlugin = native ? registerPlugin("QuickCapture") : null;
 
 // Stand-in for the Privacy plugin in the simulation: the phone has a screen lock, unlocking takes a moment.
 const fakePrivacy = {

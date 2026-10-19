@@ -14,6 +14,20 @@ let hiddenAt = null;         // when the app went away, null while it is in fron
 let skipReturn = false;      // that absence was one NoteDown asked for
 let expectedAt = 0;
 let prompting = false;
+let pending = null;          // a quick-capture action waiting until NoteDown is in front and unlocked
+
+/** Runs `fn` once NoteDown is in front and unlocked: now, or after the unlock (quick capture from outside the app). */
+export function whenUnlocked(fn) {
+  pending = fn;
+  runPending();
+}
+
+function runPending() {
+  if (!pending || hiddenAt != null || locked()) return;
+  const fn = pending;
+  pending = null;
+  fn();
+}
 
 /** The next absence doesn't lock: NoteDown is about to open a share sheet or a file picker itself. */
 export function expectReturn() {
@@ -36,12 +50,14 @@ async function unlock() {
     await privacyPlugin().unlock({ title: "Unlock NoteDown", subtitle: "" });
     $("appLock").hidden = true;
     hiddenAt = null;
+    runPending();
   } catch (e) {
     if (e?.code === "unavailable") {
       // The phone's screen lock was removed meanwhile: nothing left to unlock with.
       $("appLock").hidden = true;
       updateSettings({ lock: { ...state.settings.lock, on: false } });
       showSnackbar("Screen lock is off: no screen lock is set up on this phone");
+      runPending();
     }
     // Canceled: the layer stays with its Unlock button.
   } finally {
@@ -64,6 +80,7 @@ function back() {
   skipReturn = false;
   if (locked()) unlock();
   else if (lockDue(state.settings.lock, at, Date.now(), skip)) showLockScreen();
+  else runPending();
 }
 
 /** Call after the stored state is loaded and before the first render. */

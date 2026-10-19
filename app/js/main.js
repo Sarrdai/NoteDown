@@ -10,16 +10,17 @@ import { welcomeNotes, detachedFile } from "./core/sync-state.js";
 import { loadSampleState } from "./sample.js";
 import { initSyncSim, setOffline } from "./sync-sim.js";
 import { initSync } from "./sync/client.js";
-import { initSyncPanel, openSyncPanel, statusText, syncOnRequest, openInvite, openLinkPage } from "./ui/sync-panel.js";
+import { initSyncPanel, openSyncPanel, closePanel, statusText, syncOnRequest, openInvite, openLinkPage } from "./ui/sync-panel.js";
 import { initSyncNotice } from "./ui/sync-notice.js";
 import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
+import { initQuickCapture } from "./quick-capture.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
 import { pushEntry, leaveEntry, afterLeave } from "./ui/dom.js";
-import { renderList, reorderList, listItems, patchNote, startEdit, flashNote, onEditEnded, collapseNote } from "./ui/note-list.js";
+import { renderList, reorderList, listItems, patchNote, startEdit, endEdit, flashNote, onEditEnded, collapseNote } from "./ui/note-list.js";
 import { renderToc, tocItems, initToc, setTocOpen } from "./ui/toc.js";
 import { renderWatchBar, initWatchBar } from "./ui/watch-bar.js";
 import { initSearchHits } from "./ui/search-hits.js";
@@ -486,6 +487,26 @@ function createNote(key) {
   startEdit(refOf(n));
 }
 
+// Quick capture from outside the app (app shortcuts, Quick Settings tile): the main view with nothing on top,
+// then what + does there — a tap (new note) or a hold (dictation, hands-free as no finger holds it).
+let recorder = null;
+function quickCapture() {
+  closeMenu();
+  closePanel();
+  setTocOpen(false);
+  endSelection();
+  if (state.view !== "open") setView("open");
+}
+function quickNewNote() {
+  quickCapture();
+  newNote();
+}
+function quickDictate() {
+  quickCapture();
+  if (state.editingId) endEdit();
+  recorder.dictate();
+}
+
 // A dictated note: no heading, the transcript is its text.
 function addDictatedNote(text) {
   if (state.view !== "open") setView("open");
@@ -805,7 +826,7 @@ function wire() {
   initArrange();
   initMoveTo();
   initToolbar({ onDue: sortInByDue });
-  initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
+  recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initSyncPanel();
   initContactRequests();
@@ -890,6 +911,7 @@ async function start() {
   initSync(readApi() || config.api, webAddress(config.web));
   render();
   initInviteLinks(openInvite);
+  initQuickCapture({ new: quickNewNote, dictate: quickDictate });
   // After the notes are loaded: a reminder tapped while the app was closed opens the Due page.
   initReminders({ open: openDue });
   initExport();
