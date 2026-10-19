@@ -1,5 +1,6 @@
 // The settings (⋮ → "Settings…"): the app's own settings in one place
-// instead of the top bar and ⋮ — the theme, the due-date reminders
+// instead of the top bar and ⋮ — the theme, the Android-only Privacy section (screen lock, screen security,
+// incognito keyboard, speech recognition), the due-date reminders
 // (ui/reminders.js), the tidy-up reminder (ui/tidy-settings.js), links & media (ui/external-settings.js), a way to the
 // Sync & sharing panel, the Google Keep import and "About" (version,
 // open-source licenses (ui/licenses.js), privacy policy, terms of use,
@@ -49,6 +50,13 @@ function setPrivacy(patch) {
   if (isNativeApp()) privacyPlugin().set(patch).catch(() => {});
 }
 
+// Where dictation is recognized (Android only; on the web the browser decides).
+const SPEECH_LABELS = { device: "On this device", online: "Online" };
+const SPEECH_SUBS = {
+  device: "Recordings never leave the phone (Android 12 or later)",
+  online: "Your phone's speech service may send recordings to its servers",
+};
+
 /** The Privacy section, in the Android app only (the web has no screen lock to use). */
 function privacySection() {
   if (!isAndroidApp()) return [];
@@ -63,6 +71,11 @@ function privacySection() {
       row({ icon: "lock", title: "Screen lock", sub: lockSummary(state.settings.lock), open: () => go("settingsLock") })),
     toggle("Screen security", "Hides NoteDown in recent apps and blocks screenshots", screenSecurity, v => setPrivacy({ screenSecurity: v })),
     toggle("Incognito keyboard", "Asks the keyboard not to learn from what you type", incognitoKeyboard, v => setPrivacy({ incognitoKeyboard: v })),
+    h("div", { class: "setting-row" },
+      h("span", { class: "setting-text" }, h("span", { class: "setting-label" }, "Speech recognition"),
+        h("span", { class: "setting-sub" }, SPEECH_SUBS[state.settings.dictation])),
+      pickButton(state.settings.dictation, Object.entries(SPEECH_LABELS), v => { updateSettings({ dictation: v }); refreshPage({ keepScroll: true }); },
+        { cls: "ext-select", label: "Speech recognition" })),
   ];
 }
 
