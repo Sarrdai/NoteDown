@@ -20,14 +20,16 @@
 // archived or deleted (core/news.js). A note's `color=` and `decor=` are its
 // look (core/look.js); a private copy of a shared note names its original in
 // `copyof=` and the original's `modified` it took its text from in `copied=` (core/note-links.js);
-// a note imported from Google Keep names its origin in `keep=` (core/keep-import.js).
+// a note imported from Google Keep names its origin in `keep=` (core/keep-import.js). `<!-- source … -->`
+// markers in the private file name the user's folder sources, and a note read from one names it in `source=`
+// (core/folder-source.js).
 import { validColor, validDecor } from "./look.js";
 
-const MARKER = /^<!-- (note|device|contact|member|news|order) ((?:[a-z]+=\S+ ?)*)-->$/;
+const MARKER = /^<!-- (note|device|contact|member|news|source|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, order }
+/** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, sources, order }
  *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
- *  `news`: [{ id, seen, status? }], `order`: { ids, modified } or null). */
+ *  `news`: [{ id, seen, status? }], `sources`: [{ id, name }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
@@ -37,12 +39,14 @@ export function parseNotesFile(text) {
   const contacts = [];
   const members = [];
   const news = [];
+  const sources = [];
   let order = null;
   const finish = c => {
     if (c.kind === "order") { if (c.meta.modified) order = { ids: c.meta.ids ? c.meta.ids.split(",") : [], modified: c.meta.modified }; }
     else if (c.kind === "contact") { if (c.meta.id && c.meta.name) contacts.push(finishContact(c.meta)); }
     else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "news") { if (c.meta.id && c.meta.seen) news.push(finishNews(c.meta)); }
+    else if (c.kind === "source") { if (c.meta.id && c.meta.name) sources.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "device") { if (c.meta.id && (c.meta.name || c.meta.synced)) devices.push(finishDevice(c.meta)); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved, ...(c.meta.to && { to: c.meta.to.split("+") }) });
     else if (c.meta.purged && c.meta.id) purged.push({ id: c.meta.id, purged: c.meta.purged });
@@ -62,11 +66,11 @@ export function parseNotesFile(text) {
     }
   }
   if (current) finish(current);
-  return { preamble: preamble.join("\n").trim(), notes, moved, purged, devices, contacts, members, news, order };
+  return { preamble: preamble.join("\n").trim(), notes, moved, purged, devices, contacts, members, news, sources, order };
 }
 
-/** Writes { preamble, notes, moved, purged, devices, contacts, members, news, order } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes, moved = [], purged = [], devices = [], contacts = [], members = [], news = [], order = null }) {
+/** Writes { preamble, notes, moved, purged, devices, contacts, members, news, sources, order } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [], purged = [], devices = [], contacts = [], members = [], news = [], sources = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) parts.push(`${noteMarker(n)}\n${n.body.trim()}`);
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved}${m.to ? ` to=${m.to.join("+")}` : ""} -->`);
@@ -77,6 +81,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], purged = 
     parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""} -->`);
   }
   for (const m of news) parts.push(`<!-- news id=${m.id} seen=${m.seen}${m.status ? " status=" + m.status : ""} -->`);
+  for (const s of sources) parts.push(`<!-- source id=${s.id} name=${encodeURIComponent(s.name)} -->`);
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
 }
@@ -95,6 +100,7 @@ export function noteMarker(n) {
   if (n.copyof) attrs.push("copyof=" + n.copyof);
   if (n.copied) attrs.push("copied=" + n.copied);
   if (n.keep) attrs.push("keep=" + n.keep);
+  if (n.source) attrs.push("source=" + n.source);
   return `<!-- note ${attrs.join(" ")} -->`;
 }
 
@@ -171,6 +177,7 @@ function finishNote({ meta, body }) {
     ...(meta.copyof && { copyof: meta.copyof }),
     ...(meta.copied && { copied: meta.copied }),
     ...(meta.keep && { keep: meta.keep }),
+    ...(meta.source && { source: meta.source }),
     ...(validColor(meta.color) && { color: meta.color }),
     ...(validDecor(meta.decor) && { decor: meta.decor }),
   };

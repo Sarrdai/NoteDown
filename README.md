@@ -32,7 +32,10 @@ table of contents; ▲ / ▼ step from hit to hit. A tap into it suggests the
 filters (permanent notes, labels, people) and, while typing, matching
 headings, found fuzzily.
 Notes are edited in place with an Obsidian-style live preview and a
-formatting toolbar; holding the + button dictates a new note. Tasks can
+formatting toolbar; holding the + button dictates a new note. The
+Android app can read notes another app writes into a folder (e.g. the
+Pebble app's voice notes from the Index 01 ring) as a **folder source**,
+shown under its own name in People. Tasks can
 also be in progress (`[/]`) or cancelled (`[-]`), picked by a long-press
 on their box, and can carry their own due date (`📅 2026-10-24`, set
 from the toolbar or a tap on its chip), which sorts and reminds like the

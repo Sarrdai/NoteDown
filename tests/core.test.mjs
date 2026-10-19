@@ -137,7 +137,7 @@ test("file format: an order marker round-trips; without ids it is an empty order
   assert.deepEqual(parseNotesFile(sample).order.ids.filter(isSectionId), ["~Home", "~Travel", "~Paperwork"]);   // the sample shows sections
 });
 
-test("file format: contacts round-trip after the devices and before the order, text after a marker is dropped", () => {
+test("file format: contacts round-trip after the devices and before the sources and the order, text after a marker is dropped", () => {
   const contacts = [
     { id: "TGVhSWRlbnRpdHkxMjM0NQ", name: "Lea Müller", color: 2 },
     { id: "VG9tSWRlbnRpdHkxMjM0NTY", name: "Tom", color: 4, pending: "2026-10-14T09:00Z" },
@@ -146,7 +146,7 @@ test("file format: contacts round-trip after the devices and before the order, t
   const text = serializeNotesFile({
     ...file, devices: [{ id: "d1", name: "Phone" }], contacts, order: { ids: ["s02"], modified: "2026-10-14T09:00Z" },
   });
-  assert.match(text, /<!-- device id=d1 name=Phone -->\n\n<!-- contact id=TGVhSWRlbnRpdHkxMjM0NQ name=Lea%20M%C3%BCller color=2 -->\n\n<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z -->\n\n<!-- order /);
+  assert.match(text, /<!-- device id=d1 name=Phone -->\n\n<!-- contact id=TGVhSWRlbnRpdHkxMjM0NQ name=Lea%20M%C3%BCller color=2 -->\n\n<!-- contact id=VG9tSWRlbnRpdHkxMjM0NTY name=Tom color=4 pending=2026-10-14T09:00Z -->\n\n<!-- source id=f1 name=Pebble -->\n\n<!-- order /);
   const parsed = parseNotesFile(text);
   assert.deepEqual(parsed.contacts, contacts);
   assert.equal(parsed.notes.length, file.notes.length);

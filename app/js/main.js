@@ -43,6 +43,7 @@ import { initReminders } from "./ui/reminders.js";
 import { openDue } from "./ui/due.js";
 import { dueItems, dueNowCount } from "./core/due-list.js";
 import { initAppLock } from "./ui/app-lock.js";
+import { initFolderSources } from "./ui/folder-sources.js";
 import { isNativeApp, privacyPlugin } from "./platform.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
@@ -67,7 +68,9 @@ const phone = window.matchMedia("(max-width: 599px)");
 
 // "Shared shelves" (#25) exists only in the view of a circle with people;
 // elsewhere a view set to it shows the user's own custom order.
-const sharedCircle = () => (activeCircle() && activeCircle() !== NEWS ? activeCircle() : null);
+// A circle key starting with "@" is no circle of people: the news, a folder source (core/folder-source.js).
+const peopleKey = key => (key && !key.startsWith("@") ? key : null);
+const sharedCircle = () => peopleKey(activeCircle());
 function sortOf(view = state.view) {
   const sort = state.settings.sort[view];
   return SORT_KEYS[sort.key].circleOnly && !sharedCircle() ? { key: "custom", dir: "asc" } : sort;
@@ -84,12 +87,13 @@ const listed = () => withLabel(inCircles());
 const isCustom = (view = state.view) => !!SORT_KEYS[sortOf(view).key].custom;
 
 // Where a new note goes: the circle the list is filtered to, else private.
-// From the news, which take no notes, the list goes back to all notes first.
+// From the news, which take no notes, the list goes back to all notes first; from a folder source the note
+// is private (only the folder adds to a source) and the list goes back to all notes too, so it shows.
 // With several circles picked, + asks which of them (newNote) and dictation
 // is blocked (dictationBlocked).
 function newNoteMembers(key = activeCircle()) {
-  if (state.circles.includes(NEWS)) setUi({ circles: [] }, "silent");
-  return key && key !== NEWS ? key.split("+") : [];
+  if (state.circles.includes(NEWS) || (key && !peopleKey(key))) setUi({ circles: [] }, "silent");
+  return peopleKey(key) ? key.split("+") : [];
 }
 const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one circle only" : null;
 
@@ -891,6 +895,8 @@ async function start() {
   initExport();
   initStorageHint({ onSync: openSyncPanel, onExport: exportDialog });
   initSyncNotice({ onLink: openLinkPage, onSync: openSyncPanel });
+  // After the notes are loaded: new files in this device's folder sources become notes.
+  initFolderSources();
   document.body.dataset.ready = "1";
 }
 

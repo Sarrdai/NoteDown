@@ -140,6 +140,12 @@ Network `Cabin-5G`, the password is on the router. Reset button only works when 
 
 #paperwork
 
+<!-- note id=s22 status=open created=2026-10-13T06:40Z modified=2026-10-13T06:40Z source=f1 -->
+Ask the landlord whether the heating check can move to next week. Wednesday afternoon would suit us best.
+
+<!-- note id=s23 status=open created=2026-10-12T17:05Z modified=2026-10-12T17:05Z source=f1 -->
+Gift idea for Tom: the travel guide about the Azores he mentioned at dinner.
+
 <!-- note id=s13 status=closed created=2026-10-10T09:00Z modified=2026-10-13T07:30Z closed=2026-10-13T07:30Z -->
 ## Pay the electricity bill
 Done by bank transfer, reference number in the banking app. #paperwork #home
@@ -173,5 +179,7 @@ The best ones are in [Tom's photo album](note:t07).
 
 <!-- note id=s19 status=closed created=2026-09-15T12:00Z modified=2026-09-29T13:00Z closed=2026-09-29T13:00Z deleted=2026-10-01T09:00Z -->
 Cancel the old phone contract. Confirmation arrived, ends on 31 December.
+
+<!-- source id=f1 name=Pebble -->
 
 <!-- order modified=2026-10-13T09:00Z ids=~Home,s01,s06,s07,~Travel,s03,~Paperwork,s04,s12 -->

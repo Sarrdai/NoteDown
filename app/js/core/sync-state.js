@@ -214,14 +214,14 @@ export function syncNotice(sync, timeZone, native = false) {
  * The private file a device keeps once it was removed from sync or its identity was deleted (backlog #34): its own
  * notes and trash plus every note of the shared files it hasn't left (`me`: the identity ID), all
  * private now; nothing tied to the identity — devices, contacts, moved and purged markers, which circle
- * a trashed note came from. The news state and the custom order stay.
+ * a trashed note came from. The news state, the folder sources and the custom order stay.
  */
 export function detachedFile(file, shared, me) {
   const plain = ({ kept, left, ...n }) => n;
   const fromShared = shared.flatMap(s => s.file.notes.filter(n => !(n.left || []).includes(me)));
   return {
     preamble: file.preamble || "", notes: [...file.notes, ...fromShared].map(plain), moved: [], purged: [],
-    devices: [], contacts: [], members: [], news: file.news || [], order: file.order || null,
+    devices: [], contacts: [], members: [], news: file.news || [], sources: file.sources || [], order: file.order || null,
   };
 }
 
