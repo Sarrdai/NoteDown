@@ -19,7 +19,7 @@ Current state, edited in place when a decision changes.
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
 | Top bar | Title; icons for search, Sync & sharing (sync status), archive, Due (count on its corner, ring of what is done today), ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards, while the icons fit right of it — otherwise right after the title and narrower (at least 240 px); the same icons right of it |
-| Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People", always | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
+| Table of contents and Sources (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| Sources \| Labels", always | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
 | Search | Icon turns the top bar into a search field; with a text it shows the hit counter and ▲ / ▼; suggestions as a list under it; × or back ends it on the current hit | Always visible field, wider with a text for the counter and ▲ / ▼; suggestions under it | Always visible field, counter and ▲ / ▼ inside; suggestions under it |
 | Multi-select | Contextual top bar: ✕, count, main action icons, rest under ⋮ (icon and label); the contents handle stays | Contextual top bar: ✕, count, action icons | Same, actions with labels |
@@ -71,7 +71,7 @@ Current state, edited in place when a decision changes.
   media tile = load it.
 - **Long-press** is reserved for secondary modes: on a note, a
   heading in a note or a contents entry it starts multi-select, on an
-  entry of the People or Labels tab it starts picking several filters
+  entry of the Sources or Labels tab it starts picking several filters
   (a bar with × and the count, a checkbox per entry), on + it starts dictation, on a task
   checkbox it picks the task's state. Nothing essential is
   long-press-only on the desktop (right-click picks a task's state) (Ctrl/Shift+click, a click on a card's
@@ -101,7 +101,7 @@ Current state, edited in place when a decision changes.
   line with them also in a flick. The whole screen below the top bar
   except the contents panel takes the swipe, also below the last card.
 - **On the contents panel** (tablet sidebar, phone's open sheet, its tab
-  row included) the same swipe moves between its tabs Contents, People,
+  row included) the same swipe moves between its tabs Contents, Sources,
   Labels instead, left to right, the same way: the tab's pane follows the finger, the neighbouring one moves
   in beside it, the tab row is updated once it has switched; past the
   first or last tab it only gives a little, it never switches the view

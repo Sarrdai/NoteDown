@@ -23,8 +23,8 @@ done, with an optional due date that can remind you on the day. Open notes form 
 move to a read-only archive. Notes live in Markdown files, which only
 NoteDown reads on the device (Export takes them out): one
 private file, plus one per group of people notes are shared with;
-a People tab next to the table of contents filters the list by persons or
-groups, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
+a Sources tab next to the table of contents filters the list by persons,
+groups, the server's news or folder sources, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
 after a long-press). A note can get a background color from a fixed palette and a built-in motif
 (patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, switched with a small button above +, notes can be put onto **Shelves**, foldable groups with a name each: new notes land on a pile on top, and a small gauge of bars fills with the number and age of those notes and says when it is time to tidy it up (adjustable, and circles can be ignored).
 The search filters the list and highlights its hits in the notes and the
@@ -35,7 +35,7 @@ Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. The
 Android app can read notes another app writes into a folder (e.g. the
 Pebble app's voice notes from the Index 01 ring) as a **folder source**,
-shown under its own name in People. Tasks can
+shown under its own name in Sources. Tasks can
 also be in progress (`[/]`) or cancelled (`[-]`), picked by a long-press
 on their box, and can carry their own due date (`📅 2026-10-24`, set
 from the toolbar or a tap on its chip), which sorts and reminds like the

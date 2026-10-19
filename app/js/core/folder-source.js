@@ -1,14 +1,14 @@
 // Folder sources (docs/requirements.md → "Folder sources"): a folder on an Android device that another app
 // writes notes into as files, e.g. the Pebble app's recordings from the Index ring. The Android app reads each
 // new file into a private note marked with the source (`source=<id>`) and then deletes the file. The source's
-// name lives in the private file (`<!-- source … -->`), so every device shows it in the People overview; which
+// name lives in the private file (`<!-- source … -->`), so every device shows it in the Sources overview; which
 // folder belongs to it is a setting of the device that reads it.
 import { timestamp } from "./notes-file.js";
 
 /** Circle keys of folder sources start with this; like the news' "@news" they can't be member IDs. */
 export const SOURCE_PREFIX = "@folder:";
 
-/** The People filter key of a source. */
+/** The Sources tab filter key of a source. */
 export const sourceKey = id => SOURCE_PREFIX + id;
 
 /** The source ID of a filter key, or null when the key is no source. */

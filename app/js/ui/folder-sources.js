@@ -98,7 +98,7 @@ async function pickFolder() {
 // ---------- settings pages ----------
 
 const intro = () => h("p", { class: "sheet-text muted" },
-  "Notes another app writes into a folder, e.g. voice notes from the Pebble app. The Android app reads each file into a private note and deletes the file. Its notes show under the source's name in People, on all your devices.");
+  "Notes another app writes into a folder, e.g. voice notes from the Pebble app. The Android app reads each file into a private note and deletes the file. Its notes show under the source's name in Sources, on all your devices.");
 
 registerPage("settingsSources", {
   title: "Folder sources",
@@ -118,7 +118,7 @@ function nameInput(data, onChange, onEnter) {
       oninput: e => { data.name = e.target.value; onChange(); },
       onkeydown: e => { if (e.key === "Enter" && onEnter) onEnter(); },
     }),
-    h("span", { class: "field-hint" }, "Shown in People, e.g. the app that writes the files."));
+    h("span", { class: "field-hint" }, "Shown under Sources, e.g. the app that writes the files."));
 }
 
 registerPage("settingsSourceNew", {

@@ -12,7 +12,7 @@
   - [Main view, archive and trash](#main-view-archive-and-trash)
   - [Sorting and search](#sorting-and-search)
   - [Table of contents](#table-of-contents)
-  - [People circles as a filter](#people-circles-as-a-filter)
+  - [Sources as a filter](#sources-as-a-filter)
   - [Labels](#labels)
   - [News from the server's owner](#news-from-the-servers-owner)
   - [Folder sources](#folder-sources)
@@ -616,7 +616,7 @@ paid features per user.
   *Prototype: 2026-10-14; pager behavior 2026-10-14 (swiping only worked
   on some tries and only switched after the gesture).*
 - On the **contents panel** itself (tablet sidebar, phone sheet) the same
-  swipe switches between its tabs **Contents | People | Labels** instead
+  swipe switches between its tabs **Contents | Sources | Labels** instead
   of the views, the same pager way; past the first or last tab it only
   gives a little (decided 2026-10-15, user request: the tabs are then a
   thumb's swipe away, the views stay on the list). *Prototype:
@@ -840,7 +840,7 @@ paid features per user.
   title-line look chosen over a grouping box and a sticky band, as the
   lightest one beside the pile's header).*
 - **Shared shelves** (backlog #25, "Shared order" until 2026-10-19): in
-  the view of a circle with people ("People circles as a filter") the sort
+  the view of a circle with people ("Sources as a filter") the sort
   menu also offers "Shared shelves" — an order of that circle's notes kept
   in the circle's own file, so every member sees and edits the same one;
   any member may set it, none has to. It works like Shelves (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
@@ -892,7 +892,7 @@ paid features per user.
   heading puts its text into the search. The full-text search keeps
   filtering the list meanwhile, and itself stays exact, so its hits and
   ▲ / ▼ stay unambiguous. Desktop: ↓ / ↑ and Enter pick, `Esc` closes the
-  suggestions. The People and Labels tabs stay: they give the overview with
+  suggestions. The Sources and Labels tabs stay: they give the overview with
   counts and picking several; the field is the quick way in. Shown as a
   list under the field with the kind and count per row — chosen
   2026-10-18 over a row of chips under the top bar, which hid kind and
@@ -942,9 +942,11 @@ paid features per user.
   remembered. While editing and recording the handle
   gives way. Tablet and desktop show it as a fixed sidebar.
 
-### People circles as a filter
+### Sources as a filter
 
-- Next to the table of contents a **People** overview lists the circles
+- Next to the table of contents a **Sources** overview (the tab was
+  called People until 2026-10-19; renamed once it held more than people:
+  the news and folder sources) lists the circles
   the user shares with (backlog #23): **All notes** and **Private** on
   top, then the user's **folder sources** A–Z ("Folder sources"), then
   every contact A–Z — each entry is only the circle of that one
@@ -978,11 +980,11 @@ paid features per user.
   they are in; tapping one shows that group's notes (user request
   2026-10-16; it replaces the long-press menu on a contact, which now
   starts picking several).
-- Placement: **tabs "Contents | People"** at the top of the sidebar
+- Placement: **tabs "Contents | Sources"** at the top of the sidebar
   (tablet, desktop) and of the bottom sheet (phone) — decided 2026-10-14
   over a second section below the contents (both lists get cramped) and a
   separate phone sheet (one more top-bar icon on a full bar). The tabs
-  **always show**, also with sync off and without contacts: then People
+  **always show**, also with sync off and without contacts: then Sources
   holds All notes, Private, a hint "No contacts yet" and **Add contact**
   (opens Sync & sharing) — decided 2026-10-15 so the feature is there
   to be found.
@@ -1007,13 +1009,13 @@ whose labels need a place).
   and sort apply on top; the table of contents follows. Each picked
   label shows as a **chip with ×** above the list, next to the circles'
   chips; the filter is not remembered across starts.
-- A third tab **"Contents | People | Labels"** lists every label of the
+- A third tab **"Contents | Sources | Labels"** lists every label of the
   current view (circle filter and search applied) A–Z with its count; in
   the main view **"∞ Permanent"** with the count of permanent notes heads
   the list, set off by a line — a tap shows the permanent notes only,
   again all ("Permanent notes");
   tapping one filters, tapping it again clears it. Several labels are
-  picked like several circles (long-press, "People circles as a
+  picked like several circles (long-press, "Sources as a
   filter"); a note then shows when it carries **any** of them (decided
   2026-10-16: the same rule as for circles). Labels don't affect where
   + puts a note. Without labels the tab says how to add one. Chosen 2026-10-15 over a row of label chips above
@@ -1055,7 +1057,7 @@ this needs none of it.
   news starts a note under All notes.
 - **New and updated posts are marked:** a label **New** or **Updated**
   as a chip in the card's meta line, and a badge with their number on
-  the News entry, the People tab and (phone) the closed contents sheet
+  the News entry, the Sources tab and (phone) the closed contents sheet
   (decided 2026-10-15 over a dot, which doesn't say how much is new, and
   a tag at the card's corner, which sits on the card's edge). A post counts as
   seen once its card was in view and the user leaves the news (another
@@ -1099,7 +1101,7 @@ notes into a folder.
   decision: the folder stays empty; a file that can't be deleted is
   remembered and not read twice). A snackbar says "Note added from
   Pebble". Files over 1 MB and subfolders are left alone.
-- **In the People overview** each source is an entry with a folder icon
+- **In the Sources overview** each source is an entry with a folder icon
   after Private, filtering to the notes read from it; they also show
   under All notes and Private (user decision: ordinary private notes, the
   source is a filter). It combines with other entries like a circle; +
@@ -1108,7 +1110,7 @@ notes into a folder.
   folder picker, which grants access to that folder only (read and
   write, to delete what was read), kept across restarts.
 - Reading while the app is closed is a separate step (backlog #68).
-- Tiers: the People entry and the settings show on every tier; reading a
+- Tiers: the Sources entry and the settings show on every tier; reading a
   folder is Android-only (phone and tablet), as only there another app
   writes files NoteDown can reach. *Prototype and app: 2026-10-19
   (`?platform=android` simulates a folder holding the sample transcript).*
@@ -1367,7 +1369,7 @@ that host its IP address and the reading time.
   per kind**, else follows the default; news posts follow the default.
   **Settings → Links & media** shows the default and below it every
   circle with "Default" or its own choice — decided 2026-10-16 over a
-  long-press on the circle under People: exceptions are rare and matter
+  long-press on the circle under Sources: exceptions are rare and matter
   for safety, so they are seen at a glance.
 - It applies wherever a note is rendered: the list, the editor's
   rendered lines, the version history (by that file's circle). The Keep

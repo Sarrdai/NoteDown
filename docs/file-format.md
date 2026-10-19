@@ -242,7 +242,7 @@ names. Any text after a news marker is dropped.
 
 The private file names the user's folder sources (`docs/requirements.md`
 → "Folder sources"), one marker each after the news markers, so every
-device shows them in the People overview:
+device shows them in the Sources overview:
 
 ```markdown
 <!-- source id=f1 name=Pebble -->

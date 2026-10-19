@@ -1,5 +1,5 @@
 // The list filters with several entries picked at once: circles from the
-// People tab, labels from the Labels tab. Entries of one kind add notes
+// Sources tab, labels from the Labels tab. Entries of one kind add notes
 // (a note matches any picked circle and any picked label); circles and
 // labels narrow each other. Nothing picked shows everything.
 import { labelKey, labelsOf } from "./labels.js";

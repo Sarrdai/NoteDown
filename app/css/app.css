@@ -1169,7 +1169,7 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
   touch-action: pan-y pinch-zoom;   /* sideways is the tab swipe's */
 }
 .toc-handle { display: none; }
-/* The three tabs (Contents, People, Labels) take the head's full width. The
+/* The three tabs (Contents, Sources, Labels) take the head's full width. The
    level stepper floats at the contents' bottom right, at the + button's height
    (decided 2026-10-15, user request: within reach of the thumb); only on the
    Contents tab, on the phone only while the sheet is open. */
@@ -1253,13 +1253,13 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 /* Thin gaps between everything / private, the contacts and the groups. */
 .people-entry.contact:not(.contact + .contact), .people-entry.group:not(.group + .group) { margin-top: 8px; }
 
-/* Tabs switch the sidebar / sheet between Contents, People and Labels. */
+/* Tabs switch the sidebar / sheet between Contents, Sources and Labels. */
 .stepper .icon-btn.small { min-width: 28px; padding: 0 4px; }
 .app:is([data-tab="people"], [data-tab="labels"]) .toc-pane { display: none; }
 
 /* ---------- news ---------- */
 /* New or updated posts: a badge with their number on the News entry, the
-   People tab and (phone) the closed contents sheet; a label in the meta line
+   Sources tab and (phone) the closed contents sheet; a label in the meta line
    of each such card (decided 2026-10-15 over a dot and a corner tag). */
 .news-badge {
   flex: none; display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;

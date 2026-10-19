@@ -381,9 +381,9 @@ function renderCircleFilter() {
   for (const t of document.querySelectorAll(".panel-tab")) t.setAttribute("aria-selected", String(t.dataset.tab === app.dataset.tab));
   renderPeople(key => inView(withLabel(circleNotes(key))).length);
   renderLabels(inView(byPermanent(inCircles())), state.view === "open" ? inView(byLabel(inCircles())).filter(n => n.status === "permanent").length : null);
-  // New or updated news: a badge on the People tab and on the phone's closed contents sheet.
+  // New or updated news: a badge on the Sources tab and on the phone's closed contents sheet.
   const fresh = freshCount(newsNotes());
-  document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "People" + newsBadgeHtml(fresh);
+  document.querySelector('.panel-tab[data-tab="people"]').innerHTML = "Sources" + newsBadgeHtml(fresh);
   $("tocHandle").innerHTML = newsBadgeHtml(fresh);
   // One chip with × per picked circle and label.
   const chip = (lead, name, clearLabel, onClear) => {
