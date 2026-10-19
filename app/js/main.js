@@ -505,7 +505,7 @@ function arrange() {
 // list has, with its direction, as a label; a tap opens the sort menu (My order:
 // Tidy up… / Arrange… in it). On the phone the open contents sheet carries the
 // same button beside its level stepper, as the sheet covers the floating one.
-const SORT_FABS = { above: "Above + (A)", beside: "Beside + (B)", topbar: "Top bar only (C)" };
+const SORT_FABS = { above: "Above + (A)", beside: "Beside + (B)", topbar: "Top bar only (C)", below: "Below + (D)" };
 function renderSortFab(sort, due) {
   for (const v of Object.keys(SORT_FABS)) app.classList.toggle("sortfab-" + v, state.settings.sortFab === v);
   const label = SORT_KEYS[sort.key].label;
