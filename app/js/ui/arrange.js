@@ -1,10 +1,10 @@
-// The arrange dialog of My order (backlog #24), opened by Tidy up…: the notes
+// The arrange dialog of Shelves (backlog #24; the sort named My order until 2026-10-19), opened by Tidy up…: the notes
 // of the current view in two parts — sorted ones on top, then a line and the
 // pile, the notes not sorted in yet. Rows move by drag or arrow keys (the grip of the merge order
 // dialog), + adds a note at the end of the sorted part, − takes it out.
 // Below the list a sort (any but the custom ones) orders the unsorted rows,
-// so the next ones to sort in are easy to find. "Section" adds a section
-// divider above the line: a titled row that moves like a note and groups
+// so the next ones to sort in are easy to find. "Shelf" adds a shelf (a section
+// divider in the code) above the line: a titled row that moves like a note and groups
 // the notes below it; its × removes it (the notes stay where they are).
 import { noteTitle } from "../core/markdown.js";
 import { SORT_KEYS, DIR_LABELS, sortNotes, sectionId, sectionTitle } from "../core/query.js";
@@ -22,14 +22,14 @@ let unsortedBy = { key: "modified", dir: "desc" };   // as the list shows them
 /** Opens the dialog over `sorted` rows (notes and { section: id }, see
  *  core/query.js → arrangeRows) and `unsorted` notes; `save(ids)` gets the
  *  ids above the line, in order, section entries included. */
-export function openArrange({ title = "My order", hint = "Only you see this order.", sorted, unsorted, save, view: inView = "open" }) {
+export function openArrange({ title = "Shelves", hint = "Only you see these shelves.", sorted, unsorted, save, view: inView = "open" }) {
   onSave = save;
   notes = new Map([...sorted, ...unsorted].filter(n => n.id).map(n => [refOf(n), n]));
   view = inView;
   unsortedBy = { key: "modified", dir: "desc" };
   $("arrangeSortLabel").textContent = SORT_KEYS[unsortedBy.key].label;
   $("arrangeTitle").textContent = title;
-  $("arrangeHint").textContent = hint + " Drag notes above the line to sort them, or tap + and −. Sections group the notes below them.";
+  $("arrangeHint").textContent = hint + " Drag notes above the line to sort them, or tap + and −. Shelves hold the notes below them.";
   $("arrangeList").replaceChildren(...sorted.map(r => r.section ? sectionRow(sectionTitle(r.section)) : row(r)), line(), ...unsorted.map(row));
   refresh();
   $("arrangeDialog").hidden = false;
@@ -62,28 +62,28 @@ function row(n) {
   return li;
 }
 
-// A section divider: its title is edited in place.
+// A shelf (section divider): its title is edited in place.
 function sectionRow(title) {
   const li = document.createElement("li");
   li.className = "order-item arrange-section";
   const input = document.createElement("input");
   input.className = "arrange-section-title";
   input.value = title;
-  input.placeholder = "Section";
-  input.setAttribute("aria-label", "Section title");
+  input.placeholder = "Shelf";
+  input.setAttribute("aria-label", "Shelf name");
   input.addEventListener("keydown", e => { if (e.key === "Enter") input.blur(); });
   const remove = document.createElement("button");
   remove.className = "icon-btn small";
-  remove.setAttribute("aria-label", "Remove section");
+  remove.setAttribute("aria-label", "Remove shelf");
   remove.innerHTML = icon("close");
   remove.addEventListener("click", () => li.remove());
   li.append(input, remove, orderGrip(li));
   return li;
 }
 
-// A new section goes right above the line: + on a note then sorts it in there.
+// A new shelf goes right above the line: + on a note then sorts it in there.
 function addSection() {
-  const li = sectionRow("New section");
+  const li = sectionRow("New shelf");
   $("arrangeList").querySelector(".arrange-line").before(li);
   const input = li.querySelector("input");
   input.focus({ preventScroll: true });

@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS = {
   tocDepth: 2,
   tocProgress: false,        // task progress in the contents and at the notes' headings (ui/toc.js)
   sort: structuredClone(DEFAULT_SORT),
-  collapsedSections: [],     // My order's sections (#24) and its pile ("pile") folded in the list and contents, this device only
+  collapsedSections: [],     // the Shelves' shelves (section dividers, #24) and its pile ("pile") folded in the list and contents, this device only
   tidy: {},                  // tidy-up reminder (core/tidy.js): bars, notes, days, circles: circleKey → counted, this device only
   reminders: { on: false, time: "09:00", show: "count" },   // due-date reminders (#1, #57): this device only, not synced
   lock: structuredClone(DEFAULT_LOCK),          // screen lock (#6): this device only, never synced

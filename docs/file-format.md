@@ -245,15 +245,15 @@ of a custom order, first to last (backlog #24):
 <!-- order modified=2026-10-14T09:00Z ids=s04,~Home,s01,s07 -->
 ```
 
-In the private file it is the user's own order, **My order**: ids from any
+In the private file it is the user's own order, **Shelves**: ids from any
 of the user's files (ids are unique across files), so shared notes can be
 ordered without the other members seeing it. In a shared file it is the
-circle's **Shared order** (backlog #25), listing that file's notes and
+circle's **Shared shelves** (backlog #25), listing that file's notes and
 set by any member. `modified` is the time of
 the last change (UTC); without `ids` the order is empty. An entry
-starting with `~` is a **section** divider, the rest is its title
+starting with `~` is a **shelf** (a section divider), the rest is its name
 URI-encoded (`~Home%20%26%20garden`): it groups the notes after it up to
-the next section and is kept as is. Ids of notes
+the next shelf and is kept as is. Ids of notes
 that no longer exist are dropped on the next save. Merging takes the list
 the changed side wrote, the newer one when both changed it. Other editors
 don't show the marker; any text after it is dropped, like after a moved

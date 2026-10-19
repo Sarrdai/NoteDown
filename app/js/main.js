@@ -64,7 +64,7 @@ const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
 
 const phone = window.matchMedia("(max-width: 599px)");
 
-// "Shared order" (#25) exists only in the view of a circle with people;
+// "Shared shelves" (#25) exists only in the view of a circle with people;
 // elsewhere a view set to it shows the user's own custom order.
 const sharedCircle = () => (activeCircle() && activeCircle() !== NEWS ? activeCircle() : null);
 function sortOf(view = state.view) {
@@ -150,12 +150,9 @@ function render() {
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
-  $("sortLabel").textContent = SORT_KEYS[sort.key].label;
-  // Time to tidy up My order's pile: a dot on the sort button, whatever the list is sorted by.
+  // Time to tidy up the Shelves' pile: a dot on the sort button, whatever the list is sorted by.
   const due = state.view === "open" && mainPile().level === "full";
-  $("sortBtn").classList.toggle("tidy-due", due);
-  $("sortBtn").setAttribute("aria-label", "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : ""));
-  $("sortBtn").title = "Sort: " + SORT_KEYS[sort.key].label + (due ? " · time to tidy up" : "");
+  renderSortFab(sort, due);
   renderWatchBar();
   renderDueCount();
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? "Archive" : "Notes");
@@ -179,13 +176,13 @@ function render() {
 
 // The tiles of a view (a new note kept on top comes first, currentNotes) and,
 // sorted by a custom order, its pile: the notes not sorted in yet, which come
-// next under their header (they come first in the view, core/query.js), then
-// the sections with their notes.
+// first under their header (core/query.js; a new note is one of them, on top of
+// the pile), then the sections with their notes.
 function tilesOf(view, notes) {
   if (!isCustom(view)) return { tiles: notes, pile: null, sectionOf: () => null };
   const isTop = n => refOf(n) === state.topId;
   const sorted = new Set(orderIds(view));
-  const piled = notes.filter(n => !sorted.has(refOf(n)) && !isTop(n));
+  const piled = notes.filter(n => !sorted.has(refOf(n)));
   const ids = new Set(piled.map(refOf));
   const collapsed = !state.search && state.settings.collapsedSections.includes(PILE_ID);
   const pile = { has: id => ids.has(id), top: state.topId, collapsed, ...pileLevel(view, piled) };
@@ -206,7 +203,7 @@ function pileLevel(view, piled) {
   return { ...pileState(notes, k => tidyCounted(t, k), tidyConfig(t)), count: piled.length };
 }
 
-// My order's pile in the main view with the current filters, whatever the list is sorted by.
+// The Shelves' pile in the main view with the current filters, whatever the list is sorted by.
 function mainPile() {
   const sorted = new Set(orderIds("open"));
   return pileLevel("open", viewNotes(listed(), { status: "open", sort: { key: "modified", dir: "desc" } }).filter(n => !sorted.has(refOf(n))));
@@ -491,16 +488,36 @@ function arrange() {
   const next = ids => rearrange(orderIds(), shown.map(n => refOf(n)), ids);
   openArrange(key ? {
     view: state.view,
-    title: "Shared order", hint: `You and ${circleName(key)} see and can change this order.`, sorted, unsorted,
-    save: ids => showSnackbar("Shared order saved", setCircleOrder(key, next(ids))),
+    title: "Shared shelves", hint: `You and ${circleName(key)} see and can change these shelves.`, sorted, unsorted,
+    save: ids => showSnackbar("Shared shelves saved", setCircleOrder(key, next(ids))),
   } : {
     view: state.view,
     sorted, unsorted,
-    save: ids => showSnackbar("Order saved", setCustomOrder(next(ids))),
+    save: ids => showSnackbar("Shelves saved", setCustomOrder(next(ids))),
   });
 }
 
-function sortMenu(anchor = $("sortBtn")) {
+// The floating sort button above the + (decided 2026-10-19 over beside / below the +
+// and the top bar's sort button; user request: sorting is a core feature): an arrow
+// for the direction (up ascending, down descending; Shelves show a shelf) and the
+// sort's short name; a tap opens the sort menu (Shelves: Tidy up… / Arrange… in it).
+// On the phone the open contents sheet carries the same button above its level
+// stepper, as the sheet covers the floating one.
+function renderSortFab(sort, due) {
+  const { label, short, custom } = SORT_KEYS[sort.key];
+  const dir = custom ? "" : (DIR_LABELS[sort.key] || DIR_LABELS.default)[sort.dir === "desc" ? 1 : 0];
+  const text = "Sort: " + label + (dir ? ", " + dir : "") + (due ? " · time to tidy up" : "");
+  const lead = custom ? "shelf" : sort.dir === "desc" ? "arrowDown" : "arrowUp";
+  for (const b of [$("sortFab"), $("tocSort")]) {
+    b.innerHTML = icon(lead) + `<span class="sort-fab-label"></span>`;
+    b.querySelector(".sort-fab-label").textContent = short;
+    b.classList.toggle("tidy-due", due);
+    b.setAttribute("aria-label", text);
+    b.title = text;
+  }
+}
+
+function sortMenu(anchor = $("sortFab")) {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.views || v.views.includes(state.view)) && (!v.circleOnly || sharedCircle()));
   const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
@@ -511,8 +528,8 @@ function sortMenu(anchor = $("sortBtn")) {
     { section: "Sort by" },
     ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
     { separator: true },
-    // A custom order has no direction; it is arranged instead.
-    ...(SORT_KEYS[sort.key].custom ? [{ label: "Tidy up…", onSelect: arrange }] : [
+    // A custom order has no direction; it is arranged instead (named like the pile header's link).
+    ...(SORT_KEYS[sort.key].custom ? [{ label: customSplit(inView(listed()), orderIds()).unsorted.length ? "Tidy up…" : "Arrange…", onSelect: arrange }] : [
       { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
       { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
     ]),
@@ -550,44 +567,47 @@ async function loadWelcome() {
   replaceFiles({ file });
 }
 
-// The top bar's actions, left to right; what doesn't fit moves under ⋮ in
-// FOLD_ORDER — Export first, the view button last, so the switch between the
-// views stays in reach, with Due just before it. The sort label goes before any button.
+// The top bar's actions, left to right (search before them, ⋮ after them; Export
+// lives under ⋮, sort floats above the +). What doesn't fit moves under ⋮ in
+// FOLD_ORDER — Due first, the view button last, so the switch between the views
+// stays in reach; on the desktop the search gives up its centered place and
+// narrows before that.
 const ACTIONS = [
-  { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
-  { id: "sortBtn", menu: () => ({ label: "Sort: " + SORT_KEYS[sortOf().key].label, icon: "sort", onSelect: () => sortMenu($("moreBtn")) }) },
+  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "viewBtn", menu: () => state.view === "open"
     ? { label: "Archive", icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
-  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
-  { id: "exportBtn", menu: () => ({ label: "Export…", icon: "download", onSelect: exportDialog }) },
+  { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
 ];
-const FOLD_ORDER = ["exportBtn", "syncBtn", "sortBtn", "dueBtn", "viewBtn"];
+const FOLD_ORDER = ["dueBtn", "syncBtn", "viewBtn"];
 const wide = window.matchMedia("(min-width: 1024px)");
 
 function fitTopbar() {
   const bar = $("topbar");
   const title = $("title");
   const search = $("search");
-  const label = $("sortBtn").querySelector(".btn-label");
   for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
-  label.hidden = false;
-  // Too tight: the title is cut, or (desktop) the buttons run into the centered search.
+  search.classList.toggle("centered", wide.matches);
+  // Too tight: the title is cut, the buttons run out of the bar, or (desktop)
+  // into the centered search.
   const tight = () => title.scrollWidth > title.clientWidth + 1
-    || (wide.matches && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
+    || $("moreBtn").getBoundingClientRect().right > bar.getBoundingClientRect().right + 1
+    || (search.classList.contains("centered") && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
   if (!bar.offsetWidth) return;
   // Measured with the longer title, so both views keep the same buttons and
   // the view button its place.
   const text = title.textContent;
   title.textContent = "Archive";
-  if (tight()) label.hidden = true;
+  // Desktop: the title keeps the longer one's width, so the search stays in place too.
+  title.style.minWidth = "";
+  if (wide.matches) title.style.minWidth = title.scrollWidth + "px";
+  // Desktop: the search leaves the middle and sits after the title, narrower.
+  if (tight()) search.classList.remove("centered");
   for (let i = 0; i < FOLD_ORDER.length && tight(); i++) {
     const btn = $(FOLD_ORDER[i]);
     if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
   }
   title.textContent = text;
-  // The tidy-up dot follows the sort button into ⋮.
-  $("moreBtn").classList.toggle("tidy-due", $("sortBtn").hidden && $("sortBtn").classList.contains("tidy-due"));
 }
 
 function moreMenu() {
@@ -598,6 +618,7 @@ function moreMenu() {
   const trashEntry = state.view !== "trash" && { label: `Trash (${trashNotes().length})`, icon: "trash", onSelect: () => setView("trash") };
   openMenu($("moreBtn"), [
     ...hidden,
+    { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
@@ -681,8 +702,7 @@ function showNote(id) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["exportBtn", "download"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
-  $("sortBtn").querySelector(".btn-icon").innerHTML = icon("sort");
+  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("dueBtn").querySelector(".btn-icon").innerHTML = icon("calendar");
   $("dueBtn").addEventListener("click", openDue);
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
@@ -690,7 +710,6 @@ function wire() {
   $("searchIcon").innerHTML = icon("search");
   $("fab").querySelector(".fab-new").innerHTML = icon("plus");
   $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
-  $("exportBtn").addEventListener("click", exportDialog);
   window.addEventListener("resize", fitTopbar);
   $("syncBtn").addEventListener("click", openSyncPanel);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
@@ -701,7 +720,8 @@ function wire() {
   window.addEventListener("popstate", () => {
     if (state.view === "trash" && (history.state?.depth ?? 0) < trashDepth) setView("closed", { fromHistory: true });
   });
-  $("sortBtn").addEventListener("click", () => sortMenu());
+  $("sortFab").addEventListener("click", () => sortMenu());
+  $("tocSort").addEventListener("click", () => sortMenu($("tocSort")));
   $("panelTabs").addEventListener("click", e => { const t = e.target.closest(".panel-tab"); if (t) setUi({ panelTab: t.dataset.tab }); });
   $("moreBtn").addEventListener("click", moreMenu);
   $("searchInput").addEventListener("input", e => {
@@ -771,10 +791,11 @@ function wire() {
     lanes: swipeLanes,
     // The + turns into the bin as the archive comes in (--archive: 0 notes, 1 archive).
     follow: (pos, ms) => {
-      const fab = $("fab");
-      if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); return; }
-      fab.style.setProperty("--archive", Math.min(pos, 1));   // the trash keeps the archive's bin
-      fab.style.setProperty("--archive-ms", ms + "ms");
+      for (const fab of [$("fab"), $("sortFab")]) {
+        if (pos === null) { fab.style.removeProperty("--archive"); fab.style.removeProperty("--archive-ms"); continue; }
+        fab.style.setProperty("--archive", Math.min(pos, 1));   // the trash keeps the archive's bin
+        fab.style.setProperty("--archive-ms", ms + "ms");
+      }
     },
   });
   initViewSwipe({

@@ -6,15 +6,16 @@ import { refOf } from "./note-ref.js";
 import { noteDue } from "./task-due.js";
 
 // `views`: the views a key is offered in (absent = all).
+// `short`: the word on the floating sort button.
 export const SORT_KEYS = {
-  modified: { label: "Last edited", field: "modified" },
-  created: { label: "Created", field: "created" },
-  due: { label: "Due date", field: "due" },
-  title: { label: "Alphabetical", field: null },
-  closed: { label: "Closed", field: "closed", views: ["closed"] },
-  deleted: { label: "Deleted", field: "deleted", views: ["trash"] },
-  custom: { label: "My order", field: null, custom: true, views: ["open", "closed"] },
-  shared: { label: "Shared order", field: null, custom: true, circleOnly: true, views: ["open", "closed"] },
+  modified: { label: "Last edited", short: "Edit", field: "modified" },
+  created: { label: "Created", short: "New", field: "created" },
+  due: { label: "Due date", short: "Due", field: "due" },
+  title: { label: "Alphabetical", short: "ABC", field: null },
+  closed: { label: "Closed", short: "Closed", field: "closed", views: ["closed"] },
+  deleted: { label: "Deleted", short: "Deleted", field: "deleted", views: ["trash"] },
+  custom: { label: "Shelves", short: "Shelves", field: null, custom: true, views: ["open", "closed"] },
+  shared: { label: "Shared shelves", short: "Shared", field: null, custom: true, circleOnly: true, views: ["open", "closed"] },
 };
 
 /** The two directions of a sort key, ascending first. */

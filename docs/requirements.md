@@ -591,11 +591,13 @@ paid features per user.
   2026-10-14.*
 - The **archive button** in the main view leads to the archive; in the
   archive the same button reads **Notes** and leads back, so one place
-  switches between both views. It is an icon (tooltip) at the right end of
-  the top bar, just before ⋮, and keeps its place in both views: the top
-  bar keeps the same buttons in both. It carries no count: what was done
-  today shows in the Due button's ring ("Due view"). *Prototype: round 1;
-  Notes button 2026-10-13; place and no count 2026-10-18.* Why: a second
+  switches between both views. It is an icon (tooltip) in the top bar
+  right after Sync & sharing, before Due and ⋮
+  (`docs/interaction-concept.md` → "Layout per tier"), and keeps its place
+  in both views: the top bar keeps the same buttons in both. It carries no
+  count: what was done today shows in the Due button's ring ("Due view").
+  *Prototype: round 1; Notes button 2026-10-13; place and no count
+  2026-10-18; top bar order 2026-10-19.* Why: a second
   "today" count next to the Due button read as overloaded, so the archive
   became the less important button.
 - On phone and tablet, **swiping sideways** anywhere on the list
@@ -646,8 +648,8 @@ paid features per user.
   the circles' and labels' chips, combined with them (it narrows them);
   not remembered across starts. The Labels tab lists the same filter as
   its first entry ("Labels"). Decided 2026-10-18 over the switch
-  "Permanent first" in the sort menu, which competed with My order's pile
-  and sections. *Prototype: 2026-10-15; filter 2026-10-18.*
+  "Permanent first" in the sort menu, which competed with the Shelves'
+  pile and shelves. *Prototype: 2026-10-15; filter 2026-10-18.*
 - **Trash** (decided 2026-10-15, user request): **Delete** moves notes
   into the trash at once, with Undo (no confirmation, as nothing is
   lost). The trash keeps them for **30 days**, then they are gone for
@@ -748,23 +750,44 @@ paid features per user.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
-- **My order** (backlog #24) is one more sort option, in the main view
+- **The sort button floats above the + button** (main view and archive; in
+  the archive, where + turns into the bin at the left, it takes the
+  corner): a small pill with an arrow for the direction (up ascending,
+  down descending) and the sort's short name — "Edit", "New", "Due",
+  "ABC", "Closed"; Shelves show a shelf icon and "Shelves", shared shelves
+  "Shared". A tap opens the sort menu (sort and direction; with Shelves
+  **Tidy up…** / **Arrange…**). It gives way while editing, selecting and
+  recording, and isn't in the trash. On the phone the open contents sheet
+  covers it, so the sheet carries the same pill above its level stepper.
+  The top bar has no sort button. Decided 2026-10-19 (user request:
+  switching the sort quickly is a core feature, arranging one tap
+  further) over the pill beside or below the + and the top bar's button;
+  the short label over the full name and direction, which took too much
+  room. *Prototype: 2026-10-19.*
+- **Shelves** (backlog #24) is one more sort option, in the main view
   and the archive: the user's own order — the core of the app, turning
   spontaneous notes into an order of one's own without asking for one when
-  a note is written. Named "My order" (decided 2026-10-18 over "Custom",
-  which is correct but says nothing). Notes start on the **Pile**: the
+  a note is written: notes are put onto shelves. Named "Shelves"
+  (2026-10-19, user request, over "My order", itself chosen 2026-10-18
+  over "Custom"; the picture of putting notes onto shelves says what it
+  does). Notes start on the **Pile**: the
   notes not sorted in yet, **first in the list** under a tinted header
   "Pile" with their count and **Tidy up…**, by last edited, newest first;
   then the sorted notes (decided 2026-10-18 over the pile at the end: a new
   note appears where the user looks, as in every other sort, and folding
   keeps the order in view). A tap on the header **folds** the pile to that
   one line, remembered per device like a section; a search shows it
-  unfolded. With the pile empty the header reads "Pile empty" with a check
-  and nothing else (arranging stays in the sort menu). The sort menu's **Tidy up…** (and the same link on
+  unfolded. A new note lands on top of the pile at once, also when it was
+  empty, and shows there even with the pile folded (user request
+  2026-10-19: an empty pile's header stayed below it). With the pile empty
+  the header reads "Pile empty" with a check and the link **Arrange…**
+  (user request 2026-10-19: re-arranging a fully sorted order from the
+  list and the contents). The sort menu's **Tidy up…** — **Arrange…** with
+  the pile empty — (and the same link on
   the header in the list and in the table of contents) opens a dialog like
   the merge order dialog, where notes move above a line by drag (or arrow
   keys) or with + / −, and are ordered there; the pile is below the line.
-  My order has no direction. The dialog arranges what the list shows
+  Shelves have no direction. The dialog arranges what the list shows
   (circle filter and search applied); other notes keep their places in the
   order. Below the list, "Pile by …" sorts the pile's rows with any sort
   but the custom ones, both directions (last edited, newest first, at
@@ -784,8 +807,8 @@ paid features per user.
   (3 notes at 2 per bar and 11 days at 5 per bar fill 1 + 2 bars); more
   than fit show the gauge full. Filled bars are grey, **yellow** from 75 %
   but at the latest one bar before full, with "Tidy up"; **red** when
-  full, with "Time to tidy up" and a dot on the sort button (or on ⋮ when
-  the sort button is folded there, whatever the list is sorted by).
+  full, with "Time to tidy up" and a dot on the sort button, whatever the
+  list is sorted by.
   **Settings → Tidy-up reminder** sets the three numbers for every circle
   alike, each with − / +: Bars (1–10, default 5), Notes per bar (1–20,
   default 2), Days per bar (1–30, default 2) — about the old "10 notes or
@@ -797,28 +820,28 @@ paid features per user.
   together. Main view only; a setting of this device. A gauge rather than
   a score or push messages: it should invite tidying, never make it a
   chore. *Prototype: 2026-10-18.*
-- **Sections** in My order (and a shared order): the arrange
-  dialog's **+ Section** adds a titled divider right above the pile's
-  line; it moves like a note, its title is edited in place and its ×
-  removes it (its notes stay where they are and join the section above).
-  A section groups the sorted notes below it up to the next one; it is no
-  note (no body, no status, not exported) and exists only above the line.
-  In the list and the table of contents (as the top level there) each
-  section heads its notes with a title line and their count; a tap folds
-  or unfolds it, remembered per device; a search shows every section
-  unfolded, so all hits show. A section without notes in the current view
+- **A shelf** in Shelves (and in shared shelves), called a section until
+  2026-10-19: the arrange dialog's **+ Shelf** adds a named divider right
+  above the pile's line; it moves like a note, its name is edited in place
+  and its × removes it (its notes stay where they are and join the shelf
+  above). A shelf holds the sorted notes below it up to the next one; it
+  is no note (no body, no status, not exported) and exists only above the
+  line. In the list and the table of contents (as the top level there)
+  each shelf heads its notes with a title line and their count; a tap
+  folds or unfolds it, remembered per device; a search shows every shelf
+  unfolded, so all hits show. A shelf without notes in the current view
   isn't shown. Stored as entries in the order's id list
   (`docs/file-format.md`). *Prototype: 2026-10-18 (user request; the
   title-line look chosen over a grouping box and a sticky band, as the
   lightest one beside the pile's header).*
-- **Shared order** (backlog #25): in the view of a circle with people
-  ("People circles as a filter") the sort menu also offers "Shared
-  order" — an order of that circle's notes kept in the circle's own file,
-  so every member sees and edits the same one; any member may set it,
-  none has to. It works like My order (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
+- **Shared shelves** (backlog #25, "Shared order" until 2026-10-19): in
+  the view of a circle with people ("People circles as a filter") the sort
+  menu also offers "Shared shelves" — an order of that circle's notes kept
+  in the circle's own file, so every member sees and edits the same one;
+  any member may set it, none has to. It works like Shelves (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
   dialog says who sees it) and merges the same way, the newer list
   winning. Outside a circle's view a view set to it shows the user's own
-  My order. *Prototype: 2026-10-14; real on shared files since
+  Shelves. *Prototype: 2026-10-14; real on shared files since
   milestone 2, simulated in the sample (Lea's circle carries one).*
 - A finished edit doesn't reorder the list right away, so a note never
   jumps away under the user's finger; the order updates on the next view
@@ -843,7 +866,7 @@ paid features per user.
   on Android): ×, the back key or `Esc` end it, and the note with the
   current hit — scrolled away from it, the topmost note in view — stays
   where it is on the screen while the other notes come back around it,
-  and flashes; a folded section or pile holding it unfolds. Back ends the
+  and flashes; a folded shelf or pile holding it unfolds. Back ends the
   search once a text is typed (on the phone: once the field is open).
   *Prototype: 2026-10-18.*
 - The search field **suggests** (backlog #66, user idea 2026-10-18): a
@@ -868,10 +891,10 @@ paid features per user.
 ### Table of contents
 
 - A table of contents over all notes of the current view, in the current
-  sort order and search filter. *Prototype: round 1.* Sorted by My
-  order, it shows the pile's header with its gauge and **Tidy up…** on
+  sort order and search filter. *Prototype: round 1.* Sorted by
+  Shelves, it shows the pile's header with its gauge and **Tidy up…** on
   top, folding with the list's (on the phone the link closes the sheet),
-  then the sections. *Prototype: 2026-10-17 (user request: arranging is
+  then the shelves. *Prototype: 2026-10-17 (user request: arranging is
   reachable from the contents too); pile on top 2026-10-18.*
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
@@ -1171,6 +1194,10 @@ Decided 2026-10-16 (user request).
   2026-10-16 over always visible buttons, a menu and a centered card).
   A tap on the number in the pop-up types an amount of one's own
   (without sign it adds, `-2` subtracts); it joins the pending change.
+  When the on-screen keyboard comes up for it, the list scrolls the counter
+  into the part left visible and the pop-up follows it, never behind the
+  keyboard or the toolbar (found on Android 2026-10-19 with a counter low on
+  the screen).
   Only the current value is kept, no history (the version history covers
   that). Archived, deleted and news notes show their counters read-only.
   Counters inside code are plain text.
@@ -1351,7 +1378,7 @@ that host its IP address and the reading time.
   the actions as icons (with labels on the desktop): the frequent ones —
   Close, Clear done tasks, Copy, Share, Merge, Delete — in the bar, the
   rarer ones — Export, Private copy, Make permanent, Promote / Demote headings — under
-  ⋮, the same in every tier (decided 2026-10-17 by the user's own use,
+  ⋮ with icon and label, the same in every tier (decided 2026-10-17 by the user's own use,
   backlog #36; all of them overran the desktop bar); the + button is
   hidden. On the phone the contents sheet's handle stays at the bottom,
   so the selection can be refined in the contents and back; the bar shows
@@ -1452,8 +1479,8 @@ way and to keep an independent local backup. The import page reads an
 export back (see "Import from Google Keep" → "Import of exported files";
 backlog #31).
 
-- **What:** the top bar's **Export** button (⋮ → "Export…" when it
-  doesn't fit) offers **This view** — the notes the list
+- **What:** ⋮ → **Export…** in the top bar (an icon of its own until
+  2026-10-19, now one of the rarer actions) offers **This view** — the notes the list
   shows (main view or archive, circle and label filter and search applied), in the
   order it shows them — as one Markdown file, or **All files** — one
   Markdown file per NoteDown file, private plus one per circle with notes

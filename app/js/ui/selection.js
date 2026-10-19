@@ -299,7 +299,7 @@ function update() {
   }));
   const more = actions.filter(a => a.menu);
   $("selMore").hidden = more.length === 0;
-  $("selMore").onclick = () => openMenu($("selMore"), more.map(a => ({ label: a.label, disabled: a.disabled, onSelect: a.run })));
+  $("selMore").onclick = () => openMenu($("selMore"), more.map(a => ({ label: a.label, icon: a.id, disabled: a.disabled, onSelect: a.run })));
 }
 
 const noteIds = () => current().parts.map(p => p.noteId);
