@@ -1664,8 +1664,22 @@ notes can be restored or moved to another device without sync.
 
 - The app opens directly in the main view with the + button ready.
 - **App shortcuts** "New note" and "Dictate" (Android: long-press on the
-  app icon, iOS: Quick Actions). *App phase; not part of the web
-  prototype.*
+  app icon, iOS: Quick Actions). Fixed, no dynamic shortcuts such as the
+  last notes (their titles would show in the launcher, also behind the
+  screen lock).
+- **Quick Settings tile** "New note" (Android; added by the user in the
+  system's Quick Settings editor): a tap closes the panel and opens the
+  app with a new note; on a locked phone the phone unlocks first. iOS has
+  no counterpart yet (left out until the iOS app).
+- Both open the main view with nothing on top (menus, panels, selection
+  closed) and do there what + does (decided 2026-10-19, so there is no
+  second rule): "New note" = a tap on + (with several circles shown it
+  asks which one), "Dictate" = a hold on +, hands-free at once (tap ✓ to
+  finish, the bin to cancel; with several circles shown it says "To
+  dictate, show one circle only"). With the screen lock on, the action
+  waits until NoteDown is unlocked; a running NoteDown keeps its state.
+  *Prototype: `?shortcut=new` / `?shortcut=dictate` stand in for them
+  (`app/js/quick-capture.js`).*
 - A home-screen widget is not part of the scope yet (backlog #2).
 
 ### Settings

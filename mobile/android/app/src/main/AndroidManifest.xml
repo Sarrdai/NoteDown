@@ -37,7 +37,33 @@
                 <data android:scheme="https" android:host="${webHost}" android:pathPrefix="/invite" />
             </intent-filter>
 
+            <!-- App shortcuts "New note" and "Dictate" on a long-press of the app icon (QuickCapturePlugin). -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+
         </activity>
+
+        <!-- The app shortcuts' target: hands their action on to the running MainActivity instead of restarting it.
+             Not exported: the launcher starts a shortcut as this app, other apps can't. -->
+        <activity
+            android:name=".QuickCaptureActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- The Quick Settings tile "New note" (docs/requirements.md → "Quick capture"). -->
+        <service
+            android:name=".QuickNoteTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_new_note"
+            android:label="@string/shortcut_new_note"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="false" />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"
