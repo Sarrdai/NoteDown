@@ -654,9 +654,6 @@ function moreMenu() {
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
-    // Open decision: the target picker of Move to… (ui/move-to.js).
-    { label: "Move picker: Outline (A)", checked: (s.movePicker || "outline") === "outline", onSelect: () => updateSettings({ movePicker: "outline" }) },
-    { label: "Move picker: Step by step (B)", checked: s.movePicker === "steps", onSelect: () => updateSettings({ movePicker: "steps" }) },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -848,7 +845,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (["outline", "steps"].includes(p.get("movepicker"))) patch.movePicker = p.get("movepicker");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

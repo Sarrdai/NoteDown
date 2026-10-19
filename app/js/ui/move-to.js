@@ -1,23 +1,22 @@
 // Move to… (docs/requirements.md → "Multi-select" → "Move to"): picks a
 // section of another note and moves the parts there (core/move.js). Opened
 // from the selection bar and from a row of the Tidy up dialog (ui/arrange.js).
-// Prototype variants of the picker (setting `movePicker`):
-//   "outline" (A) — every note with its headings in one list, one tap picks;
-//   "steps"   (B) — the notes first, a tap on one shows its sections.
+// Every note with its headings in one list, one tap picks (decided 2026-10-19
+// over note first, then section: fewer taps); − / + set the levels shown, as
+// in the contents.
 import { noteTitle } from "../core/markdown.js";
 import { moveOutline, moveInto, targetRest } from "../core/move.js";
 import { partText } from "../core/selection.js";
 import { keepsPart } from "../core/sharing.js";
-import { state, note, circleOf, applyMoveInto } from "../store.js";
+import { state, note, circleOf, applyMoveInto, updateSettings } from "../store.js";
 import { membersLabel } from "./people.js";
 import { icon } from "./icons.js";
 import { refOf } from "../core/note-ref.js";
 
 const $ = id => document.getElementById(id);
-let pick = null;   // { parts, sources, candidates, onDone, open: id (steps variant), target: { id, index } }
+let pick = null;   // { parts, sources, candidates, onDone, target: { id, index, text } }
 
 const ATX = /^ {0,3}#{1,6}(\s|$)/m;
-const variant = () => state.settings.movePicker || "outline";
 
 /**
  * Opens the picker for `parts` ([{ noteId, from, to, whole }]) of the notes
@@ -26,7 +25,7 @@ const variant = () => state.settings.movePicker || "outline";
  */
 export function moveTo({ parts, sources, candidates, onDone }) {
   const wholeIds = new Set(parts.filter(p => p.whole).map(p => p.noteId));
-  pick = { parts, sources, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, open: null, target: null };
+  pick = { parts, sources, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, target: null };
   const plain = parts.some(p => !ATX.test(partText(sources[p.noteId].body, p)));
   $("moveTaskRow").dataset.plain = plain ? "1" : "";
   $("moveTitle").textContent = parts.length === 1 ? (parts[0].whole ? "Move note to…" : "Move section to…") : `Move ${parts.length} parts to…`;
@@ -53,26 +52,28 @@ function matches(n, q) {
   return [noteTitle(n.body).text, ...outline(n).map(r => r.text)].some(t => t.toLowerCase().includes(q));
 }
 
+// A note's sections with their level in the picker: the note itself is level 1, its headings count from
+// its highest one (as in the contents).
+function leveled(n) {
+  const rows = outline(n);
+  const top = Math.min(...rows.slice(1).map(r => r.depth || 99));
+  return rows.map(r => ({ ...r, level: r.index === 0 ? 1 : 1 + Math.max(1, (r.depth || top) - top + 1) }));
+}
+
 function render() {
   const q = $("moveSearch").value.trim().toLowerCase();
-  const steps = variant() === "steps";
-  const opened = steps && pick.open && pick.candidates.find(n => refOf(n) === pick.open);
-  $("moveBack").hidden = !opened;
-  $("moveSearch").hidden = !!opened;
-  $("moveSub").hidden = !opened;
-  if (opened) $("moveSub").textContent = `Into “${noteTitle(opened.body).text || "Untitled"}”`;
+  const notes = pick.candidates.filter(c => matches(c, q)).map(n => [n, leveled(n)]);
+  const maxLevel = Math.max(1, ...notes.flatMap(([, rows]) => rows.map(r => r.level)));
+  const depth = Math.min(state.settings.moveDepth || 2, maxLevel);
+  $("moveDepth").textContent = depth;
+  $("moveLess").disabled = depth <= 1;
+  $("moveMore").disabled = depth >= maxLevel;
   const rows = [];
-  if (opened) {
-    const sections = outline(opened);
-    const top = Math.min(...sections.map(r => r.depth || 99));
-    for (const r of sections) rows.push(row(opened, r, r.depth ? r.depth - top : 0, r.index === 0));
-  } else {
-    for (const n of pick.candidates.filter(c => matches(c, q))) {
-      const sections = outline(n);
-      if (steps) { rows.push(noteRow(n, sections)); continue; }
-      const top = Math.min(...sections.map(r => r.depth || 99));
-      sections.forEach(r => rows.push(row(n, r, r.index === 0 ? 0 : Math.max(1, r.depth - top), r.index === 0)));
-    }
+  for (const [n, sections] of notes) {
+    // A search shows every level of the notes it finds.
+    const shown = sections.filter(r => q || r.level <= depth);
+    const hidden = sections.length - shown.length;
+    shown.forEach(r => rows.push(row(n, r, r.level - 1, r.index === 0 ? hidden : 0)));
   }
   if (!rows.length) {
     const li = document.createElement("li");
@@ -84,46 +85,22 @@ function render() {
   footer();
 }
 
-// A section to pick; `head`: the note's first section, shown as the note.
-function row(n, r, indent, head) {
+// A section to pick; the note's first section stands for the note (`more`: its sections on hidden levels).
+function row(n, r, indent, more) {
   const id = refOf(n);
   const li = document.createElement("li");
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "move-row" + (head ? " head" : "") + (r.fromHeading ? "" : " plain");
+  b.className = "move-row" + (r.index === 0 ? " head" : "") + (r.fromHeading ? "" : " plain");
   b.style.setProperty("--indent", indent);
   b.setAttribute("aria-pressed", String(pick.target?.id === id && pick.target.index === r.index));
   const label = document.createElement("span");
   label.className = "move-text";
   label.textContent = r.text || "Untitled";
   b.append(label);
+  if (more) b.insertAdjacentHTML("beforeend", `<span class="move-more">+${more}</span>`);
   if (r.tasks) b.insertAdjacentHTML("beforeend", `<span class="move-tag">${icon("checkbox")}</span>`);
   b.addEventListener("click", () => choose(id, r));
-  li.append(b);
-  return li;
-}
-
-// Steps variant: a note; a tap opens its sections (one section: picks it).
-function noteRow(n, sections) {
-  const id = refOf(n);
-  const li = document.createElement("li");
-  const b = document.createElement("button");
-  b.type = "button";
-  const t = noteTitle(n.body);
-  b.className = "move-row head" + (t.fromHeading ? "" : " plain");
-  b.setAttribute("aria-pressed", String(sections.length === 1 && pick.target?.id === id));
-  const label = document.createElement("span");
-  label.className = "move-text";
-  label.textContent = t.text || "Untitled";
-  b.append(label);
-  if (sections.length > 1) b.insertAdjacentHTML("beforeend", `<span class="move-count">${sections.length - 1}</span><span class="move-chevron">${icon("back")}</span>`);
-  else if (sections[0].tasks) b.insertAdjacentHTML("beforeend", `<span class="move-tag">${icon("checkbox")}</span>`);
-  b.addEventListener("click", () => {
-    if (sections.length === 1) return choose(id, sections[0]);
-    pick.open = id;
-    render();
-    $("moveList").scrollTop = 0;
-  });
   li.append(b);
   return li;
 }
@@ -159,8 +136,11 @@ function confirm() {
 }
 
 export function initMoveTo() {
-  $("moveBack").innerHTML = icon("back");
-  $("moveBack").addEventListener("click", () => { pick.open = null; render(); });
+  $("moveLess").innerHTML = icon("minus");
+  $("moveMore").innerHTML = icon("plus");
+  const step = delta => { updateSettings({ moveDepth: Math.max(1, Number($("moveDepth").textContent) + delta) }); render(); };
+  $("moveLess").addEventListener("click", () => step(-1));
+  $("moveMore").addEventListener("click", () => step(1));
   $("moveSearch").addEventListener("input", () => render());
   $("moveCancel").addEventListener("click", close);
   $("moveOk").addEventListener("click", confirm);
@@ -168,6 +148,6 @@ export function initMoveTo() {
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape" || !isOpen()) return;
     e.stopImmediatePropagation();
-    if (pick.open) { pick.open = null; render(); } else close();
+    close();
   }, true);
 }

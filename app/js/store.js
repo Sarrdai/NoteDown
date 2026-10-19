@@ -34,7 +34,7 @@ export const DEFAULT_SETTINGS = {
   lastBackup: null,          // ISO time of the last backup made on this device (#56)
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
-  movePicker: "outline",     // prototype variant: the target picker of Move to… (ui/move-to.js), outline | steps
+  moveDepth: 2,              // levels the Move to… picker shows (ui/move-to.js), like tocDepth; this device only
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 

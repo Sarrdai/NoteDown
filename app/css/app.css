@@ -525,10 +525,9 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 /* Move to… (ui/move-to.js): notes and their sections to pick from; above the arrange dialog. */
 #moveDialog { z-index: 46; }
 .move-dialog { height: min(640px, 100%); }
-.move-head { display: flex; align-items: center; gap: 4px; }
-.move-head .icon-btn:not([hidden]) + .dialog-title { margin-left: 0; }
+.move-tools { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px 4px 8px; }
 .move-search {
-  flex: none; height: 40px; margin: 10px 4px 8px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px;
+  flex: 1; min-width: 0; height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px;
   background: var(--bg); color: var(--text); font: inherit;
 }
 .move-search:focus { outline: none; border-color: var(--accent); }
@@ -542,10 +541,9 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .move-row.plain .move-text { font-style: italic; }
 .move-row[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
 .move-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.move-tag, .move-chevron { flex: none; display: inline-flex; color: var(--text-faint); }
-.move-tag .icon, .move-chevron .icon { width: 16px; height: 16px; }
-.move-chevron { transform: rotate(180deg); }
-.move-count { flex: none; font-size: 0.8rem; color: var(--text-faint); }
+.move-tag { flex: none; display: inline-flex; color: var(--text-faint); }
+.move-tag .icon { width: 16px; height: 16px; }
+.move-more { flex: none; font-size: 0.8rem; color: var(--text-faint); }
 .move-empty { padding: 12px 10px; font-size: 0.9rem; color: var(--text-muted); }
 .move-where { flex: none; margin: 10px 8px 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .move-task { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; cursor: pointer; }

@@ -1456,11 +1456,13 @@ that host its IP address and the reading time.
   for their members (the dialog says so), like a private copy. Reached
   from the selection bar (whole notes and sections) and from each note row
   of the **Tidy up** dialog (its move button; the row leaves the dialog).
-  *Prototype: 2026-10-19.*
-  - Open: how the target is picked — **A Outline** (every note with its
-    headings in one list, one tap picks; recommended) or **B Step by
-    step** (the notes first, a tap opens a note's sections). ⋮ →
-    "Prototype", `?movepicker=outline|steps`.
+  The picker is **one outline**: every note with its headings, one tap
+  picks (decided 2026-10-19 over note first, then its sections: fewer
+  taps). **− / +** set how many levels it shows, as in the contents (the
+  note itself is level 1, its headings count from its highest one;
+  starts at 2, remembered on this device apart from the contents' count);
+  a note with sections on hidden levels shows "+n", and a search shows
+  every level of the notes it finds. *Prototype: 2026-10-19.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked and the cancelled task items
   (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the
