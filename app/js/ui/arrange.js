@@ -5,13 +5,16 @@
 // Below the list a sort (any but the custom ones) orders the unsorted rows,
 // so the next ones to sort in are easy to find. "Shelf" adds a shelf (a section
 // divider in the code) above the line: a titled row that moves like a note and groups
-// the notes below it; its × removes it (the notes stay where they are).
+// the notes below it; its × removes it (the notes stay where they are). A note's
+// move button moves it into a section of another note (ui/move-to.js): its row goes.
 import { noteTitle } from "../core/markdown.js";
 import { SORT_KEYS, DIR_LABELS, sortNotes, sectionId, sectionTitle } from "../core/query.js";
 import { orderGrip } from "./selection.js";
 import { openMenu } from "./menu.js";
 import { icon } from "./icons.js";
 import { refOf } from "../core/note-ref.js";
+import { moveTo } from "./move-to.js";
+import { showSnackbar } from "./snackbar.js";
 
 const $ = id => document.getElementById(id);
 let onSave = null;
@@ -58,7 +61,19 @@ function row(n) {
     if (li.classList.contains("unsorted")) divider.before(li); else divider.after(li);
     refresh();
   });
-  li.append(toggle, label, orderGrip(li));
+  const move = document.createElement("button");
+  move.className = "icon-btn small arrange-move";
+  move.setAttribute("aria-label", "Move to…");
+  move.title = "Move to…";
+  move.innerHTML = icon("moveto");
+  move.addEventListener("click", () => {
+    const id = refOf(n);
+    moveTo({
+      parts: [{ noteId: id, from: 0, to: 1, whole: true }], sources: { [id]: n }, candidates: [...notes.values()],
+      onDone: (target, undo, message) => { li.remove(); notes.delete(id); refresh(); showSnackbar(message, undo); },
+    });
+  });
+  li.append(toggle, label, move, orderGrip(li));
   return li;
 }
 

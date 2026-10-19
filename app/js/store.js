@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   lastBackup: null,          // ISO time of the last backup made on this device (#56)
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
+  movePicker: "outline",     // prototype variant: the target picker of Move to… (ui/move-to.js), outline | steps
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 
@@ -702,12 +703,12 @@ export function applyMerge(changes, merged, mode = "copy") {
 }
 
 /**
- * Merge into an existing note (core/selection.js → mergeInto): the target
+ * Move to (core/move.js → moveInto): the target
  * gets `body`, the other sources their remaining body from `changes` (null =
  * the note goes) — except sources shared in another circle, which keep
  * their part (core/sharing.js → keepsPart). Returns a function that undoes it.
  */
-export function applyMergeInto(targetId, body, changes) {
+export function applyMoveInto(targetId, body, changes) {
   const target = circleOf(targetId);
   changes = [{ id: targetId, body }, ...changes.filter(c => !keepsPart(circleOf(c.id), target))];
   const now = timestamp();

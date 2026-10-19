@@ -38,6 +38,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
+import { initMoveTo } from "./ui/move-to.js";
 import { initReminders } from "./ui/reminders.js";
 import { openDue } from "./ui/due.js";
 import { dueItems, dueNowCount } from "./core/due-list.js";
@@ -503,6 +504,12 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
+// After Move to…: the target note comes into view and flashes.
+function onMoved(id, undo, message) {
+  showNote(id);
+  showSnackbar(message, undo);
+}
+
 // The arrange dialog over the notes the list shows: the user's own custom
 // order, or the shared order of the circle in view.
 function arrange() {
@@ -647,6 +654,9 @@ function moreMenu() {
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
+    // Open decision: the target picker of Move to… (ui/move-to.js).
+    { label: "Move picker: Outline (A)", checked: (s.movePicker || "outline") === "outline", onSelect: () => updateSettings({ movePicker: "outline" }) },
+    { label: "Move picker: Step by step (B)", checked: s.movePicker === "steps", onSelect: () => updateSettings({ movePicker: "steps" }) },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -792,9 +802,10 @@ function wire() {
   initCompare();
   document.addEventListener("notedown:show-note", e => showNote(e.detail.id));
   initArrange();
+  initMoveTo();
   initToolbar({ onDue: sortInByDue });
   initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged, onChange: () => { renderToc(currentNotes()); renderFab(); } });
+  initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initSyncPanel();
   initContactRequests();
   initPullRefresh({
@@ -837,6 +848,7 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (["outline", "steps"].includes(p.get("movepicker"))) patch.movePicker = p.get("movepicker");
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
   // ?api=<url> points this browser at another sync server (local testing).

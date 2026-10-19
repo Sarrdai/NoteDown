@@ -21,7 +21,7 @@ export function mergeCircle(circles, mode) {
 }
 
 /**
- * Merge into an existing note: the target's circle wins. A source shared in
+ * Move to a note: the target's circle wins. A source shared in
  * another circle keeps its part for its members (like a private copy); a
  * private source or one in the target's circle gives it up.
  */

@@ -51,6 +51,8 @@ after a tap or never, and whether links open, ask first or stay text, is
 set per device — for all notes and per circle — so no one else's note
 makes a device contact another host. A
 long-press on a note starts multi-select to close, copy, share, merge,
+move into a section of another note (a dictated note joins a task list
+as a task),
 make permanent (notes of lasting value that can't be closed) or delete
 several notes at once, to make a private copy of shared notes (it stays
 linked to the original, shows when that changed and can be compared and
