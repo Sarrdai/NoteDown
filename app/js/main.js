@@ -162,7 +162,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
-  for (const v of Object.keys(PILE_LOOKS)) app.classList.toggle("pilelook-" + v, s.pileLook === v);
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -668,10 +667,6 @@ function fitTopbar() {
   title.textContent = text;
 }
 
-// How the Shelves' pile stands apart from the shelves (Prototype variant, settings.pileLook):
-// a tinted tray around the pile's notes (A), loose dashed cards (B), shelves as planks (C), as today (D).
-const PILE_LOOKS = { tray: "Tray (A)", loose: "Loose cards (B)", planks: "Shelf planks (C)", today: "As today (D)" };
-
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
@@ -683,8 +678,6 @@ function moreMenu() {
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
-    { section: "Prototype: pile and shelves" },
-    ...Object.entries(PILE_LOOKS).map(([v, label]) => ({ label, checked: s.pileLook === v, onSelect: () => updateSettings({ pileLook: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -877,7 +870,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  if (PILE_LOOKS[p.get("pilelook")]) patch.pileLook = p.get("pilelook");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);

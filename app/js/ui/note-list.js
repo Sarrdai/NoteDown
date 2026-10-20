@@ -101,7 +101,7 @@ export function listItems(notes, { pile = null, onArrange, onTogglePile, section
   return items;
 }
 
-// The pile's notes carry a class, the last one another, for the pile's look (Prototype variant, settings.pileLook).
+// The pile's notes carry a class, the last one another, for the pile's tray (app.css).
 const PILE_MARKS = ["on-pile", "pile-last"];
 export const onPile = el => { el.classList.add("on-pile"); return el; };
 export function markPileEnd(items) {
@@ -115,7 +115,7 @@ export function sectionHeader({ id, title, count, collapsed }, onToggle) {
   b.className = "section-header" + (collapsed ? " collapsed" : "");
   b.dataset.section = id;
   b.setAttribute("aria-expanded", String(!collapsed));
-  b.innerHTML = `${icon("down")}<span class="shelf-mark">${icon("shelf")}</span><span class="section-title"></span><span class="section-count"></span>`;
+  b.innerHTML = `${icon("down")}<span class="section-title"></span><span class="section-count"></span>`;
   b.querySelector(".section-title").textContent = title;
   b.querySelector(".section-count").textContent = collapsed ? notesCount(count) : String(count);
   if (onToggle) b.addEventListener("click", () => onToggle(id));

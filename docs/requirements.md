@@ -774,8 +774,14 @@ paid features per user.
   (2026-10-19, user request, over "My order", itself chosen 2026-10-18
   over "Custom"; the picture of putting notes onto shelves says what it
   does). Notes start on the **Pile**: the
-  notes not sorted in yet, **first in the list** under a tinted header
+  notes not sorted in yet, **first in the list** under a header
   "Pile" with their count and **Tidy up…**, by last edited, newest first;
+  header and notes lie on one tinted **tray** (in the list and the table of
+  contents) that the tidy-up reminder colours grey, yellow or red and that
+  ends before the first shelf (decided 2026-10-20, user request, over loose
+  dashed cards and shelves on accent planks: the pile's notes looked like
+  shelved ones, and the tray marks the boundary while scrolling, with the
+  shelves' light look unchanged);
   then the sorted notes (decided 2026-10-18 over the pile at the end: a new
   note appears where the user looks, as in every other sort, and folding
   keeps the order in view). A tap on the header **folds** the pile to that
