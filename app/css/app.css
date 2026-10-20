@@ -1140,7 +1140,6 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .pile-header .link-btn { flex: none; border: 0; padding: 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
 .pile-header .link-btn:hover, .pile-toggle:hover { background: var(--surface-hover); border-radius: 8px; }
 .pile-toggle:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
-.list .pile-header { margin: 2px 0; }
 .toc-list .pile-header { min-height: 36px; margin: 6px 0 2px; }
 .toc-list .pile-toggle { min-height: 36px; gap: 6px; }
 .toc-list .pile-toggle > .icon { width: 14px; height: 14px; }
@@ -1164,6 +1163,21 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .toc-list .section-header::after { display: none; }
 .toc-list .section-header svg { width: 14px; height: 14px; color: inherit; }
 .toc-list .section-title { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+/* The pile's tray (decided 2026-10-20): its header and notes sit on one opaque tint, the reminder's level
+   colouring it, so the pile stands apart from the shelves below. In the list the tray is the cards' spread
+   shadow; each but the last also reaches down over the gap below it (the next card covers the rest). */
+:is(.list, .toc-list) { --tray: color-mix(in srgb, var(--text) 7%, var(--bg)); --tray-pad: 8px; }
+:is(.list, .toc-list):has(.pile-header.level-warn) { --tray: color-mix(in srgb, var(--warning) 16%, var(--bg)); }
+:is(.list, .toc-list):has(.pile-header.level-full) { --tray: color-mix(in srgb, var(--danger) 14%, var(--bg)); }
+:is(.list, .toc-list) .pile-header { --pile-tint: var(--tray); }
+.list .pile-header { margin: 2px 0 0; box-shadow: 0 0 0 var(--tray-pad) var(--tray); }
+.list .pile-header:has(+ .note.on-pile) { box-shadow: 0 0 0 var(--tray-pad) var(--tray), 0 20px 0 var(--tray-pad) var(--tray), 0 40px 0 var(--tray-pad) var(--tray); }
+.list .note.on-pile { box-shadow: var(--shadow), 0 0 0 var(--tray-pad) var(--tray), 0 60px 0 var(--tray-pad) var(--tray); }
+.list .note.on-pile.pile-last { box-shadow: var(--shadow), 0 0 0 var(--tray-pad) var(--tray); margin-bottom: 14px; }
+.toc-list .pile-header:has(+ .on-pile) { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.toc-list .toc-entry.on-pile { margin-top: 0; border-radius: 0; background: var(--tray); }
+.toc-list .toc-entry.on-pile.level-1 { padding-top: 10px; }   /* the level-1 gap, inside the tray */
+.toc-list .toc-entry.on-pile.pile-last { border-radius: 0 0 12px 12px; margin-bottom: 10px; padding-bottom: 8px; }
 .empty { max-width: 780px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-muted); }
 
 /* ---------- table of contents ---------- */

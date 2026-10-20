@@ -11,7 +11,7 @@
 import { tableOfContents } from "../core/query.js";
 import { sectionProgress } from "../core/tasks.js";
 import { state, updateSettings } from "../store.js";
-import { flashNote, pileHeader, sectionHeader } from "./note-list.js";
+import { flashNote, pileHeader, sectionHeader, onPile, markPileEnd } from "./note-list.js";
 import { isSelecting, toggleSection, selectSectionRange } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { markHits } from "./search-hits.js";
@@ -60,16 +60,18 @@ export function tocItems(notes, search = state.search, view = state.view) {
   let piled = !pile;
   const putPile = () => { if (!piled) shown.push(pileHeader(pile, live ? custom.onTogglePile : null, onArrange)); piled = true; };
   const byId = new Map(notes.map(n => [refOf(n), n]));
-  let lastNote = null, current = null, folded = false;
+  let lastNote = null, current = null, folded = false, piling = false;
   entries.forEach((e, i) => {
     if (e.noteId !== lastNote) {
       lastNote = e.noteId;
       if (pile?.has(e.noteId)) {
         putPile();
         current = null;
+        piling = true;
         folded = pile.collapsed && e.noteId !== pile.top;
       } else {
         if (e.noteId !== pile?.top) putPile();
+        piling = false;
         const s = sectionOf(byId.get(e.noteId));
         if (s && s.id !== current) shown.push(sectionHeader(s, live ? custom.onToggleSection : null));
         current = s?.id ?? null;
@@ -90,9 +92,10 @@ export function tocItems(notes, search = state.search, view = state.view) {
     markHits(b, search);
     const p = progress && progress.get(e.noteId)[e.index];
     if (p) b.prepend(progressBadge(p));
-    shown.push(b);
+    shown.push(piling ? onPile(b) : b);
   });
   putPile();   // the pile is empty, or every entry is a new note's
+  markPileEnd(shown);
   return shown;
 }
 

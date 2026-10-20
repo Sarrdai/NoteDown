@@ -50,7 +50,12 @@ export function reorderList(notes, { keepId, ...options }) {
   const shown = new Map([...list().querySelectorAll(".note[data-id]")].map(el => [el.dataset.id, el]));
   const top = () => list().querySelector(`.note[data-id="${keepId}"]`)?.getBoundingClientRect().top;
   const before = keepId && top();
-  const items = listItems(notes, options).map(el => shown.get(el.dataset?.id) || el);
+  const items = listItems(notes, options).map(el => {
+    const old = shown.get(el.dataset?.id);
+    if (!old) return el;
+    for (const c of PILE_MARKS) old.classList.toggle(c, el.classList.contains(c));
+    return old;
+  });
   list().replaceChildren(...items);
   if (before !== undefined && before !== null) { const after = top(); if (after !== undefined) window.scrollBy(0, after - before); }
 }
@@ -82,7 +87,7 @@ export function listItems(notes, { pile = null, onArrange, onTogglePile, section
     if (pile?.has(id)) {
       putPile();
       // A new note on top of a folded pile still shows: it is being written.
-      if (!pile.collapsed || id === pile.top) items.push(noteElement(n, view));
+      if (!pile.collapsed || id === pile.top) items.push(onPile(noteElement(n, view)));
       continue;
     }
     if (id !== pile?.top) putPile();
@@ -92,7 +97,16 @@ export function listItems(notes, { pile = null, onArrange, onTogglePile, section
     if (!s?.collapsed) items.push(noteElement(n, view));
   }
   if (notes.length) putPile();
+  markPileEnd(items);
   return items;
+}
+
+// The pile's notes carry a class, the last one another, for the pile's tray (app.css).
+const PILE_MARKS = ["on-pile", "pile-last"];
+export const onPile = el => { el.classList.add("on-pile"); return el; };
+export function markPileEnd(items) {
+  const last = items.findLast(el => el.classList.contains("on-pile"));
+  if (last) last.classList.add("pile-last");
 }
 
 /** A shelf's header (a section divider) in Shelves (also in the contents): a tap folds or unfolds it. */
