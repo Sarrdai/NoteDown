@@ -11,11 +11,12 @@ import { state, subscribe, setSync, replaceFiles, eraseStoredState, contacts } f
 import { timestamp } from "../core/notes-file.js";
 import { syncNow } from "../sync-sim.js";
 import {
-  syncNow as syncReal, turnOn, restore, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
+  syncNow as syncReal, turnOn, restore, renameDevice, removeDevice, signOut, eraseDevice, loadDevices, syncAvailable, startLinking, waitForLink, readLinkCode, linkDevice,
   deleteIdentity,
 } from "../sync/client.js";
 import { ApiError } from "../sync/api.js";
 import { createInvitation, myCode, readInvite, sendRequest, removeContact, onContactConfirmed } from "../sync/contacts.js";
+import { deviceLabel } from "../core/linking.js";
 import { deviceRows, storageUsage, daysSince, STALE_DAYS, detachedFile } from "../core/sync-state.js";
 import { loadSharingSample, loadSampleState } from "../sample.js";
 import {
@@ -280,10 +281,20 @@ function lastSynced(synced) {
   return { sub: "Last synced " + (days < 1 ? "today" : days < 2 ? "yesterday" : `${days} days ago`), stale: false };
 }
 
-const deviceRow = (title, synced, remove) => {
-  const { sub, stale } = lastSynced(synced);
-  return row({ icon: "device", title, sub, unverified: stale, remove });
+// A row of the device list; a tap opens the page that renames it. `hint`: the name the device suggested,
+// under the one the user gave it.
+const deviceRow = ({ label, hint, synced, own, named }, open, remove) => {
+  const { sub, stale } = own ? { sub: named ? "This device" : deviceName() } : lastSynced(synced);
+  return row({ icon: "device", title: label, sub: hint ? `${hint} · ${sub}` : sub, unverified: stale, open, remove });
 };
+// The sample's devices as rows: this one with the name its browser suggests, the others from sample/sharing.json.
+function simulatedRows() {
+  const own = deviceLabel(navigator.userAgent), title = state.sync.deviceTitle;
+  return [
+    { own: true, named: true, label: title || own, title, hint: title && own, suggested: own },
+    ...state.sync.devices.map(simDevice).map((d, i) => ({ index: i, label: d.title || d.name, title: d.title, hint: d.title && d.name, suggested: d.name, synced: d.synced })),
+  ];
+}
 
 function deviceName() {
   if (matchMedia("(min-width: 1024px)").matches) return "This browser";
@@ -577,6 +588,26 @@ const PAGES = {
     },
   },
 
+  // The name the user gives a device (docs/requirements.md → "Devices have names"); empty: the one it suggested.
+  renameDevice: {
+    title: "Rename device",
+    render: data => {
+      data.value ??= data.title || "";
+      const save = () => {
+        if (real()) renameDevice(data.id, data.value);
+        else if (data.own) setSync({ deviceTitle: data.value.trim() || undefined });
+        else setSync({ devices: state.sync.devices.map(simDevice).map((d, i) => (i === data.index ? { ...d, title: data.value.trim() || undefined } : d)) });
+        popPage();
+      };
+      const fallback = data.suggested || data.label;
+      return [
+        field("Name", textInput({ value: data.value, maxlength: "40", placeholder: fallback, "aria-label": "Name" }, v => { data.value = v; }, save),
+          data.suggested ? `Shown on all your devices. Leave it empty to show “${data.suggested}”.` : "Shown on all your devices."),
+        h("div", { class: "sheet-actions" }, button("Save", "primary", save)),
+      ];
+    },
+  },
+
   removeDevice: {
     title: "Remove device",
     render: data => {
@@ -737,16 +768,18 @@ function realOverview(data) {
   if (!data.rows && !data.loading) {
     data.loading = true;
     loadDevices()
-      .then(devices => { data.rows = deviceRows(devices, state.sync.device, state.file.devices); })
+      .then(devices => { data.devices = devices; })
       .catch(e => { data.failed = e.message; })
       .finally(() => { data.loading = false; if (isOpen && top().data === data) render({ keepScroll: true }); });
   }
+  // Drawn from the private file each time, so a rename shows at once.
+  data.rows = data.devices && deviceRows(data.devices, state.sync.device, state.file.devices)
+    .map(d => ({ ...d, suggested: d.hint || (!d.title && d.named ? d.label : "") }));
   return [
     section("Devices"),
     data.rows
-      ? h("ul", { class: "sheet-card" }, data.rows.map(d => d.own
-          ? row({ icon: "device", title: d.label, sub: d.named ? "This device" : deviceName() })
-          : deviceRow(d.label, d.synced, () => go("removeDevice", d))))
+      ? h("ul", { class: "sheet-card" }, data.rows.map(d =>
+          deviceRow(d, () => go("renameDevice", d), !d.own && (() => go("removeDevice", d)))))
       : text(data.failed ? `Couldn't load the devices: ${data.failed}` : "Loading…", "sheet-text muted"),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger",
@@ -766,9 +799,8 @@ function simulatedOverview() {
   const { devices } = state.sync;
   return [
     section("Devices"),
-    h("ul", { class: "sheet-card" },
-      row({ icon: "device", title: "This device", sub: deviceName() }),
-      devices.map(simDevice).map((d, i) => deviceRow(d.name, d.synced, () => removeFromList("devices", i, d.name)))),
+    h("ul", { class: "sheet-card" }, simulatedRows().map(d =>
+      deviceRow(d, () => go("renameDevice", d), !d.own && (() => removeFromList("devices", d.index, d.label))))),
     h("div", { class: "button-row" }, button("Link a device", "outline", () => go("linkDevice"))),
     h("div", { class: "button-row" }, button("Sign out this device", "outline danger", () => go("signOut", { others: devices.length > 0 }))),
     contactsSections((c, i) => removeFromList("contacts", i, c.name)),

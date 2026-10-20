@@ -66,14 +66,15 @@ function mergeMarkers(base, local, remote, list) {
   return out;
 }
 
-// Device markers merge like the others, except that the later `synced` of both sides is kept: each device
-// writes only its own, and a name changed on the other side mustn't take it back.
+// Device markers merge like the others without `synced`, which merges on its own as the later of both sides:
+// each device writes only its own, and a name changed on the other side mustn't take it back (nor the reverse).
 function mergeDevices(base, local, remote) {
   const synced = new Map();
   for (const d of [...(local.devices || []), ...(remote.devices || [])]) {
     if (d.synced && !(synced.get(d.id) >= d.synced)) synced.set(d.id, d.synced);
   }
-  return mergeMarkers(base, local, remote, "devices").map(d => (synced.has(d.id) ? { ...d, synced: synced.get(d.id) } : d));
+  const names = f => ({ devices: (f.devices || []).map(({ synced, ...d }) => d) });
+  return mergeMarkers(names(base), names(local), names(remote), "devices").map(d => (synced.has(d.id) ? { ...d, synced: synced.get(d.id) } : d));
 }
 
 /** Merges a displaced edit into the parsed file the note now lives in. */

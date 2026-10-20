@@ -909,8 +909,14 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
 /* Verifying a contact (backlog #4, ui/verify-contact.js). */
 .row-open {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; align-self: stretch; margin: -6px 0 -6px -14px; padding: 6px 0 6px 14px;
-  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 0;
 }
+/* The highlight fills the row up to the card's edge and is rounded only where it meets the card's corners. */
+.row-open:last-child { margin-right: -4px; padding-right: 4px; }
+.sheet-row:first-child > .row-open { border-top-left-radius: 11px; }
+.sheet-row:first-child > .row-open:last-child { border-top-right-radius: 11px; }
+.sheet-row:last-child > .row-open { border-bottom-left-radius: 11px; }
+.sheet-row:last-child > .row-open:last-child { border-bottom-right-radius: 11px; }
 a.row-open { text-decoration: none; }
 .row-open:hover { background: var(--surface-hover); }
 .row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

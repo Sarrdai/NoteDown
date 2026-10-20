@@ -143,17 +143,20 @@ moved markers, so every device of the identity shows the same names
 while the server knows none:
 
 ```markdown
-<!-- device id=Qm9vS2V5SWQxMjM0NTY3OA name=Chrome%20on%20Windows synced=2026-10-15T08:00Z -->
+<!-- device id=Qm9vS2V5SWQxMjM0NTY3OA name=Chrome%20on%20Windows title=Office%20laptop synced=2026-10-15T08:00Z -->
 ```
 
 `id` is the device ID from the device list (`docs/server-api.md`), `name`
-is percent-encoded (`encodeURIComponent`), `synced` the start (UTC) of the
-device's last complete sync round, updated at most once a day; a device
-without a name may have a marker with `synced` only. A device names itself when it
-turns on sync or restores; a linked device writes the name the new
-device's QR code suggests; removing a device drops its marker. Merging
-works per ID: the side that changed a name wins, a removal stays, the
-later `synced` is kept. Any
+the name the device suggested, `title` the one the user gave it (both
+optional and percent-encoded with `encodeURIComponent`), `synced` the
+start (UTC) of the device's last complete sync round, updated at most once
+a day; a device without a name may have a marker with `synced` only. A
+device names itself when it turns on sync or restores (keeping a `title`);
+a linked device writes the name the new device's QR code suggests;
+renaming sets or clears `title`; removing a device drops its marker.
+Merging works per ID: the side that changed `name` or `title` wins, a
+removal stays, and `synced` merges on its own as the later of both sides,
+so a rename isn't lost to another device's sync time. Any
 text after a device marker is dropped, like after a moved marker.
 
 ## Leaving a shared note

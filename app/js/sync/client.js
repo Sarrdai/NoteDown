@@ -12,7 +12,7 @@
 // (`state.sync.simulated`) never reaches this module.
 import { state, setSync, setPrivateFile, onFilesChanged, eraseStoredState, contacts, sharedFiles, replaceFiles } from "../store.js";
 import * as c from "../core/crypto.js";
-import { withoutUntouchedWelcome, withDeviceName, nextPollDelay, POLL_MIN_MS, limitRefusal, detachedFile } from "../core/sync-state.js";
+import { withoutUntouchedWelcome, withDeviceName, withDeviceTitle, nextPollDelay, POLL_MIN_MS, limitRefusal, detachedFile } from "../core/sync-state.js";
 import { deleteWithRecoveryKey } from "./delete-identity.js";
 import { linkCode, parseLinkCode, relayMessage, parseRelayMessage, deviceLabel, serverUrl } from "../core/linking.js";
 import { createApis, ApiError, NetworkError } from "./api.js";
@@ -384,6 +384,12 @@ export async function linkDevice(text) {
   } catch (e) {
     throw e instanceof ApiError && e.status === 409 ? expired : e;
   }
+}
+
+/** Gives device `id` (this one or another of the user's) a name; empty: back to the one it suggested. Synced in the private file. */
+export function renameDevice(id, title) {
+  setPrivateFile(withDeviceTitle(state.file, id, title));
+  syncNow();
 }
 
 /**

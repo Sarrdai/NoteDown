@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS = {
 // file keys live in IndexedDB. `server` is the identity's home server ("" = the default server, the
 // configured API address).
 // `simulated` (the sample, ?sample) runs sync-sim.js instead, with fake
-// `recoveryKey`, `devices` (the other devices' names) and `contacts`; real
+// `recoveryKey`, `devices` (the other devices: { name, title?, synced }), `deviceTitle` (the name given to this one) and `contacts`; real
 // contacts are in the private file (`contacts()`). `requests` are the incoming
 // contact requests, { id, name, via, inPerson } (`inPerson`: made on a code this device showed; real: also `identity`), from the
 // server in each round (sync/contacts.js) or simulated.

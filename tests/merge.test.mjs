@@ -178,15 +178,18 @@ test("purged markers: round-trip, survive the merge and keep a stale device from
   assert.deepEqual(mergeNotesFiles(file(trashed), purged, file(restored)).file.notes, [restored]);
 });
 
-test("device markers: name and sync time round-trip; the later sync time wins", () => {
-  const text = serializeNotesFile({ ...file(), devices: [{ id: "d1", name: "Pixel 8", synced: "2026-10-13T09:00Z" }, { id: "d2", synced: "2026-10-01T09:00Z" }] });
-  assert.match(text, /<!-- device id=d1 name=Pixel%208 synced=2026-10-13T09:00Z -->/);
-  assert.deepEqual(parseNotesFile(text).devices, [{ id: "d1", name: "Pixel 8", synced: "2026-10-13T09:00Z" }, { id: "d2", synced: "2026-10-01T09:00Z" }]);
+test("device markers: names and sync time round-trip; a rename and the later sync time both win", () => {
+  const devices = [{ id: "d1", name: "Chrome on Android", title: "Pixel 8", synced: "2026-10-13T09:00Z" }, { id: "d2", synced: "2026-10-01T09:00Z" }, { id: "d3", title: "Tablet" }];
+  const text = serializeNotesFile({ ...file(), devices });
+  assert.match(text, /<!-- device id=d1 name=Chrome%20on%20Android title=Pixel%208 synced=2026-10-13T09:00Z -->/);
+  assert.deepEqual(parseNotesFile(text).devices, devices);
   const base = { ...file(), devices: [{ id: "d1", name: "Phone", synced: "2026-10-01T09:00Z" }] };
   const renamed = { ...file(), devices: [{ id: "d1", name: "Pixel", synced: "2026-10-01T09:00Z" }] };
   const synced = { ...file(), devices: [{ id: "d1", name: "Phone", synced: "2026-10-14T09:00Z" }, { id: "d2", synced: "2026-10-14T08:00Z" }] };
   assert.deepEqual(mergeNotesFiles(base, renamed, synced).file.devices,
-    [{ id: "d1", name: "Phone", synced: "2026-10-14T09:00Z" }, { id: "d2", synced: "2026-10-14T08:00Z" }]);
+    [{ id: "d1", name: "Pixel", synced: "2026-10-14T09:00Z" }, { id: "d2", synced: "2026-10-14T08:00Z" }]);
+  assert.deepEqual(mergeNotesFiles(base, synced, renamed).file.devices,
+    [{ id: "d1", name: "Pixel", synced: "2026-10-14T09:00Z" }, { id: "d2", synced: "2026-10-14T08:00Z" }]);
 });
 
 test("trash: deleted and kept round-trip and merge as one field group", () => {

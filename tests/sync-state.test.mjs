@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, createNote } from "../app/js/core/notes-file.js";
-import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince, blockedMessage, detachedFile, syncNotice } from "../app/js/core/sync-state.js";
+import { welcomeNotes, withoutUntouchedWelcome, matchFiles, fileMembers, allKeyHolders, hasContent, deviceRows, keyHolders, withDeviceName, withDeviceTitle, storageUsage, limitRefusal, nextPollDelay, serverRestored, WELCOME_PREFIX, withSynced, dropSeenPurged, daysSince, blockedMessage, detachedFile, syncNotice } from "../app/js/core/sync-state.js";
 
 const welcomeText = readFileSync(new URL("../app/welcome.md", import.meta.url), "utf8");
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
@@ -47,6 +47,26 @@ test("deviceRows: names from the private file, removed devices' names ignored", 
     { id: "b", own: true, named: true, label: "NoteDown app on Android" },
     { id: "a", own: false, named: true, synced: "2026-10-14T08:00Z", label: "Chrome on Windows" },
   ]);
+});
+
+test("deviceRows: a given name is the label, the suggested one its hint", () => {
+  const devices = new Map([dev("a"), dev("b"), dev("c")]);
+  const names = [{ id: "a", name: "Chrome on Windows", title: "Office laptop" }, { id: "b", name: "NoteDown app on Android", title: "Pixel" }, { id: "c", title: "Old tablet" }];
+  assert.deepEqual(deviceRows(devices, "b", names), [
+    { id: "b", own: true, named: true, title: "Pixel", hint: "NoteDown app on Android", label: "Pixel" },
+    { id: "a", own: false, named: true, title: "Office laptop", hint: "Chrome on Windows", label: "Office laptop" },
+    { id: "c", own: false, named: true, title: "Old tablet", label: "Old tablet" },
+  ]);
+});
+
+test("withDeviceTitle: sets and clears the given name, keeps the suggested one and the sync time", () => {
+  const f = { ...file(), devices: [{ id: "a", name: "Chrome on Windows", synced: "2026-10-15T08:00Z" }] };
+  const named = withDeviceTitle(f, "a", "  Office laptop ");
+  assert.deepEqual(named.devices, [{ id: "a", name: "Chrome on Windows", title: "Office laptop", synced: "2026-10-15T08:00Z" }]);
+  assert.deepEqual(withDeviceName(named, "a", "Firefox on Windows").devices[0].title, "Office laptop", "a new suggestion keeps the given name");
+  assert.deepEqual(withDeviceTitle(named, "a", " ").devices, f.devices);
+  assert.deepEqual(withDeviceTitle(file(), "x", "Old tablet").devices, [{ id: "x", title: "Old tablet" }], "a device without a marker");
+  assert.deepEqual(withDeviceTitle({ ...file(), devices: [{ id: "x", title: "Old tablet" }] }, "x", "").devices, []);
 });
 
 test("withDeviceName: sets, replaces and removes a device name", () => {

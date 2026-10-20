@@ -4,9 +4,9 @@
   "storage": { "used": 314572, "quota": 2097152 },
   "maxMembers": 3,
   "devices": [
-    { "name": "Pixel 8", "syncedDaysAgo": 0 },
+    { "name": "NoteDown app on Android", "title": "Pixel 8", "syncedDaysAgo": 0 },
     { "name": "Chrome on Windows", "syncedDaysAgo": 3 },
-    { "name": "Galaxy Tab A", "syncedDaysAgo": 104 }
+    { "name": "Chrome on Android", "title": "Galaxy Tab A", "syncedDaysAgo": 104 }
   ],
   "contacts": [
     { "id": "lea", "name": "Lea", "via": "scan" },
