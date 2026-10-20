@@ -28,7 +28,7 @@ import { validColor, validDecor } from "./look.js";
 const MARKER = /^<!-- (note|device|contact|member|news|source|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
 /** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, sources, order }
- *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
+ *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, title?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
  *  `news`: [{ id, seen, status? }], `sources`: [{ id, name }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
@@ -47,7 +47,7 @@ export function parseNotesFile(text) {
     else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "news") { if (c.meta.id && c.meta.seen) news.push(finishNews(c.meta)); }
     else if (c.kind === "source") { if (c.meta.id && c.meta.name) sources.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
-    else if (c.kind === "device") { if (c.meta.id && (c.meta.name || c.meta.synced)) devices.push(finishDevice(c.meta)); }
+    else if (c.kind === "device") { if (c.meta.id && (c.meta.name || c.meta.title || c.meta.synced)) devices.push(finishDevice(c.meta)); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved, ...(c.meta.to && { to: c.meta.to.split("+") }) });
     else if (c.meta.purged && c.meta.id) purged.push({ id: c.meta.id, purged: c.meta.purged });
     else notes.push(finishNote(c));
@@ -76,7 +76,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], purged = 
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved}${m.to ? ` to=${m.to.join("+")}` : ""} -->`);
   for (const m of purged) parts.push(`<!-- note id=${m.id} purged=${m.purged} -->`);
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
-  for (const d of devices) parts.push(`<!-- device id=${d.id}${d.name ? " name=" + encodeURIComponent(d.name) : ""}${d.synced ? " synced=" + d.synced : ""} -->`);
+  for (const d of devices) parts.push(`<!-- device id=${d.id}${d.name ? " name=" + encodeURIComponent(d.name) : ""}${d.title ? " title=" + encodeURIComponent(d.title) : ""}${d.synced ? " synced=" + d.synced : ""} -->`);
   for (const c of contacts) {
     parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""} -->`);
   }
@@ -136,9 +136,12 @@ function decodeName(text) {
   try { return decodeURIComponent(text); } catch { return text; }
 }
 
-// A device: `name` as the device suggested it, `synced` the start of its last complete sync round.
+// A device: `name` as the device suggested it, `title` the name the user gave it, `synced` the start of its last complete sync round.
 function finishDevice(meta) {
-  return { id: meta.id, ...(meta.name && { name: decodeName(meta.name) }), ...(meta.synced && { synced: meta.synced }) };
+  return {
+    id: meta.id, ...(meta.name && { name: decodeName(meta.name) }), ...(meta.title && { title: decodeName(meta.title) }),
+    ...(meta.synced && { synced: meta.synced }),
+  };
 }
 
 // A contact: `color` is a slot 1–6 (1 when missing or invalid), `server` the contact's home server (absent = the default), `pending` the time the request was sent,
