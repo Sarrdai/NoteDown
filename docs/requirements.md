@@ -469,7 +469,15 @@ before the first live test).
     its browser and system ("Chrome on Windows", "NoteDown app on
     Android"); it travels in the QR code and is kept, encrypted, in the
     private file, so every device lists the same names. Devices linked
-    before names existed stay "Device n"; renaming is not built.
+    before names existed stay "Device n".
+  - **Renaming a device** (user request 2026-10-20, to find devices more
+    easily): a tap on a row of the device list — this device or another
+    — opens "Rename device" with a name field; empty goes back to the
+    suggested name. The given name is the row's title and syncs like the
+    suggested one; the suggested name stays under it as a hint ("Chrome
+    on Windows · Last synced today"), since it tells which browser it
+    is. Linking doesn't ask for a name (renaming later is enough); the ✕
+    to remove a device stays in the row. *Prototype: 2026-10-20.*
   - **Stale devices** (decided 2026-10-15, user request): the device list
     shows for every other device when it last synced ("Last synced 3 days
     ago"; "No sync reported yet" for one that hasn't reported a sync —

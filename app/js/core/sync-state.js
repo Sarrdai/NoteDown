@@ -33,23 +33,37 @@ export function withoutUntouchedWelcome(file) {
 /**
  * Rows for the device list: the active devices of a verified chain (a Map
  * from crypto.verifyChain), this device first. `names` are the private file's
- * device markers ([{ id, name?, synced? }]); without a name, this device is "This device"
- * and the others are numbered in the order they were added. `synced`: when the device last synced.
+ * device markers ([{ id, name?, title?, synced? }]). `label` is what the row shows: the name the user gave the
+ * device (`title`), else the one it suggested (`name`), else "This device" for this device and the others
+ * numbered in the order they were added; `hint` is the suggested name under a given one. `synced`: when the device last synced.
  */
 export function deviceRows(devices, ownId, names = []) {
-  const named = new Map(names.filter(d => d.name).map(d => [d.id, d.name]));
-  const synced = new Map(names.filter(d => d.synced).map(d => [d.id, d.synced]));
+  const marker = new Map(names.map(d => [d.id, d]));
   const all = [...devices.values()].filter(d => d.kind === "device");
-  const rows = all.map((d, i) => ({ id: d.id, own: d.id === ownId, named: named.has(d.id), ...(synced.has(d.id) && { synced: synced.get(d.id) }),
-    label: named.get(d.id) || (d.id === ownId ? "This device" : `Device ${i + 1}`), active: d.active }));
+  const rows = all.map((d, i) => {
+    const { name, title, synced } = marker.get(d.id) || {};
+    return {
+      id: d.id, own: d.id === ownId, named: Boolean(title || name), ...(synced && { synced }), ...(title && { title }), ...(title && name && { hint: name }),
+      label: title || name || (d.id === ownId ? "This device" : `Device ${i + 1}`), active: d.active,
+    };
+  });
   return rows.filter(r => r.active).sort((a, b) => b.own - a.own).map(({ active, ...r }) => r);
 }
 
-/** The private file with `name` set for device `id` (none: the name removed). */
+/** The private file with `name` (the suggested one) set for device `id`, its given name and sync time kept
+ *  (none: the device's marker removed, e.g. when the device is removed). */
 export function withDeviceName(file, id, name) {
   const devices = (file.devices || []).filter(d => d.id !== id);
-  const synced = (file.devices || []).find(d => d.id === id)?.synced;
-  return { ...file, devices: name ? [...devices, { id, name, ...(synced && { synced }) }] : devices };
+  const { title, synced } = (file.devices || []).find(d => d.id === id) || {};
+  return { ...file, devices: name ? [...devices, { id, name, ...(title && { title }), ...(synced && { synced }) }] : devices };
+}
+
+/** The private file with the name the user gave device `id` set to `title` (trimmed; empty: back to the suggested name). */
+export function withDeviceTitle(file, id, title) {
+  const devices = (file.devices || []).filter(d => d.id !== id);
+  const { name, synced } = (file.devices || []).find(d => d.id === id) || {};
+  const next = { id, ...(name && { name }), ...(title?.trim() && { title: title.trim() }), ...(synced && { synced }) };
+  return { ...file, devices: next.name || next.title || next.synced ? [...devices, next] : devices };
 }
 
 /** Days without a sync after which a device is shown as stale, with the suggestion to remove it. */
