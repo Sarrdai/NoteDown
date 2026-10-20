@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foreground of the adaptive app shortcut icon (drawable-anydpi-v26/ic_shortcut_new_note.xml). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The 24-unit icon at 1.75× (42 of the 72 units visible in the mask), centered. -->
+    <group android:scaleX="1.75" android:scaleY="1.75" android:translateX="33" android:translateY="33">
+    <path android:pathData="M12,5v14M5,12h14" android:strokeColor="#FFFFFF" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
+</vector>
