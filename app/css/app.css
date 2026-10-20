@@ -1158,6 +1158,48 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .toc-list .section-header::after { display: none; }
 .toc-list .section-header svg { width: 14px; height: 14px; color: inherit; }
 .toc-list .section-title { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+/* Prototype variants: how the pile stands apart from the shelves (settings.pileLook). */
+.shelf-mark { display: none; }
+/* A — Tray: the pile's header and notes sit on one tinted tray. The tray is the cards' spread shadow in an
+   opaque tint; each but the last also reaches down over the gap below it (the next card covers the rest). */
+.app.pilelook-tray {
+  --tray: color-mix(in srgb, var(--text) 7%, var(--bg));
+  --tray-pad: 8px;
+}
+.app.pilelook-tray .pile-header { --pile-tint: var(--tray); }
+.app.pilelook-tray .pile-header.level-warn { --tray: color-mix(in srgb, var(--warning) 16%, var(--bg)); }
+.app.pilelook-tray .pile-header.level-full { --tray: color-mix(in srgb, var(--danger) 14%, var(--bg)); }
+.app.pilelook-tray .list:has(.pile-header.level-warn) { --tray: color-mix(in srgb, var(--warning) 16%, var(--bg)); }
+.app.pilelook-tray .list:has(.pile-header.level-full) { --tray: color-mix(in srgb, var(--danger) 14%, var(--bg)); }
+.app.pilelook-tray .list .pile-header { margin: 2px 0 0; box-shadow: 0 0 0 var(--tray-pad) var(--tray); }
+.app.pilelook-tray .list .pile-header:has(+ .note.on-pile) { box-shadow: 0 0 0 var(--tray-pad) var(--tray), 0 20px 0 var(--tray-pad) var(--tray), 0 40px 0 var(--tray-pad) var(--tray); }
+.app.pilelook-tray .list .note.on-pile { box-shadow: var(--shadow), 0 0 0 var(--tray-pad) var(--tray), 0 60px 0 var(--tray-pad) var(--tray); }
+.app.pilelook-tray .list .note.on-pile.pile-last { box-shadow: var(--shadow), 0 0 0 var(--tray-pad) var(--tray); margin-bottom: 14px; }
+.app.pilelook-tray .toc-list:has(.pile-header.level-warn) { --tray: color-mix(in srgb, var(--warning) 16%, var(--bg)); }
+.app.pilelook-tray .toc-list:has(.pile-header.level-full) { --tray: color-mix(in srgb, var(--danger) 14%, var(--bg)); }
+.app.pilelook-tray .toc-list .pile-header:has(+ .on-pile) { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.app.pilelook-tray .toc-entry.on-pile { margin-top: 0; border-radius: 0; background: var(--tray); }
+.app.pilelook-tray .toc-entry.on-pile.pile-last { border-radius: 0 0 12px 12px; margin-bottom: 10px; padding-bottom: 8px; }
+/* B — Loose cards: the pile's notes lie loose — dashed edge, no shadow, a paler card; a gap ends the pile. */
+.app.pilelook-loose .list .note.on-pile {
+  border-style: dashed; border-color: color-mix(in srgb, var(--text) 30%, transparent); box-shadow: none;
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+}
+.app.pilelook-loose .list .note.on-pile[data-color] {
+  border-color: color-mix(in srgb, var(--tone) 55%, var(--border));
+  background: color-mix(in srgb, var(--tone) 10%, var(--bg));
+}
+.app.pilelook-loose .list .note.pile-last { margin-bottom: 18px; }
+.app.pilelook-loose .toc-entry.on-pile { font-style: italic; }
+/* C — Shelf planks: each shelf is headed by its shelf icon and an accent title standing on a thick plank. */
+.app.pilelook-planks .list .section-header { margin-top: 18px; padding-bottom: 6px; border-bottom: 4px solid var(--accent-soft); border-radius: 0; }
+.app.pilelook-planks .list .section-header::after { display: none; }
+.app.pilelook-planks .list .section-header .section-title { color: var(--accent); }
+.app.pilelook-planks .shelf-mark { display: inline-flex; flex: none; color: var(--accent); }
+.app.pilelook-planks .shelf-mark svg { width: 20px; height: 20px; color: inherit; }
+.app.pilelook-planks .list .section-header.collapsed + .section-header { margin-top: 6px; }
+.app.pilelook-planks .toc-list .shelf-mark svg { width: 14px; height: 14px; }
+.app.pilelook-planks .toc-list .section-header { border-bottom: 2px solid var(--accent-soft); border-radius: 0; }
 .empty { max-width: 780px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-muted); }
 
 /* ---------- table of contents ---------- */
