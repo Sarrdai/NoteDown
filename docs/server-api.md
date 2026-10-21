@@ -493,19 +493,18 @@ feed for everyone.
 
 Backlog #49 (`docs/requirements.md` → "TRMNL display",
 `docs/sync-and-sharing.md` → "TRMNL"): the routes TRMNL calls, on the same
-server, when the operator set `TRMNL_CLIENT_ID`, `TRMNL_CLIENT_SECRET`
-and `WEB_APP_URL` (`TRMNL_SERVER`, default `https://trmnl.com`, for
+server, when the operator set `TRMNL_CLIENT_ID` and `WEB_APP_URL` (`TRMNL_SERVER`, default `https://trmnl.com`, for
 tests); otherwise they don't exist (404). They are not under `/v1/`: no
 `NoteDown-Client` header. The code is `server/notedown_server/trmnl/`.
 
 | Method and path | Called by | Request → response |
 |---|---|---|
-| `GET /trmnl/install` | the user's browser, sent by TRMNL | `?code&installation_callback_url` → exchanges the code at TRMNL's `/oauth/token` (JSON `{"code", "client_id", "client_secret", "grant_type": "authorization_code"}`) for the installation's access token, creates the identity and its first invitation, sets the cookie, → 302 to the callback (400 unless it is `https` on TRMNL's host, 502 without a token). The same code again (the same token) changes nothing |
+| `GET /trmnl/install` | the user's browser, sent by TRMNL | `?code&installation_callback_url` → exchanges the code at TRMNL's `/oauth/token` (form `code=…`, no client credentials) for the installation's access token (it never expires; a wrong code answers 200 with `{"error": true}`), creates the identity and its first invitation, sets the cookie, → 302 to the callback (400 unless it is `https` on TRMNL's host, 502 without a token). The same code again (the same token) changes nothing |
 | `POST /trmnl/installed` | TRMNL | `Authorization: Bearer <access token>`, `{"user": {"uuid", "time_zone_iana", "locale", …}}` → `{"success": true}`; keeps the uuid, time zone and locale (nothing else of the user) |
-| `GET /trmnl/manage` | the user's browser | `?uuid` → the settings page (HTML): with the installing browser's cookie the invitation (QR code, link) until the contact stands, then the choice of file; without it a note to open it there; 404 for an unknown uuid |
+| `GET /trmnl/manage` | the user's browser, a new tab opened by TRMNL | `?uuid&jwt` (the JWT is not checked: the cookie decides) → the settings page (HTML): with the installing browser's cookie the invitation (QR code, link) until the contact stands, then the choice of file; without it a note to open it there; 404 for an unknown uuid |
 | `POST /trmnl/manage` | the settings page | `?uuid`, form `file` (a file ID; empty = the one changed last) → 303 back; 403 without the cookie |
-| `POST /trmnl/markup` | TRMNL, every refresh | `Authorization: Bearer <access token>` (the body is not read) → `{"markup", "markup_half_horizontal", "markup_half_vertical", "markup_quadrant"}`, HTML of 800×480, 800×240, 400×480 and 400×240 px; 401 for an unknown token, 503 when the notes can't be read now (TRMNL keeps the last picture) |
-| `POST /trmnl/uninstalled` | TRMNL | `Authorization: Bearer <access token>` → `{"success": true}`; deletes the identity (signed with its identity key, as on the delete page) and the installation, also when it is unknown |
+| `POST /trmnl/markup` | TRMNL, every refresh | `Authorization: Bearer <access token>` (the form body with `user_uuid` and `trmnl[…]` is not read) → `{"markup", "markup_half_horizontal", "markup_half_vertical", "markup_quadrant"}`, HTML that fills TRMNL's view (780×460, 780×225, 385×460 and 385×225 px with the default screen padding), braces escaped since TRMNL parses it as Liquid; 401 for an unknown token, 503 when the notes can't be read now (TRMNL is meant to keep the last picture). TRMNL waits 10 s |
+| `POST /trmnl/uninstalled` | TRMNL, once, no retry | `Authorization: Bearer <access token>`, `{"user_uuid"}` (not read) → `{"success": true}`; deletes the identity (signed with its identity key, as on the delete page) and the installation, also when it is unknown |
 
 - **Installation** (table `trmnl_installations`): the identity's 16-byte
   secret, from which its identity key, recovery device and device are

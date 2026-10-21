@@ -516,8 +516,9 @@ installation an identity with one device, which only reads.
   these notes; a server compromised while running sees the token with the
   next request, like TRMNL itself.
 - **The settings page** (showing the invitation, choosing the file) has
-  no token: TRMNL opens it with the user's uuid only. So the secret is
-  sealed a second time with a key that stays in a cookie of the browser
+  no access token: TRMNL opens it in a new tab with the user's uuid and a
+  JWT valid for two minutes, which proves who opens it but carries no
+  key. So the secret is sealed a second time with a key that stays in a cookie of the browser
   the plugin was installed with, and the page opens only there; the uuid
   alone gives nothing (decided 2026-10-21 over storing the circles' names
   readable on the server).

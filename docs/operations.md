@@ -267,12 +267,12 @@ again, or remove the device from your identity.
 
 Optional: the plugin that shows shared notes on a TRMNL display
 (`docs/requirements.md` → "TRMNL display"). It runs inside the server and
-stays off until its two secrets are set. TRMNL's pages may name things a
-little differently than here.
+stays off until its client ID is set. TRMNL's guide:
+<https://docs.trmnl.com/go/plugin-marketplace/introduction>.
 
-1. In your TRMNL account, open the developer section and create a new
-   **public plugin** (it stays unlisted until you submit it). Enter, with
-   your `API_HOST`:
+1. Create a new **public plugin** at <https://trmnl.com/plugins/my/new>
+   (needs TRMNL's Developer Edition; it stays unlisted until you submit
+   it). Enter, with your `API_HOST`:
 
    | Field | Value |
    |---|---|
@@ -282,11 +282,13 @@ little differently than here.
    | Plugin markup URL | `https://notedown-api.example.com/trmnl/markup` |
    | Uninstallation webhook URL | `https://notedown-api.example.com/trmnl/uninstalled` |
 
-   Name it "NoteDown"; a refresh every 15 minutes is plenty for notes.
-2. TRMNL then shows the plugin's **client ID** and **client secret**.
-   GitHub → *Settings* → *Secrets and variables* → *Actions* →
-   *Secrets*: add `TRMNL_CLIENT_ID` and `TRMNL_CLIENT_SECRET` (the
-   deploy passes them on with `WEB_APP_URL` = `https://` + `WEB_HOST`,
+   Name it "NoteDown"; a supported refresh interval of 15 minutes is
+   plenty for notes. Leave *No Screen Padding* off: the screen is laid
+   out for TRMNL's views with their padding.
+2. TRMNL then lists the plugin under *My Plugins* with a **client ID**
+   (the client secret isn't needed: the token exchange uses the code
+   alone). GitHub → *Settings* → *Secrets and variables* → *Actions* →
+   *Secrets*: add `TRMNL_CLIENT_ID` (the deploy passes it on with `WEB_APP_URL` = `https://` + `WEB_HOST`,
    where the plugin's invitation links point).
 3. *Actions* → *Server* → *Run workflow* on `main`.
 4. Install the plugin on your TRMNL. TRMNL sends you to the server and
@@ -295,7 +297,7 @@ little differently than here.
    with NoteDown, share a note with the new contact TRMNL and pick what
    shows. The display picks it up with its next refresh.
 
-To switch the plugin off, delete the two secrets and deploy again;
+To switch the plugin off, delete the secret and deploy again;
 installations then get no picture until it is back.
 
 ## Installing the test app
