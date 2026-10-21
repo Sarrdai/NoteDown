@@ -12,6 +12,7 @@
 - [Version history](#version-history)
 - [Merging](#merging)
 - [Server](#server)
+- [TRMNL](#trmnl)
 - [Open points](#open-points)
 <!-- /toc -->
 
@@ -37,6 +38,8 @@ and the sample simulates everything without a server.
     convenient way in, the apps are the secure one.
   - **No desktop client yet** (backlog #58), which needs signed,
     verifiable updates like Signal Desktop's.
+  - **The TRMNL display** (backlog #49): notes shared with a TRMNL
+    contact leave end-to-end encryption by the user's choice ("TRMNL").
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
@@ -494,6 +497,27 @@ devices don't keep re-uploading the same notes in each other's order.
   `docs/server-api.md`. Built: 2 MB of storage per identity (the app shows
   how much is used, from the file list every sync round fetches), and per-IP
   limits on creating identities (10 per day) and relay slots (30 per hour).
+
+## TRMNL
+
+The TRMNL plugin (`docs/requirements.md` → "TRMNL display", decided
+2026-10-21) is a client of its own that runs inside the sync server: per
+installation an identity with one device, which only reads.
+
+- **Why it decrypts on the server:** TRMNL asks the plugin for the
+  screen's markup and draws the picture in its cloud; it can't decrypt.
+  So the notes shared with the TRMNL contact are decrypted by the server
+  for each picture and reach TRMNL in plain text — an exception the user
+  takes by sharing with that contact, limited to the notes shared with it.
+- **The server stores no usable key:** the identity's key seeds are kept
+  only encrypted (AES-256-GCM) with a key derived by HKDF from TRMNL's
+  access token of that installation, which TRMNL sends with every request
+  and the server doesn't store. A copy of the database alone reads none of
+  these notes; a server compromised while running sees the token with the
+  next request, like TRMNL itself.
+- **If TRMNL ever replaces the token**, the stored keys can't be opened
+  any more: the display asks to reconnect, and the user adds the new
+  TRMNL contact and shares again. The notes themselves are not affected.
 
 ## Open points
 

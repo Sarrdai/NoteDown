@@ -26,6 +26,7 @@
   - [Export](#export)
   - [Import from Google Keep](#import-from-google-keep)
   - [Quick capture](#quick-capture)
+  - [TRMNL display](#trmnl-display)
   - [Settings](#settings)
   - [Legal texts and license](#legal-texts-and-license)
   - [Look](#look)
@@ -223,7 +224,8 @@ before the first live test).
   to stay within the free tiers) with a status indicator.
 - **End-to-end encrypted:** the server stores only encrypted files and
   never holds a key that decrypts them — notes are private by default,
-  even from whoever runs the server. Files are padded to 4 KiB steps
+  even from whoever runs the server (the one exception is what the user
+  shares with a TRMNL display, "TRMNL display"). Files are padded to 4 KiB steps
   before encryption, so the server doesn't learn their exact size
   either (backlog #17), and compressed before that (decided 2026-10-15:
   Markdown shrinks to about a third, which saves server storage and the
@@ -1695,6 +1697,60 @@ notes can be restored or moved to another device without sync.
   *Prototype: `?shortcut=new` / `?shortcut=dictate` stand in for them
   (`app/js/quick-capture.js`).*
 - A home-screen widget is not part of the scope yet (backlog #2).
+
+### TRMNL display
+
+Notes on a [TRMNL](https://trmnl.com) e-ink display (backlog #49,
+decided 2026-10-21, user request), designed for the first generation:
+800×480 pixels, black and white.
+
+- **A TRMNL plugin** in TRMNL's plugin catalogue (its OAuth install flow),
+  run by the server's operator as part of the sync server
+  (`server/notedown_server/trmnl/`) and off unless the operator sets it up
+  (user decision over a self-hosted bridge or a private plugin: installed
+  from TRMNL's catalogue without copying a key, and one deployment).
+- **An identity of its own per installation**, the **TRMNL contact**:
+  the plugin's settings page shows its invitation (QR code and link), the
+  user adds it like any contact, and it confirms the first request on
+  that invitation by itself, no later ones. Notes are shared with it like
+  with anyone, so it reads only what the user gives it — not all notes,
+  as a linked device would.
+- **Choosing what shows:** the settings page lists the files the TRMNL
+  contact is a member of, by their circle ("Alex + TRMNL", "Alex + Lea +
+  TRMNL"), and the user picks one.
+- **Read-only:** the plugin never writes a file; nothing is ticked off on
+  the display.
+- **What shows:** the open and permanent notes of that file in the
+  circle's Shared shelves, the rest by last edit, newest first: title
+  and due date, tasks with their states (box empty, filled, half filled,
+  crossed out) and due dates, lists, numbered lists, headings, text and
+  tables. Images, labels, a counter's steps and done dates don't show,
+  links show their text. Due dates read Today / Tomorrow / Yesterday,
+  otherwise weekday and date; overdue ones are inverted. A note that
+  doesn't fit ends with its first lines and "+n more"; the black bar at
+  the bottom names the circle, how many notes didn't fit and the time of
+  the picture. Labels and dates follow the TRMNL account's language
+  (English, German; English for any other).
+- **Every TRMNL layout:** the full screen and the halves and quarter of a
+  mashup (several plugins on one screen), each filled as far as it goes.
+- **Not end-to-end encrypted:** TRMNL draws the picture in its cloud, so
+  notes shared with the TRMNL contact are decrypted by the server while it
+  renders and seen by TRMNL in plain text (`docs/sync-and-sharing.md` →
+  "TRMNL"). The app says so: its contact card marks the TRMNL contact as a
+  display, which the app shows with a display icon, and the share dialog
+  adds "TRMNL shows notes shared with it unencrypted." when it is ticked
+  (user decision).
+- **Device tiers:** the display itself is one fixed screen; the plugin's
+  settings page is a web page TRMNL opens on any device and covers all
+  three tiers like the app.
+- *Prototype: the screen is rendered by `render.py` (tested in
+  `server/tests/test_trmnl_render.py`); `scripts/trmnl-preview.py`
+  writes it for the sample notes. Open: the screen's layout, three
+  variants — `list` (the notes one after another, flowing over two
+  columns), `cards` (one framed card per note in up to three columns),
+  `focus` (the first note large, the others as a list of titles). Still
+  to build: the install flow, the settings page, the endpoint TRMNL asks
+  and the app's display marking.*
 
 ### Settings
 
