@@ -44,7 +44,7 @@ the live test setup is described in `docs/operations.md`.
 | `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority, effort and dependencies |
 | `LICENSE`, `CONTRIBUTING.md` | GNU AGPL 3.0 or later for app and server; how contributions work |
-| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup and alerts, `docs/operations.md`), `write-config.js` (writes `app/config.json` in the deploys), `make-licenses.js` (writes `app/licenses.json`, the open-source licenses Settings → About lists; run by hand after changing `scripts/vendor/`, `mobile/package.json` or `mobile/android/variables.gradle`, a unit test notices when it is due), `make-decor.js` (draws the note motifs into `app/decor/`, run by hand after changing one), `make-icons.js` (renders `app/icons/icon.svg` into the web and Android icon files, run by hand after changing the icon), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `trmnl-preview.py` (the TRMNL screens for the sample notes, "Prototype options"), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup and alerts, `docs/operations.md`), `write-config.js` (writes `app/config.json` in the deploys), `make-licenses.js` (writes `app/licenses.json`, the open-source licenses Settings → About lists; run by hand after changing `scripts/vendor/`, `mobile/package.json` or `mobile/android/variables.gradle`, a unit test notices when it is due), `make-decor.js` (draws the note motifs into `app/decor/`, run by hand after changing one), `make-icons.js` (renders `app/icons/icon.svg` into the web and Android icon files, run by hand after changing the icon), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `trmnl-preview.py` (writes the TRMNL screens for the sample notes as pages, every layout and language, to screenshot at the layout's size), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
 
 ## Device tiers
 
@@ -145,11 +145,6 @@ is deleted from code, menu and this table.
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
 | `platform` | `android` | Simulate the Android app in a browser: Settings → Privacy (screen lock, screen security, incognito keyboard) and the lock screen, with stand-ins for the native plugins (not a variant) |
-
-The TRMNL screen's layout variants (backlog #49) are the `variant` of
-`server/notedown_server/trmnl/render.py`: `python3 scripts/trmnl-preview.py
-<dir>` writes every variant, layout and language for the sample notes as
-pages to screenshot at the layout's size (800×480 for the full screen).
 
 In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, "Simulate device removal" shows what a removed device sees (sync off, the card above the notes; reload with `?sample` to get the sample identity back), "Simulate outdated app" the card of an app the server no longer serves, and "Show storage hint again" brings back a hidden "only stored in this browser" card (not variants).
 

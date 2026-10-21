@@ -1729,7 +1729,12 @@ decided 2026-10-21, user request), designed for the first generation:
   otherwise weekday and date; overdue ones are inverted. A note that
   doesn't fit ends with its first lines and "+n more"; the black bar at
   the bottom names the circle, how many notes didn't fit and the time of
-  the picture. Labels and dates follow the TRMNL account's language
+  the picture. The notes run one after another, a bold title and a rule
+  between them, flowing over two columns like a newspaper (one column in
+  the narrow layouts), and a long note goes on in the next column
+  (decided 2026-10-21 over framed cards and one large note with a list of
+  titles: on 800×480 in black and white room is the scarcest, and this
+  shows the most in every layout). Labels and dates follow the TRMNL account's language
   (English, German; English for any other).
 - **Every TRMNL layout:** the full screen and the halves and quarter of a
   mashup (several plugins on one screen), each filled as far as it goes.
@@ -1745,12 +1750,7 @@ decided 2026-10-21, user request), designed for the first generation:
   three tiers like the app.
 - *Prototype: the screen is rendered by `render.py` (tested in
   `server/tests/test_trmnl_render.py`); `scripts/trmnl-preview.py`
-  writes it for the sample notes. Open: the screen's layout, three
-  variants — `list` (the notes one after another, flowing over two
-  columns), `cards` (one framed card per note in up to three columns),
-  `focus` (the first note large, the others as a list of titles). Still
-  to build: the install flow, the settings page, the endpoint TRMNL asks
-  and the app's display marking.*
+  writes it for the sample notes.*
 
 ### Settings
 

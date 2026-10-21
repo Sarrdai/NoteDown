@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from notedown_server.trmnl.notes import NotesFile, parse, shown_notes
-from notedown_server.trmnl.render import LAYOUTS, TEXTS, VARIANTS, card, inline, lines, render
+from notedown_server.trmnl.render import LAYOUTS, TEXTS, card, inline, lines, render
 
 SAMPLE = parse((Path(__file__).resolve().parents[2] / "app/sample/notes.md").read_text())
 NOW = datetime(2026, 10, 13, 8, 45)
@@ -61,7 +61,6 @@ def test_card_reads_tasks_with_states_and_due_dates():
     assert tasks[0] == ("done", "Book flights")
     assert tasks[1][0] == "open" and tasks[1][1].startswith("Reserve the apartment in Alfama")
     assert ("cancelled", "Power adapter? (no, same plug type)") in tasks
-    assert c.open_tasks == 3
     assert any(r.kind == "item" and r.indent == 1 for r in c.rows)   # the seats under "Book flights"
     assert not any("tram-28" in r.html for r in c.rows)              # the image is left out
     groceries = card(note("s01"), NOW.date(), TEXTS["en"])
@@ -85,11 +84,9 @@ def test_lines_wraps_at_spaces():
     assert lines("x" * 75, 300, 20) == 3              # a long word breaks inside
 
 
-@pytest.mark.parametrize("variant", VARIANTS)
 @pytest.mark.parametrize("layout", LAYOUTS)
-def test_every_variant_and_layout_renders(variant, layout):
-    markup = render(circle("s01", "s09", "s12", "s07", "s04", "s13"), circle="Alex & Lea", now=NOW,
-                    layout=layout, variant=variant)
+def test_every_layout_renders(layout):
+    markup = render(circle("s01", "s09", "s12", "s07", "s04", "s13"), circle="Alex & Lea", now=NOW, layout=layout)
     width, height = LAYOUTS[layout]
     assert f"width:{width}px;height:{height}px" in markup
     assert "Weekly groceries" in markup                  # the newest note always shows
@@ -99,9 +96,9 @@ def test_every_variant_and_layout_renders(variant, layout):
 
 def test_what_does_not_fit_is_counted():
     notes_file = circle("s01", "s09", "s12", "s07", "s04")
-    quadrant = render(notes_file, circle="Alex & Lea", now=NOW, layout="quadrant", variant="list")
+    quadrant = render(notes_file, circle="Alex & Lea", now=NOW, layout="quadrant")
     assert "more notes" in quadrant
-    long_note = render(circle("s03"), circle="Alex & Lea", now=NOW, layout="half_vertical", variant="list")
+    long_note = render(circle("s03"), circle="Alex & Lea", now=NOW, layout="half_vertical")
     assert '<div class="more">+' in long_note
 
 

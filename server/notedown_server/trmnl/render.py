@@ -14,7 +14,6 @@ from .notes import Note, NotesFile, shown_notes
 
 # TRMNL's four layouts: the full screen and the parts of a mashup (several plugins on one screen)
 LAYOUTS = {"full": (800, 480), "half_horizontal": (800, 240), "half_vertical": (400, 480), "quadrant": (400, 240)}
-VARIANTS = ("list", "cards", "focus")   # prototype: the layout variants still to decide (docs/requirements.md → "TRMNL")
 
 PAD = 16          # page margin
 BAR = 36          # the bar at the bottom: app, circle, time of the picture
@@ -24,12 +23,12 @@ CHAR = 0.5        # average character width in em of a sans-serif font, a little
 TEXTS = {
     "en": {"today": "Today", "tomorrow": "Tomorrow", "yesterday": "Yesterday", "more": "+{n} more",
            "more_notes": "+{n} more notes", "updated": "Updated {t}", "empty": "Nothing shared yet",
-           "empty_hint": "Share a note with this contact in NoteDown to show it here.", "open": "{n} open",
+           "empty_hint": "Share a note with this contact in NoteDown to show it here.",
            "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
            "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]},
     "de": {"today": "Heute", "tomorrow": "Morgen", "yesterday": "Gestern", "more": "+{n} weitere",
            "more_notes": "+{n} weitere Notizen", "updated": "Stand {t}", "empty": "Noch nichts geteilt",
-           "empty_hint": "Teile in NoteDown eine Notiz mit diesem Kontakt, um sie hier zu zeigen.", "open": "{n} offen",
+           "empty_hint": "Teile in NoteDown eine Notiz mit diesem Kontakt, um sie hier zu zeigen.",
            "days": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"], "months": []},
 }
 
@@ -53,11 +52,9 @@ class Card:
     title_plain: str
     due: str             # html of the due badge or empty
     rows: list[Row]
-    open_tasks: int
 
 
-def render(notes_file: NotesFile, *, circle: str, now: datetime, layout: str = "full", variant: str = "cards",
-           lang: str = "en") -> str:
+def render(notes_file: NotesFile, *, circle: str, now: datetime, layout: str = "full", lang: str = "en") -> str:
     """The markup of one TRMNL layout. `now` is local time of the user (TRMNL sends the time zone)."""
     width, height = LAYOUTS[layout]
     texts = TEXTS.get(lang, TEXTS["en"])
@@ -67,12 +64,8 @@ def render(notes_file: NotesFile, *, circle: str, now: datetime, layout: str = "
         body = (f'<div class="empty"><div class="empty-title">{texts["empty"]}</div>'
                 f'<div class="empty-hint">{texts["empty_hint"]}</div></div>')
         hidden = 0
-    elif variant == "list":
-        body, hidden = flow(cards, area, 2 if width >= 600 else 1, texts)
-    elif variant == "focus":
-        body, hidden = focus(cards, area, texts)
     else:
-        body, hidden = grid(cards, area, texts)
+        body, hidden = flow(cards, area, 2 if width >= 600 else 1, texts)
     more = f' · {texts["more_notes"].format(n=hidden)}' if hidden else ""
     bar = (f'<div class="bar"><span class="app">NoteDown</span><span class="circle">{esc(circle)}{more}</span>'
            f'<span class="time">{texts["updated"].format(t=now.strftime("%H:%M"))}</span></div>')
@@ -140,8 +133,7 @@ def card(note: Note, today: date, texts: dict) -> Card:
     while rows and rows[-1].kind == "gap":
         rows.pop()
     due = badge(date.fromisoformat(note.due), today, texts) if note.due else ""
-    open_tasks = sum(1 for r in rows if r.kind == "task" and r.state in ("open", "progress"))
-    return Card(title, title_plain, due, rows, open_tasks)
+    return Card(title, title_plain, due, rows)
 
 
 def table_row(cells: list[list[str]]) -> Row:
@@ -237,12 +229,6 @@ def title_height(c: Card, width: int) -> int:
     return lines(c.title_plain + (DUE_TEXT if c.due else ""), width, font) * line + 6
 
 
-def card_title_height(c: Card, width: int) -> int:
-    if not c.title:
-        return 34 if c.due else 0
-    return lines(c.title_plain + (DUE_TEXT if c.due else ""), width, 20) * 26 + 12
-
-
 def fill(c: Card, width: int, room: int, texts: dict, start: int = 0, more: bool = True) -> tuple[list[str], int, int]:
     """The rows of a card from `start` that fit into `room` px: their html, the height used and the index of the
     first row left out (len(rows) when all fit). With `more`, the card ends here: a paragraph or item that fits only
@@ -306,7 +292,7 @@ def title_html(c: Card) -> str:
 # --- the variants --------------------------------------------------------------------------------------------------
 
 def flow(cards: list[Card], area: tuple[int, int], columns: int, texts: dict) -> tuple[str, int]:
-    """Variant "list": the notes one after another, flowing over the columns like a newspaper."""
+    """The notes one after another, flowing over the columns like a newspaper; a note goes on in the next column."""
     width = (area[0] - GAP * (columns - 1)) // columns
     cols: list[list[str]] = [[] for _ in range(columns)]
     col, used, shown = 0, 0, 0
@@ -333,57 +319,6 @@ def flow(cards: list[Card], area: tuple[int, int], columns: int, texts: dict) ->
         shown += 1
     body = "".join(f'<div class="col" style="width:{width}px">{"".join(x)}</div>' for x in cols)
     return f'<div class="cols">{body}</div>', len(cards) - shown
-
-
-def grid(cards: list[Card], area: tuple[int, int], texts: dict) -> tuple[str, int]:
-    """Variant "cards": every note a framed card; the cards go into up to three columns, each into the column with
-    the most room left, and a card that doesn't fit is cut off."""
-    columns = min(len(cards), max(1, area[0] // 240))
-    width = (area[0] - GAP * (columns - 1)) // columns
-    inner = width - 2 * 2 - 2 * 10          # border and padding
-    frame = 2 * 2 + 2 * 8
-    cols: list[list[str]] = [[] for _ in range(columns)]
-    room = [area[1]] * columns
-    shown = 0
-    for c in cards:
-        col = max(range(columns), key=lambda k: room[k])
-        top = GAP if cols[col] else 0
-        available = room[col] - top - frame - card_title_height(c, inner)
-        if available < (FONTS["text"][1] + 2 if c.rows else 0):
-            break
-        out, h, _ = fill(c, inner, available, texts)
-        title = (f'<div class="card-title"><span>{c.title}</span>{c.due}</div>' if c.title
-                 else (f'<div class="card-title plain">{c.due}</div>' if c.due else ""))
-        cols[col].append(f'<div class="card">{title}<div class="card-body">{"".join(out)}</div></div>')
-        room[col] -= top + frame + card_title_height(c, inner) + h
-        shown += 1
-    body = "".join(f'<div class="col stack" style="width:{width}px">{"".join(x)}</div>' for x in cols)
-    return f'<div class="cols">{body}</div>', len(cards) - shown
-
-
-def focus(cards: list[Card], area: tuple[int, int], texts: dict) -> tuple[str, int]:
-    """Variant "focus": the first note large on the left, the others as a list of titles on the right."""
-    if len(cards) == 1 or area[0] < 600:
-        return flow(cards[:1], area, 2 if area[0] >= 600 else 1, texts)[0], len(cards) - 1
-    side = 260
-    main = area[0] - side - GAP
-    first = cards[0]
-    out, _, _ = fill(first, main, area[1] - title_height(first, main), texts)
-    left = f'<div class="col" style="width:{main}px">{title_html(first)}{"".join(out)}</div>'
-    items, used, shown = [], 0, 1
-    for c in cards[1:]:
-        name = c.title or (c.rows[0].html if c.rows else "")
-        plain = c.title_plain or (c.rows[0].plain if c.rows else "")
-        meta = " · ".join(x for x in (texts["open"].format(n=c.open_tasks) if c.open_tasks else "", c.due) if x)
-        h = lines(plain, side - 12, 20) * 26 + (24 if meta else 0) + 14
-        if used + h > area[1]:
-            break
-        items.append(f'<div class="side-item"><div class="side-title">{name}</div>'
-                     f'{f"<div class=side-meta>{meta}</div>" if meta else ""}</div>')
-        used += h
-        shown += 1
-    right = f'<div class="col side" style="width:{side}px">{"".join(items)}</div>'
-    return f'<div class="cols">{left}{right}</div>', len(cards) - shown
 
 
 STYLE = """<style>
@@ -418,22 +353,6 @@ STYLE = """<style>
 .nd th{text-align:left;border-bottom:2px solid #000}
 .nd th,.nd td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px}
 .nd .sep{height:14px;border-top:2px solid #000;margin-top:2px}
-.nd .stack{display:flex;flex-direction:column;gap:16px}
-.nd .card{border:2px solid #000;border-radius:10px;overflow:hidden}
-.nd .card-title{display:flex;align-items:baseline;gap:8px;background:#000;color:#fff;font-size:20px;line-height:26px;
-  font-weight:700;padding:6px 10px}
-.nd .card-title>span:first-child{flex:1}
-.nd .card-title .due{border-color:#fff}
-.nd .card-title .due.over{background:#fff;color:#000}
-.nd .card-title.plain{background:#fff;color:#000;padding-bottom:0}
-.nd .card-title.plain .due{border-color:#000}
-.nd .card-body{padding:8px 10px}
-.nd .side{border-left:2px solid #000;padding-left:14px}
-.nd .side-item{padding:6px 0 8px;border-bottom:2px solid #000}
-.nd .side-item:last-child{border-bottom:none}
-.nd .side-title{font-weight:700}
-.nd .side-meta{font-size:16px;line-height:24px}
-.nd .side-meta .due{font-size:14px;line-height:18px}
 .nd .empty{height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 40px}
 .nd .empty-title{font-size:28px;line-height:36px;font-weight:700;margin-bottom:8px}
 .nd .bar{position:absolute;left:0;right:0;bottom:0;height:36px;background:#000;color:#fff;display:flex;
