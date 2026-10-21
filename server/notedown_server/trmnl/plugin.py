@@ -37,8 +37,7 @@ LAYOUT_KEYS = {"full": "markup", "half_horizontal": "markup_half_horizontal",
 
 @dataclass
 class TrmnlSettings:
-    client_id: str
-    client_secret: str
+    client_id: str                      # TRMNL's ID for the plugin, the audience of its management-page token
     web_app: str                        # the web app's address, where invitation links point
     server: str = "https://trmnl.com"   # TRMNL's address: its token endpoint and the callback's host
     api: str = "http://127.0.0.1:8080"  # how the plugin reaches this server's API (in the same container)
@@ -48,7 +47,7 @@ class TrmnlSettings:
 
     @classmethod
     def from_env(cls) -> "TrmnlSettings | None":
-        values = [os.environ.get(k, "").strip() for k in ("TRMNL_CLIENT_ID", "TRMNL_CLIENT_SECRET", "WEB_APP_URL")]
+        values = [os.environ.get(k, "").strip() for k in ("TRMNL_CLIENT_ID", "WEB_APP_URL")]
         if not all(values):
             return None
         return cls(*values, server=os.environ.get("TRMNL_SERVER", "").strip() or cls.server,
@@ -139,10 +138,10 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
     def exchange(code: str) -> str:
         if config.exchange:
             return config.exchange(code)
-        body = json.dumps({"code": code, "client_id": config.client_id, "client_secret": config.client_secret,
-                           "grant_type": "authorization_code"}).encode()
-        request = urllib.request.Request(f"{config.server.rstrip('/')}/oauth/token", data=body, method="POST",
-                                         headers={"Content-Type": "application/json", "Accept": "application/json"})
+        # TRMNL knows the plugin by its registered addresses: the code alone, no client credentials.
+        request = urllib.request.Request(
+            f"{config.server.rstrip('/')}/oauth/token", data=urlencode({"code": code}).encode(), method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"})
         try:
             with urllib.request.urlopen(request, timeout=20) as response:
                 token = json.loads(response.read()).get("access_token")
@@ -150,6 +149,7 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
             log.warning("TRMNL token exchange failed: %s", error)
             token = None
         if not isinstance(token, str) or not token:
+            # a wrong code comes back as status 200 with {"error": true, "message": ...}
             raise HTTPException(502, "TRMNL didn't hand out an access token")
         return token
 

@@ -25,7 +25,9 @@ def main(out: Path) -> None:
         for layout in LAYOUTS:
             for lang in ("en", "de"):
                 markup = render(notes_file, circle="Alex & Lea", now=NOW, layout=layout, lang=lang)
-                page = f'<!doctype html><meta charset="utf-8"><body style="margin:0">{markup}</body>'
+                width, height = LAYOUTS[layout]   # the size of TRMNL's view the markup fills
+                page = (f'<!doctype html><meta charset="utf-8"><body style="margin:0">'
+                        f'<div style="width:{width}px;height:{height}px">{markup}</div></body>')
                 (out / f"{case}-{layout}-{lang}.html").write_text(page)
 
 

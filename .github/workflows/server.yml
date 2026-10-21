@@ -69,14 +69,13 @@ jobs:
           ADMIN_IDENTITIES: ${{ secrets.ADMIN_IDENTITIES }}
           # The TRMNL plugin (docs/operations.md → "8. TRMNL plugin"); empty = off.
           TRMNL_CLIENT_ID: ${{ secrets.TRMNL_CLIENT_ID }}
-          TRMNL_CLIENT_SECRET: ${{ secrets.TRMNL_CLIENT_SECRET }}
         run: >
           gcloud run deploy notedown-api
           --image "$IMAGE" --region "$REGION"
           --service-account "notedown-api@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
           --allow-unauthenticated --max-instances 2 --memory 512Mi
           --set-secrets "DATABASE_URL=notedown-database-url:latest,SERVER_SECRET=notedown-server-secret:latest"
-          --set-env-vars "^|^CORS_ORIGINS=https://localhost,https://${{ vars.WEB_HOST }}|ADMIN_IDENTITIES=$ADMIN_IDENTITIES|DATABASE_LIMIT_MB=${{ vars.DATABASE_LIMIT_MB }}|TRMNL_CLIENT_ID=$TRMNL_CLIENT_ID|TRMNL_CLIENT_SECRET=$TRMNL_CLIENT_SECRET|WEB_APP_URL=https://${{ vars.WEB_HOST }}"
+          --set-env-vars "^|^CORS_ORIGINS=https://localhost,https://${{ vars.WEB_HOST }}|ADMIN_IDENTITIES=$ADMIN_IDENTITIES|DATABASE_LIMIT_MB=${{ vars.DATABASE_LIMIT_MB }}|TRMNL_CLIENT_ID=$TRMNL_CLIENT_ID|WEB_APP_URL=https://${{ vars.WEB_HOST }}"
       - name: Health check
         run: |
           url=$(gcloud run services describe notedown-api --region "$REGION" --format 'value(status.url)')

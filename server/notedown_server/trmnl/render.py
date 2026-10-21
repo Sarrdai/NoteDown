@@ -1,6 +1,8 @@
 """Renders the notes of a shared file as HTML for a TRMNL display (backlog #49): the first-generation TRMNL shows
-800×480 pixels in black and white, so everything is solid black on white, no greys. TRMNL renders the markup in its
-cloud and sends the picture to the device; the markup carries its own styles and needs no framework classes.
+800×480 pixels in black and white (1-bit), so everything is solid black on white, no greys. TRMNL renders the markup
+in its cloud and sends the picture to the device; it puts each layout into a view of its framework, and the markup
+fills that view with its own styles and needs no framework classes. TRMNL parses all markup as Liquid, so the notes'
+braces are escaped.
 
 Nothing is measured in a browser here: the height of every row is estimated from its length, so the screen is
 filled column by column and what doesn't fit is cut off with a "+n more" line instead of overflowing."""
@@ -12,8 +14,9 @@ from datetime import date, datetime, timedelta
 
 from .notes import Note, NotesFile, shown_notes
 
-# TRMNL's four layouts: the full screen and the parts of a mashup (several plugins on one screen)
-LAYOUTS = {"full": (800, 480), "half_horizontal": (800, 240), "half_vertical": (400, 480), "quadrant": (400, 240)}
+# TRMNL's four layouts: the full screen and the parts of a mashup (several plugins on one screen), as the size of
+# the framework's view on the 800×480 screen with its 10 px padding and the 10 px gap between a mashup's views
+LAYOUTS = {"full": (780, 460), "half_horizontal": (780, 225), "half_vertical": (385, 460), "quadrant": (385, 225)}
 
 PAD = 16          # page margin
 BAR = 36          # the bar at the bottom: app, circle, time of the picture
@@ -82,7 +85,7 @@ def render(notes_file: NotesFile, *, circle: str, now: datetime, layout: str = "
     more = f' · {texts["more_notes"].format(n=hidden)}' if hidden else ""
     bar = (f'<div class="bar"><span class="app">NoteDown</span><span class="circle">{esc(circle)}{more}</span>'
            f'<span class="time">{texts["updated"].format(t=now.strftime("%H:%M"))}</span></div>')
-    return (f'<div class="nd nd-{layout}" style="width:{width}px;height:{height}px">{STYLE}'
+    return (f'<div class="nd nd-{layout}">{STYLE}'
             f'<div class="page" style="height:{area[1]}px">{body}</div>{bar}</div>')
 
 
@@ -200,7 +203,7 @@ def inline(text: str) -> tuple[str, str]:
 
 
 def esc(text: str) -> str:
-    return html.escape(text, quote=False)
+    return html.escape(text, quote=False).replace("{", "&#123;").replace("}", "&#125;")
 
 
 # --- estimating heights --------------------------------------------------------------------------------------------
@@ -335,8 +338,8 @@ def flow(cards: list[Card], area: tuple[int, int], columns: int, texts: dict) ->
 
 
 STYLE = """<style>
-.nd{position:relative;box-sizing:border-box;overflow:hidden;background:#fff;color:#000;
-  font-family:Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif;font-size:20px;line-height:26px}
+.nd{position:relative;box-sizing:border-box;width:100%;height:100%;overflow:hidden;background:#fff;color:#000;
+  font-family:"Inter Variable",Inter,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif;font-size:20px;line-height:26px}
 .nd *{box-sizing:border-box}
 .nd .page{padding:16px;height:100%;overflow:hidden;box-sizing:content-box}
 .nd .cols{display:flex;gap:16px;height:100%;align-items:flex-start}

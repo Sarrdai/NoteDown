@@ -42,6 +42,13 @@ def test_shown_notes_leave_closed_out_and_follow_the_shared_order():
     assert [n.id for n in shown_notes(notes_file)] == ["s07", "s01", "s05"]
 
 
+def test_braces_do_not_reach_liquid():
+    # TRMNL parses the markup as Liquid: a note's {{ … }} or {% … %} must stay text
+    html_, plain = inline("Order the {{ cake }} {% raw %}")
+    assert "{" not in html_ and "}" not in html_
+    assert plain == "Order the {{ cake }} {% raw %}"
+
+
 def test_inline_drops_what_the_display_cannot_use():
     assert inline("Order the cake #shopping")[1] == "Order the cake"
     assert inline("P-2041 Website relaunch: 23,5 h [-4 -1 +1 +8 ⏱15]")[1] == "P-2041 Website relaunch: 23,5 h"
@@ -87,8 +94,7 @@ def test_lines_wraps_at_spaces():
 @pytest.mark.parametrize("layout", LAYOUTS)
 def test_every_layout_renders(layout):
     markup = render(circle("s01", "s09", "s12", "s07", "s04", "s13"), circle="Alex & Lea", now=NOW, layout=layout)
-    width, height = LAYOUTS[layout]
-    assert f"width:{width}px;height:{height}px" in markup
+    assert f'class="nd nd-{layout}"' in markup
     assert "Weekly groceries" in markup                  # the newest note always shows
     assert "Pay the electricity bill" not in markup      # closed
     assert "Alex &amp; Lea" in markup and "Updated 08:45" in markup
