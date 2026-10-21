@@ -515,6 +515,15 @@ installation an identity with one device, which only reads.
   and the server doesn't store. A copy of the database alone reads none of
   these notes; a server compromised while running sees the token with the
   next request, like TRMNL itself.
+- **The settings page** (showing the invitation, choosing the file) has
+  no token: TRMNL opens it with the user's uuid only. So the secret is
+  sealed a second time with a key that stays in a cookie of the browser
+  the plugin was installed with, and the page opens only there; the uuid
+  alone gives nothing (decided 2026-10-21 over storing the circles' names
+  readable on the server).
+- **Only reading:** the plugin takes a file key only when a member's
+  device signed it, like the app, but keeps no state between pictures, so
+  it doesn't refuse an older key generation.
 - **If TRMNL ever replaces the token**, the stored keys can't be opened
   any more: the display asks to reconnect, and the user adds the new
   TRMNL contact and shares again. The notes themselves are not affected.

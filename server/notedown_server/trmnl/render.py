@@ -34,9 +34,11 @@ TEXTS = {
            "more_notes": "+{n} weitere Notizen", "updated": "Stand {t}", "empty": "Noch nichts geteilt",
            "empty_hint": "Teile in NoteDown eine Notiz mit diesem Kontakt, um sie hier zu zeigen.",
            "connect": "NoteDown verbinden",
-           "connect_hint": "Öffne die Einstellungen dieses Plugins in TRMNL und füge es in NoteDown als Kontakt hinzu.",
+           "connect_hint": "Öffne die Einstellungen dieses Plugins in TRMNL und füge es in NoteDown als Kontakt "
+                           "hinzu.",
            "reconnect": "NoteDown neu verbinden",
-           "reconnect_hint": "Die Verbindung zu TRMNL hat sich geändert. Installiere das Plugin neu und teile deine Notizen erneut.",
+           "reconnect_hint": "Die Verbindung zu TRMNL hat sich geändert. Installiere das Plugin neu und teile "
+                             "deine Notizen erneut.",
            "days": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"], "months": []},
 }
 

@@ -11,6 +11,7 @@
 - [Endpoints](#endpoints)
 - [Version history](#version-history)
 - [Admin](#admin)
+- [TRMNL plugin](#trmnl-plugin)
 - [Limits](#limits)
 <!-- /toc -->
 
@@ -147,7 +148,9 @@ https://<web app>/invite/#v=1&id=<identity id>&s=<secret>&name=<name>&srv=<home 
   hashes to it, so the server can't slip in its own. `s` is 16 random
   bytes (`b64u`), the **invitation secret**; `name` the inviter's display
   name (form-encoded, at most 40 characters, may be empty). The fragment
-  never reaches a web server. `srv` is the inviter's **home server**, the
+  never reaches a web server. `kind=display` marks an inviter that is a
+  display, the TRMNL plugin ("TRMNL plugin"); the app stores the contact
+  with `display` (`docs/file-format.md` → "Contacts"). `srv` is the inviter's **home server**, the
   API address the requester talks to (form-encoded; missing = the default
   server, the app's configured API address, as in older links). As a QR
   code ("My code") it is about 200 characters; the in-app scanner reads it, and a phone's own camera
@@ -485,6 +488,50 @@ remembers. The feed lists the posts that are not archived, newest
 body (not on archive or publish again), so a client can compare it for
 equality to see an edit. An archived or deleted post is gone from the
 feed for everyone.
+
+## TRMNL plugin
+
+Backlog #49 (`docs/requirements.md` → "TRMNL display",
+`docs/sync-and-sharing.md` → "TRMNL"): the routes TRMNL calls, on the same
+server, when the operator set `TRMNL_CLIENT_ID`, `TRMNL_CLIENT_SECRET`
+and `WEB_APP_URL` (`TRMNL_SERVER`, default `https://trmnl.com`, for
+tests); otherwise they don't exist (404). They are not under `/v1/`: no
+`NoteDown-Client` header. The code is `server/notedown_server/trmnl/`.
+
+| Method and path | Called by | Request → response |
+|---|---|---|
+| `GET /trmnl/install` | the user's browser, sent by TRMNL | `?code&installation_callback_url` → exchanges the code at TRMNL's `/oauth/token` (JSON `{"code", "client_id", "client_secret", "grant_type": "authorization_code"}`) for the installation's access token, creates the identity and its first invitation, sets the cookie, → 302 to the callback (400 unless it is `https` on TRMNL's host, 502 without a token). The same code again (the same token) changes nothing |
+| `POST /trmnl/installed` | TRMNL | `Authorization: Bearer <access token>`, `{"user": {"uuid", "time_zone_iana", "locale", …}}` → `{"success": true}`; keeps the uuid, time zone and locale (nothing else of the user) |
+| `GET /trmnl/manage` | the user's browser | `?uuid` → the settings page (HTML): with the installing browser's cookie the invitation (QR code, link) until the contact stands, then the choice of file; without it a note to open it there; 404 for an unknown uuid |
+| `POST /trmnl/manage` | the settings page | `?uuid`, form `file` (a file ID; empty = the one changed last) → 303 back; 403 without the cookie |
+| `POST /trmnl/markup` | TRMNL, every refresh | `Authorization: Bearer <access token>` (the body is not read) → `{"markup", "markup_half_horizontal", "markup_half_vertical", "markup_quadrant"}`, HTML of 800×480, 800×240, 400×480 and 400×240 px; 401 for an unknown token, 503 when the notes can't be read now (TRMNL keeps the last picture) |
+| `POST /trmnl/uninstalled` | TRMNL | `Authorization: Bearer <access token>` → `{"success": true}`; deletes the identity (signed with its identity key, as on the delete page) and the installation, also when it is unknown |
+
+- **Installation** (table `trmnl_installations`): the identity's 16-byte
+  secret, from which its identity key, recovery device and device are
+  derived (HKDF-SHA256, salt `NoteDown`, info `identity-sign`,
+  `recovery-sign`, `recovery-enc`, `recovery-kem` as from a recovery key,
+  and `trmnl-device-sign`, `trmnl-device-enc`, `trmnl-device-kem` for the
+  device), sealed twice with AES-256-GCM (associated data
+  `notedown-trmnl:<installation id>`): with HKDF-SHA256(access token,
+  salt `NoteDown`, info `trmnl-token`), and with a random 32-byte key in
+  the cookie `trmnl_<installation id>` (path `/trmnl`, `Secure`,
+  `HttpOnly`, `SameSite=Lax`, 400 days). Of the token only its SHA-256 is
+  stored, to find the installation.
+- **The invitation** is a link invitation like the app's, its secret
+  derived from the identity's (info `trmnl-invite-<n>`), so only its
+  number is stored; the settings page makes the next one when it expired.
+  The link names `TRMNL` and adds `kind=display` ("Contacts and
+  invitations"). The first request on it whose card checks out (as in the
+  app) is confirmed on the next settings page or picture; every other
+  request is declined.
+- **Reading:** the plugin signs in like a device, lists its files and
+  takes a file's key only when it is signed by an active device on the
+  verified list of one of the file's members; it doesn't track the key
+  generation (it keeps no state between requests). It never uploads.
+- Its requests to the API go to the same container
+  (`http://127.0.0.1:$PORT`) with the user's address in
+  `X-Forwarded-For`, so the per-IP limits count the user.
 
 ## Limits
 

@@ -220,7 +220,9 @@ and device-list rules without I/O, `auth.py` challenges and tokens,
 `app.py` the endpoints, `schema.sql` the tables (applied at start, only
 additive statements). `trmnl/` is the TRMNL plugin (`docs/requirements.md`
 → "TRMNL display"): `notes.py` reads a shared file as far as the display
-needs it, `render.py` turns its notes into the markup of TRMNL's layouts.
+needs it, `render.py` turns its notes into the markup of TRMNL's layouts,
+`client.py` is the plugin's NoteDown client (identity, invitation,
+reading files) and `plugin.py` its routes and settings page.
 
 ## Android app
 

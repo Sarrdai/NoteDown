@@ -1716,8 +1716,11 @@ decided 2026-10-21, user request), designed for the first generation:
   with anyone, so it reads only what the user gives it — not all notes,
   as a linked device would.
 - **Choosing what shows:** the settings page lists the files the TRMNL
-  contact is a member of, by their circle ("Alex + TRMNL", "Alex + Lea +
-  TRMNL"), and the user picks one.
+  contact is a member of, by the other members' names ("Alex", "Alex &
+  Lea"), and the user picks one; until then — or when the chosen one is
+  gone — it shows the one changed last, so sharing a first note is all it
+  takes. The settings open only in the browser the plugin was installed
+  with (`docs/sync-and-sharing.md` → "TRMNL"); elsewhere they say so.
 - **Read-only:** the plugin never writes a file; nothing is ticked off on
   the display.
 - **What shows:** the open and permanent notes of that file in the
@@ -1741,16 +1744,25 @@ decided 2026-10-21, user request), designed for the first generation:
 - **Not end-to-end encrypted:** TRMNL draws the picture in its cloud, so
   notes shared with the TRMNL contact are decrypted by the server while it
   renders and seen by TRMNL in plain text (`docs/sync-and-sharing.md` →
-  "TRMNL"). The app says so: its contact card marks the TRMNL contact as a
-  display, which the app shows with a display icon, and the share dialog
-  adds "TRMNL shows notes shared with it unencrypted." when it is ticked
-  (user decision).
+  "TRMNL"). The app says so (user decision): the plugin's invitation link
+  marks the TRMNL contact as a display, which the app shows with a
+  display icon instead of initials, and while it is ticked the share
+  dialog says "TRMNL shows notes unencrypted — a display draws them in
+  its own cloud, outside end-to-end encryption." in place of the
+  "isn't verified" notice (a display has no safety code to compare).
 - **Device tiers:** the display itself is one fixed screen; the plugin's
   settings page is a web page TRMNL opens on any device and covers all
   three tiers like the app.
-- *Prototype: the screen is rendered by `render.py` (tested in
-  `server/tests/test_trmnl_render.py`); `scripts/trmnl-preview.py`
-  writes it for the sample notes.*
+- **Before and after:** until the contact stands the display says
+  "Connect NoteDown" with what to do; with nothing shared "Nothing shared
+  yet"; when TRMNL's token changed "Reconnect NoteDown". Removing the
+  plugin in TRMNL deletes its identity.
+- *Built: `server/notedown_server/trmnl/` (tested in
+  `server/tests/test_trmnl_*.py`, against the app's crypto test vectors
+  and end to end through the server); the operator's setup is
+  `docs/operations.md` → "8. TRMNL plugin". `scripts/trmnl-preview.py`
+  writes the screen for the sample notes; the sample has the display
+  contact TRMNL with the note "Car".*
 
 ### Settings
 
