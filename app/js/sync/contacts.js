@@ -125,7 +125,7 @@ export async function sendRequest(text, name, { verified = false } = {}) {
     throw e;
   }
   const contact = { id: invite.identity, name: cleanName(name), color: nextColor(contacts()), ...(invite.server && invite.server !== ctx.defaultServer() && { server: invite.server }), pending: timestamp(),
-    ...(verified && { verified: timestamp() }) };
+    ...(verified && { verified: timestamp() }), ...(invite.display && { display: true }) };
   setContacts([...contacts(), contact]);
   return contact;
 }

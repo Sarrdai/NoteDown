@@ -52,12 +52,13 @@ test("sample sharing: every listed note exists exactly once and members are cont
 
 test("splitIntoCircles: notes leave the private file without markers", () => {
   const { file, shared } = splitIntoCircles(sample, sharing.shared);
-  assert.equal(shared.length, 2);
+  assert.equal(shared.length, 3);
   assert.deepEqual(shared[0].members, ["lea"]);
   assert.deepEqual(shared[0].file.notes.map(n => n.id), ["s01", "s09"]);
   assert.deepEqual(shared[1].file.notes.map(n => n.id), ["s18"]);
-  assert.equal(file.notes.length, sample.notes.length - 3);
-  assert.ok(!file.notes.some(n => ["s01", "s09", "s18"].includes(n.id)));
+  assert.deepEqual(shared[2].members, ["trmnl"]);   // the display contact (backlog #49)
+  assert.equal(file.notes.length, sample.notes.length - 4);
+  assert.ok(!file.notes.some(n => ["s01", "s09", "s18", "s12"].includes(n.id)));
   assert.deepEqual(file.moved, []);
 });
 

@@ -11,11 +11,13 @@
   "contacts": [
     { "id": "lea", "name": "Lea", "via": "scan" },
     { "id": "tom", "name": "Tom", "via": "link" },
-    { "id": "sam", "name": "Sam", "via": "scan" }
+    { "id": "sam", "name": "Sam", "via": "scan" },
+    { "id": "trmnl", "name": "TRMNL", "via": "link", "display": true }
   ],
   "shared": [
     { "members": ["lea"], "notes": ["s01", "s09"], "order": ["s09", "s01"] },
-    { "members": ["lea", "tom"], "notes": ["s18"] }
+    { "members": ["lea", "tom"], "notes": ["s18"] },
+    { "members": ["trmnl"], "notes": ["s12"] }
   ],
   "news": { "p02": "updated", "p01": "archived" },
   "history": {

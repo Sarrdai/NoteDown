@@ -28,7 +28,7 @@ import { validColor, validDecor } from "./look.js";
 const MARKER = /^<!-- (note|device|contact|member|news|source|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
 /** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, sources, order }
- *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, title?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified? }],
+ *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, title?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified?, display? }],
  *  `news`: [{ id, seen, status? }], `sources`: [{ id, name }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
@@ -78,7 +78,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], purged = 
   for (const m of members) parts.push(`<!-- member id=${m.id} name=${encodeURIComponent(m.name)} -->`);
   for (const d of devices) parts.push(`<!-- device id=${d.id}${d.name ? " name=" + encodeURIComponent(d.name) : ""}${d.title ? " title=" + encodeURIComponent(d.title) : ""}${d.synced ? " synced=" + d.synced : ""} -->`);
   for (const c of contacts) {
-    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""} -->`);
+    parts.push(`<!-- contact id=${c.id} name=${encodeURIComponent(c.name)} color=${c.color}${c.server ? " server=" + encodeURIComponent(c.server) : ""}${c.pending ? " pending=" + c.pending : ""}${c.verified ? " verified=" + c.verified : ""}${c.display ? " display=1" : ""} -->`);
   }
   for (const m of news) parts.push(`<!-- news id=${m.id} seen=${m.seen}${m.status ? " status=" + m.status : ""} -->`);
   for (const s of sources) parts.push(`<!-- source id=${s.id} name=${encodeURIComponent(s.name)} -->`);
@@ -145,7 +145,7 @@ function finishDevice(meta) {
 }
 
 // A contact: `color` is a slot 1–6 (1 when missing or invalid), `server` the contact's home server (absent = the default), `pending` the time the request was sent,
-// `verified` the time the user verified the contact (absent = not verified).
+// `verified` the time the user verified the contact (absent = not verified), `display` a display such as TRMNL (backlog #49).
 function finishContact(meta) {
   const color = Number(meta.color);
   return {
@@ -153,6 +153,7 @@ function finishContact(meta) {
     ...(meta.server && { server: decodeName(meta.server) }),
     ...(meta.pending && { pending: meta.pending }),
     ...(meta.verified && { verified: meta.verified }),
+    ...(meta.display === "1" && { display: true }),
   };
 }
 

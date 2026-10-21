@@ -2,6 +2,7 @@
 // and the small avatars used by the share dialog and the shared markers.
 import { state, contacts, memberName } from "../store.js";
 import { circleLabel, colorIndex, initials, visibleMembers } from "../core/sharing.js";
+import { icon } from "./icons.js";
 
 const contact = id => contacts().find(c => c.id === id);
 
@@ -17,8 +18,9 @@ export const personColor = id => `var(--person-${contact(id)?.color ?? colorInde
 
 const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-/** One initials circle, HTML. `cls` adds modifiers such as "small". */
+/** One initials circle, HTML (a display contact such as TRMNL shows a display instead, backlog #49). `cls` adds modifiers such as "small". */
 export function avatarHtml(id, cls = "") {
+  if (contact(id)?.display) return `<span class="avatar person display ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${icon("display")}</span>`;
   if (!contact(id)) return `<span class="avatar stranger ${cls}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;   // not a contact: neutral
   return `<span class="avatar person ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;
 }

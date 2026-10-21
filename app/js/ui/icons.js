@@ -27,6 +27,7 @@ const PATHS = {
   highlight: '<path d="M14.5 4.5l5 5-8 8H7.5v-4.5z"/><path d="M12 7l5 5M4 21h16"/>',
   star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9-4.3-4.1 5.9-.8z"/>',
   link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
+  display: '<rect x="3" y="4.5" width="18" height="13" rx="2"/><path d="M7 9h6M7 13h10M9 21h6M12 17.5V21"/>',
   counter: '<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M6.5 12h3M14.5 12h3M16 10.5v3M12 8v8"/>',
   mic: '<rect x="9" y="3" width="6" height="11.5" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>',
   undo: '<path d="M9 14 4.5 9.5 9 5"/><path d="M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3"/>',
