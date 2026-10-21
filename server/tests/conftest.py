@@ -60,7 +60,7 @@ class Identity:
 def make_client(rate_limits: bool):
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         conn.execute(
-            "DROP TABLE IF EXISTS file_versions, file_key_chain, news, contacts, invitations, file_members, file_keys, files, devices, "
+            "DROP TABLE IF EXISTS trmnl_installations, file_versions, file_key_chain, news, contacts, invitations, file_members, file_keys, files, devices, "
             "device_entries, identities, relay, rate_limits, server_state CASCADE")
     settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=rate_limits)
     # Every request is from a current app (docs/server-api.md → "App versions").

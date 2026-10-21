@@ -21,6 +21,7 @@ from . import auth, protocol
 from .admin import BLOCKED, MAX_QUOTA_OVERRIDE, MEMBER_LIMIT, erase_identity, register_admin, utc_iso
 from .protocol import (LimitError, ProtocolError, b64u, check_members, client_level, entry_hash, from_b64u, invitation_message, is_id,
                        key_id, member_key, verify_chain, verify_signature)
+from .trmnl.plugin import TrmnlSettings, register_trmnl
 
 # Total decoded ciphertext per identity; a constant for now (a paid option may raise it later).
 MAX_STORAGE_BYTES = 2 * 1024 * 1024
@@ -57,6 +58,7 @@ class Settings:
     # The database host's size limit in bytes, only shown on the admin page (env DATABASE_LIMIT_MB; Postgres doesn't
     # know it). None: not set, and the admin page says so.
     database_limit: int | None = None
+    trmnl: TrmnlSettings | None = None   # the TRMNL plugin (backlog #49); None = off
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -68,6 +70,7 @@ class Settings:
             # Exact identity IDs only: anything else (a typo, "*") never matches and is dropped here.
             admin_identities=[i for i in re.split(r"[,\s]+", os.environ.get("ADMIN_IDENTITIES", "")) if is_id(i)],
             database_limit=database_limit(os.environ.get("DATABASE_LIMIT_MB", "")),
+            trmnl=TrmnlSettings.from_env(),
         )
 
 
@@ -816,4 +819,6 @@ def create_app(settings: Settings) -> FastAPI:
 
     register_admin(app, pool, settings, caller, default_quota=MAX_STORAGE_BYTES, invitation_live=INVITATION_LIVE,
                    load_entries=load_entries, file_members=file_members)
+    if settings.trmnl:
+        register_trmnl(app, pool, settings.trmnl, client_ip)
     return app

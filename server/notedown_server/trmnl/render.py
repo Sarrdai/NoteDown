@@ -24,11 +24,19 @@ TEXTS = {
     "en": {"today": "Today", "tomorrow": "Tomorrow", "yesterday": "Yesterday", "more": "+{n} more",
            "more_notes": "+{n} more notes", "updated": "Updated {t}", "empty": "Nothing shared yet",
            "empty_hint": "Share a note with this contact in NoteDown to show it here.",
+           "connect": "Connect NoteDown",
+           "connect_hint": "Open this plugin's settings in TRMNL and add it as a contact in NoteDown.",
+           "reconnect": "Reconnect NoteDown",
+           "reconnect_hint": "TRMNL's connection changed. Install the plugin again and share your notes anew.",
            "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
            "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]},
     "de": {"today": "Heute", "tomorrow": "Morgen", "yesterday": "Gestern", "more": "+{n} weitere",
            "more_notes": "+{n} weitere Notizen", "updated": "Stand {t}", "empty": "Noch nichts geteilt",
            "empty_hint": "Teile in NoteDown eine Notiz mit diesem Kontakt, um sie hier zu zeigen.",
+           "connect": "NoteDown verbinden",
+           "connect_hint": "Öffne die Einstellungen dieses Plugins in TRMNL und füge es in NoteDown als Kontakt hinzu.",
+           "reconnect": "NoteDown neu verbinden",
+           "reconnect_hint": "Die Verbindung zu TRMNL hat sich geändert. Installiere das Plugin neu und teile deine Notizen erneut.",
            "days": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"], "months": []},
 }
 
@@ -54,15 +62,18 @@ class Card:
     rows: list[Row]
 
 
-def render(notes_file: NotesFile, *, circle: str, now: datetime, layout: str = "full", lang: str = "en") -> str:
-    """The markup of one TRMNL layout. `now` is local time of the user (TRMNL sends the time zone)."""
+def render(notes_file: NotesFile, *, circle: str, now: datetime, layout: str = "full", lang: str = "en",
+           message: str | None = None) -> str:
+    """The markup of one TRMNL layout. `now` is the user's local time; `message` (a key of TEXTS: "connect",
+    "reconnect") shows that instead of the notes."""
     width, height = LAYOUTS[layout]
     texts = TEXTS.get(lang, TEXTS["en"])
-    cards = [card(n, now.date(), texts) for n in shown_notes(notes_file)]
+    cards = [] if message else [card(n, now.date(), texts) for n in shown_notes(notes_file)]
     area = (width - 2 * PAD, height - BAR - 2 * PAD)
     if not cards:
-        body = (f'<div class="empty"><div class="empty-title">{texts["empty"]}</div>'
-                f'<div class="empty-hint">{texts["empty_hint"]}</div></div>')
+        key = message or "empty"
+        body = (f'<div class="empty"><div class="empty-title">{texts[key]}</div>'
+                f'<div class="empty-hint">{texts[key + "_hint"]}</div></div>')
         hidden = 0
     else:
         body, hidden = flow(cards, area, 2 if width >= 600 else 1, texts)
