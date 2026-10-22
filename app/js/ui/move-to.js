@@ -7,9 +7,7 @@
 import { noteTitle } from "../core/markdown.js";
 import { moveOutline, moveInto, targetRest } from "../core/move.js";
 import { partText } from "../core/selection.js";
-import { keepsPart } from "../core/sharing.js";
 import { state, note, circleOf, applyMoveInto, updateSettings } from "../store.js";
-import { membersLabel } from "./people.js";
 import { icon } from "./icons.js";
 import { refOf } from "../core/note-ref.js";
 
@@ -113,16 +111,13 @@ function choose(id, r) {
   $("moveList").scrollTop = top;
 }
 
-// Where it lands, the task switch and what shared sources keep.
+// Where it lands and the task switch.
 function footer() {
   const t = pick.target;
   $("moveOk").disabled = !t;
   $("moveTaskRow").hidden = !t || !$("moveTaskRow").dataset.plain;
   const n = t && note(t.id);
   $("moveWhere").textContent = t ? `End of “${t.text || "Untitled"}”${t.index ? ` in “${noteTitle(n.body).text || "Untitled"}”` : ""}` : "Pick where it goes.";
-  const kept = t ? [...new Set(Object.keys(pick.sources).filter(id => id !== t.id && keepsPart(circleOf(id), circleOf(t.id))).flatMap(circleOf))] : [];
-  $("moveKeep").hidden = !kept.length;
-  $("moveKeep").textContent = kept.length ? `Notes shared with ${membersLabel(kept)} keep their part for them.` : "";
 }
 
 function confirm() {

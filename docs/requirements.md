@@ -1548,8 +1548,10 @@ that host its IP address and the reading time.
   highest heading one level below it, at most `######`; `##` in a note's
   untitled lead). The target keeps its dates, status and circle; a source
   left empty disappears ("Moved to “…” · Undo"); the target comes into
-  view. Sources shared in another circle than the target's keep their part
-  for their members (the dialog says so), like a private copy. Reached
+  view. A source shared with others gives up its part for everyone in its
+  circle, as deleting the lines there would (decided 2026-10-22, user
+  report: moving out of a shared note only copied; before, such a source
+  kept its part for its members). Reached
   from the selection bar (whole notes and sections) and from each note row
   of the **Tidy up** dialog (its move button; the row leaves the dialog).
   The picker is **one outline**: every note with its headings, one tap
@@ -1577,7 +1579,7 @@ that host its IP address and the reading time.
   ("H3"), and its headings shift along. Near the window's edge the list
   scrolls along. Letting go moves it, with "Moved" / "Moved to “…” ·
   Undo"; into another note it acts like Move to (a source left empty
-  disappears, a source shared in another circle keeps its part). Not in
+  disappears, also from a shared note for everyone in its circle). Not in
   the archive, the trash, news posts or the note being edited; paragraphs
   and whole notes don't drag. Selected list items that follow each other
   in one list also move up or down among their siblings by **Alt+↑ / ↓**
