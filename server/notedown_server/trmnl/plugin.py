@@ -34,6 +34,7 @@ from .render import LAYOUTS, render
 log = logging.getLogger(__name__)
 
 SESSION_MINUTES = 60   # how long the settings page stays open after TRMNL opened it
+REFRESH_SECONDS = 10   # how often the invitation page asks whether the contact request came
 # TRMNL's Cloudflare refuses Python's default User-Agent (error 1010), so every request to TRMNL names the plugin.
 USER_AGENT = {"User-Agent": "NoteDown-TRMNL-Plugin"}
 LAYOUT_KEYS = {"full": "markup", "half_horizontal": "markup_half_horizontal",
@@ -322,7 +323,8 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
         try:
             c = connect(inst, keys, request)
             if not inst.contact:
-                return page(texts, invitation_section(c, inst, keys, request, texts))
+                # reloads by itself, so the request is confirmed and the page moves on once NoteDown sent it
+                return page(texts, invitation_section(c, inst, keys, request, texts), refresh=REFRESH_SECONDS)
             return page(texts, files_section(c, inst, texts, uuid))
         except (ClientError, ProtocolError) as error:
             log.warning("TRMNL settings for installation %s failed: %s", inst.id, error)
@@ -373,10 +375,11 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
         return RedirectResponse(f"/trmnl/manage?{urlencode({'uuid': uuid})}", status_code=303)
 
 
-def page(texts: dict, body: str, status: int = 200) -> HTMLResponse:
+def page(texts: dict, body: str, status: int = 200, refresh: int | None = None) -> HTMLResponse:
+    reload = f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ""
     return HTMLResponse(status_code=status, content=f"""<!doctype html>
 <html lang="{texts['lang']}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NoteDown for TRMNL</title><style>{PAGE_STYLE}</style></head>
+{reload}<title>NoteDown for TRMNL</title><style>{PAGE_STYLE}</style></head>
 <body><main><h1>NoteDown <span>for TRMNL</span></h1>{body}</main></body></html>""")
 
 
@@ -388,7 +391,7 @@ PAGE = {
         "unavailable": "Your notes can't be reached right now. Try again in a moment.",
         "connect_title": "Add TRMNL as a contact",
         "connect_text": "Scan the code with the phone you use NoteDown on, or open the link where NoteDown runs. "
-                        "NoteDown adds the contact TRMNL; it is confirmed at once.",
+                        "NoteDown adds the contact TRMNL. This page goes on by itself once the request has arrived.",
         "open_link": "Open in NoteDown",
         "connect_hint": "Then share the notes you want on the display with TRMNL, and come back here to choose "
                         "which ones show.",
@@ -408,7 +411,8 @@ PAGE = {
         "unavailable": "Deine Notizen sind gerade nicht erreichbar. Versuch es gleich noch einmal.",
         "connect_title": "TRMNL als Kontakt hinzufügen",
         "connect_text": "Scanne den Code mit dem Handy, auf dem du NoteDown nutzt, oder öffne den Link dort, wo "
-                        "NoteDown läuft. NoteDown fügt den Kontakt TRMNL hinzu; er wird sofort bestätigt.",
+                        "NoteDown läuft. NoteDown fügt den Kontakt TRMNL hinzu. Diese Seite geht von selbst weiter, sobald "
+                        "die Anfrage angekommen ist.",
         "open_link": "In NoteDown öffnen",
         "connect_hint": "Teile dann die Notizen, die das Display zeigen soll, mit TRMNL und wähle hier, welche "
                         "erscheinen.",
