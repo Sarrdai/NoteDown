@@ -1755,7 +1755,7 @@ decided 2026-10-21, user request), designed for the first generation:
   three tiers like the app.
 - **Before and after:** until the contact stands the display says
   "Connect NoteDown" with what to do; with nothing shared "Nothing shared
-  yet"; when TRMNL's token changed "Reconnect NoteDown". Removing the
+  yet"; when the server's secret changed "Reconnect NoteDown". Removing the
   plugin in TRMNL deletes its identity.
 - *Built: `server/notedown_server/trmnl/` (tested in
   `server/tests/test_trmnl_*.py`, against the app's crypto test vectors

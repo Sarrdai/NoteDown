@@ -286,14 +286,14 @@ stays off until its client ID is set. TRMNL's guide:
    plenty for notes. Leave *No Screen Padding* off: the screen is laid
    out for TRMNL's views with their padding.
 2. TRMNL then lists the plugin under *My Plugins* with a **client ID**
-   (the client secret isn't needed: the token exchange uses the code
-   alone). GitHub → *Settings* → *Secrets and variables* → *Actions* →
+   (the server checks with it that the token TRMNL opens the settings
+   page with is meant for this plugin; the client secret isn't needed). GitHub → *Settings* → *Secrets and variables* → *Actions* →
    *Secrets*: add `TRMNL_CLIENT_ID` (the deploy passes it on with `WEB_APP_URL` = `https://` + `WEB_HOST`,
    where the plugin's invitation links point).
 3. *Actions* → *Server* → *Run workflow* on `main`.
 4. Install the plugin on your TRMNL. TRMNL sends you to the server and
-   back; then open the plugin's settings **in the same browser** (they
-   open only there, `docs/sync-and-sharing.md` → "TRMNL"), scan the code
+   back; save the instance, then open its settings with *Configure*
+   (they open only from TRMNL, `docs/sync-and-sharing.md` → "TRMNL"), scan the code
    with NoteDown, share a note with the new contact TRMNL and pick what
    shows. The display picks it up with its next refresh.
 

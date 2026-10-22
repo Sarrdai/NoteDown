@@ -509,25 +509,27 @@ installation an identity with one device, which only reads.
   So the notes shared with the TRMNL contact are decrypted by the server
   for each picture and reach TRMNL in plain text — an exception the user
   takes by sharing with that contact, limited to the notes shared with it.
-- **The server stores no usable key:** the identity's key seeds are kept
-  only encrypted (AES-256-GCM) with a key derived by HKDF from TRMNL's
-  access token of that installation, which TRMNL sends with every request
-  and the server doesn't store. A copy of the database alone reads none of
-  these notes; a server compromised while running sees the token with the
-  next request, like TRMNL itself.
-- **The settings page** (showing the invitation, choosing the file) has
-  no access token: TRMNL opens it in a new tab with the user's uuid and a
-  JWT valid for two minutes, which proves who opens it but carries no
-  key. So the secret is sealed a second time with a key that stays in a cookie of the browser
-  the plugin was installed with, and the page opens only there; the uuid
-  alone gives nothing (decided 2026-10-21 over storing the circles' names
-  readable on the server).
+- **The keys are sealed with the server's secret:** the identity's key
+  seeds are kept only encrypted (AES-256-GCM) with a key derived by HKDF
+  from `SERVER_SECRET`. A copy of the database alone reads none of these
+  notes; the database together with `SERVER_SECRET` (or a server
+  compromised while running) reads the notes shared with TRMNL — notes
+  TRMNL sees in plain text anyway.
+- **The settings page** (showing the invitation, choosing the file) opens
+  from TRMNL only: TRMNL opens it in a new tab with the user's uuid and a
+  JWT it signed for this plugin, valid for two minutes; the server checks
+  it and keeps a session of its own for an hour. So it opens on any
+  device and in any browser the user is signed in to TRMNL with; the uuid
+  alone gives nothing (decided 2026-10-22 over sealing the keys a second
+  time with a key in a cookie of the installing browser: that guarded
+  notes TRMNL sees anyway, and kept the settings to one browser).
 - **Only reading:** the plugin takes a file key only when a member's
   device signed it, like the app, but keeps no state between pictures, so
   it doesn't refuse an older key generation.
-- **If TRMNL ever replaces the token**, the stored keys can't be opened
-  any more: the display asks to reconnect, and the user adds the new
-  TRMNL contact and shares again. The notes themselves are not affected.
+- **If the server's secret changes**, the stored keys can't be opened
+  any more: the display asks to reconnect, and the user installs the
+  plugin again, adds the new TRMNL contact and shares again. The notes
+  themselves are not affected.
 
 ## Open points
 
