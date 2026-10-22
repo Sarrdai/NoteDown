@@ -138,8 +138,6 @@ is deleted from code, menu and this table.
 | Parameter | Values | What it switches |
 |---|---|---|
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
-| `touchpick` | `pointer` · `glide` | Picking exactly on phone and tablet: a pointer button above + (A) or gliding the finger after the long-press (B) |
-| `hover` | `tint` · `delay` | Mouse over a note tints what a right-click would select: at once (A) or after a short pause (B) |
 | `sort` | `custom` | Start the main view sorted by Shelves (screenshots of the pile and shelves; not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |
 | `dictation` | `demo` | Replay `app/sample/dictation.md` instead of the microphone (not a variant) |

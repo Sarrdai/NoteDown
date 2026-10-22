@@ -489,21 +489,13 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .md li.dragging .item-grip { cursor: grabbing; }
 .md li.drop-before { box-shadow: 0 -3px 0 -1px var(--accent); }
 .md li.drop-after { box-shadow: 0 3px 0 -1px var(--accent); }
-/* Mouse over a note (variants under ⋮ → "Prototype: hover over a note"): a tint shows what a right-click (or
- * a click while selecting) would select — the list item, the heading's section, else the whole note by its
- * border. A: at once; B: after a short pause, so a pointer passing over the text stays calm. */
+/* Mouse over a note: the outline of a pick (ui/selection.js → showPick, "Picking exactly" below) shows at once
+ * what a right-click (or a click while selecting) would select — the list item, the heading's section, else
+ * the whole note. */
 @media (hover: hover) and (pointer: fine) {
-  .note:not(.editing) { transition: border-color 0.12s; }
-  .note:not(.editing):hover:not(:has(li[data-line]:hover, .md-section > :is(h1, h2, h3, h4, h5, h6):first-child:hover)) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-  .app[data-view="open"] .note:not(.editing, .news, .closed) .md li[data-line]::after { transition: background-color 0.12s; }
-  .app[data-view="open"] .note:not(.editing, .news, .closed) .md li[data-line]:not(.selected):hover:not(:has(li[data-line]:hover))::after { background: var(--surface-hover); }
-  .app[data-view="open"] .note:not(.editing, .news, .closed) .md-section { transition: background-color 0.12s; }
-  .app[data-view="open"] .note:not(.editing, .news, .closed) .md-section:not(.selected):has(> :is(h1, h2, h3, h4, h5, h6):first-child:hover) {
-    margin-inline: -8px; padding-inline: 8px; border-radius: 8px; background: var(--surface-hover);
-  }
-  .app.hover-delay .note:not(.editing):hover,
-  .app.hover-delay[data-view="open"] .note:not(.editing, .news, .closed) .md li[data-line]:hover::after,
-  .app.hover-delay[data-view="open"] .note:not(.editing, .news, .closed) .md-section:hover { transition-delay: 0.5s; }
+  .note:not(.editing):hover:not(:has(li[data-line]:hover, .md-section > :is(h1, h2, h3, h4, h5, h6):first-child:hover)) { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+  .app[data-view="open"] .note:not(.editing, .news, .closed) .md li[data-line]:hover:not(:has(li[data-line]:hover))::after { box-shadow: inset 0 0 0 2px var(--accent); }
+  .app[data-view="open"] .note:not(.editing, .news, .closed) .md-section:has(> :is(h1, h2, h3, h4, h5, h6):first-child:hover) { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 }
 .app.selecting .status:hover { color: var(--text-faint); }
 .app.selecting .status:hover .icon { opacity: 0; }
@@ -1519,33 +1511,16 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .app:not([data-view="open"]) #sortFab { --archive: 1; }
 .app:is(.is-editing, .selecting, .recording, [data-view="trash"]) #sortFab { display: none; }
 
-/* Picking exactly on touch (ui/selection.js → showPick): the element a pick would select gets an accent
- * outline — the list item, the heading's section or the note. */
+/* Picking exactly (ui/selection.js → showPick): the element a pick would select gets an accent outline — the
+ * list item, the heading's section or the note; while gliding after a long-press, and under the mouse. */
 .note.pick-preview { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
 .md-section.pick-preview { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .md li.pick-preview::after { box-shadow: inset 0 0 0 2px var(--accent); }
-/* Variant "glide": the spot above the fingertip that picks. */
+/* Gliding after a long-press: the spot above the fingertip that picks. */
 .pick-spot {
   position: fixed; z-index: 40; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; pointer-events: none;
   border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 25%, transparent); box-shadow: 0 0 0 2px var(--surface);
 }
-/* Variant "pointer": a small round button above the sort button (above the bin's corner in the archive) shows
- * the pointer; touch screens only, not while editing or recording. */
-.pointer-fab {
-  display: none; position: fixed; z-index: 41; right: 28px; width: 40px; height: 40px; padding: 0;
-  align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 999px;
-  background: var(--surface-raised); color: var(--accent); box-shadow: var(--shadow-high); cursor: pointer;
-  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + var(--fab-size) + 12px + 40px + 12px);
-}
-.pointer-fab .icon { width: 20px; height: 20px; fill: currentColor; }
-.app:not([data-view="open"]) .pointer-fab { bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2 + 40px + 12px); }
-.app.pointing .pointer-fab { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-@media (hover: none) {
-  .app.pick-pointer:not(.is-editing, .recording) .pointer-fab { display: inline-flex; }
-}
-.pointer-layer { position: fixed; inset: 0; z-index: 40; touch-action: none; }
-.pointer-arrow { position: absolute; left: -6px; top: -4px; width: 30px; height: 30px; pointer-events: none; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4)); }
-.pointer-arrow .icon { width: 30px; height: 30px; fill: var(--ctp-text); stroke: var(--surface); stroke-width: 1.5; stroke-linejoin: round; }
 
 /* The snackbar steps aside for the bin. */
 .app:not([data-view="open"]) .snackbar { left: calc(var(--fab-left) + var(--fab-size) + 16px); max-width: calc(100% - var(--fab-left) - var(--fab-size) - 32px); }
