@@ -34,6 +34,8 @@ from .render import LAYOUTS, render
 log = logging.getLogger(__name__)
 
 SESSION_MINUTES = 60   # how long the settings page stays open after TRMNL opened it
+# TRMNL's Cloudflare refuses Python's default User-Agent (error 1010), so every request to TRMNL names the plugin.
+USER_AGENT = {"User-Agent": "NoteDown-TRMNL-Plugin"}
 LAYOUT_KEYS = {"full": "markup", "half_horizontal": "markup_half_horizontal",
                "half_vertical": "markup_half_vertical", "quadrant": "markup_quadrant"}
 
@@ -122,7 +124,8 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
     """Adds the /trmnl routes."""
     seal_key = hkdf(server_secret, b"NoteDown", b"trmnl-seal")
     session_key = hkdf(server_secret, b"NoteDown", b"trmnl-session")
-    jwks = jwt.PyJWKClient(f"{config.server.rstrip('/')}/.well-known/jwks.json", lifespan=3600, timeout=10)
+    jwks = jwt.PyJWKClient(f"{config.server.rstrip('/')}/.well-known/jwks.json", lifespan=3600, timeout=10,
+                           headers=USER_AGENT)
 
     def client(keys: Keys, request: Request) -> Client:
         return Client(config.send or http_send(config.api, client_ip(request)), keys)
@@ -144,15 +147,18 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
         # TRMNL knows the plugin by its registered addresses: the code alone, no client credentials.
         request = urllib.request.Request(
             f"{config.server.rstrip('/')}/oauth/token", data=urlencode({"code": code}).encode(), method="POST",
-            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"})
+            headers={**USER_AGENT, "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"})
         try:
             with urllib.request.urlopen(request, timeout=20) as response:
-                token = json.loads(response.read()).get("access_token")
+                answer = json.loads(response.read())
         except (urllib.error.URLError, ValueError) as error:
             log.warning("TRMNL token exchange failed: %s", error)
-            token = None
+            answer = {}
+        answer = answer if isinstance(answer, dict) else {}
+        token = answer.get("access_token")
         if not isinstance(token, str) or not token:
             # a wrong code comes back as status 200 with {"error": true, "message": ...}
+            log.warning("TRMNL handed out no access token: %s", answer.get("message"))
             raise HTTPException(502, "TRMNL didn't hand out an access token")
         return token
 
