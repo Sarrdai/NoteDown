@@ -35,6 +35,7 @@ import { hasAnyLabel } from "./core/filters.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
+import { initDragDrop } from "./ui/drag-drop.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
@@ -828,6 +829,7 @@ function wire() {
   initToolbar({ onDue: sortInByDue });
   recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
+  initDragDrop({ onMoved });
   initSyncPanel();
   initContactRequests();
   initPullRefresh({

@@ -73,11 +73,13 @@ Current state, edited in place when a decision changes.
   heading or a list item in a note or a contents entry it starts multi-select, on an
   entry of the People or Labels tab it starts picking several filters
   (a bar with × and the count, a checkbox per entry), on + it starts dictation, on a task
-  checkbox it picks the task's state. On the desktop a **right-click**
-  does what the long-press does wherever one acts (links and the editor
-  keep the browser's menu), and the mouse's hover outlines what it would
-  select, as gliding after a long-press does on touch; nothing essential is long-press-only there (also Ctrl/Shift+click,
-  a click on a card's frame outside its text, keyboard).
+  checkbox it picks the task's state. On a note's content the long-press
+  **lifts**: letting go selects, moving drags (a list item or a section).
+  On the desktop a click edits, Ctrl+click and a right-click select (links
+  and the editor keep the browser's menu), and the grip that shows at the
+  hovered list item or heading drags or, clicked, selects; nothing
+  essential is long-press-only there (also Shift+click, a click on a
+  card's frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
   normal one and the primary action button is hidden; a tap anywhere on
   an item toggles it, nothing inside the item acts. The note list and the
@@ -128,8 +130,9 @@ Current state, edited in place when a decision changes.
   list down from its top syncs now; a round indicator follows the finger
   and spins until the sync is over. Desktop syncs by opening Sync &
   sharing instead.
-- No hover-only controls: everything reachable with the mouse is also
-  visible and reachable by touch. Touch targets are at least 44 px
+- No hover-only functions: a control that shows only under the mouse
+  (the drag grip) is a shortcut for what touch reaches otherwise (the
+  long-press). Touch targets are at least 44 px
   (task checkboxes get an enlarged invisible target).
 - **Editing** happens in place: the tapped note turns into the editor,
   the rest of the list stays as it is. One note is edited at a time;

@@ -2,12 +2,13 @@
 // of sections (core/selection.js). A long-press on a note (or Ctrl+click, or
 // a mouse click on the card's frame, or a right-click) selects it whole, with
 // the mouse held on longer — or a long-press on a further note while
-// selecting — its sections one by one; on touch the finger glides after the
-// long-press and letting go selects what it points at; a long-press on a contents entry selects that section
+// selecting — its sections one by one; on touch the long-press lifts what is
+// under the finger, letting go selects it, moving drags it; a long-press on a contents entry selects that section
 // with everything below it, one on a heading or a list item in a card that
 // section or item; then taps add or remove in either place (any tap on a
 // fully selected note deselects it), and Shift+click selects a range.
-// Selected list items move up and down among their siblings. The
+// Selected list items move up and down among their siblings (Alt+↑ / ↓);
+// dragging is ui/drag-drop.js. The
 // selection bar acts on the selection; Copy and Merge first confirm the
 // order in a dialog where it can be changed by drag and drop. Ends with ✕,
 // Esc, the back button, an empty selection or an action that removes the
@@ -20,6 +21,7 @@ import {
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings, toggleItem, selectedItemLines, shiftItemKeys,
 } from "../core/selection.js";
 import { listItems, parseItemKey, moveItems, itemBlocks } from "../core/list-items.js";
+import { draggableAt, startDrag as startPartDrag, moveDrag, endDrag } from "./drag-drop.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
 import { noteTitle } from "../core/markdown.js";
@@ -78,9 +80,9 @@ export function initSelection(options) {
   });
   for (const type of ["pointerup", "pointercancel", "pointerleave"]) l.addEventListener(type, cancelPress);
   l.addEventListener("contextmenu", onContextMenu);
-  // Gliding after a long-press keeps the list still; the browser only honours this from a listener that was
+  // A lifted finger keeps the list still; the browser only honours this from a listener that was
   // there when the touch began.
-  l.addEventListener("touchmove", e => { if (glide) e.preventDefault(); }, { passive: false });
+  l.addEventListener("touchmove", e => { if (lift) e.preventDefault(); }, { passive: false });
   // Shift+click must not extend the text selection.
   l.addEventListener("mousedown", e => { if (e.shiftKey && e.target.closest(".note:not(.editing)")) e.preventDefault(); });
   // Capture phase on window: runs before the note's own handlers (edit,
@@ -131,7 +133,7 @@ function onPointerDown(e) {
   frameDown = e.pointerType === "mouse" && onFrame(e.target);
   downType = e.pointerType;
   const el = e.target.closest(".note");
-  down = el && { id: el.dataset.id, key: headingKey(e.target, el.dataset.id), line: itemLine(e.target, el.dataset.id) };
+  down = el && { id: el.dataset.id, key: headingKey(e.target, el.dataset.id), line: itemLine(e.target, el.dataset.id), target: e.target };
   if (!el || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
   if (el.dataset.id === state.editingId) return; // long-press in the editor selects text
   if (!isSelecting() && e.target.closest("input.task:not(:disabled)")) return; // a held task box opens its states (ui/task-menu.js)
@@ -149,12 +151,12 @@ function cancelPress() {
 const buzz = () => { try { navigator.vibrate?.(15); } catch { /* not allowed */ } };
 
 function onHold() {
-  const { id, key, line, split, x, y } = press;
+  const { id, key, line, split, x, y, target } = press;
   press = null;
   swallowClick = true; // the click that follows the release
   buzz();
   window.getSelection()?.removeAllRanges();
-  if (downType !== "mouse") return startGlide(x, y);
+  if (downType !== "mouse") return startLift(target, x, y);
   if (split) return splitNote(id);
   if (key) return toggleSection(key, { ownNote: true });
   if (line !== null) return toggleListItem(id, line);
@@ -171,14 +173,14 @@ function onContextMenu(e) {
   const el = e.target.closest(".note");
   const mouse = downType === "mouse" && !press && el && el.dataset.id !== state.editingId && !e.target.closest("a[href]");
   if (!mouse) {
-    if (press || isSelecting() || swallowClick || glide) e.preventDefault();
+    if (press || isSelecting() || swallowClick || lift) e.preventDefault();
     return;
   }
   e.preventDefault();
   pickAt(e.target);
 }
 
-/** The element a pick at `target` (a right-click, a long-press and glide) would select: the list item,
+/** The element a pick at `target` (a right-click, a long-press, the grip) would select: the list item,
  *  the heading's section, else the note; null outside a note and in the edited one. */
 export function pickTarget(target) {
   const el = target?.closest?.("#list .note");
@@ -210,68 +212,49 @@ export function showPick(el) {
   el?.classList.add("pick-preview");
 }
 
-// ---------- long-press and glide (touch) ----------
-// After the long-press the finger stays down: the element under a spot above the fingertip shows the preview
-// outline and follows the finger; letting go selects it. The spot lifts above the finger as it starts to move,
-// so the target stays visible; near the screen's top or bottom edge the list scrolls along.
-const LIFT = 44;   // px the spot ends up above the fingertip
-let glide = null;  // { x0, y0, x, y, spot, frame } while gliding
+// ---------- long-press and lift (touch) ----------
+// The long-press lifts what is under the finger: an accent outline shows it. Moving the finger then drags it
+// (a list item or a heading's section, ui/drag-drop.js); letting go without moving selects it (while
+// selecting it toggles, like a tap).
+let lift = null;   // { target, x0, y0, dragging } while a lifted finger is down
 
-function startGlide(x, y) {
-  const spot = document.createElement("div");
-  spot.className = "pick-spot";
-  document.body.append(spot);
-  glide = { x0: x, y0: y, x, y, spot, frame: 0 };
-  moveGlide(x, y);
-  window.addEventListener("touchmove", onGlideMove);
-  window.addEventListener("touchend", endGlide);
-  window.addEventListener("touchcancel", endGlide);
+function startLift(target, x, y) {
+  lift = { target, x0: x, y0: y, dragging: false };
+  showPick(pickTarget(target));
+  window.addEventListener("touchmove", onLiftMove);
+  window.addEventListener("touchend", endLift);
+  window.addEventListener("touchcancel", endLift);
 }
 
-const glidePoint = () => {
-  const lift = Math.min(LIFT, Math.hypot(glide.x - glide.x0, glide.y - glide.y0) * 1.6);
-  return [glide.x, glide.y - lift];
-};
-const glideTarget = () => document.elementFromPoint(...glidePoint());
-
-function moveGlide(x, y) {
-  Object.assign(glide, { x, y });
-  const [sx, sy] = glidePoint();
-  glide.spot.style.transform = `translate(${sx}px, ${sy}px)`;
-  showPick(pickTarget(glideTarget()));
-}
-
-function onGlideMove(e) {
-  if (!glide) return;
+function onLiftMove(e) {
+  if (!lift) return;
   const t = e.touches[0];
-  moveGlide(t.clientX, t.clientY);
-  if (!glide.frame) glide.frame = requestAnimationFrame(glideScroll);
+  if (!lift.dragging && Math.hypot(t.clientX - lift.x0, t.clientY - lift.y0) > MOVE_TOLERANCE) {
+    const part = draggableAt(lift.target);
+    if (!part) return;   // a whole note doesn't move; letting go selects it
+    lift.dragging = true;
+    showPick(null);
+    startPartDrag(part, lift.x0, lift.y0);
+  }
+  if (lift.dragging) moveDrag(t.clientX, t.clientY);
 }
 
-function glideScroll() {
-  if (!glide) return;
-  const step = glide.y < 90 ? -10 : glide.y > window.innerHeight - 70 ? 10 : 0;
-  if (step) { window.scrollBy(0, step); moveGlide(glide.x, glide.y); }
-  glide.frame = step ? requestAnimationFrame(glideScroll) : 0;
-}
-
-function endGlide(e) {
-  if (!glide) return;
-  const target = e.type === "touchend" ? glideTarget() : null;
-  cancelAnimationFrame(glide.frame);
-  glide.spot.remove();
-  glide = null;
-  window.removeEventListener("touchmove", onGlideMove);
-  window.removeEventListener("touchend", endGlide);
-  window.removeEventListener("touchcancel", endGlide);
+function endLift(e) {
+  if (!lift) return;
+  const { target, dragging } = lift;
+  lift = null;
+  window.removeEventListener("touchmove", onLiftMove);
+  window.removeEventListener("touchend", endLift);
+  window.removeEventListener("touchcancel", endLift);
   showPick(null);
-  if (target) { buzz(); pickAt(target); }
+  if (dragging) return endDrag(e.type === "touchend");
+  if (e.type === "touchend") pickAt(target);
 }
 
 function onClick(e) {
   const el = e.target.closest("#list .note");
-  // The grip of the selected items only drags.
-  if (e.target.closest("#list .item-grip")) { e.preventDefault(); e.stopPropagation(); return; }
+  // The grip (ui/drag-drop.js) drags and selects on its own.
+  if (e.target.closest("#list .drag-grip")) { e.preventDefault(); e.stopPropagation(); return; }
   if (swallowClick) {
     swallowClick = false;
     if (el) { e.preventDefault(); e.stopPropagation(); }
@@ -456,7 +439,6 @@ function update() {
     b.addEventListener("click", a.run);
     return b;
   }));
-  markGrip(movable);
   const more = actions.filter(a => a.menu);
   $("selMore").hidden = more.length === 0;
   $("selMore").onclick = () => openMenu($("selMore"), more.map(a => ({ label: a.label, icon: a.id, disabled: a.disabled, onSelect: a.run })));
@@ -474,7 +456,7 @@ function movableItems(parts) {
   return itemBlocks(note(id).body, selectedItemLines(state.selected, id)).length === 1 ? id : null;
 }
 
-// Moves the selected items one place up or down among their siblings (Alt+↑ / ↓, Move up / down, the grip).
+// Moves the selected items one place up or down among their siblings (Alt+↑ / ↓, Move up / down).
 function moveSelected(delta, steps = 1) {
   const id = movableItems(current().parts);
   if (!id) return;
@@ -492,72 +474,6 @@ function moveSelected(delta, steps = 1) {
   update();
 }
 
-// The grip at the first of the selected items that can move: dragged, they move among their siblings.
-function markGrip(id) {
-  for (const g of list().querySelectorAll(".item-grip")) g.remove();
-  if (!id) return;
-  const lis = [...list().querySelectorAll(`.note[data-id="${CSS.escape(id)}"] li.selected`)];
-  if (!lis.length) return;
-  const grip = document.createElement("button");
-  grip.className = "item-grip";
-  grip.setAttribute("aria-label", "Move (drag, or Alt+arrow keys)");
-  grip.title = "Move (drag, or Alt+arrow keys)";
-  grip.innerHTML = icon("grip");
-  grip.addEventListener("pointerdown", e => dragItems(e, lis));
-  lis[0].prepend(grip);
-}
-
-// Drags the selected items by their grip: they follow the pointer, a line shows where they land among their
-// siblings; near the window's top or bottom edge the page scrolls along.
-function dragItems(e, lis) {
-  e.preventDefault();
-  e.stopPropagation();
-  const grip = e.currentTarget;
-  grip.setPointerCapture(e.pointerId);
-  const parent = lis[0].parentElement;
-  const others = [...parent.children].filter(li => li.tagName === "LI" && !lis.includes(li));
-  const first = [...parent.children].indexOf(lis[0]);
-  const startY = e.clientY + window.scrollY;
-  let lastY = e.clientY, frame = 0, steps = 0;
-  for (const li of lis) li.classList.add("dragging");
-  const place = () => {
-    const dy = lastY + window.scrollY - startY;
-    for (const li of lis) li.style.transform = `translateY(${dy}px)`;
-    const top = lis[0].getBoundingClientRect().top, bottom = lis[lis.length - 1].getBoundingClientRect().bottom;
-    // Siblings above whose middle the block's top passed, or below whose middle its bottom passed.
-    const above = others.filter(li => [...parent.children].indexOf(li) < first);
-    const below = others.filter(li => [...parent.children].indexOf(li) > first);
-    const up = above.filter(li => { const r = li.getBoundingClientRect(); return top < r.top + r.height / 2; }).length;
-    const down = below.filter(li => { const r = li.getBoundingClientRect(); return bottom > r.top + r.height / 2; }).length;
-    steps = up ? -up : down;
-    for (const li of others) li.classList.remove("drop-before", "drop-after");
-    if (up) above[above.length - up].classList.add("drop-before");
-    else if (down) below[down - 1].classList.add("drop-after");
-  };
-  const scroll = () => {
-    const step = lastY < 64 ? -10 : lastY > window.innerHeight - 64 ? 10 : 0;
-    if (step) { window.scrollBy(0, step); place(); }
-    frame = step ? requestAnimationFrame(scroll) : 0;
-  };
-  const move = ev => {
-    if (ev.pointerId !== e.pointerId) return;
-    lastY = ev.clientY;
-    place();
-    if (!frame) frame = requestAnimationFrame(scroll);
-  };
-  const end = ev => {
-    if (ev.pointerId !== e.pointerId) return;
-    cancelAnimationFrame(frame);
-    for (const li of [...lis, ...others]) { li.classList.remove("dragging", "drop-before", "drop-after"); li.style.transform = ""; }
-    grip.removeEventListener("pointermove", move);
-    grip.removeEventListener("pointerup", end);
-    grip.removeEventListener("pointercancel", end);
-    if (steps) moveSelected(Math.sign(steps), Math.abs(steps));
-  };
-  grip.addEventListener("pointermove", move);
-  grip.addEventListener("pointerup", end);
-  grip.addEventListener("pointercancel", end);
-}
 const count = (n, word) => n === 1 ? `Note ${word}` : `${n} notes ${word}`;
 
 // Runs `fn` on the selected notes once the selection has ended (its history entry gone, as `fn` may open a dialog).

@@ -1450,34 +1450,27 @@ that host its IP address and the reading time.
   it, so single parts can be taken out again. A selected section reaches
   up to the next entry that is not selected. A finger that moves first
   scrolls instead; task checkboxes, links and the round button don't act
-  meanwhile. On the desktop a **right-click** acts like the long-press —
-  on a note, a heading, a list item or a contents entry it starts the
-  selection, while selecting it toggles like a click — and keeps the
-  browser's menu only on links and in the editor (decided 2026-10-22, user
-  request: the long-press is slow with a mouse); Ctrl+click starts / extends the selection
-  and Shift+click selects a range (in the list, on a heading by section, and in the contents); a
+  meanwhile. On the desktop a plain click edits, and **Ctrl+click** on a
+  note, a heading, a list item or a contents entry starts / extends the
+  selection, as do a **right-click** (the browser's menu stays on links and
+  in the editor) and a click on the **grip** ("Drag and drop"; decided
+  2026-10-22, user request: the long-press is slow with a mouse);
+  Shift+click selects a range (in the list, on a heading by section, and in the contents); a
   plain click on a card's frame — its margin or the free part of the meta
   line, outside the text and the controls — selects the note too
   (2026-10-14; mouse only: on touch the frame is a small target, stray
   taps would select). Long-press and the frame of the note being edited
   stay with the editor; the archive selects whole notes only. *Prototype: round 3; sections
   2026-10-14; list items and right-click 2026-10-22.*
-- **Long-press and glide** (phone, tablet; decided 2026-10-22, user
-  request: two headings, a bullet and a task close together are hard to
-  hit with a long-press, the finger hides its target): after the
-  long-press the finger stays down and an **accent outline** previews what
-  would be selected — the list item, the heading's section or the note. It
-  follows a spot that lifts above the fingertip as the finger moves;
-  letting go selects (while selecting it toggles, like a tap), near the
-  screen's edge the list scrolls along. Chosen over a pointer button above
-  the + (no extra button or mode); in the editor the keyboard's own cursor
-  control serves (Gboard's space bar, iOS's held space bar). It replaces
-  "held on longer selects the sections one by one" on touch.
-- **Mouse hover** (desktop) shows at once what a right-click would
-  select, with the same accent outline: the list item or the heading's
-  section under the pointer, else the whole note; the text keeps its text
-  cursor, as a click there edits (decided 2026-10-22, user request: one
-  look on every device; a grey tint looked poor).
+- **Long-press lifts** (phone, tablet; decided 2026-10-22, user request:
+  one gesture for selecting and moving, as in Google Keep or iOS
+  Reminders): the long-press lifts what is under the finger — an **accent
+  outline** shows it, the phone buzzes. Letting go without moving selects
+  it (while selecting it toggles, like a tap); moving the finger drags a
+  list item or a heading's section ("Drag and drop"; a whole note stays
+  in place). It replaces "held on longer selects the sections one by
+  one" on touch, and an earlier glide to the target: the outline shows at
+  once what was hit, a wrong hit is let go and taken out with a tap.
 - A fully selected note is marked only by the **accent border**; a partly
   selected one tints its selected sections. In the contents, selected
   entries are tinted and selected sections on hidden levels show as "+n"
@@ -1566,16 +1559,30 @@ that host its IP address and the reading time.
   starts at 2, remembered on this device apart from the contents' count);
   a note with sections on hidden levels shows "+n", and a search shows
   every level of the notes it finds. *Prototype: 2026-10-19.*
-- **Reorder list items** (decided 2026-10-22, user request): selected list
-  items that follow each other in one list move up or down among their
-  siblings as one block, with their sub-items — never into another list
-  or level (Move to does that). **Alt+↑ / ↓** on the desktop and **Move up
-  / down** under ⋮ do it in every tier; the selection stays on the moved
-  items, no Undo needed (the way back is the opposite move). A **grip** at
-  the first selected item's right end drags them, a line shows where they
-  land, near the screen's edge the list scrolls along (decided 2026-10-22
-  over up / down buttons at the item: dragging is the familiar pattern
-  and moves an item far in one go). *Prototype: 2026-10-22.*
+- **Drag and drop** (decided 2026-10-22, user request: move tasks and
+  sections where they belong in one go): a **list item** (with its
+  sub-items) or a **heading's section** (with the deeper ones below it)
+  is dragged — on the desktop by the **grip** that shows at the right of
+  the list item or heading under the mouse (an accent outline marks what
+  it moves while the mouse is on it; a click on it selects), on touch by
+  moving the finger after the long-press. A floating copy follows the
+  pointer and the part stays faint in its place; a **line** shows where
+  it lands, in any open note of the main view: a list item between the
+  items of any list or at the end of a section's own text (a new list
+  there, before a closing line of labels), a section before a heading or
+  at a note's end (before its labels). The line's **left edge is the
+  level**: moving sideways nests it deeper or less deep, within what the
+  place allows — from the level of what follows down to one below what
+  precedes, as in an outliner; a section's line names its heading level
+  ("H3"), and its headings shift along. Near the window's edge the list
+  scrolls along. Letting go moves it, with "Moved" / "Moved to “…” ·
+  Undo"; into another note it acts like Move to (a source left empty
+  disappears, a source shared in another circle keeps its part). Not in
+  the archive, the trash, news posts or the note being edited; paragraphs
+  and whole notes don't drag. Selected list items that follow each other
+  in one list also move up or down among their siblings by **Alt+↑ / ↓**
+  and **Move up / down** under ⋮ (keyboard, accessibility). *Prototype:
+  2026-10-22.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked and the cancelled task items
   (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the
