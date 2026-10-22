@@ -1,14 +1,16 @@
 """The TRMNL plugin's endpoints (backlog #49, docs/server-api.md → "TRMNL plugin"): TRMNL's install flow, the plugin's
 settings page and the screen markup TRMNL asks for. Each installation is a NoteDown identity of its own (client.py);
-its secret is stored only sealed — with a key from TRMNL's access token, which comes with every request from TRMNL,
-and with a key kept in a cookie of the browser that installed it, which opens the settings page
-(docs/sync-and-sharing.md → "TRMNL"). Off unless the operator configures it (TrmnlSettings.from_env)."""
+its secret is stored sealed with a key from the server's secret (docs/sync-and-sharing.md → "TRMNL"). TRMNL's access
+token identifies the installation on TRMNL's requests, TRMNL's signed token (JWT) the user on the settings page. Off
+unless the operator configures it (TrmnlSettings.from_env)."""
 
 import hashlib
+import hmac
 import html
 import json
 import logging
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -17,9 +19,10 @@ from typing import Annotated, Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import jwt
 import segno
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from fastapi import Body, FastAPI, Header, HTTPException, Request
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -30,7 +33,7 @@ from .render import LAYOUTS, render
 
 log = logging.getLogger(__name__)
 
-COOKIE_DAYS = 400   # the longest a browser keeps a cookie
+SESSION_MINUTES = 60   # how long the settings page stays open after TRMNL opened it
 LAYOUT_KEYS = {"full": "markup", "half_horizontal": "markup_half_horizontal",
                "half_vertical": "markup_half_vertical", "quadrant": "markup_quadrant"}
 
@@ -41,9 +44,11 @@ class TrmnlSettings:
     web_app: str                        # the web app's address, where invitation links point
     server: str = "https://trmnl.com"   # TRMNL's address: its token endpoint and the callback's host
     api: str = "http://127.0.0.1:8080"  # how the plugin reaches this server's API (in the same container)
-    # Tests replace these: send(method, path, body, headers) → (status, json), and exchange(code) → access token.
+    # Tests replace these: send(method, path, body, headers) → (status, json), exchange(code) → access token, and
+    # jwt_key(token) → the public key TRMNL signed the settings page's token with.
     send: Callable | None = None
     exchange: Callable[[str], str] | None = None
+    jwt_key: Callable[[str], Any] | None = None
 
     @classmethod
     def from_env(cls) -> "TrmnlSettings | None":
@@ -58,23 +63,18 @@ class TrmnlSettings:
 class Installation:
     id: str
     identity: str
-    sealed_token: str
-    sealed_browser: str
+    sealed: str
     invitation: int
     contact: str | None
     file_id: str | None
     time_zone: str | None
     locale: str | None
 
-    COLUMNS = "id, identity, sealed_token, sealed_browser, invitation, contact, file_id, time_zone, locale"
+    COLUMNS = "id, identity, sealed, invitation, contact, file_id, time_zone, locale"
 
 
 def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def token_key(token: str) -> bytes:
-    return hkdf(token.encode(), b"NoteDown", b"trmnl-token")
 
 
 def seal(key: bytes, secret: bytes, installation: str) -> str:
@@ -118,8 +118,11 @@ def http_send(base: str, ip: str) -> Callable:
     return send
 
 
-def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callable) -> None:
+def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callable, server_secret: bytes) -> None:
     """Adds the /trmnl routes."""
+    seal_key = hkdf(server_secret, b"NoteDown", b"trmnl-seal")
+    session_key = hkdf(server_secret, b"NoteDown", b"trmnl-session")
+    jwks = jwt.PyJWKClient(f"{config.server.rstrip('/')}/.well-known/jwks.json", lifespan=3600, timeout=10)
 
     def client(keys: Keys, request: Request) -> Client:
         return Client(config.send or http_send(config.api, client_ip(request)), keys)
@@ -190,21 +193,16 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
             raise HTTPException(400, "unexpected callback address")
         token = exchange(code)
         if load("token_hash", token_hash(token)) is None:
-            keys, installation, browser_key = Keys.new(), b64u(os.urandom(16)), os.urandom(32)
+            keys, installation = Keys.new(), b64u(os.urandom(16))
             c = client(keys, request)
             c.register()
             c.sign_in()
             c.invite(1)
             with pool.connection() as conn:
                 conn.execute(
-                    "INSERT INTO trmnl_installations (id, token_hash, identity, sealed_token, sealed_browser) "
-                    "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (token_hash) DO NOTHING",
-                    (installation, token_hash(token), keys.identity, seal(token_key(token), keys.secret, installation),
-                     seal(browser_key, keys.secret, installation)))
-            response = RedirectResponse(installation_callback_url, status_code=302)
-            response.set_cookie(f"trmnl_{installation}", b64u(browser_key), max_age=COOKIE_DAYS * 86400,
-                                path="/trmnl", secure=True, httponly=True, samesite="lax")
-            return response
+                    "INSERT INTO trmnl_installations (id, token_hash, identity, sealed) "
+                    "VALUES (%s, %s, %s, %s) ON CONFLICT (token_hash) DO NOTHING",
+                    (installation, token_hash(token), keys.identity, seal(seal_key, keys.secret, installation)))
         return RedirectResponse(installation_callback_url, status_code=302)
 
     @app.post("/trmnl/installed")
@@ -223,7 +221,7 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
         inst = load("token_hash", token_hash(token))
         if inst is None:
             return {"success": True}   # an error might keep TRMNL from finishing the uninstall
-        secret = unseal(token_key(token), inst.sealed_token, inst.id)
+        secret = unseal(seal_key, inst.sealed, inst.id)
         if secret:
             try:
                 client(Keys(secret), request).delete()
@@ -246,8 +244,8 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
             now = datetime.now(ZoneInfo(inst.time_zone or "UTC"))
         except (ZoneInfoNotFoundError, ValueError):
             now = datetime.now(timezone.utc)
-        secret = unseal(token_key(token), inst.sealed_token, inst.id)
-        if secret is None:
+        secret = unseal(seal_key, inst.sealed, inst.id)
+        if secret is None:   # the server's secret changed
             return screens(now, lang, message="reconnect")
         try:
             c = connect(inst, Keys(secret), request)
@@ -271,23 +269,50 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
 
     # --- the settings page ---
 
-    def browser_keys(inst: Installation, request: Request) -> Keys | None:
-        cookie = request.cookies.get(f"trmnl_{inst.id}", "")
+    def trmnl_user(token: str) -> str | None:
+        """The user uuid TRMNL signed the settings page's token for (RS256, TRMNL's published keys, for this plugin's
+        client ID, valid for two minutes); None when it doesn't check out."""
         try:
-            secret = unseal(from_b64u(cookie, 32), inst.sealed_browser, inst.id) if cookie else None
-        except ProtocolError:
-            secret = None
-        return Keys(secret) if secret else None
+            key = config.jwt_key(token) if config.jwt_key else jwks.get_signing_key_from_jwt(token).key
+            claims = jwt.decode(token, key, algorithms=["RS256"], audience=config.client_id, leeway=30,
+                                options={"require": ["exp", "sub", "aud"]})
+        except jwt.PyJWTError as error:
+            log.info("TRMNL: settings token refused: %s", error)
+            return None
+        return claims["sub"] if isinstance(claims["sub"], str) else None
+
+    def session_mac(value: str) -> str:
+        return b64u(hmac.new(session_key, value.encode(), hashlib.sha256).digest())
+
+    def session_user(request: Request) -> str | None:
+        """The uuid of the settings session this browser holds, if it is still valid."""
+        uuid, _, rest = request.cookies.get("trmnl_session", "").rpartition("|")
+        expires, _, mac = rest.partition(".")
+        if not uuid or not hmac.compare_digest(mac, session_mac(f"{uuid}|{expires}")):
+            return None
+        return uuid if expires.isdigit() and int(expires) > time.time() else None
 
     @app.get("/trmnl/manage", response_class=HTMLResponse)
-    def manage(request: Request, uuid: str = ""):
+    def manage(request: Request, uuid: str = "", token: Annotated[str, Query(alias="jwt")] = ""):
         inst = load("user_uuid", uuid) if uuid else None
         texts = PAGE["de" if inst and (inst.locale or "").lower().startswith("de") else "en"]
         if inst is None:
             return page(texts, f"<p>{texts['unknown']}</p>", status=404)
-        keys = browser_keys(inst, request)
-        if keys is None:
-            return page(texts, f"<p>{texts['other_browser']}</p>")
+        if token:
+            # TRMNL's link: start a session of our own and drop the token from the address
+            if trmnl_user(token) != uuid:
+                return page(texts, f"<p>{texts['expired']}</p>", status=403)
+            value = f"{uuid}|{int(time.time()) + SESSION_MINUTES * 60}"
+            response = RedirectResponse(f"/trmnl/manage?{urlencode({'uuid': uuid})}", status_code=303)
+            response.set_cookie("trmnl_session", f"{value}.{session_mac(value)}", max_age=SESSION_MINUTES * 60,
+                                path="/trmnl", secure=True, httponly=True, samesite="lax")
+            return response
+        if session_user(request) != uuid:
+            return page(texts, f"<p>{texts['expired']}</p>", status=403)
+        secret = unseal(seal_key, inst.sealed, inst.id)
+        if secret is None:   # the server's secret changed
+            return page(texts, f"<p>{texts['unknown']}</p>", status=404)
+        keys = Keys(secret)
         try:
             c = connect(inst, keys, request)
             if not inst.contact:
@@ -333,9 +358,9 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
 
         def save():
             inst = load("user_uuid", uuid)
-            # Only the installing browser (its cookie, SameSite=Lax, so no other site can post this form).
-            if inst is None or browser_keys(inst, request) is None:
-                raise HTTPException(403, "settings only open in the browser that installed the plugin")
+            # Only in a session TRMNL started (its cookie is SameSite=Lax, so no other site can post this form).
+            if inst is None or session_user(request) != uuid:
+                raise HTTPException(403, "open the settings from TRMNL")
             update(inst.id, file_id=file[:22] or None)
 
         await run_in_threadpool(save)
@@ -353,8 +378,7 @@ PAGE = {
     "en": {
         "lang": "en",
         "unknown": "This installation is unknown. Install the NoteDown plugin in TRMNL again.",
-        "other_browser": "These settings open only in the browser the plugin was installed with. Open them there, "
-                         "or remove the plugin in TRMNL and install it again.",
+        "expired": "Open these settings from TRMNL: in the plugin's settings, choose Configure.",
         "unavailable": "Your notes can't be reached right now. Try again in a moment.",
         "connect_title": "Add TRMNL as a contact",
         "connect_text": "Scan the code with the phone you use NoteDown on, or open the link where NoteDown runs. "
@@ -374,8 +398,7 @@ PAGE = {
     "de": {
         "lang": "de",
         "unknown": "Diese Installation ist unbekannt. Installiere das NoteDown-Plugin in TRMNL erneut.",
-        "other_browser": "Diese Einstellungen öffnen sich nur in dem Browser, mit dem das Plugin installiert wurde. "
-                         "Öffne sie dort, oder entferne das Plugin in TRMNL und installiere es neu.",
+        "expired": "Öffne diese Einstellungen aus TRMNL heraus: in den Einstellungen des Plugins über Configure.",
         "unavailable": "Deine Notizen sind gerade nicht erreichbar. Versuch es gleich noch einmal.",
         "connect_title": "TRMNL als Kontakt hinzufügen",
         "connect_text": "Scanne den Code mit dem Handy, auf dem du NoteDown nutzt, oder öffne den Link dort, wo "

@@ -1,17 +1,20 @@
 """The TRMNL plugin end to end (docs/server-api.md → "TRMNL plugin"): installed from TRMNL, added as a contact by a
-user, shown a shared file, uninstalled. TRMNL's token exchange is simulated; the plugin's client talks to the same
-test server."""
+user, shown a shared file, uninstalled. TRMNL's token exchange and its signing key are simulated; the plugin's client
+talks to the same test server."""
 
 import hashlib
 import json
 import os
 import re
+import time
 from pathlib import Path
 from urllib.parse import parse_qs
 
+import jwt
 import psycopg
 import pytest
 from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import generate_private_key
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi.testclient import TestClient
@@ -26,6 +29,7 @@ from conftest import DATABASE_URL, SECRET, Person, make_client
 
 CALLBACK = "https://trmnl.com/plugin_settings/7/installation_complete"
 SAMPLE = (Path(__file__).resolve().parents[2] / "app/sample/notes.md").read_text()
+TRMNL_KEY = generate_private_key(public_exponent=65537, key_size=2048)   # TRMNL's key for the settings page's token
 
 
 @pytest.fixture
@@ -42,7 +46,7 @@ def client():
         return r.status_code, (r.json() if r.content else None)
 
     trmnl = TrmnlSettings("client-id", "https://notes.example", send=send,
-                          exchange=lambda code: f"token-{code}")
+                          exchange=lambda code: f"token-{code}", jwt_key=lambda token: TRMNL_KEY.public_key())
     settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=False, trmnl=trmnl)
     with TestClient(create_app(settings), base_url="https://testserver",
                     headers={"NoteDown-Client": str(protocol.MIN_CLIENT)}) as c:
@@ -69,8 +73,20 @@ def screen(client, code="abc") -> dict:
     return r.json()
 
 
+def signed(uuid="user-1", key=TRMNL_KEY, aud="client-id", age=0) -> str:
+    """The token TRMNL adds when it opens the settings page."""
+    now = int(time.time()) - age
+    return jwt.encode({"sub": uuid, "aud": aud, "iat": now, "exp": now + 120}, key, algorithm="RS256",
+                      headers={"kid": "trmnl"})
+
+
+def settings(client, uuid="user-1"):
+    """Opens the settings page as TRMNL's Configure button does; the session cookie stays with `client`."""
+    return client.get("/trmnl/manage", params={"uuid": uuid, "jwt": signed(uuid)})
+
+
 def invitation(client, uuid="user-1") -> dict:
-    page = client.get("/trmnl/manage", params={"uuid": uuid}).text
+    page = settings(client, uuid).text
     link = re.search(r'href="([^"]*/invite/#[^"]*)"', page).group(1).replace("&amp;", "&")
     return {k: v[0] for k, v in parse_qs(link.split("#", 1)[1]).items()}
 
@@ -146,7 +162,7 @@ def test_install_connect_share_show_and_uninstall(client):
     assert "Weekly groceries" in out["markup"] and "Car" in out["markup"] and ">Alex<" in out["markup"]
     assert "Stand " in out["markup"]                                  # German, from the install webhook
 
-    page = client.get("/trmnl/manage", params={"uuid": "user-1"}).text
+    page = settings(client).text
     assert "Was das Display zeigt" in page and "<span>Alex</span>" in page
     r = client.post("/trmnl/manage", params={"uuid": "user-1"}, data={"file": file_id}, follow_redirects=False)
     assert r.status_code == 303
@@ -159,12 +175,19 @@ def test_install_connect_share_show_and_uninstall(client):
     assert listed["deleted"] is True                                  # the plugin's identity is gone
 
 
-def test_settings_open_only_in_the_installing_browser(client):
+def test_settings_open_only_with_trmnls_token(client):
     install(client)
+    install(client, code="def", uuid="user-2")
     other = TestClient(client.app, base_url="https://testserver", headers={"NoteDown-Client": str(protocol.MIN_CLIENT)})
-    page = other.get("/trmnl/manage", params={"uuid": "user-1"}).text
-    assert "nur in dem Browser" in page and "/invite/" not in page
+    page = other.get("/trmnl/manage", params={"uuid": "user-1"})
+    assert page.status_code == 403 and "aus TRMNL heraus" in page.text and "/invite/" not in page.text
     assert other.post("/trmnl/manage", params={"uuid": "user-1"}, data={"file": ""}).status_code == 403
+    stranger = generate_private_key(public_exponent=65537, key_size=2048)
+    for token in (signed("user-2"), signed(key=stranger), signed(aud="other-plugin"), signed(age=600)):
+        assert other.get("/trmnl/manage", params={"uuid": "user-1", "jwt": token}).status_code == 403
+    page = settings(other)                                            # any browser TRMNL sends
+    assert "/invite/" in page.text and "jwt" not in str(page.url)     # the token is dropped from the address
+    assert other.get("/trmnl/manage", params={"uuid": "user-2"}).status_code == 403   # its session is user-1's
     assert client.get("/trmnl/manage", params={"uuid": "nobody"}).status_code == 404
 
 
@@ -175,7 +198,7 @@ def test_only_the_first_request_is_confirmed(client):
     add_contact(user, invite)
     screen(client)
     # a second invitation can't be got any more: the page shows the files once the contact stands
-    assert "/invite/" not in client.get("/trmnl/manage", params={"uuid": "user-1"}).text
+    assert "/invite/" not in settings(client).text
 
 
 def test_a_key_not_signed_by_a_member_is_refused(client):
@@ -188,12 +211,11 @@ def test_a_key_not_signed_by_a_member_is_refused(client):
     assert client.post("/trmnl/markup", headers=bearer("token-abc")).status_code == 503
 
 
-def test_a_changed_token_asks_to_reconnect(client):
+def test_a_changed_server_secret_asks_to_reconnect(client):
     install(client)
-    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
-        conn.execute("UPDATE trmnl_installations SET token_hash = %s",
-                     (hashlib.sha256(b"token-new").hexdigest(),))
-    assert "neu verbinden" in screen(client, code="new")["markup"]
+    with psycopg.connect(DATABASE_URL, autocommit=True) as conn:   # as if sealed with another server secret
+        conn.execute("UPDATE trmnl_installations SET sealed = %s", (b64u(os.urandom(60)),))
+    assert "neu verbinden" in screen(client)["markup"]
 
 
 def test_install_refuses_a_foreign_callback(client):

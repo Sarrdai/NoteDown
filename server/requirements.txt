@@ -3,6 +3,8 @@ uvicorn[standard]==0.54.0
 psycopg[binary]==3.3.6
 psycopg-pool==3.3.3
 cryptography==50.0.2
-# The TRMNL plugin (backlog #49): the invitation's QR code on its settings page, and time zones on slim images.
+# The TRMNL plugin (backlog #49): the invitation's QR code on its settings page, time zones on slim images, and
+# TRMNL's signed token that opens the settings page.
 segno==1.6.6
+PyJWT==2.10.1
 tzdata==2026.3

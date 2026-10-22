@@ -820,5 +820,5 @@ def create_app(settings: Settings) -> FastAPI:
     register_admin(app, pool, settings, caller, default_quota=MAX_STORAGE_BYTES, invitation_live=INVITATION_LIVE,
                    load_entries=load_entries, file_members=file_members)
     if settings.trmnl:
-        register_trmnl(app, pool, settings.trmnl, client_ip)
+        register_trmnl(app, pool, settings.trmnl, client_ip, settings.secret)
     return app
