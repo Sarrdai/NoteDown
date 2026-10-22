@@ -69,7 +69,8 @@ function placeGrip(at) {
   if (grip.el.parentElement !== card) card.append(grip.el);
   const head = at.head.getBoundingClientRect();
   const lineH = parseFloat(getComputedStyle(at.head).lineHeight) || head.height;
-  grip.el.style.top = `${head.top - card.getBoundingClientRect().top + Math.min(lineH, head.height) / 2}px`;
+  // Relative to the card's padding box (inside its border).
+  grip.el.style.top = `${head.top - card.getBoundingClientRect().top - card.clientTop + Math.min(lineH, head.height) / 2}px`;
 }
 
 function onGripDown(e) {

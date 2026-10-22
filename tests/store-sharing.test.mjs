@@ -127,15 +127,16 @@ test("a note merged from a permanent one is permanent", () => {
   assert.equal(merged.status, "permanent");
 });
 
-test("move into a private note: a shared source keeps its part, a private target changes, Undo restores", () => {
+test("move into a private note: a shared source gives its part up for everyone, Undo restores", () => {
   start();
   const before = texts();
   const old = note(n3.id).body;
   const undo = applyMoveInto(n3.id, "merged", [{ id: n1.id, body: null }]);
   assert.equal(note(n3.id).body, "merged");
-  assert.deepEqual(texts(), before, "the shared source stays for bob");
+  assert.equal(note(n1.id), undefined, "gone from the file shared with bob");
   undo();
   assert.equal(note(n3.id).body, old);
+  assert.deepEqual(texts(), before);
 });
 
 test("move into a shared note: a private source gives its part up", () => {
@@ -241,11 +242,12 @@ test("merging across circles with Share with ... marks the sources in both files
   assert.deepEqual(state.file.moved, [], "the private file leaves none");
 });
 
-test("moving into a shared note marks the sources that gave up their part; a source that keeps it gets none", () => {
+test("moving into a shared note marks every shared source that gave up its part, also in another circle", () => {
   bobPair();
   const undo = applyMoveInto(n1.id, "merged", [{ id: "s-two", body: null }, { id: n2.id, body: null }]);
   assert.deepEqual(bobFile().moved.map(m => m.id), ["s-two"]);
-  assert.deepEqual(sharedFiles().find(s => s.key === "lea").file.moved, [], "the lea source keeps its part");
+  assert.deepEqual(sharedFiles().find(s => s.key === "lea").file.moved.map(m => m.id), [n2.id], "the lea source moved too");
   undo();
   assert.deepEqual(bobFile().moved, []);
+  assert.deepEqual(sharedFiles().find(s => s.key === "lea").file.moved, []);
 });

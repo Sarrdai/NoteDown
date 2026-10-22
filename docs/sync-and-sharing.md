@@ -448,8 +448,8 @@ delete, and the sources stay out of their trash — the text lives on in
 the merged note. A source edited concurrently on another device lands as a
 displaced edit: a note of its own in the file the marker names when that
 file holds a note of its id, else in the editor's private file (nothing is
-lost). A private source needs no marker, and a source in another circle
-that keeps its part isn't touched.
+lost). A private source needs no marker; a source that only gives up a
+part is an ordinary edit.
 
 **The same note id in two files** (backlog #63): a member can write a note
 with the id of a note in another of the user's files. Both stay and show;

@@ -7,7 +7,7 @@
 import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./core/notes-file.js";
 import { moveNote, moveTarget, hasLeft } from "./core/merge.js";
 import { refOf, assignRefs } from "./core/note-ref.js";
-import { circleKey, mergeCircle, keepsPart } from "./core/sharing.js";
+import { circleKey, mergeCircle } from "./core/sharing.js";
 import { DEFAULT_SORT, expiredTrash, isSectionId } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
 import { privateCopy } from "./core/note-links.js";
@@ -747,14 +747,14 @@ export function applyMerge(changes, merged, mode = "copy") {
 }
 
 /**
- * Move to (core/move.js → moveInto): the target
- * gets `body`, the other sources their remaining body from `changes` (null =
- * the note goes) — except sources shared in another circle, which keep
- * their part (core/sharing.js → keepsPart). Returns a function that undoes it.
+ * Move to and drag and drop (core/move.js → moveInto, core/drag.js): the
+ * target gets `body`, the other sources their remaining body from `changes`
+ * (null = the note goes) — shared sources too, for everyone in their circle.
+ * Returns a function that undoes it.
  */
 export function applyMoveInto(targetId, body, changes) {
   const target = circleOf(targetId);
-  changes = [{ id: targetId, body }, ...changes.filter(c => !keepsPart(circleOf(c.id), target))];
+  changes = [{ id: targetId, body }, ...changes];
   const now = timestamp();
   const edited = changes.filter(c => c.body !== null).map(c => {
     const n = note(c.id);

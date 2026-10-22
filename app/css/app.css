@@ -471,19 +471,20 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 /* List items (core/list-items.js): a box behind each one, the bullet or task box included, carries the
  * selection's tint, the mouse's hover tint and the drag look; sub-items lie on their parent's box. */
 .md li[data-line] { position: relative; --item-left: -1.5em; }
-.md li[data-line]:has(> input.task, > p:first-child > input.task) { --item-left: -4px; }
+.md li[data-line]:has(> input.task, > p:first-child > input.task) { --item-left: -10px; }
 .md li[data-line]::after { content: ""; position: absolute; z-index: -1; inset: -1px -4px -1px var(--item-left); border-radius: 6px; pointer-events: none; }
 .md li.selected::after { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 /* Drag and drop (ui/drag-drop.js). The desktop's grip: at the right end of the list item or heading under the
  * mouse; dragged, the part moves, clicked, it is selected. */
 .drag-grip {
-  position: absolute; z-index: 3; right: 8px; width: 28px; height: 28px; margin-top: -14px; padding: 0;
+  position: absolute; z-index: 3; right: 20px; width: 24px; height: 20px; margin-top: -10px; padding: 0;   /* inside the outline it shows, centred on the first line */
   display: inline-flex; align-items: center; justify-content: center;
-  border: 0; border-radius: 8px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow);
+  border: 0; border-radius: 6px; background: var(--surface); color: var(--text-muted);
   cursor: grab; touch-action: none;
 }
+.drag-grip::before { content: ""; position: absolute; inset: -4px; }
 .drag-grip:hover { color: var(--accent); }
-.drag-grip .icon { width: 20px; height: 20px; }
+.drag-grip .icon { width: 18px; height: 18px; }
 /* While dragging: the part stays faint in its place, a copy follows the pointer, a line shows where it lands
  * (its left edge the level; a section's line names its heading level). */
 .drag-source { opacity: 0.35; }
@@ -1519,7 +1520,10 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 /* What a long-press lifts, or the grip under the mouse moves (ui/selection.js → showPick), gets an accent
  * outline — the list item, the heading's section or the note. */
 .note.pick-preview { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
-.md-section.pick-preview { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+/* A section's outline lies over it (the layout stays), with room above the heading for the grip. */
+.md-section.pick-preview { position: relative; }
+.md-section.pick-preview::after { content: ""; position: absolute; inset: -5px -8px -1px; border-radius: 8px; box-shadow: inset 0 0 0 2px var(--accent); pointer-events: none; }
+.md-section.selected.pick-preview::after { inset: -5px 0 -1px; }
 .md li.pick-preview::after { box-shadow: inset 0 0 0 2px var(--accent); }
 
 

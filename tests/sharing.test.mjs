@@ -6,7 +6,7 @@ import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
   circleKey, circleLabel, circleEntries, groupsWith, shareState, groupFull, initials, splitIntoCircles, generateRecoveryKey,
   normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo,
-  colorIndex, nextColor, visibleMembers, mergeCircle, keepsPart,
+  colorIndex, nextColor, visibleMembers, mergeCircle,
 } from "../app/js/core/sharing.js";
 
 const read = name => readFileSync(new URL("../app/sample/" + name, import.meta.url), "utf8");
@@ -164,13 +164,6 @@ test("groupsWith: circles of several people that contain the contact", () => {
   assert.deepEqual(groupsWith("lea", circles), [["lea", "tom"]]);
   assert.deepEqual(groupsWith("sam", circles), [["sam", "tom"]]);
   assert.deepEqual(groupsWith("max", circles), []);
-});
-
-test("keepsPart: merging into a note, only a source shared in another circle keeps its part", () => {
-  assert.equal(keepsPart([], ["lea"]), false, "private moves into the shared target");
-  assert.equal(keepsPart(["lea", "tom"], ["tom", "lea"]), false, "same circle");
-  assert.equal(keepsPart(["lea"], []), true, "shared into a private target: a private copy");
-  assert.equal(keepsPart(["lea"], ["tom"]), true);
 });
 
 test("groupFull: a contact can't be added once a note's group would grow past the limit", () => {
