@@ -195,8 +195,13 @@ function build(view) {
         }
         if (lineActive(node.from)) return;
         if (name === "Image") {
-          const m = /^!\[([^\]]*)\]\(\s*<?([^\s>)]+)/.exec(doc.sliceString(node.from, node.to));
-          if (m) deco.push(Decoration.replace({ widget: new MediaWidget(m[2], m[1], state.field(mediaMode)) }).range(node.from, node.to));
+          // The address from the syntax tree: a regex would cut "File_(1).jpg" at its ")".
+          const url = node.node.getChild("URL");
+          const alt = /^!\[([^\]]*)\]/.exec(doc.sliceString(node.from, node.to));
+          if (url && alt) {
+            const src = doc.sliceString(url.from, url.to).replace(/^<(.*)>$/, "$1");
+            deco.push(Decoration.replace({ widget: new MediaWidget(src, alt[1], state.field(mediaMode)) }).range(node.from, node.to));
+          }
           return false;
         }
         if (name === "HeaderMark") {
