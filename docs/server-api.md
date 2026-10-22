@@ -496,6 +496,9 @@ Backlog #49 (`docs/requirements.md` → "TRMNL display",
 server, when the operator set `TRMNL_CLIENT_ID` and `WEB_APP_URL` (`TRMNL_SERVER`, default `https://trmnl.com`, for
 tests); otherwise they don't exist (404). They are not under `/v1/`: no
 `NoteDown-Client` header. The code is `server/notedown_server/trmnl/`.
+Requests to TRMNL (token exchange, its signing keys) carry the
+`User-Agent` `NoteDown-TRMNL-Plugin`: TRMNL's Cloudflare refuses Python's
+default (error 1010).
 
 | Method and path | Called by | Request → response |
 |---|---|---|
