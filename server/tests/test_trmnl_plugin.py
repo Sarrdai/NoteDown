@@ -149,6 +149,7 @@ def test_install_connect_share_show_and_uninstall(client):
 
     invite = invitation(client)
     assert invite["name"] == "TRMNL" and invite["kind"] == "display" and invite["srv"] == "https://testserver"
+    assert 'http-equiv="refresh"' in settings(client).text           # the invitation page waits for the request
     user = Person(client)
     add_contact(user, invite)
     out = screen(client)                                              # the request is confirmed on the next refresh
@@ -163,7 +164,7 @@ def test_install_connect_share_show_and_uninstall(client):
     assert "Stand " in out["markup"]                                  # German, from the install webhook
 
     page = settings(client).text
-    assert "Was das Display zeigt" in page and "<span>Alex</span>" in page
+    assert "Was das Display zeigt" in page and 'http-equiv="refresh"' not in page and "<span>Alex</span>" in page
     r = client.post("/trmnl/manage", params={"uuid": "user-1"}, data={"file": file_id}, follow_redirects=False)
     assert r.status_code == 303
     assert f'value="{file_id}" checked' in client.get("/trmnl/manage", params={"uuid": "user-1"}).text
