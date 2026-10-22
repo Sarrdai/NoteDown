@@ -74,6 +74,7 @@ const PATHS = {
   play: '<path d="M8 5.5v13l10-6.5z"/>',
   stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>',
     grip: '<circle cx="9" cy="6" r="0.9"/><circle cx="15" cy="6" r="0.9"/><circle cx="9" cy="12" r="0.9"/><circle cx="15" cy="12" r="0.9"/><circle cx="9" cy="18" r="0.9"/><circle cx="15" cy="18" r="0.9"/>',
+    pointer: '<path d="M5 3.5 18.5 10l-6 1.8-2.6 6.2z"/>',
 };
 
 export function icon(name, cls = "icon") {

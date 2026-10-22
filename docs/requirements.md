@@ -1462,6 +1462,20 @@ that host its IP address and the reading time.
   taps would select). Long-press and the frame of the note being edited
   stay with the editor; the archive selects whole notes only. *Prototype: round 3; sections
   2026-10-14; list items and right-click 2026-10-22.*
+- **Picking exactly on touch** (phone, tablet; user request 2026-10-22:
+  two headings, a bullet and a task close together are hard to hit with a
+  long-press, the finger hides its target). An accent outline previews
+  what would be selected — the list item, the heading's section or the
+  note. Open, as prototype variants: **A, a pointer** (the user's idea) —
+  a small button above the sort button shows a mouse pointer beside it, a
+  drag anywhere moves it by the same distance, letting go selects what its
+  tip is on like a right-click and the pointer is gone (not while
+  editing: the keyboard's own cursor control covers that, Gboard's space
+  bar, iOS's held space bar); **B, long-press and glide** (recommended:
+  no extra button or mode) — after the long-press the finger stays down,
+  the preview follows a spot that lifts above the fingertip as it moves,
+  letting go selects; it replaces "held on longer selects the sections
+  one by one". Both scroll the list near the screen's edge.
 - **Mouse hover** (desktop) shows what a right-click would select: a
   tint on the list item or on the heading's section under the pointer,
   else the note's border; the text keeps its text cursor, as a click there
@@ -1560,10 +1574,11 @@ that host its IP address and the reading time.
   siblings as one block, with their sub-items — never into another list
   or level (Move to does that). **Alt+↑ / ↓** on the desktop and **Move up
   / down** under ⋮ do it in every tier; the selection stays on the moved
-  items, no Undo needed (the way back is the opposite move). Open: a grip
-  at the first selected item to drag them, with a line where they land
-  (A, recommended), or up / down buttons there (B) — prototype variants.
-  *Prototype: 2026-10-22.*
+  items, no Undo needed (the way back is the opposite move). A **grip** at
+  the first selected item's right end drags them, a line shows where they
+  land, near the screen's edge the list scrolls along (decided 2026-10-22
+  over up / down buttons at the item: dragging is the familiar pattern
+  and moves an item far in one go). *Prototype: 2026-10-22.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked and the cancelled task items
   (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the

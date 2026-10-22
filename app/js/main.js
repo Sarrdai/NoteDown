@@ -35,6 +35,7 @@ import { hasAnyLabel } from "./core/filters.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
+import { initPointerTool } from "./ui/pointer-tool.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
@@ -163,6 +164,7 @@ function render() {
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
   for (const v of Object.keys(ITEM_HOVERS)) app.classList.toggle("hover-" + v, s.itemHover === v);
+  app.classList.toggle("pick-pointer", s.touchPick === "pointer");
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -669,10 +671,11 @@ function fitTopbar() {
 }
 
 // What a mouse over a note shows it would select (Prototype variant, settings.itemHover): a tint at once (A) or
-// after a short pause (B). How selected list items are reordered (settings.itemMove): by a grip (A), or by
-// Move up / down in the selection bar (B); Alt+↑ / ↓ in both.
+// after a short pause (B).
 const ITEM_HOVERS = { tint: "Tint at once (A)", delay: "Tint after a pause (B)" };
-const ITEM_MOVES = { drag: "Drag by a grip (A)", buttons: "Up / down buttons (B)" };
+// Picking exactly on touch (settings.touchPick): a pointer shown by a button above the + (A, the user's idea),
+// or gliding the finger after the long-press (B).
+const TOUCH_PICKS = { pointer: "Pointer button (A)", glide: "Long-press and glide (B)" };
 
 function moreMenu() {
   const s = state.settings;
@@ -685,10 +688,10 @@ function moreMenu() {
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    { section: "Prototype: pick exactly on touch" },
+    ...Object.entries(TOUCH_PICKS).map(([v, label]) => ({ label, checked: s.touchPick === v, onSelect: () => updateSettings({ touchPick: v }) })),
     { section: "Prototype: hover over a note" },
     ...Object.entries(ITEM_HOVERS).map(([v, label]) => ({ label, checked: s.itemHover === v, onSelect: () => updateSettings({ itemHover: v }) })),
-    { section: "Prototype: reorder list items" },
-    ...Object.entries(ITEM_MOVES).map(([v, label]) => ({ label, checked: s.itemMove === v, onSelect: () => updateSettings({ itemMove: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -839,6 +842,7 @@ function wire() {
   initToolbar({ onDue: sortInByDue });
   recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
+  initPointerTool();
   initSyncPanel();
   initContactRequests();
   initPullRefresh({
@@ -882,7 +886,7 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   if (ITEM_HOVERS[p.get("hover")]) patch.itemHover = p.get("hover");
-  if (ITEM_MOVES[p.get("itemmove")]) patch.itemMove = p.get("itemmove");
+  if (TOUCH_PICKS[p.get("touchpick")]) patch.touchPick = p.get("touchpick");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
