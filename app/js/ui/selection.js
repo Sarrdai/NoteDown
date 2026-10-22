@@ -1,10 +1,12 @@
 // Multi-select over the note list and the table of contents: one selection
 // of sections (core/selection.js). A long-press on a note (or Ctrl+click, or
-// a mouse click on the card's frame) selects it whole, held on longer — or a
-// long-press on a further note while selecting — its sections one by one; a
-// long-press on a contents entry selects that section with everything below
-// it; then taps add or remove in either place (any tap on a fully selected
-// note deselects it), and Shift+click selects a range. The
+// a mouse click on the card's frame, or a right-click) selects it whole, held
+// on longer — or a long-press on a further note while selecting — its
+// sections one by one; a long-press on a contents entry selects that section
+// with everything below it, one on a heading or a list item in a card that
+// section or item; then taps add or remove in either place (any tap on a
+// fully selected note deselects it), and Shift+click selects a range.
+// Selected list items move up and down among their siblings. The
 // selection bar acts on the selection; Copy and Merge first confirm the
 // order in a dialog where it can be changed by drag and drop. Ends with ✕,
 // Esc, the back button, an empty selection or an action that removes the
@@ -14,8 +16,9 @@
 import { tableOfContents, sectionKey } from "../core/query.js";
 import {
   rangeIds, toggleEntry, selectEntryRange, noteState, toggleNote, selectNotes, selectSections, selectedParts, partText, partPreview,
-  copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings,
+  copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings, toggleItem, selectedItemLines, shiftItemKeys,
 } from "../core/selection.js";
+import { listItems, parseItemKey, moveItems, itemBlocks } from "../core/list-items.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
 import { noteTitle } from "../core/markdown.js";
@@ -42,8 +45,9 @@ const list = () => $("list");
 let opts = null;      // { viewNotes, onMerged, onMoved, onChange }
 let anchorNote = null; // last note toggled, start of a Shift range in the list
 let anchorKey = null;  // same for the contents
-let press = null;     // { id, key, split, x, y, timer } while a finger / button is down
-let down = null;      // { id, key }: the card and heading under the last pointerdown (the click may be moved by the browser's touch adjustment)
+let press = null;     // { id, key, line, split, x, y, timer } while a finger / button is down
+let down = null;      // { id, key, line }: the card, heading and list item under the last pointerdown (the click may be moved by the browser's touch adjustment)
+let downType = "";    // pointer type of the last pointerdown: a right-click selects with the mouse only
 let swallowClick = false;
 let frameDown = false; // the mouse went down on a card's frame (desktop)
 let dialog = null;    // { onConfirm } while the order dialog is open
@@ -72,8 +76,7 @@ export function initSelection(options) {
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > MOVE_TOLERANCE) cancelPress();
   });
   for (const type of ["pointerup", "pointercancel", "pointerleave"]) l.addEventListener(type, cancelPress);
-  // No native callout / context menu on a held note (Android, iOS).
-  l.addEventListener("contextmenu", e => { if (press || isSelecting() || swallowClick) e.preventDefault(); });
+  l.addEventListener("contextmenu", onContextMenu);
   // Shift+click must not extend the text selection.
   l.addEventListener("mousedown", e => { if (e.shiftKey && e.target.closest(".note:not(.editing)")) e.preventDefault(); });
   // Capture phase on window: runs before the note's own handlers (edit,
@@ -81,6 +84,11 @@ export function initSelection(options) {
   window.addEventListener("click", onClick, true);
 
   document.addEventListener("keydown", e => {
+    // Alt+↑ / ↓ move the selected list items.
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && isSelecting() && !dialog && !isConfirmOpen()) {
+      e.preventDefault();
+      return moveSelected(e.key === "ArrowUp" ? -1 : 1);
+    }
     if (e.key !== "Escape" || isConfirmOpen()) return;
     if (dialog) closeDialog();
     else if (isSelecting()) endSelection();
@@ -100,6 +108,15 @@ function headingKey(target, id) {
   return h ? sectionKey(id, h.closest(".md-section").dataset.section) : null;
 }
 
+// The first line of the list item in a card (the innermost one), else null; main view and open notes only.
+function itemLine(target, id) {
+  const li = state.view === "open" && note(id)?.status !== "closed" && !note(id)?.news && target.closest(".note-body li[data-line]");
+  return li ? Number(li.dataset.line) : null;
+}
+
+// The section key of the card section holding `target`.
+const sectionOf = (target, id) => sectionKey(id, target.closest(".md-section")?.dataset.section ?? 0);
+
 // A card's frame: its margin and the free part of the meta line, outside the
 // text and the controls.
 const onFrame = target => !target.closest(".note-body, button, a, input");
@@ -108,8 +125,9 @@ function onPointerDown(e) {
   swallowClick = false;
   // Only with the mouse: on touch the frame is a small target and the long-press stays.
   frameDown = e.pointerType === "mouse" && onFrame(e.target);
+  downType = e.pointerType;
   const el = e.target.closest(".note");
-  down = el && { id: el.dataset.id, key: headingKey(e.target, el.dataset.id) };
+  down = el && { id: el.dataset.id, key: headingKey(e.target, el.dataset.id), line: itemLine(e.target, el.dataset.id) };
   if (!el || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
   if (el.dataset.id === state.editingId) return; // long-press in the editor selects text
   if (!isSelecting() && e.target.closest("input.task:not(:disabled)")) return; // a held task box opens its states (ui/task-menu.js)
@@ -127,37 +145,78 @@ function cancelPress() {
 const buzz = () => { try { navigator.vibrate?.(15); } catch { /* not allowed */ } };
 
 function onHold() {
-  const { id, key, split, x, y } = press;
+  const { id, key, line, split, x, y } = press;
   press = null;
   swallowClick = true; // the click that follows the release
   buzz();
   window.getSelection()?.removeAllRanges();
   if (split) return splitNote(id);
   if (key) return toggleSection(key, { ownNote: true });
+  if (line !== null) return toggleListItem(id, line);
   toggle(id);
   // Held on: the note's sections one by one instead (main view, a note with sections below its title).
   if (state.view !== "open" || entries().filter(e => e.noteId === id).length < 2) return;
   press = { id, x, y, timer: setTimeout(() => { press = null; buzz(); splitNote(id); }, SPLIT_MS - HOLD_MS) };
 }
 
+// A right-click (desktop) acts like a long-press: a note, a heading or a list item starts the selection; while
+// selecting it toggles like a click. Links keep the browser's menu, the edited note too; a task box has its
+// own menu (ui/task-menu.js). On touch, the long-press's own context menu is only kept from showing.
+function onContextMenu(e) {
+  const el = e.target.closest(".note");
+  const mouse = downType === "mouse" && !press && el && el.dataset.id !== state.editingId && !e.target.closest("a[href]");
+  if (!mouse) {
+    if (press || isSelecting() || swallowClick) e.preventDefault();
+    return;
+  }
+  e.preventDefault();
+  window.getSelection()?.removeAllRanges();
+  const id = el.dataset.id;
+  if (isSelecting() || state.view === "trash") return clickNote(e, id);
+  const key = headingKey(e.target, id);
+  const line = itemLine(e.target, id);
+  if (key) toggleSection(key, { ownNote: true });
+  else if (line !== null) toggleListItem(id, line);
+  else toggle(id);
+}
+
 function onClick(e) {
   const el = e.target.closest("#list .note");
+  // The grip of the selected items only drags; their up / down buttons move them.
+  const grip = e.target.closest("#list .item-grip");
+  if (grip) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (grip.dataset.move && !grip.disabled) moveSelected(Number(grip.dataset.move));
+    return;
+  }
   if (swallowClick) {
     swallowClick = false;
     if (el) { e.preventDefault(); e.stopPropagation(); }
     return;
   }
   if (!el || el.dataset.id === state.editingId) return;
-  const id = el.dataset.id;
-  const key = down?.id === id ? down.key : headingKey(e.target, id);
-  down = null;
-  if (e.shiftKey) key ? selectSectionRange(key) : selectRange(id);
-  // A fully selected note is deselected by any tap on it, also on a heading.
-  else if (key && (e.ctrlKey || e.metaKey || isSelecting()) && noteState(entries(), state.selected, id) !== "all") toggleSection(key, { ownNote: true });
-  else if (e.ctrlKey || e.metaKey || isSelecting() || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
-  else return;
+  if (!clickNote(e, el.dataset.id)) return;
   e.preventDefault();
   e.stopPropagation();
+}
+
+// What a click (or, while selecting, a right-click) on a card does to the selection; false when it doesn't act.
+function clickNote(e, id) {
+  const ours = down?.id === id;
+  const key = ours ? down.key : headingKey(e.target, id);
+  const line = ours ? down.line : itemLine(e.target, id);
+  down = null;
+  const adding = e.ctrlKey || e.metaKey || isSelecting();
+  const partly = noteState(entries(), state.selected, id) !== "all";
+  if (e.shiftKey) key ? selectSectionRange(key) : selectRange(id);
+  // A fully selected note is deselected by any tap on it, also on a heading or an item.
+  else if (key && adding && partly) toggleSection(key, { ownNote: true });
+  // An item in a selected section takes the section out.
+  else if (line !== null && adding && partly) state.selected.has(sectionOf(e.target, id)) ? toggleSection(sectionOf(e.target, id), { ownNote: true }) : toggleListItem(id, line);
+  else if (adding || state.view === "trash" || (frameDown && onFrame(e.target))) toggle(id);
+  else return false;
+  return true;
 }
 
 // A card toggles its whole note (a partly selected one becomes whole).
@@ -181,6 +240,13 @@ function selectRange(id) {
   const order = [...list().querySelectorAll(".note")].map(el => el.dataset.id);
   state.selected = selectNotes(entries(), state.selected, rangeIds(order, anchorNote, id));
   anchorNote = id;
+  changed();
+}
+
+// A list item in a card: toggles it with its sub-items.
+function toggleListItem(id, line) {
+  if (!isSelecting()) begin();
+  state.selected = toggleItem(state.selected, id, line);
   changed();
 }
 
@@ -233,14 +299,17 @@ export function endSelection({ fromHistory = false } = {}) {
 export function syncSelection(visible) {
   if (!isSelecting()) return;
   const keys = new Set(tableOfContents(visible).entries.map(e => e.key));
-  for (const k of state.selected) if (!keys.has(k)) state.selected.delete(k);
+  const byId = Object.fromEntries(visible.map(n => [refOf(n), n]));
+  const isItem = k => { const at = parseItemKey(k); return at && byId[at.noteId] && listItems(byId[at.noteId].body).some(it => it.line === at.line); };
+  for (const k of state.selected) if (!keys.has(k) && !isItem(k)) state.selected.delete(k);
   if (state.selected.size === 0) endSelection();
   else update();
 }
 
 // The selection as parts with their notes.
 function current() {
-  const parts = selectedParts(entries(), state.selected);
+  const bodies = Object.fromEntries(selectedItemNotes().map(id => [id, note(id)?.body ?? ""]));
+  const parts = selectedParts(entries(), state.selected, bodies);
   const notes = Object.fromEntries(parts.map(p => [p.noteId, note(p.noteId)]));
   const byNote = Object.keys(notes).map(id => [notes[id], parts.filter(p => p.noteId === id)]);
   return { parts, notes, byNote, whole: parts.every(p => p.whole) };
@@ -262,6 +331,10 @@ function update() {
   // Close, Share, Permanent and Delete act on whole notes; `menu` = under ⋮ in every tier.
   const ids = byNote.map(([n]) => refOf(n));
   const permanent = ids.some(id => note(id)?.status !== "permanent");
+  // Reordering: the selection is list items of one note that are consecutive siblings.
+  const movable = movableItems(parts);
+  const reorder = (delta, label) => ({ id: delta < 0 ? "up" : "down", label, run: () => moveSelected(delta),
+    disabled: !movable || !moveItems(note(movable).body, selectedItemLines(state.selected, movable), delta), menu: true });
   // News posts are read-only and only this user's: close or reopen, copy, delete.
   const news = byNote.every(([n]) => n.news);
   const actions = trash ? [
@@ -281,6 +354,8 @@ function update() {
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
     !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
     !archive && { id: "moveto", label: "Move to…", run: moveParts },
+    !archive && movable && reorder(-1, "Move up"),
+    !archive && movable && reorder(1, "Move down"),
     // A private copy of shared notes, linked back to the original (backlog #45).
     !archive && { id: "privatecopy", label: "Private copy", run: privateCopies, disabled: !whole || !ids.every(id => circleOf(id).length), menu: true },
     !archive && { id: permanent ? "permanent" : "closable", label: permanent ? "Make permanent" : "Make closable", run: () => setPermanent(permanent), disabled: !whole, menu: true },
@@ -299,12 +374,124 @@ function update() {
     b.addEventListener("click", a.run);
     return b;
   }));
+  markGrip(movable);
   const more = actions.filter(a => a.menu);
   $("selMore").hidden = more.length === 0;
   $("selMore").onclick = () => openMenu($("selMore"), more.map(a => ({ label: a.label, icon: a.id, disabled: a.disabled, onSelect: a.run })));
 }
 
 const noteIds = () => current().parts.map(p => p.noteId);
+
+// The notes with selected list items.
+const selectedItemNotes = () => [...new Set([...state.selected].map(parseItemKey).filter(Boolean).map(k => k.noteId))];
+
+// The note whose selected items can move (the whole selection is items of that note, one block of siblings), else null.
+function movableItems(parts) {
+  if (!parts.length || !parts.every(p => p.item && p.noteId === parts[0].noteId)) return null;
+  const id = parts[0].noteId;
+  return itemBlocks(note(id).body, selectedItemLines(state.selected, id)).length === 1 ? id : null;
+}
+
+// Moves the selected items one place up or down among their siblings (Alt+↑ / ↓, Move up / down, the grip).
+function moveSelected(delta, steps = 1) {
+  const id = movableItems(current().parts);
+  if (!id) return;
+  let body = note(id).body, shift = 0, keys = state.selected;
+  for (let i = 0; i < steps; i++) {
+    const r = moveItems(body, selectedItemLines(keys, id), delta);
+    if (!r) break;
+    body = r.body;
+    shift += r.shift;
+    keys = shiftItemKeys(keys, id, r.shift);
+  }
+  if (!shift) return;
+  state.selected = keys;   // before the note renders anew, so it marks the items in their new place
+  setBody(id, body);
+  update();
+}
+
+// At the selected items that can move: a grip that drags them among their siblings (variant "drag"), or
+// up / down buttons (variant "buttons").
+function markGrip(id) {
+  for (const g of list().querySelectorAll(".item-move")) g.remove();
+  if (!id) return;
+  const lis = [...list().querySelectorAll(`.note[data-id="${CSS.escape(id)}"] li.selected`)];
+  if (!lis.length) return;
+  const box = document.createElement("span");
+  box.className = "item-move";
+  const button = (name, label) => {
+    const b = document.createElement("button");
+    b.className = "item-grip";
+    b.setAttribute("aria-label", label);
+    b.title = label;
+    b.innerHTML = icon(name);
+    box.append(b);
+    return b;
+  };
+  if (state.settings.itemMove === "buttons") {
+    const lines = selectedItemLines(state.selected, id);
+    button("up", "Move up (Alt+↑)").disabled = !moveItems(note(id).body, lines, -1);
+    button("down", "Move down (Alt+↓)").disabled = !moveItems(note(id).body, lines, 1);
+    for (const b of box.children) b.addEventListener("pointerdown", e => e.stopPropagation());   // no long-press under it
+    box.children[0].dataset.move = "-1";
+    box.children[1].dataset.move = "1";
+  } else {
+    button("grip", "Move (drag, or Alt+arrow keys)").addEventListener("pointerdown", e => dragItems(e, lis));
+  }
+  lis[0].prepend(box);
+}
+
+// Drags the selected items by their grip: they follow the pointer, a line shows where they land among their
+// siblings; near the window's top or bottom edge the page scrolls along.
+function dragItems(e, lis) {
+  e.preventDefault();
+  e.stopPropagation();
+  const grip = e.currentTarget;
+  grip.setPointerCapture(e.pointerId);
+  const parent = lis[0].parentElement;
+  const others = [...parent.children].filter(li => li.tagName === "LI" && !lis.includes(li));
+  const first = [...parent.children].indexOf(lis[0]);
+  const startY = e.clientY + window.scrollY;
+  let lastY = e.clientY, frame = 0, steps = 0;
+  for (const li of lis) li.classList.add("dragging");
+  const place = () => {
+    const dy = lastY + window.scrollY - startY;
+    for (const li of lis) li.style.transform = `translateY(${dy}px)`;
+    const top = lis[0].getBoundingClientRect().top, bottom = lis[lis.length - 1].getBoundingClientRect().bottom;
+    // Siblings above whose middle the block's top passed, or below whose middle its bottom passed.
+    const above = others.filter(li => [...parent.children].indexOf(li) < first);
+    const below = others.filter(li => [...parent.children].indexOf(li) > first);
+    const up = above.filter(li => { const r = li.getBoundingClientRect(); return top < r.top + r.height / 2; }).length;
+    const down = below.filter(li => { const r = li.getBoundingClientRect(); return bottom > r.top + r.height / 2; }).length;
+    steps = up ? -up : down;
+    for (const li of others) li.classList.remove("drop-before", "drop-after");
+    if (up) above[above.length - up].classList.add("drop-before");
+    else if (down) below[down - 1].classList.add("drop-after");
+  };
+  const scroll = () => {
+    const step = lastY < 64 ? -10 : lastY > window.innerHeight - 64 ? 10 : 0;
+    if (step) { window.scrollBy(0, step); place(); }
+    frame = step ? requestAnimationFrame(scroll) : 0;
+  };
+  const move = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    lastY = ev.clientY;
+    place();
+    if (!frame) frame = requestAnimationFrame(scroll);
+  };
+  const end = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    cancelAnimationFrame(frame);
+    for (const li of [...lis, ...others]) { li.classList.remove("dragging", "drop-before", "drop-after"); li.style.transform = ""; }
+    grip.removeEventListener("pointermove", move);
+    grip.removeEventListener("pointerup", end);
+    grip.removeEventListener("pointercancel", end);
+    if (steps) moveSelected(Math.sign(steps), Math.abs(steps));
+  };
+  grip.addEventListener("pointermove", move);
+  grip.addEventListener("pointerup", end);
+  grip.addEventListener("pointercancel", end);
+}
 const count = (n, word) => n === 1 ? `Note ${word}` : `${n} notes ${word}`;
 
 // Runs `fn` on the selected notes once the selection has ended (its history entry gone, as `fn` may open a dialog).

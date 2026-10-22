@@ -1,10 +1,12 @@
 // Multi-select logic without DOM (docs/requirements.md → "Multi-select").
 // One selection serves the note list and the table of contents: it is a set
-// of section keys (core/query.js → tableOfContents); a whole note is
-// selected when all its sections are. Here: toggling and ranges, the
-// selection as parts, their text, heading shifts and the merged note.
-import { sections, noteTitle } from "./markdown.js";
+// of section keys (core/query.js → tableOfContents) and list item keys
+// (core/list-items.js); a whole note is selected when all its sections are.
+// Here: toggling and ranges, the selection as parts, their text, heading
+// shifts and the merged note.
+import { sections, noteTitle, firstSentence } from "./markdown.js";
 import { refOf } from "./note-ref.js";
+import { listItems, itemKey, parseItemKey } from "./list-items.js";
 
 /** Ids from `fromId` to `toId` (both included) in the order of `orderIds`. */
 export function rangeIds(orderIds, fromId, toId) {
@@ -71,14 +73,36 @@ export function selectSections(entries, selected, noteId) {
   return next;
 }
 
+/** A tap on a list item: selects it with its sub-items, or deselects it. */
+export function toggleItem(selected, noteId, line) {
+  const next = new Set(selected);
+  const key = itemKey(noteId, line);
+  next.has(key) ? next.delete(key) : next.add(key);
+  return next;
+}
+
+/** The selected items' first lines in a note. */
+export function selectedItemLines(selected, noteId) {
+  return [...selected].map(parseItemKey).filter(k => k && k.noteId === noteId).map(k => k.line);
+}
+
+/** Moves a note's selected item keys by `shift` lines (after the items moved in the text). */
+export function shiftItemKeys(selected, noteId, shift) {
+  const next = new Set([...selected].filter(k => parseItemKey(k)?.noteId !== noteId));
+  for (const line of selectedItemLines(selected, noteId)) next.add(itemKey(noteId, line + shift));
+  return next;
+}
+
 /**
  * The selection as parts in contents order: a whole note, or a selected
  * section with the selected deeper ones right below it — each section of
  * the same or a higher level starts a part of its own. Sections `from` to
- * `to` (exclusive); `whole` when the part is the entire note.
- * [{ noteId, from, to, whole }]
+ * `to` (exclusive); `whole` when the part is the entire note. A selected
+ * list item (`bodies`: the notes' bodies by id) is a part of its own —
+ * `lines` [start, end), `indent` — unless a selected section or item holds it.
+ * [{ noteId, from, to, whole } | { noteId, lines, indent, item: true }]
  */
-export function selectedParts(entries, selected) {
+export function selectedParts(entries, selected, bodies = {}) {
   const count = {}, on = {};
   for (const e of entries) {
     count[e.noteId] = (count[e.noteId] || 0) + 1;
@@ -94,11 +118,31 @@ export function selectedParts(entries, selected) {
     else { parts.push({ noteId: e.noteId, from: e.index, to: e.index + 1 }); level = e.level; }
   }
   for (const p of parts) p.whole = p.from === 0 && p.to === count[p.noteId];
-  return parts;
+  const items = [...selected].map(parseItemKey).filter(k => k && count[k.noteId] && bodies[k.noteId] !== undefined);
+  if (!items.length) return parts;
+  // Items join the parts, in their note's order and by line.
+  const order = Object.keys(count);
+  const ranges = {};
+  const start = p => p.lines ? p.lines[0] : (ranges[p.noteId] ||= sections(bodies[p.noteId]))[p.from]?.start ?? 0;
+  const covered = (noteId, a, b) => parts.some(p => p.noteId === noteId && !p.item && (p.whole || (() => {
+    const [s, e] = lineRange(bodies[noteId], p);
+    return s <= a && b <= e;
+  })()));
+  const byNote = {};
+  for (const k of items) (byNote[k.noteId] ||= []).push(k.line);
+  for (const [noteId, lines] of Object.entries(byNote)) {
+    const all = listItems(bodies[noteId]).filter(it => lines.includes(it.line));
+    for (const it of all) {
+      if (covered(noteId, it.line, it.end) || all.some(o => o !== it && o.line < it.line && it.end <= o.end)) continue;
+      parts.push({ noteId, lines: [it.line, it.end], indent: it.indent, item: true, whole: false });
+    }
+  }
+  return parts.sort((a, b) => order.indexOf(a.noteId) - order.indexOf(b.noteId) || start(a) - start(b));
 }
 
 // The body lines a part covers: [start, end).
 function lineRange(body, part) {
+  if (part.lines) return part.lines;
   if (part.whole) return [0, body.split("\n").length];
   const ss = sections(body);
   return [ss[part.from].start, ss[part.to - 1].end];
@@ -107,12 +151,16 @@ function lineRange(body, part) {
 /** A part's Markdown. */
 export function partText(body, part) {
   const [a, b] = lineRange(body, part);
-  return body.split("\n").slice(a, b).join("\n").trim();
+  const lines = body.split("\n").slice(a, b);
+  // A sub-item leaves its indent behind; its own sub-items keep theirs relative to it.
+  const out = part.indent ? lines.map(l => l.replace(new RegExp(`^ {0,${part.indent}}`), "")) : lines;
+  return out.join("\n").trim();
 }
 
 /** One line for the order dialog: the part's first heading, else its first sentence. */
 export function partPreview(body, part) {
   if (part.whole) return noteTitle(body);
+  if (part.item) return { text: firstSentence(partText(body, part).split("\n")[0]), fromHeading: false };
   const s = sections(body)[part.from];
   return { text: s.text, fromHeading: s.depth !== null };
 }

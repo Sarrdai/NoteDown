@@ -70,12 +70,14 @@ Current state, edited in place when a decision changes.
   from the web"), on a link to another note = show that note, on a
   media tile = load it.
 - **Long-press** is reserved for secondary modes: on a note, a
-  heading in a note or a contents entry it starts multi-select, on an
+  heading or a list item in a note or a contents entry it starts multi-select, on an
   entry of the People or Labels tab it starts picking several filters
   (a bar with × and the count, a checkbox per entry), on + it starts dictation, on a task
-  checkbox it picks the task's state. Nothing essential is
-  long-press-only on the desktop (right-click picks a task's state) (Ctrl/Shift+click, a click on a card's
-  frame outside its text, keyboard).
+  checkbox it picks the task's state. On the desktop a **right-click**
+  does what the long-press does wherever one acts (links and the editor
+  keep the browser's menu), and the mouse's hover tints what it would
+  select; nothing essential is long-press-only there (also Ctrl/Shift+click,
+  a click on a card's frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
   normal one and the primary action button is hidden; a tap anywhere on
   an item toggles it, nothing inside the item acts. The note list and the

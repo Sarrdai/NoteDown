@@ -17,6 +17,7 @@ import { taskDue, setTaskDue } from "../core/task-due.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
+import { listItems as mdListItems, itemKey } from "../core/list-items.js";
 import { state, setUi, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
 import { relativeTime, dueLabel, shortDate, today } from "./format.js";
@@ -233,6 +234,7 @@ function noteElement(n, view = state.view) {
   applyNoteLinks(body);
   fillWatches(body);
   wrapSections(body, sections(n.body));
+  markItems(body, n.body);
   markHits(body);
   if (state.settings.tocProgress) addProgress(body, n.body);
   const readOnly = n.status === "closed" || n.news || n.deleted;
@@ -281,14 +283,26 @@ function wrapSections(body, ss) {
   body.replaceChildren(...groups);
 }
 
+// Gives each rendered list item its first line in the source (core/list-items.js), so it can be selected
+// and moved; a note whose items don't match one to one (e.g. a list in a quote) keeps them unselectable.
+function markItems(body, md) {
+  const lis = body.querySelectorAll("li");
+  const items = mdListItems(md);
+  if (lis.length !== items.length) return;
+  lis.forEach((li, i) => { li.dataset.line = items[i].line; });
+}
+
 /** Marks a card for the selection: the accent border when the whole note is
- *  selected, else a tint on each selected section. */
+ *  selected, else a tint on each selected section and list item. */
 export function markSelected(el) {
   const groups = [...el.querySelectorAll(".md-section")];
   const on = groups.map(g => state.selected.has(sectionKey(el.dataset.id, g.dataset.section)));
   const whole = on.length > 0 && on.every(Boolean);
   el.classList.toggle("selected", whole);
   groups.forEach((g, i) => g.classList.toggle("selected", on[i] && !whole));
+  for (const li of el.querySelectorAll("li[data-line]")) {
+    li.classList.toggle("selected", !whole && !li.closest(".md-section.selected") && state.selected.has(itemKey(el.dataset.id, li.dataset.line)));
+  }
 }
 
 // The shared marker: overlapping avatars of the members; a button while the

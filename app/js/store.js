@@ -38,6 +38,8 @@ export const DEFAULT_SETTINGS = {
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   moveDepth: 2,              // levels the Move to… picker shows (ui/move-to.js), like tocDepth; this device only
+  itemHover: "tint",         // Prototype variant: what a mouse over a note shows it would select — tint (A) at once, delay (B) after a pause
+  itemMove: "drag",          // Prototype variant: how selected list items are reordered — drag (A) by a grip, buttons (B) in the selection bar
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
 };
 

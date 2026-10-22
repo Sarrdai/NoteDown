@@ -162,6 +162,7 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("has-search", state.search !== "");
+  for (const v of Object.keys(ITEM_HOVERS)) app.classList.toggle("hover-" + v, s.itemHover === v);
 
   $("title").textContent = TITLES[state.view];
   const sort = sortOf();
@@ -667,6 +668,12 @@ function fitTopbar() {
   title.textContent = text;
 }
 
+// What a mouse over a note shows it would select (Prototype variant, settings.itemHover): a tint at once (A) or
+// after a short pause (B). How selected list items are reordered (settings.itemMove): by a grip (A), or by
+// Move up / down in the selection bar (B); Alt+↑ / ↓ in both.
+const ITEM_HOVERS = { tint: "Tint at once (A)", delay: "Tint after a pause (B)" };
+const ITEM_MOVES = { drag: "Drag by a grip (A)", buttons: "Up / down buttons (B)" };
+
 function moreMenu() {
   const s = state.settings;
   const sync = state.sync;
@@ -678,6 +685,10 @@ function moreMenu() {
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    { section: "Prototype: hover over a note" },
+    ...Object.entries(ITEM_HOVERS).map(([v, label]) => ({ label, checked: s.itemHover === v, onSelect: () => updateSettings({ itemHover: v }) })),
+    { section: "Prototype: reorder list items" },
+    ...Object.entries(ITEM_MOVES).map(([v, label]) => ({ label, checked: s.itemMove === v, onSelect: () => updateSettings({ itemMove: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -870,6 +881,8 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
+  if (ITEM_HOVERS[p.get("hover")]) patch.itemHover = p.get("hover");
+  if (ITEM_MOVES[p.get("itemmove")]) patch.itemMove = p.get("itemmove");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
