@@ -66,8 +66,10 @@ archive (with a way back into the note). Deleted notes wait in a trash for 30 da
 also shared notes someone else deleted, which can be restored for
 everyone or kept as one's own; a long-press on a heading (in a note or in the table of
 contents) selects its section, which can be moved together into a new note, and one on a
-task or bullet selects that item, to move it into another note or up and down its list
-(on the desktop a right-click does what the long-press does).
+task or bullet selects that item. Tasks, bullets and sections are dragged where they
+belong — within a list, into another section or level, into another note — by moving the
+finger after the long-press, or on the desktop by the grip that shows under the mouse
+(Ctrl+click or a right-click selects there).
 Export (under ⋮ in the top bar) saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden
 metadata; the selection exports single notes or sections the same way.

@@ -94,6 +94,8 @@ export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, se
 
   document.addEventListener("touchmove", e => {
     if (!g || busy) return;
+    // A finger that holds something (a lifted or dragged part, ui/selection.js) doesn't swipe.
+    if (e.defaultPrevented && g.horizontal === null) { g = null; return; }
     const { clientX: x, clientY: y } = e.touches[0];
     const dx = x - g.x, dy = y - g.y;
     if (g.horizontal === null) {

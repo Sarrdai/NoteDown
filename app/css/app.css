@@ -474,29 +474,34 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .md li[data-line]:has(> input.task, > p:first-child > input.task) { --item-left: -4px; }
 .md li[data-line]::after { content: ""; position: absolute; z-index: -1; inset: -1px -4px -1px var(--item-left); border-radius: 6px; pointer-events: none; }
 .md li.selected::after { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.md li.selected:has(> .item-grip) { padding-right: 34px; }
-/* The grip of the selected items: at the first one's right end; dragged, they follow. */
-.item-grip {
-  position: absolute; top: -2px; right: -2px; width: 30px; height: 28px; padding: 0;
+/* Drag and drop (ui/drag-drop.js). The desktop's grip: at the right end of the list item or heading under the
+ * mouse; dragged, the part moves, clicked, it is selected. */
+.drag-grip {
+  position: absolute; z-index: 3; right: 8px; width: 28px; height: 28px; margin-top: -14px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border: 0; border-radius: 8px; background: transparent; color: var(--accent); cursor: grab; touch-action: none;
-  text-decoration: none;
+  border: 0; border-radius: 8px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow);
+  cursor: grab; touch-action: none;
 }
-.item-grip::before { content: ""; position: absolute; inset: -8px -6px; } /* 44 px touch target */
-.item-grip .icon { width: 20px; height: 20px; }
-.md li.dragging { z-index: 2; }
-.md li.dragging::after { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); box-shadow: inset 3px 0 0 var(--accent), var(--shadow-high); }
-.md li.dragging .item-grip { cursor: grabbing; }
-.md li.drop-before { box-shadow: 0 -3px 0 -1px var(--accent); }
-.md li.drop-after { box-shadow: 0 3px 0 -1px var(--accent); }
-/* Mouse over a note: the outline of a pick (ui/selection.js → showPick, "Picking exactly" below) shows at once
- * what a right-click (or a click while selecting) would select — the list item, the heading's section, else
- * the whole note. */
-@media (hover: hover) and (pointer: fine) {
-  .note:not(.editing):hover:not(:has(li[data-line]:hover, .md-section > :is(h1, h2, h3, h4, h5, h6):first-child:hover)) { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
-  .app[data-view="open"] .note:not(.editing, .news, .closed) .md li[data-line]:hover:not(:has(li[data-line]:hover))::after { box-shadow: inset 0 0 0 2px var(--accent); }
-  .app[data-view="open"] .note:not(.editing, .news, .closed) .md-section:has(> :is(h1, h2, h3, h4, h5, h6):first-child:hover) { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.drag-grip:hover { color: var(--accent); }
+.drag-grip .icon { width: 20px; height: 20px; }
+/* While dragging: the part stays faint in its place, a copy follows the pointer, a line shows where it lands
+ * (its left edge the level; a section's line names its heading level). */
+.drag-source { opacity: 0.35; }
+.drag-ghost {
+  position: fixed; z-index: 60; left: 0; top: 0; pointer-events: none; padding: 2px 10px; border-radius: 10px;
+  background: var(--surface); box-shadow: 0 0 0 2px var(--accent), var(--shadow-high); opacity: 0.8;
 }
+.drag-ghost > ul, .drag-ghost > ol { margin: 0; }
+.drag-ghost .md-section { margin: 0; }
+.drop-line {
+  position: fixed; z-index: 61; left: 0; top: 0; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none;
+}
+.drop-line::before { content: ""; position: absolute; left: -5px; top: -4px; width: 6px; height: 6px; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface); }
+.drop-line:not([data-label=""])::after {
+  content: attr(data-label); position: absolute; left: 8px; top: -9px; padding: 0 5px; border-radius: 6px;
+  background: var(--accent); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px;
+}
+body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
 .app.selecting .status:hover { color: var(--text-faint); }
 .app.selecting .status:hover .icon { opacity: 0; }
 .app.selecting .note.closed .status:hover { color: var(--done); }
@@ -1511,16 +1516,12 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .app:not([data-view="open"]) #sortFab { --archive: 1; }
 .app:is(.is-editing, .selecting, .recording, [data-view="trash"]) #sortFab { display: none; }
 
-/* Picking exactly (ui/selection.js → showPick): the element a pick would select gets an accent outline — the
- * list item, the heading's section or the note; while gliding after a long-press, and under the mouse. */
+/* What a long-press lifts, or the grip under the mouse moves (ui/selection.js → showPick), gets an accent
+ * outline — the list item, the heading's section or the note. */
 .note.pick-preview { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
 .md-section.pick-preview { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .md li.pick-preview::after { box-shadow: inset 0 0 0 2px var(--accent); }
-/* Gliding after a long-press: the spot above the fingertip that picks. */
-.pick-spot {
-  position: fixed; z-index: 40; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; pointer-events: none;
-  border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 25%, transparent); box-shadow: 0 0 0 2px var(--surface);
-}
+
 
 /* The snackbar steps aside for the bin. */
 .app:not([data-view="open"]) .snackbar { left: calc(var(--fab-left) + var(--fab-size) + 16px); max-width: calc(100% - var(--fab-left) - var(--fab-size) - 32px); }
