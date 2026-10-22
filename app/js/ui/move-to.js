@@ -28,7 +28,7 @@ export function moveTo({ parts, sources, candidates, onDone }) {
   pick = { parts, sources, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, target: null };
   const plain = parts.some(p => !ATX.test(partText(sources[p.noteId].body, p)));
   $("moveTaskRow").dataset.plain = plain ? "1" : "";
-  $("moveTitle").textContent = parts.length === 1 ? (parts[0].whole ? "Move note to…" : "Move section to…") : `Move ${parts.length} parts to…`;
+  $("moveTitle").textContent = parts.length === 1 ? (parts[0].whole ? "Move note to…" : parts[0].item ? "Move item to…" : "Move section to…") : `Move ${parts.length} parts to…`;
   $("moveSearch").value = "";
   render();
   $("moveDialog").hidden = false;

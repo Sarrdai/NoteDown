@@ -27,10 +27,10 @@ function doneLines(lines, a, b) {
   return out;
 }
 
-// The body lines the parts cover ({ whole } or sections `from`–`to`, core/selection.js).
+// The body lines the parts cover ({ whole }, sections `from`–`to` or an item's `lines`, core/selection.js).
 function ranges(body, parts) {
   const ss = sections(body);
-  return parts.map(p => (p.whole ? [0, body.split("\n").length] : [ss[p.from].start, ss[p.to - 1].end]));
+  return parts.map(p => (p.lines ? p.lines : p.whole ? [0, body.split("\n").length] : [ss[p.from].start, ss[p.to - 1].end]));
 }
 
 /**
