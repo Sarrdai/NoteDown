@@ -477,13 +477,14 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 /* Drag and drop (ui/drag-drop.js). The desktop's grip: at the right end of the list item or heading under the
  * mouse; dragged, the part moves, clicked, it is selected. */
 .drag-grip {
-  position: absolute; z-index: 3; right: 8px; width: 28px; height: 28px; margin-top: -14px; padding: 0;
+  position: absolute; z-index: 3; right: 20px; width: 24px; height: 22px; margin-top: -11px; padding: 0;   /* inside the outline it shows, centred on the first line */
   display: inline-flex; align-items: center; justify-content: center;
-  border: 0; border-radius: 8px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow);
+  border: 0; border-radius: 6px; background: var(--surface); color: var(--text-muted);
   cursor: grab; touch-action: none;
 }
+.drag-grip::before { content: ""; position: absolute; inset: -4px; }
 .drag-grip:hover { color: var(--accent); }
-.drag-grip .icon { width: 20px; height: 20px; }
+.drag-grip .icon { width: 18px; height: 18px; }
 /* While dragging: the part stays faint in its place, a copy follows the pointer, a line shows where it lands
  * (its left edge the level; a section's line names its heading level). */
 .drag-source { opacity: 0.35; }
