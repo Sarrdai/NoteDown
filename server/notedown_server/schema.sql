@@ -161,3 +161,22 @@ ALTER TABLE identities ADD COLUMN IF NOT EXISTS max_members integer;
 ALTER TABLE file_versions ADD COLUMN IF NOT EXISTS saved boolean NOT NULL DEFAULT false;
 -- The new device's ML-KEM-768 key while it waits to be linked (its link code holds only the hash, backlog #20).
 ALTER TABLE relay ADD COLUMN IF NOT EXISTS kem text;
+
+-- The TRMNL plugin (backlog #49, docs/server-api.md → "TRMNL plugin"): one row per installation, each a NoteDown
+-- identity of its own. Its 16-byte secret only sealed, with a key from the server's secret; of TRMNL's access token
+-- only the hash is kept. `invitation` numbers the current invitation (its
+-- secret is derived), `contact` is the identity confirmed through it, `file_id` the file the display shows (NULL:
+-- the one changed last).
+CREATE TABLE IF NOT EXISTS trmnl_installations (
+    id             text PRIMARY KEY,
+    token_hash     text NOT NULL UNIQUE,
+    user_uuid      text UNIQUE,
+    identity       text NOT NULL,
+    sealed         text NOT NULL,
+    invitation     integer NOT NULL DEFAULT 1,
+    contact        text,
+    file_id        text,
+    time_zone      text,
+    locale         text,
+    created        timestamptz NOT NULL DEFAULT now()
+);

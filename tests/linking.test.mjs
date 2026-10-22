@@ -83,6 +83,9 @@ test("invitation link: round-trips identity, secret and name; short enough for a
   assert.ok(link.length < 200, link.length);
   assert.deepEqual(parseInvitationLink(link), { identity, secret, name: "Lea Müller & Co", server: "" });
   assert.equal(parseInvitationLink(invitationLink({ web: "http://127.0.0.1:8766/app", identity, secret, name: "" })).name, "");
+  // a display such as the TRMNL plugin says so (backlog #49)
+  assert.equal(parseInvitationLink(`${link}&kind=display`).display, true);
+  assert.equal(parseInvitationLink(`${link}&kind=other`).display, undefined);
 });
 
 test("invitation link: read from pasted text with whitespace or a greeting around it; other text is refused", () => {

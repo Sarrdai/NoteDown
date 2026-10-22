@@ -111,12 +111,19 @@ function limit(data, rows) {
   return { el, update };
 }
 
-// A notice under the list for each checked contact who isn't verified (backlog #4): the hint shows where
-// it matters, the list stays calm (decided 2026-10-14 over a label or an avatar badge in every row).
+// A notice under the list for each checked contact who isn't verified (backlog #4), and for each checked display
+// such as TRMNL, which shows the notes unencrypted (backlog #49): the hint shows where it matters, the list stays
+// calm (decided 2026-10-14 over a label or an avatar badge in every row). A display can't show a safety code, so it
+// gets no Verify.
 function notices(data) {
   const el = h("div", { class: "share-notices" });
-  const update = () => el.replaceChildren(...contacts().filter(c => !c.pending && !c.verified && data.states[c.id] !== "none").map(c =>
-    h("div", { class: "share-notice" },
+  const shown = () => contacts().filter(c => !c.pending && data.states[c.id] !== "none" && (c.display || !c.verified));
+  const update = () => el.replaceChildren(...shown().map(c => c.display
+    ? h("div", { class: "share-notice" },
+      h("span", { class: "notice-icon", html: icon("display") }),
+      h("span", { class: "row-text" }, h("span", { class: "row-title" }, `${c.name} shows notes unencrypted`),
+        h("span", { class: "row-sub" }, "A display draws them in its own cloud, outside end-to-end encryption.")))
+    : h("div", { class: "share-notice" },
       h("span", { class: "notice-icon", html: icon("protect") }),
       h("span", { class: "row-text" }, h("span", { class: "row-title" }, `${c.name} isn't verified`),
         h("span", { class: "row-sub" }, "Added by link. Check that it's really them.")),

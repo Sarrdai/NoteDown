@@ -216,6 +216,9 @@ time it was sent, UTC); it is dropped once the server lists the pair.
 `verified` is the time the user verified the contact (UTC; backlog #4):
 by scanning their code or comparing the safety code; absent = not
 verified, which is also how contacts written before it read.
+`display=1` marks a display such as the TRMNL plugin (backlog #49), from
+its invitation link: the app shows it with a display icon and warns when
+sharing with it (`docs/requirements.md` → "TRMNL display").
 Merging works per ID like device names: the side that changed a contact
 wins, a removal stays. Any text after a contact marker is dropped.
 

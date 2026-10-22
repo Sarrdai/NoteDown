@@ -186,6 +186,13 @@ test("file format: a contact's verified time round-trips; absent means not verif
   assert.equal("verified" in parseNotesFile("<!-- contact id=c name=C color=4 -->").contacts[0], false);
 });
 
+test("file format: a display contact round-trips; absent means a person (backlog #49)", () => {
+  const contacts = [{ id: "d", name: "TRMNL", color: 5, display: true }, { id: "e", name: "E", color: 1 }];
+  const text = serializeNotesFile({ ...parseNotesFile(""), contacts });
+  assert.match(text, /<!-- contact id=d name=TRMNL color=5 display=1 -->/);
+  assert.deepEqual(parseNotesFile(text).contacts, contacts);
+});
+
 test("markdown: script links are disarmed, also with tabs or newlines in the scheme", async () => {
   const { renderMarkdown } = await import("../app/js/core/markdown.js");
   for (const src of ["[a](javascript:alert(1))", "[a](<java\tscript:alert(1)>)", "[a](<java\nscript:alert(1)>)", "[a](< javascript:alert(1)>)"]) {

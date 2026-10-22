@@ -12,6 +12,7 @@
 - [Version history](#version-history)
 - [Merging](#merging)
 - [Server](#server)
+- [TRMNL](#trmnl)
 - [Open points](#open-points)
 <!-- /toc -->
 
@@ -37,6 +38,8 @@ and the sample simulates everything without a server.
     convenient way in, the apps are the secure one.
   - **No desktop client yet** (backlog #58), which needs signed,
     verifiable updates like Signal Desktop's.
+  - **The TRMNL display** (backlog #49): notes shared with a TRMNL
+    contact leave end-to-end encryption by the user's choice ("TRMNL").
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
@@ -494,6 +497,39 @@ devices don't keep re-uploading the same notes in each other's order.
   `docs/server-api.md`. Built: 2 MB of storage per identity (the app shows
   how much is used, from the file list every sync round fetches), and per-IP
   limits on creating identities (10 per day) and relay slots (30 per hour).
+
+## TRMNL
+
+The TRMNL plugin (`docs/requirements.md` → "TRMNL display", decided
+2026-10-21) is a client of its own that runs inside the sync server: per
+installation an identity with one device, which only reads.
+
+- **Why it decrypts on the server:** TRMNL asks the plugin for the
+  screen's markup and draws the picture in its cloud; it can't decrypt.
+  So the notes shared with the TRMNL contact are decrypted by the server
+  for each picture and reach TRMNL in plain text — an exception the user
+  takes by sharing with that contact, limited to the notes shared with it.
+- **The keys are sealed with the server's secret:** the identity's key
+  seeds are kept only encrypted (AES-256-GCM) with a key derived by HKDF
+  from `SERVER_SECRET`. A copy of the database alone reads none of these
+  notes; the database together with `SERVER_SECRET` (or a server
+  compromised while running) reads the notes shared with TRMNL — notes
+  TRMNL sees in plain text anyway.
+- **The settings page** (showing the invitation, choosing the file) opens
+  from TRMNL only: TRMNL opens it in a new tab with the user's uuid and a
+  JWT it signed for this plugin, valid for two minutes; the server checks
+  it and keeps a session of its own for an hour. So it opens on any
+  device and in any browser the user is signed in to TRMNL with; the uuid
+  alone gives nothing (decided 2026-10-22 over sealing the keys a second
+  time with a key in a cookie of the installing browser: that guarded
+  notes TRMNL sees anyway, and kept the settings to one browser).
+- **Only reading:** the plugin takes a file key only when a member's
+  device signed it, like the app, but keeps no state between pictures, so
+  it doesn't refuse an older key generation.
+- **If the server's secret changes**, the stored keys can't be opened
+  any more: the display asks to reconnect, and the user installs the
+  plugin again, adds the new TRMNL contact and shares again. The notes
+  themselves are not affected.
 
 ## Open points
 

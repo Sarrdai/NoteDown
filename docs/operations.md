@@ -10,6 +10,7 @@
 - [5. Android signing key](#5-android-signing-key)
 - [6. Alerts](#6-alerts)
 - [7. Admin page](#7-admin-page)
+- [8. TRMNL plugin](#8-trmnl-plugin)
 - [Installing the test app](#installing-the-test-app)
 - [Checks](#checks)
 - [Day to day](#day-to-day)
@@ -64,7 +65,8 @@ don't.
 5. Android signing key.
 6. Alerts by email.
 7. Admin page (needs sync on in your browser).
-8. Check everything (see "Checks").
+8. TRMNL plugin (optional, needs a TRMNL account).
+9. Check everything (see "Checks").
 
 ## 1. Web app on GitHub Pages
 
@@ -260,6 +262,43 @@ phone).
 
 To take the access away, remove the ID from the secret and deploy
 again, or remove the device from your identity.
+
+## 8. TRMNL plugin
+
+Optional: the plugin that shows shared notes on a TRMNL display
+(`docs/requirements.md` → "TRMNL display"). It runs inside the server and
+stays off until its client ID is set. TRMNL's guide:
+<https://docs.trmnl.com/go/plugin-marketplace/introduction>.
+
+1. Create a new **public plugin** at <https://trmnl.com/plugins/my/new>
+   (needs TRMNL's Developer Edition; it stays unlisted until you submit
+   it). Enter, with your `API_HOST`:
+
+   | Field | Value |
+   |---|---|
+   | Installation URL | `https://notedown-api.example.com/trmnl/install` |
+   | Installation success webhook URL | `https://notedown-api.example.com/trmnl/installed` |
+   | Plugin management URL | `https://notedown-api.example.com/trmnl/manage` |
+   | Plugin markup URL | `https://notedown-api.example.com/trmnl/markup` |
+   | Uninstallation webhook URL | `https://notedown-api.example.com/trmnl/uninstalled` |
+
+   Name it "NoteDown"; a supported refresh interval of 15 minutes is
+   plenty for notes. Leave *No Screen Padding* off: the screen is laid
+   out for TRMNL's views with their padding.
+2. TRMNL then lists the plugin under *My Plugins* with a **client ID**
+   (the server checks with it that the token TRMNL opens the settings
+   page with is meant for this plugin; the client secret isn't needed). GitHub → *Settings* → *Secrets and variables* → *Actions* →
+   *Secrets*: add `TRMNL_CLIENT_ID` (the deploy passes it on with `WEB_APP_URL` = `https://` + `WEB_HOST`,
+   where the plugin's invitation links point).
+3. *Actions* → *Server* → *Run workflow* on `main`.
+4. Install the plugin on your TRMNL. TRMNL sends you to the server and
+   back; save the instance, then open its settings with *Configure*
+   (they open only from TRMNL, `docs/sync-and-sharing.md` → "TRMNL"), scan the code
+   with NoteDown, share a note with the new contact TRMNL and pick what
+   shows. The display picks it up with its next refresh.
+
+To switch the plugin off, delete the secret and deploy again;
+installations then get no picture until it is back.
 
 ## Installing the test app
 

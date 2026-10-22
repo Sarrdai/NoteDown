@@ -74,7 +74,9 @@ Notes stay on the device and work offline. Sync between phone, tablet
 and the web app, and sharing single notes with other people, run through
 an end-to-end encrypted server: it only ever stores encrypted files.
 There are no accounts — devices and contacts are connected by scanning a
-QR code.
+QR code. Notes shared with a **TRMNL** contact show on a
+[TRMNL](https://trmnl.com) e-ink display, through a TRMNL plugin — those
+leave end-to-end encryption, as TRMNL draws the screen in its cloud.
 
 **Security:** the goal is to be at least as secure as
 [Signal](https://signal.org). Notes are end-to-end encrypted, with keys

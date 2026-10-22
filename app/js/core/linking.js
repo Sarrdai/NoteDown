@@ -73,7 +73,8 @@ export function invitationLink({ web, identity, secret, name, server }) {
 }
 
 /**
- * `{ identity, secret, name, server }` of an invitation link (`server`: the inviter's home server, "" = the default), or null when the text holds none. Surrounding
+ * `{ identity, secret, name, server, display }` of an invitation link (`server`: the inviter's home server, "" = the default;
+ * `display`: the inviter is a display such as TRMNL, `kind=display`, which shows what is shared with it unencrypted), or null when the text holds none. Surrounding
  * whitespace and text around the link (a messenger's greeting) are ignored; the part before `/invite/`
  * is not checked, so a link of any copy of the app (web, Android, a local test server) is read.
  */
@@ -85,7 +86,7 @@ export function parseInvitationLink(text) {
   if (p.get("v") !== "1" || !ID.test(identity) || !ID.test(secret)) return null;
   const server = serverUrl(p.get("srv") || "");
   if (server === null) return null;
-  return { identity, secret, name: cleanName(p.get("name")), server };
+  return { identity, secret, name: cleanName(p.get("name")), server, ...(p.get("kind") === "display" && { display: true }) };
 }
 
 /** The card a requester seals for the inviter's devices: who they are and the secret that proves they had the link. */

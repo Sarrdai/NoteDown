@@ -44,7 +44,7 @@ the live test setup is described in `docs/operations.md`.
 | `.github/workflows/` | CI: unit tests, docs TOC, server tests and deploy, web deploy, Android build |
 | `FEATURE_BACKLOG.md` | Ideas not yet decided, with priority, effort and dependencies |
 | `LICENSE`, `CONTRIBUTING.md` | GNU AGPL 3.0 or later for app and server; how contributions work |
-| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup and alerts, `docs/operations.md`), `write-config.js` (writes `app/config.json` in the deploys), `make-licenses.js` (writes `app/licenses.json`, the open-source licenses Settings → About lists; run by hand after changing `scripts/vendor/`, `mobile/package.json` or `mobile/android/variables.gradle`, a unit test notices when it is due), `make-decor.js` (draws the note motifs into `app/decor/`, run by hand after changing one), `make-icons.js` (renders `app/icons/icon.svg` into the web and Android icon files, run by hand after changing the icon), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
+| `scripts/` | `serve.py` (serves the prototype, prints its network address), `screenshot.js` (prototype screenshots per tier), `doc-toc.js` (Markdown TOCs), `branch-status.sh` (session-start hook), `setup-gcp.sh` (one-time Google Cloud setup and alerts, `docs/operations.md`), `write-config.js` (writes `app/config.json` in the deploys), `make-licenses.js` (writes `app/licenses.json`, the open-source licenses Settings → About lists; run by hand after changing `scripts/vendor/`, `mobile/package.json` or `mobile/android/variables.gradle`, a unit test notices when it is due), `make-decor.js` (draws the note motifs into `app/decor/`, run by hand after changing one), `make-icons.js` (renders `app/icons/icon.svg` into the web and Android icon files, run by hand after changing the icon), `test-server.sh` (server tests), `test-sync.sh` + `e2e-sync.js` (end-to-end sync test against a local server), `lib-postgres.sh` (throwaway Postgres for both), `trmnl-preview.py` (writes the TRMNL screens for the sample notes as pages, every layout and language, to screenshot at the layout's size), `crypto-vectors.py` (writes `tests/fixtures/crypto-vectors.json`, the test vectors that pin `crypto.js` and `server/` to the same bytes) |
 
 ## Device tiers
 
@@ -218,7 +218,11 @@ scripts/test-sync.sh [--shots <dir>]   # screenshots of the sync pages
 ``` `protocol.py` holds the encodings
 and device-list rules without I/O, `auth.py` challenges and tokens,
 `app.py` the endpoints, `schema.sql` the tables (applied at start, only
-additive statements).
+additive statements). `trmnl/` is the TRMNL plugin (`docs/requirements.md`
+→ "TRMNL display"): `notes.py` reads a shared file as far as the display
+needs it, `render.py` turns its notes into the markup of TRMNL's layouts,
+`client.py` is the plugin's NoteDown client (identity, invitation,
+reading files) and `plugin.py` its routes and settings page.
 
 ## Android app
 
