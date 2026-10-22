@@ -1,8 +1,9 @@
 // Multi-select over the note list and the table of contents: one selection
 // of sections (core/selection.js). A long-press on a note (or Ctrl+click, or
-// a mouse click on the card's frame, or a right-click) selects it whole, held
-// on longer — or a long-press on a further note while selecting — its
-// sections one by one; a long-press on a contents entry selects that section
+// a mouse click on the card's frame, or a right-click) selects it whole, with
+// the mouse held on longer — or a long-press on a further note while
+// selecting — its sections one by one; on touch the finger glides after the
+// long-press and letting go selects what it points at; a long-press on a contents entry selects that section
 // with everything below it, one on a heading or a list item in a card that
 // section or item; then taps add or remove in either place (any tap on a
 // fully selected note deselects it), and Shift+click selects a range.
@@ -153,7 +154,7 @@ function onHold() {
   swallowClick = true; // the click that follows the release
   buzz();
   window.getSelection()?.removeAllRanges();
-  if (downType !== "mouse" && state.settings.touchPick === "glide") return startGlide(x, y);
+  if (downType !== "mouse") return startGlide(x, y);
   if (split) return splitNote(id);
   if (key) return toggleSection(key, { ownNote: true });
   if (line !== null) return toggleListItem(id, line);
@@ -177,7 +178,7 @@ function onContextMenu(e) {
   pickAt(e.target);
 }
 
-/** The element a pick at `target` (a right-click, a long-press, the touch pointer) would select: the list item,
+/** The element a pick at `target` (a right-click, a long-press and glide) would select: the list item,
  *  the heading's section, else the note; null outside a note and in the edited one. */
 export function pickTarget(target) {
   const el = target?.closest?.("#list .note");
@@ -209,7 +210,7 @@ export function showPick(el) {
   el?.classList.add("pick-preview");
 }
 
-// ---------- long-press and glide (Prototype variant "glide", touch) ----------
+// ---------- long-press and glide (touch) ----------
 // After the long-press the finger stays down: the element under a spot above the fingertip shows the preview
 // outline and follows the finger; letting go selects it. The spot lifts above the finger as it starts to move,
 // so the target stays visible; near the screen's top or bottom edge the list scrolls along.

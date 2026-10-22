@@ -1425,7 +1425,7 @@ that host its IP address and the reading time.
 ### Multi-select
 
 - **One selection, three ways in** (decided 2026-10-14): a **long-press on
-  a note** (450 ms) selects the whole note — **held on** (900 ms) its
+  a note** (450 ms) selects the whole note — with the mouse **held on** (900 ms) its
   sections below the title one by one instead (the title with its intro
   stays out; a note without sections below the title stays whole), and
   while selecting, a long-press on a further note does that at once
@@ -1462,25 +1462,22 @@ that host its IP address and the reading time.
   taps would select). Long-press and the frame of the note being edited
   stay with the editor; the archive selects whole notes only. *Prototype: round 3; sections
   2026-10-14; list items and right-click 2026-10-22.*
-- **Picking exactly on touch** (phone, tablet; user request 2026-10-22:
-  two headings, a bullet and a task close together are hard to hit with a
-  long-press, the finger hides its target). An accent outline previews
-  what would be selected — the list item, the heading's section or the
-  note. Open, as prototype variants: **A, a pointer** (the user's idea) —
-  a small button above the sort button shows a mouse pointer beside it, a
-  drag anywhere moves it by the same distance, letting go selects what its
-  tip is on like a right-click and the pointer is gone (not while
-  editing: the keyboard's own cursor control covers that, Gboard's space
-  bar, iOS's held space bar); **B, long-press and glide** (recommended:
-  no extra button or mode) — after the long-press the finger stays down,
-  the preview follows a spot that lifts above the fingertip as it moves,
-  letting go selects; it replaces "held on longer selects the sections
-  one by one". Both scroll the list near the screen's edge.
-- **Mouse hover** (desktop) shows what a right-click would select: a
-  tint on the list item or on the heading's section under the pointer,
-  else the note's border; the text keeps its text cursor, as a click there
-  edits (decided 2026-10-22, user request). Open: tint at once (A,
-  recommended) or after a short pause (B) — prototype variants.
+- **Long-press and glide** (phone, tablet; decided 2026-10-22, user
+  request: two headings, a bullet and a task close together are hard to
+  hit with a long-press, the finger hides its target): after the
+  long-press the finger stays down and an **accent outline** previews what
+  would be selected — the list item, the heading's section or the note. It
+  follows a spot that lifts above the fingertip as the finger moves;
+  letting go selects (while selecting it toggles, like a tap), near the
+  screen's edge the list scrolls along. Chosen over a pointer button above
+  the + (no extra button or mode); in the editor the keyboard's own cursor
+  control serves (Gboard's space bar, iOS's held space bar). It replaces
+  "held on longer selects the sections one by one" on touch.
+- **Mouse hover** (desktop) shows at once what a right-click would
+  select, with the same accent outline: the list item or the heading's
+  section under the pointer, else the whole note; the text keeps its text
+  cursor, as a click there edits (decided 2026-10-22, user request: one
+  look on every device; a grey tint looked poor).
 - A fully selected note is marked only by the **accent border**; a partly
   selected one tints its selected sections. In the contents, selected
   entries are tinted and selected sections on hidden levels show as "+n"

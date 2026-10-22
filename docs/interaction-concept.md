@@ -75,8 +75,8 @@ Current state, edited in place when a decision changes.
   (a bar with × and the count, a checkbox per entry), on + it starts dictation, on a task
   checkbox it picks the task's state. On the desktop a **right-click**
   does what the long-press does wherever one acts (links and the editor
-  keep the browser's menu), and the mouse's hover tints what it would
-  select; nothing essential is long-press-only there (also Ctrl/Shift+click,
+  keep the browser's menu), and the mouse's hover outlines what it would
+  select, as gliding after a long-press does on touch; nothing essential is long-press-only there (also Ctrl/Shift+click,
   a click on a card's frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
   normal one and the primary action button is hidden; a tap anywhere on
