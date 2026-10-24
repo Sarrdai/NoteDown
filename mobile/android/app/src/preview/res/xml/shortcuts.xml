@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The preview build's app shortcuts (build.gradle → buildTypes.preview): as src/main/res/xml/shortcuts.xml,
+     aimed at the preview app's package. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_note"
+        android:shortcutShortLabel="@string/shortcut_new_note">
+        <intent
+            android:action="io.github.sarrdai.notedown.NEW_NOTE"
+            android:targetPackage="io.github.sarrdai.notedown.preview"
+            android:targetClass="io.github.sarrdai.notedown.QuickCaptureActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="dictate"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_dictate"
+        android:shortcutShortLabel="@string/shortcut_dictate">
+        <intent
+            android:action="io.github.sarrdai.notedown.DICTATE"
+            android:targetPackage="io.github.sarrdai.notedown.preview"
+            android:targetClass="io.github.sarrdai.notedown.QuickCaptureActivity" />
+    </shortcut>
+</shortcuts>
