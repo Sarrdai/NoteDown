@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- The preview build (build.gradle → buildTypes.preview): its own name beside the test app. -->
+<resources>
+    <string name="app_name">NoteDown Preview</string>
+    <string name="title_activity_main">NoteDown Preview</string>
+</resources>

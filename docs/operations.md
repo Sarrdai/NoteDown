@@ -29,7 +29,7 @@ for the server — replace them with subdomains of your own domain.
 | Web app (`app/`) | GitHub Pages, `https://notedown.example.com` | `.github/workflows/web.yml` on every push to `main` that changes `app/` | Let's Encrypt, managed by GitHub |
 | Sync server (`server/`) | Google Cloud Run, region `europe-west1`, `https://notedown-api.example.com` | `.github/workflows/server.yml`: tests on every push, deploy from `main` | Google-managed certificate |
 | Database | Neon Postgres (free plan, Frankfurt) | schema created by the server at start | TLS (`sslmode=require`) |
-| Android app (`mobile/`) | APK in the GitHub pre-release `android-test` | `.github/workflows/android.yml`: APK on every push, release from `main` | — |
+| Android app (`mobile/`) | APK in the GitHub pre-release `android-test` | `.github/workflows/android.yml`: APK on every push, release from `main`, the app "NoteDown Preview" from other branches | — |
 
 Secrets never sit in the repository: the database URL and the server's
 token secret live in Google Secret Manager, the Android signing key in
@@ -305,6 +305,15 @@ installations then get no picture until it is back.
 On the Android phone: open the repository's *Releases* → **android-test**
 → download `notedown.apk` → open it and allow "install unknown apps" for
 the browser when asked. Later builds install over it.
+
+**Trying a branch** without replacing the test app: every push to another
+branch that changes `app/` or `mobile/` builds **NoteDown Preview**, an app
+of its own (ID `io.github.sarrdai.notedown.preview`, its own data — link it
+as a further device to see your notes). *Actions* → *Android* → the branch's
+run → *Artifacts* → `notedown-apk` (a ZIP: unpack it, then install
+`notedown.apk`; signed with the release key when it is set up, else with a
+debug key). Later preview builds install over it; invitation links keep
+opening the test app.
 
 ## Checks
 
