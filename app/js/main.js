@@ -118,24 +118,22 @@ let shownNotes = [];
 const stillShown = () => shownNotes.filter(n => note(refOf(n)));
 
 // The round button right of the search field (decided 2026-10-24, user request, after Google Keep): it shows
-// the sync status and opens the settings, whose first row is Sync & sharing. Prototype variants: "ring" — the
-// own initial in a ring coloured by the status; "cloud" — the status cloud.
+// the sync status and opens the settings, whose first row is Sync & sharing: the own initial (no name: a person)
+// in a ring coloured by the status (decided over the status cloud: it reads as "mine", as in Keep).
 const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloudOff", error: "cloudOff" };
 
 function renderSyncStatus() {
   const btn = $("syncBtn");
-  const variant = state.settings.syncButton;
   const status = state.sync.enabled ? state.sync.status : "";
-  const changed = btn.dataset.status !== status || btn.dataset.variant !== variant;
+  const initial = (state.sync.enabled && state.sync.name || "").trim().charAt(0).toUpperCase();
+  const changed = btn.dataset.status !== status || btn.dataset.initial !== initial;
   // A round that transferred something ends with the check drawing itself in.
   if (changed) btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
   btn.dataset.status = status;
-  btn.dataset.variant = variant;
+  btn.dataset.initial = initial;
   if (changed) {
-    const initial = (state.sync.enabled && state.sync.name || "").trim().charAt(0).toUpperCase();
-    $("syncFace").innerHTML = variant === "cloud" ? icon(status ? SYNC_ICONS[status] : "cloud")
-      : initial ? `<span class="account-initial"></span>` : icon("user");
-    if (initial && variant !== "cloud") $("syncFace").firstChild.textContent = initial;
+    $("syncFace").innerHTML = initial ? `<span class="account-initial"></span>` : icon("user");
+    if (initial) $("syncFace").firstChild.textContent = initial;
   }
   const text = "Settings · Sync " + (status ? statusText().charAt(0).toLowerCase() + statusText().slice(1) : "off");
   btn.setAttribute("aria-label", text);
@@ -166,7 +164,6 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
-  app.dataset.reorderButton = s.reorderButton;
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
@@ -175,7 +172,6 @@ function render() {
   // Time to tidy up the Shelves' pile: a dot on the sort button, whatever the list is sorted by.
   const due = state.view === "open" && mainPile().level === "full";
   renderSortFab(sort, due);
-  app.style.setProperty("--sort-w", $("sortFab").offsetWidth + "px");
   renderWatchBar();
   renderDueCount();
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? "Archive" : "Notes");
@@ -564,8 +560,8 @@ function arrange() {
   });
 }
 
-// The floating sort button above the + (decided 2026-10-19 over beside / below the +
-// and the top bar's sort button; user request: sorting is a core feature): an arrow
+// The floating sort button left of the + (decided 2026-10-24, user request: the place above the + went to
+// the reorder switch; 2026-10-19 over the top bar's sort button: sorting is a core feature): an arrow
 // for the direction (up ascending, down descending; Shelves show a shelf) and the
 // sort's short name; a tap opens the sort menu (Shelves: Tidy up… / Arrange… in it).
 // On the phone the open contents sheet carries the same button above its level
@@ -682,12 +678,6 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
-    { section: "Prototype: reorder switch" },
-    ...[["pill", "Beside the sort button (A)"], ["search", "In the search field (B)"]].map(([v, label]) =>
-      ({ label, checked: s.reorderButton === v, onSelect: () => updateSettings({ reorderButton: v }) })),
-    { section: "Prototype: settings button" },
-    ...[["ring", "Initial in a status ring (A)"], ["cloud", "Status cloud (B)"]].map(([v, label]) =>
-      ({ label, checked: s.syncButton === v, onSelect: () => updateSettings({ syncButton: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -852,8 +842,9 @@ function wire() {
   // Swiping sideways switches views on the list (the archive lies right of the
   // notes, the trash right of the archive; the contents list moves along) and
   // tabs on the contents panel (also the open sheet).
+  // Not in the reorder mode: moving a part sideways sets its level there (ui/drag-drop.js), it never switches views.
   const canSwipe = target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
-    && !app.classList.contains("recording") && !target.closest(".topbar, .selectbar, .toc-handle");
+    && !app.classList.contains("recording") && !app.classList.contains("reordering") && !target.closest(".topbar, .selectbar, .toc-handle");
   initViewSwipe({
     order: ["open", "closed", "trash"],
     canSwipe: target => canSwipe(target) && !!target.closest(".main, .scrim"),
@@ -885,9 +876,6 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
-  // Prototype variants: ?reorder=pill|search (the reorder switch), ?settings=ring|cloud (the settings button).
-  if (["pill", "search"].includes(p.get("reorder"))) patch.reorderButton = p.get("reorder");
-  if (["ring", "cloud"].includes(p.get("settings"))) patch.syncButton = p.get("settings");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");

@@ -2,8 +2,8 @@
 // Google Keep's handles): a button switches it on and off; while it is on, every list item and heading of the
 // open notes shows a grip at its left. A grip drags at once (no long-press first); held without moving, it
 // selects its part instead. A tap on a note's text doesn't edit meanwhile. Ends with the button, Esc, back
-// or a view change. Prototype variants for the button: "pill" — a small pill beside the floating sort button;
-// "search" — an icon in the search field.
+// or a view change. The switch floats above the + (decided over an icon in the search field: within thumb
+// reach, as the mode is switched on and off often).
 import { state } from "../store.js";
 import { draggableAt, startDrag, moveDrag, endDrag } from "./drag-drop.js";
 import { pickAt, showPick } from "./selection.js";
@@ -21,7 +21,7 @@ let press = null;   // { at, x0, y0, timer, dragging, touch } while a grip is he
 export const isReordering = () => on;
 
 export function initReorderMode() {
-  for (const id of ["reorderFab", "reorderBtn"]) $(id).addEventListener("click", () => setReordering(!on));
+  $("reorderFab").addEventListener("click", () => setReordering(!on));
   renderButtons();
   const list = $("list");
   list.addEventListener("pointerdown", onPointerDown);
@@ -45,12 +45,9 @@ export function setReordering(next, { fromHistory = false } = {}) {
 function renderButtons() {
   const label = on ? "Done reordering" : "Reorder: show the handles";
   $("reorderFab").innerHTML = on ? icon("check") + `<span class="sort-fab-label">Done</span>` : icon("grip");
-  $("reorderBtn").innerHTML = icon(on ? "check" : "grip");
-  for (const id of ["reorderFab", "reorderBtn"]) {
-    $(id).setAttribute("aria-pressed", String(on));
-    $(id).setAttribute("aria-label", label);
-    $(id).title = label;
-  }
+  $("reorderFab").setAttribute("aria-pressed", String(on));
+  $("reorderFab").setAttribute("aria-label", label);
+  $("reorderFab").title = label;
 }
 
 /** The part whose grip is at `target` and x (its ::before at the element's left), or null. */

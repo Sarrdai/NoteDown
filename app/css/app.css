@@ -892,24 +892,20 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   background: var(--danger); transform: rotate(-20deg); border-radius: 1px;
 }
 
-/* The round settings button right of the search (main.js → renderSyncStatus). Variant "ring": the own
-   initial (no name: a person) in a ring coloured by the sync status, spinning while syncing; variant "cloud":
-   the status cloud on the field's tone. */
+/* The round settings button right of the search (main.js → renderSyncStatus): the own initial (no name: a
+   person) in a ring coloured by the sync status, spinning while syncing. */
 .account-btn {
   position: relative; flex: none; display: inline-grid; place-items: center;
   width: 46px; height: 46px; margin-left: 8px; padding: 0; border: 0; border-radius: 50%;
   background: transparent; color: var(--text-muted); cursor: pointer;
 }
-.account-face { grid-area: 1 / 1; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--surface-hover); }
+.account-face { grid-area: 1 / 1; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); }
 .account-face .icon { width: 20px; height: 20px; }
 .account-initial { font-weight: 700; font-size: 1rem; color: var(--accent); }
-.account-btn[data-variant="ring"] .account-face { background: var(--accent-soft); }
 .account-ring { grid-area: 1 / 1; width: 46px; height: 46px; fill: none; stroke-width: 2.5; stroke: var(--border); }
 .account-btn[data-status="synced"] .account-ring { stroke: var(--done); }
 .account-btn[data-status="syncing"] .account-ring { stroke: var(--accent); stroke-dasharray: 90 40; transform-origin: center; animation: spin 1.6s linear infinite; }
 .account-btn[data-status="offline"] .account-ring, .account-btn[data-status="error"] .account-ring { stroke: var(--danger); }
-.account-btn[data-variant="cloud"] .account-ring { display: none; }
-.account-btn[data-variant="cloud"] .account-face { width: 46px; height: 46px; }
 .account-btn:hover .account-face { color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .account-btn .account-ring { animation: none !important; } }
 
@@ -1531,7 +1527,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .fab-empty { opacity: var(--archive); transform: rotate(calc((var(--archive) - 1) * 90deg)) scale(calc(0.4 + var(--archive) * 0.6)); }
 .app:not([data-view="open"]) .fab { --archive: 1; }
 .app:not([data-view="open"]) .fab.inert { box-shadow: none; cursor: default; }
-/* The sort button floats above the +: a small pill with an arrow for the direction and the
+/* The sort button floats left of the +: a small pill with an arrow for the direction and the
    sort's short name. In the archive, where the + turns into the bin at the left, it takes the
    + button's corner, following --archive like the +. */
 .sort-fab {
@@ -1546,24 +1542,21 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 }
 #sortFab {
   position: fixed; z-index: 15; --archive: 0; transition: --archive var(--archive-ms, 0.35s) cubic-bezier(.3,.7,.3,1);
-  display: inline-flex; right: 20px;
-  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) + 12px) * (1 - var(--archive)) + (var(--fab-size) - 40px) / 2 * var(--archive));
+  display: inline-flex; right: calc(20px + (var(--fab-size) + 12px) * (1 - var(--archive)));
+  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2);
 }
 .app:not([data-view="open"]) #sortFab { --archive: 1; }
 .app:is(.is-editing, .selecting, .recording, [data-view="trash"]) #sortFab { display: none; }
-/* The reorder mode's switch (variant "pill"): a round button left of the sort button, in its row; "Done" with
- * a check while the mode is on. Variant "search": an icon in the search field. Main view only. */
+/* The reorder mode's switch: a round button above the +, its grip in the accent colour; "Done" with a check
+ * while the mode is on, growing to the left. Main view only. */
 #reorderFab {
   position: fixed; z-index: 15; display: inline-flex; justify-content: center; min-width: 40px; padding: 0 10px;
-  right: calc(20px + var(--sort-w, 80px) + 10px);
+  right: calc(20px + (var(--fab-size) - 40px) / 2);
   bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + var(--fab-size) + 12px);
 }
-#reorderFab .icon { color: var(--text-muted); }
-#reorderFab[aria-pressed="true"], #reorderBtn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+#reorderFab[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 #reorderFab[aria-pressed="true"] .icon { color: var(--on-accent); }
-.app:is(:not([data-view="open"]), .is-editing, .selecting, .recording) #reorderFab,
-.app:not([data-reorder-button="pill"]) #reorderFab { display: none; }
-.app:is(:not([data-view="open"]), :not([data-reorder-button="search"])) #reorderBtn { display: none; }
+.app:is(:not([data-view="open"]), .is-editing, .selecting, .recording) #reorderFab { display: none; }
 
 /* What a long-press lifts, or the grip under the mouse moves (ui/selection.js → showPick), gets an accent
  * outline — the list item, the heading's section or the note. */
