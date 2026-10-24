@@ -196,10 +196,8 @@ Current state, edited in place when a decision changes.
   accent-colored action button; Undo follows (decided 2026-10-15, user
   request).
 - Other confirmation dialogs only where the user has something to
-  adjust: the order for Copy and Merge (drag an entry's grip; Merge shows
-  it even for a single part, as the confirmation of what moves, and
-  there picks a new note or an existing one as the target), the
-  people for Share.
+  adjust: the order for Copy (drag an entry's grip), the target of Move
+  to and Copy to (a section, a new note, a shelf), the people for Share.
 - Panels with several pages (Sync & sharing) go one page back with the
   back button, `Esc` or the system back gesture, and close from the
   first page; the primary button of a page (on the Sync & sharing

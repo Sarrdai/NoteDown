@@ -104,3 +104,13 @@ export function moveInto(notes, parts, targetId, index, { asTask = false } = {})
     changes: sources.map(id => ({ id, body: withoutParts(notes[id].body, parts.filter(p => p.noteId === id)) })),
   };
 }
+
+/**
+ * Copy to…: `text` (a passage marked in the editor) lands at the end of section `index` of `body` as Move to
+ * puts parts there — its own paragraph, or task items joined to the list the section ends with (`asTask`).
+ * Returns the new body; the source keeps the passage.
+ */
+export function insertText(body, index, text, { asTask = false } = {}) {
+  const notes = { target: { body }, passage: { body: text.trim() } };
+  return moveInto(notes, [{ noteId: "passage", from: 0, to: 1, whole: true }], "target", index, { asTask }).body;
+}

@@ -55,9 +55,9 @@ videos from the web can be embedded; whether they load by themselves,
 after a tap or never, and whether links open, ask first or stay text, is
 set per device — for all notes and per circle — so no one else's note
 makes a device contact another host. A
-long-press on a note starts multi-select to close, copy, share, merge,
+long-press on a note starts multi-select to close, copy, share,
 move into a section of another note (a dictated note joins a task list
-as a task),
+as a task) or into a new note (merging or splitting), onto a shelf,
 make permanent (notes of lasting value that can't be closed) or delete
 several notes at once, to make a private copy of shared notes (it stays
 linked to the original, shows when that changed and can be compared and
@@ -68,9 +68,9 @@ everyone or kept as one's own; a long-press on a heading (in a note or in the ta
 contents) selects its section, which can be moved together into a new note, and one on a
 task or bullet selects that item. A reorder mode (the button above +) shows a grip at
 every task, bullet and heading: tasks, bullets and sections are dragged where they
-belong — within a list, into another section or level, into another note, or onto an
-entry of the table of contents — several selected ones together, and with Shelves whole
-notes too; on the desktop the grip also shows under the mouse (Ctrl+click or a
+belong — within a list, into another section or level, into another note — several
+selected ones together, and with Shelves whole notes too; a passage marked in the editor
+is copied into another note with Copy to…; on the desktop the grip also shows under the mouse (Ctrl+click or a
 right-click selects there).
 Export (under ⋮ in the top bar) saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden

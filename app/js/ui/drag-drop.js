@@ -1,13 +1,11 @@
 // Drag and drop of list items and sections (docs/requirements.md → "Multi-select" → "Drag and drop"), in the
-// main view: on the desktop by the grip that shows at the right of the list item or heading under the mouse
-// (a click on it selects), on touch by moving the finger after the long-press (ui/selection.js). The part
+// main view: by the reorder mode's grips (ui/reorder-mode.js) and, on the desktop, by the grip that shows at
+// the right of the list item or heading under the mouse (a click on it selects). The part
 // follows the pointer as a floating copy; a line shows where it lands — between the items of any list, at
 // the end of a section, before a heading or at a note's end, in any note of the view — and with its left
 // edge the level: moving sideways nests it deeper or less deep. Near the window's top or bottom edge the
 // list scrolls along. Letting go moves it (core/drag.js), with Undo. Dragged by a selected part's grip, the
 // other selected parts of its kind move along (`group`, ui/selection.js → dragGroup) and land together.
-// The contents are a target too (tocSlot): on an entry it lands at the end of that section, on the upper edge
-// of a heading's entry (sections only) before it; on the phone, held over the sheet's handle, the sheet opens.
 // With the Shelves, whole notes move too (startNoteDrag): between the notes and to a shelf's end, changing
 // the order only.
 import { state, note, setBody, applyMoveInto } from "../store.js";
@@ -16,13 +14,11 @@ import { listItems } from "../core/list-items.js";
 import { sections, noteTitle } from "../core/markdown.js";
 import { placeInOrder } from "../core/query.js";
 import { showPick, pickAt, isSelecting, endSelection } from "./selection.js";
-import { setTocOpen } from "./toc.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
 
 let opts = null;   // { onMoved(targetId, undo, message), order() → { ids, set(ids) → undo } | null (not the Shelves) }
-let drag = null;   // while dragging: { src, range, from, group, level0, els, ghost, line, grab, x, y, x0, slot, frame, dwell, opened }
-const DWELL_MS = 450;   // held this long over the phone's contents handle, the sheet opens
+let drag = null;   // while dragging: { src, range, from, group, level0, els, ghost, line, grab, x, y, x0, slot, frame, edge }
 const EDGE_MS = 300;    // the list scrolls along once the pointer rests this long near its top or bottom edge
 const phone = window.matchMedia("(max-width: 599px)");
 let grip = null;   // the desktop's grip and what it moves: { el, at }
@@ -162,87 +158,22 @@ export function moveDrag(x, y) {
   Object.assign(drag, { x, y });
   drag.ghost.style.transform = `translate(${x - drag.grab.dx}px, ${y - drag.grab.dy}px)`;
   const notes = drag.src.kind === "note";
-  // Over the contents only their entries are targets, never the list hidden below them.
-  const toc = !notes && overToc(x, y);
-  drag.ghost.classList.toggle("over-toc", toc);
-  if (!toc) unmarkToc();
-  drag.slot = notes ? nearestNoteSlot() : toc ? tocSlot(x, y) : nearestSlot();
+  drag.slot = notes ? nearestNoteSlot() : nearestSlot();
   drawLine();
-  if (!notes) watchHandle(y);
   if (!drag.frame) drag.frame = requestAnimationFrame(autoScroll);
-}
-
-// ---------- the contents as a target ----------
-
-const sheetOpen = () => document.getElementById("app").classList.contains("toc-open");
-// The list's visible bottom: on the phone above the closed sheet's handle (its zone opens the sheet).
-const listBottom = () => phone.matches && !sheetOpen() ? $("tocHandle").getBoundingClientRect().top - 12 : window.innerHeight;
-const handleZone = y => phone.matches && !sheetOpen() && y > listBottom();
-// Over the contents: the phone's open sheet, the sidebar elsewhere.
-function overToc(x, y) {
-  if (phone.matches) return sheetOpen();
-  const r = $("tocPanel").getBoundingClientRect();
-  return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
-}
-const unmarkToc = () => { for (const old of document.querySelectorAll("#tocList .drop-into")) old.classList.remove("drop-into"); };
-
-// Phone: held over the closed sheet's handle, the sheet opens (and closes again after the drop).
-function watchHandle(y) {
-  if (!handleZone(y)) { clearTimeout(drag.dwell); drag.dwell = 0; return; }
-  if (drag.dwell) return;
-  drag.dwell = setTimeout(() => {
-    if (!drag) return;
-    drag.opened = true;
-    setTocOpen(true);
-  }, DWELL_MS);
-}
-
-// The parts' own lines in note `id` (no target inside them).
-const ownRanges = id => drag.group ? drag.group.filter(p => p.noteId === id).map(p => p.lines) : id === drag.src.noteId ? [drag.range] : [];
-
-// The contents entry under the pointer as a slot — { noteId, line, level, gap, entry, before } — or null.
-function tocSlot(x, y) {
-  unmarkToc();
-  const entry = document.elementFromPoint(x, y)?.closest("#tocList .toc-entry[data-key]");
-  if (!entry || (phone.matches && !sheetOpen())) return null;
-  const key = entry.dataset.key;
-  const noteId = key.slice(0, key.lastIndexOf("#"));
-  const index = Number(key.slice(key.lastIndexOf("#") + 1));
-  const n = note(noteId);
-  if (!n || n.status === "closed" || n.news || n.deleted || noteId === state.editingId) return null;
-  const body = n.body, ss = sections(body), s = ss[index];
-  const own = ownRanges(noteId);
-  if (!s || own.some(([a, b]) => s.start >= a && s.start < b)) return null;
-  const skip = own.length ? own : null;
-  const r = entry.getBoundingClientRect();
-  let slot = null, before = false;
-  if (drag.src.kind === "item") {
-    const fits = itemSlots(body, skip).filter(sl => sl.line > s.start && sl.line <= s.end);
-    const sl = fits.at(-1);
-    if (sl) slot = { line: sl.line, gap: !!sl.gap, level: { value: sl.levels[0].indent } };
-  } else if (s.depth && index > 0 && y < r.top + r.height * 0.3) {
-    slot = { line: s.start, level: { value: s.depth } };
-    before = true;
-  } else {
-    const end = s.depth ? sectionRange(body, s.start).lines[1] : body.split("\n").length;
-    const fits = sectionSlots(body, skip);
-    const sl = fits.find(f => f.line >= end) || fits.at(-1);
-    slot = { line: sl.line, level: { value: Math.min(6, (s.depth || 1) + 1) } };
-  }
-  if (!slot) return null;
-  if (!before) entry.classList.add("drop-into");
-  return { ...slot, noteId, entry, before, y: r.top, left: r.left, right: r.right };
 }
 
 // The visible part of the list: below the top bar (or the selection bar).
 const viewTop = () => Math.max(0, ...[$("topbar"), $("selectBar")].filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect().bottom));
+// The list's visible bottom: on the phone above the contents sheet's handle.
+const phoneBottom = () => phone.matches ? $("tocHandle").getBoundingClientRect().top - 12 : window.innerHeight;
 
-// Near the list's top or bottom edge it scrolls along — after a short rest there, so passing the edge on the
-// way to the phone's contents handle doesn't move the list. Not over the contents.
+// Near the list's top or bottom edge it scrolls along — after a short rest there, so a part dragged past the
+// edge on its way doesn't move the list at once.
 function autoScroll() {
   if (!drag) return;
   const { x, y } = drag;
-  const step = handleZone(y) || overToc(x, y) ? 0 : y < viewTop() + 40 ? -12 : y > listBottom() - 60 ? 12 : 0;
+  const step = y < viewTop() + 40 ? -12 : y > phoneBottom() - 60 ? 12 : 0;
   if (!step) { drag.edge = 0; drag.frame = 0; return; }
   drag.edge ||= performance.now();
   drag.frame = requestAnimationFrame(autoScroll);
@@ -325,22 +256,18 @@ function nearestSlot() {
 
 function drawLine() {
   const { slot, line, src } = drag;
-  line.hidden = !slot || (slot.entry && !slot.before);
-  if (line.hidden) return;
-  const x0 = slot.entry ? slot.left : slot.level.x;
-  line.style.transform = `translate(${x0}px, ${slot.y - 1}px)`;
-  line.style.width = `${Math.max(40, slot.right - x0)}px`;
+  line.hidden = !slot;
+  if (!slot) return;
+  line.style.transform = `translate(${slot.level.x}px, ${slot.y - 1}px)`;
+  line.style.width = `${Math.max(40, slot.right - slot.level.x)}px`;
   line.dataset.label = src.kind === "section" ? `H${slot.level.value}` : "";
 }
 
 /** Ends the drag: moves the part to the slot when `commit`, else puts it back. */
 export function endDrag(commit) {
   if (!drag) return;
-  const { src, slot, range, from, group, ghost, line, els, frame, dwell, opened, y } = drag;
+  const { src, slot, range, from, group, ghost, line, els, frame, y } = drag;
   cancelAnimationFrame(frame);
-  clearTimeout(dwell);
-  unmarkToc();
-  if (opened) setTocOpen(false);
   ghost.remove();
   line.remove();
   for (const el of els) el.classList.remove("drag-source");
@@ -381,7 +308,8 @@ export function startNoteDrag(card, ids, x, y) {
 }
 
 // Before each note of the order and each shelf on the screen (before a shelf: the end of the one above), and
-// after the last of them: { before: id | null, y, left, right }. The pile's notes take no slots.
+// after the last of them — with no note in the order yet, below the pile: { before: id | null, y, left, right }.
+// The pile's notes take no slots: the pile stays first.
 function nearestNoteSlot() {
   const order = opts.order?.();
   if (!order) return null;
@@ -389,10 +317,11 @@ function nearestNoteSlot() {
   const rows = [...$("list").querySelectorAll(".note[data-id], .section-header[data-section]")]
     .map(el => ({ el, id: el.dataset.id ?? el.dataset.section }))
     .filter(r => inOrder.has(r.id) && !drag.src.ids.includes(r.id));
-  if (!rows.length) return null;
+  const last = rows.at(-1)?.el || [...$("list").querySelectorAll(".note[data-id]")].at(-1);
+  if (!last) return null;
   const box = $("list").querySelector(".note")?.getBoundingClientRect();
   const slots = rows.map(r => ({ before: r.id, y: r.el.getBoundingClientRect().top - 6 }));
-  slots.push({ before: null, y: rows.at(-1).el.getBoundingClientRect().bottom + 6 });
+  slots.push({ before: null, y: last.getBoundingClientRect().bottom + 6 });
   const top = viewTop();
   let best = null;
   for (const s of slots) if (s.y >= top && s.y <= window.innerHeight && (!best || Math.abs(s.y - drag.y) < Math.abs(best.y - drag.y))) best = s;

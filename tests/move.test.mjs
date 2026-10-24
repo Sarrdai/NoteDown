@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createNote, parseNotesFile } from "../app/js/core/notes-file.js";
-import { moveOutline, moveInto, asTasks } from "../app/js/core/move.js";
+import { moveOutline, moveInto, asTasks, insertText } from "../app/js/core/move.js";
 
 const n = (id, body) => createNote(body, "2026-10-05T09:00", id);
 const byId = notes => Object.fromEntries(notes.map(x => [x.id, x]));
@@ -57,4 +57,11 @@ test("move: a section can move to another section of its own note", () => {
   const m = moveInto(byId([t]), [{ noteId: "t", from: 2, to: 3 }], "t", 1, { asTask: false });
   assert.equal(m.body, "## T\n### A\n- [ ] a\n\n#### B\nThe b text.");
   assert.deepEqual(m.changes, []);
+});
+
+test("copy to: a passage lands at the end of the section, as a task when wanted, before the labels", () => {
+  const car = sample.s12.body;
+  const passage = "  She said the front one squeaks.  ";
+  assert.equal(insertText(car, 0, passage), car.replace("October\n\n#paperwork", "October\n\nShe said the front one squeaks.\n\n#paperwork"));
+  assert.equal(insertText(car, 0, passage, { asTask: true }), car.replace("October\n\n#paperwork", "October\n- [ ] She said the front one squeaks.\n\n#paperwork"));
 });

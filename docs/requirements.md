@@ -1490,7 +1490,7 @@ that host its IP address and the reading time.
   selected deeper ones right below it — 2026-10-15, so sections picked one
   by one also count and reorder one by one) and
   the actions as icons (with labels on the desktop): the frequent ones —
-  Close, Clear done tasks, Copy, Share, Merge, Move to, Delete — in the bar, the
+  Close, Clear done tasks, Copy, Share, Move to, Delete — in the bar, the
   rarer ones — Export, Private copy, Make permanent, Promote / Demote headings, Move up / down — under
   ⋮ with icon and label, the same in every tier (decided 2026-10-17 by the user's own use,
   backlog #36; all of them overran the desktop bar); the + button is
@@ -1501,7 +1501,7 @@ that host its IP address and the reading time.
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Clear done tasks**, **Copy**, **Export** ("Export"), **Share** ("Sync
-  and sharing"), **Merge**, **Move to**, **Private copy** (shared notes, "Links between
+  and sharing"), **Move to** (also to a new note: merging and splitting), **Private copy** (shared notes, "Links between
   notes and private copies"), **Make permanent / Make closable**, **Delete**,
   **Promote / Demote headings**, **Move up / down** (list items). A selected list item is a
   part of its own; it leaves its indent behind when it is copied, merged or
@@ -1519,9 +1519,12 @@ that host its IP address and the reading time.
   everyone's trash. *Prototype: 2026-10-15 (before: a confirmation).*
 - **Copy** puts the selection on the clipboard as plain Markdown, the
   parts joined by a blank line, without metadata; it keeps the selection.
-- **Merge** — also "move to a new note": the selected parts (two or more
-  notes, or any sections, even a single one) leave their notes and become
-  one new open note at the top, with "Notes merged" / "Moved to a new
+- **To a new note** (Move to's **New note**; decided 2026-10-24, user
+  request: one way for moving, merging and splitting, over a Merge action
+  with its own order dialog): the selected parts (two or more notes, or any
+  sections or items, even a single one) leave their notes and become one
+  new open note at the top, in contents order (changed after by the
+  grips), with "Notes merged" / "Moved to a new
   note · Undo". The parts are joined by a blank line and **aligned**: each
   part moves so its highest heading becomes `##` (`#` when a part uses
   it), its structure below moving along. Created = the earliest created
@@ -1529,8 +1532,8 @@ that host its IP address and the reading time.
   lived that long); last edited = now. A note left empty disappears; Undo
   brings everything back. The new note stays in the people circle of its
   sources when they share one. When the sources come from different
-  circles (private and shared, or two circles), the merge dialog asks
-  where it goes: **Private copy** (default) — the new note is private,
+  circles (private and shared, or two circles), Move to asks under the
+  list where it goes: **Private copy** (default) — the new note is private,
   the shared sources stay as they are for everyone, only the private
   ones give up their parts — or **Share with …** (names and avatars) —
   the new note goes to the circle of everyone involved and all sources
@@ -1540,11 +1543,13 @@ that host its IP address and the reading time.
   and don't put the source into their trash — its text lives on in the
   merged note (backlog #35; a concurrent edit of the source lands as a
   displaced edit, `docs/sync-and-sharing.md` → "Merging"). The same holds
-  for "Move to". *Prototype: 2026-10-14.*
+  for "Move to". *Prototype: 2026-10-14; in Move to 2026-10-24.*
 - **Move to** (decided 2026-10-19, user request: sort a dictated note
   into an existing task list or section in a few taps, above all while
   tidying up; replaces "Merge into", which only reached notes in the
-  selection — Merge now only makes a new note): the selected parts go
+  selection): the far way to move anything — near, the reorder mode's
+  grips move it (decided 2026-10-24, user request: two ways, no more).
+  The selected parts go
   into **one section of another note** (or another section of their own
   note), picked in a dialog that lists the notes of the view (search over
   titles and headings) with their sections; rows of sections that end with
@@ -1571,6 +1576,20 @@ that host its IP address and the reading time.
   starts at 2, remembered on this device apart from the contents' count);
   a note with sections on hidden levels shows "+n", and a search shows
   every level of the notes it finds. *Prototype: 2026-10-19.*
+  - **New note** is the first row of the list (unless only one whole note
+    moves): see "To a new note".
+  - **Shelves** (decided 2026-10-24, user request: sort new notes in
+    quickly): whole notes moved while the view is sorted by Shelves get a
+    row per shelf above the notes and land at its end ("Moved to the
+    shelf “…” · Undo"), as the Tidy up dialog's rows do.
+  - **Copy to…** (decided 2026-10-24, user request: e.g. an address named
+    in a dictation): a passage marked in the editor goes the same way
+    through the same picker — the editor's toolbar shows **Copy to…** while
+    a passage is marked — to the end of a section of another note, as its
+    own paragraph or as tasks by the same rule, or into a **New note**; its
+    own note keeps it ("Copied to “…” · Undo"). The edited note itself is
+    no target. Only in the editor: rendered notes keep no text selection on
+    touch. *Prototype: 2026-10-24.*
 - **Reorder mode** (decided 2026-10-24, user request, after Google Keep's
   handles, which help organising but would disturb when always shown): the
   **reorder switch** right above the + (`docs/interaction-concept.md` →
@@ -1582,8 +1601,9 @@ that host its IP address and the reading time.
   the same); dragging the grip of a selected part moves **every selected
   part of its kind** along. A tap on a note's text doesn't edit
   meanwhile, and swiping doesn't switch to the archive: moving sideways
-  sets the level. With **Shelves** each card also shows a grip at its top
-  edge that moves the whole note. The mode ends with "Done", `Esc`, back,
+  sets the level. With **Shelves** the grip of a note's first line moves
+  the whole note. Far targets are Move to's (the contents are no drop
+  target: decided 2026-10-24, user feedback, two ways are enough). The mode ends with "Done", `Esc`, back,
   + or a view change; main view only. All tiers (the desktop also keeps
   its hover grip). *Prototype: 2026-10-24.*
 - **Drag and drop** (decided 2026-10-22, user request: move tasks and
@@ -1602,9 +1622,9 @@ that host its IP address and the reading time.
   place allows — from the level of what follows down to one below what
   precedes, as in an outliner; a section's line names its heading level
   ("H3"), and its headings shift along. Resting near the list's top or
-  bottom edge (0.3 s), the list scrolls along — not at once, so passing the
-  edge on the way to the phone's contents handle doesn't move it (decided
-  2026-10-24, user feedback). Letting go moves it, with "Moved" / "Moved to “…” ·
+  bottom edge (0.3 s), the list scrolls along — not at once, so a part
+  dragged past the edge on its way doesn't move it (decided 2026-10-24,
+  user feedback). Letting go moves it, with "Moved" / "Moved to “…” ·
   Undo"; into another note it acts like Move to (a source left empty
   disappears, also from a shared note for everyone in its circle). Not in
   the archive, the trash, news posts or the note being edited; paragraphs
@@ -1619,20 +1639,10 @@ that host its IP address and the reading time.
     and land together at the line, in the selection's order, each on the
     line's level. "Moved n items" / "n sections", with Undo. A selection
     that mixes kinds moves only the dragged part. *Prototype: 2026-10-24.*
-  - **Into the contents** (decided 2026-10-24, user request: far targets
-    without scrolling): dropped on a contents entry, a list item lands at
-    the end of that section's own text, a section at the end of that
-    section as a subsection (one level deeper); on the upper edge of a
-    heading's entry a section lands before that heading, shown by a line.
-    The entry it lands in is tinted. Over the contents only their entries
-    are targets, never the list behind them, and the floating copy shrinks
-    to its first line (user feedback 2026-10-24: lines from the hidden list
-    and a large copy irritated). On the phone, held over the closed
-    sheet's handle the sheet opens, and it closes again after the drop;
-    on tablet and desktop the sidebar is a target as it is. *Prototype:
-    2026-10-24.*
   - **Whole notes with the Shelves** (decided 2026-10-24, user request):
-    the card's grip at its top edge drags the note (with the other selected
+    the grip of the note's first line — its title, else its first line of
+    text — drags the note (one grip per note, decided over a second grip at
+    the card's top: two confused) (with the other selected
     whole notes) between the notes of the order and to the end of a shelf
     (the line before the next shelf) — changing the order only, as
     Arrange does; a note from the pile joins the order. While it is
@@ -1663,13 +1673,13 @@ that host its IP address and the reading time.
   level up or down (`##` ↔ `###`), to correct levels quickly after a
   merge; disabled when a heading would leave levels 1–6. The selection
   stays.
-- Copy (with two or more parts) and Merge first show the parts in
+- Copy (with two or more parts) first shows the parts in
   contents order in a **confirmation dialog**, where the order can be
   changed by dragging an entry's grip (arrow keys on the desktop); each
   entry is previewed by its heading, or its first sentence if it has
   none. *Prototype: round 3.*
 - Multi-select ends with ✕, `Esc`, the Android back button, when the last
-  part is deselected, after Close / Delete / Merge, and on switching
+  part is deselected, after Close / Delete / Move to, and on switching
   between the views.
 - Open: whether merging should also offer keeping the original heading
   levels instead of aligning them — decided after trying the alignment.

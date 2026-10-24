@@ -1,8 +1,8 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
+import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, isSectionId, placeInOrder, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
 import { circleKey, circleEntries } from "./core/sharing.js";
-import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles } from "./store.js";
+import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles, applyMerge } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile } from "./core/notes-file.js";
@@ -41,7 +41,7 @@ import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
 import { initArrange, openArrange } from "./ui/arrange.js";
-import { initMoveTo } from "./ui/move-to.js";
+import { initMoveTo, moveTo } from "./ui/move-to.js";
 import { initReminders } from "./ui/reminders.js";
 import { openDue } from "./ui/due.js";
 import { dueItems, dueNowCount } from "./core/due-list.js";
@@ -165,6 +165,7 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("shelves", state.view === "open" && isCustom());
+  app.dataset.copyButton = s.copyButton;   // prototype variant (ui/toolbar.js)
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
@@ -561,6 +562,36 @@ function arrange() {
   });
 }
 
+// Copy to… from the editor's toolbar: the marked passage goes into a section of another note, or into a new
+// note; its own note keeps it (decided 2026-10-24, user request: e.g. an address named in a dictation).
+// The list shows the result once the edit ends.
+function copyPassage(text) {
+  const candidates = currentNotes().filter(n => n.status !== "closed" && refOf(n) !== state.editingId);
+  moveTo({
+    text, candidates, onDone: (id, undo, message) => showSnackbar(message, undo),
+    newNote: { shareWith: null, run: () => showSnackbar("Copied to a new note", applyMerge([], { body: text }, "copy").undo) },
+  });
+}
+
+// Whole notes move within the Shelves — by the reorder mode's grip, or onto a shelf by Move to: its order, or a
+// circle's shared one; null when the view isn't sorted by Shelves.
+function shelfOrder() {
+  if (!isCustom()) return null;
+  const set = sortOf().key === "shared" ? ids => setCircleOrder(sharedCircle(), ids) : setCustomOrder;
+  return { ids: orderIds(), set };
+}
+
+// Move to's shelves for the whole notes `noteIds`: each shelf, which they end (before the next one).
+function shelvesFor(noteIds) {
+  const order = shelfOrder();
+  const list = order?.ids.filter(isSectionId).map(id => ({ id, title: sectionTitle(id) }));
+  if (!list?.length) return null;
+  return {
+    list,
+    place: id => order.set(placeInOrder(order.ids, noteIds, order.ids.slice(order.ids.indexOf(id) + 1).find(isSectionId) ?? null)),
+  };
+}
+
 // The floating sort button left of the + (decided 2026-10-24, user request: the place above the + went to
 // the reorder switch; 2026-10-19 over the top bar's sort button: sorting is a core feature): an arrow
 // for the direction (up ascending, down descending; Shelves show a shelf) and the
@@ -679,6 +710,12 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
+    { section: "Prototype: Move to's New note" },
+    ...[["row", "First row of the list (A)"], ["button", "Button under the list (B)"]].map(([v, label]) =>
+      ({ label, checked: s.newNoteTarget === v, onSelect: () => updateSettings({ newNoteTarget: v }) })),
+    { section: "Prototype: Copy to… in the toolbar" },
+    ...[["selection", "Shows with a marked passage (A)"], ["always", "Always there, greyed out (B)"]].map(([v, label]) =>
+      ({ label, checked: s.copyButton === v, onSelect: () => updateSettings({ copyButton: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -828,12 +865,10 @@ function wire() {
   document.addEventListener("notedown:show-note", e => showNote(e.detail.id));
   initArrange();
   initMoveTo();
-  initToolbar({ onDue: sortInByDue });
+  initToolbar({ onDue: sortInByDue, onCopyTo: copyPassage });
   recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
-  // Whole notes move within the Shelves (the reorder mode's note grip): its order, or a circle's shared one.
-  initDragDrop({ onMoved, order: () => !isCustom() ? null : sortOf().key === "shared"
-    ? { ids: orderIds(), set: ids => setCircleOrder(sharedCircle(), ids) } : { ids: orderIds(), set: setCustomOrder } });
+  initSelection({ viewNotes: currentNotes, onMerged, onMoved, shelves: shelvesFor, onChange: () => { renderToc(currentNotes()); renderFab(); } });
+  initDragDrop({ onMoved, order: shelfOrder });
   initReorderMode();
   initSyncPanel();
   initContactRequests();
@@ -879,6 +914,9 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
+  // Prototype variants: ?newnote=row|button (Move to's New note), ?copybutton=selection|always (Copy to…).
+  if (["row", "button"].includes(p.get("newnote"))) patch.newNoteTarget = p.get("newnote");
+  if (["selection", "always"].includes(p.get("copybutton"))) patch.copyButton = p.get("copybutton");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");

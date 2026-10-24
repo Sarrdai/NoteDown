@@ -28,7 +28,6 @@ import { noteTitle, sections } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
 import { mergeCircle } from "../core/sharing.js";
 import { moveTo } from "./move-to.js";
-import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
@@ -67,9 +66,8 @@ export function initSelection(options) {
   $("orderCancel").addEventListener("click", closeDialog);
   $("orderOk").addEventListener("click", () => {
     const fn = dialog.onConfirm, ordered = orderedFromDialog();
-    const mode = $("orderChoice").querySelector("input:checked")?.value || "copy";
     closeDialog();
-    fn(ordered, mode);
+    fn(ordered);
   });
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
@@ -428,7 +426,6 @@ function update() {
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
-    !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
     !archive && { id: "moveto", label: "Move to…", run: moveParts },
     !archive && movable && reorder(-1, "Move up"),
     !archive && movable && reorder(1, "Move down"),
@@ -591,32 +588,28 @@ function exportParts() {
   openExport({ label: parts.length === 1 ? (whole ? "note" : "section") : what(parts, whole), items: parts.map(p => ({ note: notes[p.noteId], text: partText(notes[p.noteId].body, p) })) });
 }
 
-// Merge and "move to a new note" are one mechanism: the parts, in the
-// confirmed order, become a new note and leave their notes. Across circles
-// the dialog asks where it goes (core/sharing.js → mergeCircle): a private
-// copy that leaves the shared notes as they are, or shared with everyone involved.
-// Into an existing note goes Move to… (ui/move-to.js).
-function merge() {
+// Move to…: the parts go to the end of a section of another note (or of one of theirs), in contents order;
+// or to "New note" — merging several parts, splitting one off: they become a new note, in contents order (the
+// order is changed after by the grips), and leave their notes. Across circles the picker asks where the new
+// note goes (core/sharing.js → mergeCircle): a private copy that leaves the shared notes as they are, or shared
+// with everyone involved. Whole notes in the Shelves can go onto a shelf.
+function moveParts() {
   const { parts, notes, whole } = current();
-  const single = parts.length === 1;
+  const candidates = opts.viewNotes().filter(n => n.status !== "closed");
   const circles = Object.keys(notes).map(circleOf);
   const across = mergeCircle(circles, "copy").keepShared;
-  const choice = across ? mergeCircle(circles, "share").members : null;
-  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, (ordered, mode) => {
-    endSelection();
-    const m = mergeParts(notes, ordered);
-    const { note: created, undo } = applyMerge(m.changes, m, mode);
-    const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
-    opts.onMerged(created, undo, message);
-  }, choice);
-}
-
-// Move to…: the parts go to the end of a section of another note (or of one of theirs), in contents order.
-function moveParts() {
-  const { parts, notes } = current();
-  const candidates = opts.viewNotes().filter(n => n.status !== "closed");
+  const newNote = parts.length === 1 && whole ? null : {
+    shareWith: across ? mergeCircle(circles, "share").members : null,
+    run: mode => {
+      const m = mergeParts(notes, parts);
+      const { note: created, undo } = applyMerge(m.changes, m, mode);
+      const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
+      opts.onMerged(created, undo, message);
+    },
+  };
+  const shelves = whole ? opts.shelves?.(parts.map(p => p.noteId)) : null;
   endSelection();
-  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: opts.onMoved }));
+  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: (id, undo, message) => id ? opts.onMoved(id, undo, message) : showSnackbar(message, undo), newNote, shelves }));
 }
 
 async function writeClipboard(text) {
@@ -634,24 +627,15 @@ async function writeClipboard(text) {
 
 // ---------- order dialog ----------
 
-// `shareWith` (member ids) adds the choice between a private copy and
-// sharing with these people; onConfirm gets the order and "copy" | "share".
-function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null) {
+// Copy's order dialog: onConfirm gets the parts in the order the dialog shows.
+function openDialog(title, okLabel, parts, notes, onConfirm) {
   dialog = { onConfirm, parts, notes };
   $("orderTitle").textContent = title;
   $("orderOk").textContent = okLabel;
-  $("orderChoice").innerHTML = shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
-    + choiceHtml("share", `Share with ${esc(membersLabel(shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(shareWith)) : "";
-  $("orderChoice").hidden = !shareWith;
   $("orderHint").hidden = parts.length < 2;
   $("orderList").replaceChildren(...parts.map((p, i) => orderItem(partPreview(notes[p.noteId].body, p), i)));
   $("orderDialog").hidden = false;
   $("orderOk").focus({ preventScroll: true, focusVisible: false });
-}
-
-function choiceHtml(value, title, hint, checked, extra = "") {
-  return `<label class="choice"><input type="radio" name="mergeMode" value="${value}"${checked ? " checked" : ""}>`
-    + `<span class="choice-text"><span class="choice-title">${title}</span><span class="choice-hint">${hint}</span></span>${extra}</label>`;
 }
 
 function closeDialog() {

@@ -12,7 +12,7 @@ The three notes below show you around. Close each one once you've read it.
 ## Find your way around
 - [ ] Tap or click a note to edit it; the toolbar adds headings, lists, tasks and a due date
 - [ ] Add a note with **+**, or hold **+** to dictate one
-- [ ] Long-press a note (Ctrl+click on a computer) to select several and close, copy, merge, share or delete them
+- [ ] Long-press a note (Ctrl+click on a computer) to select several and close, copy, share, move or delete them
 - [ ] Search narrows the list to matching notes; ▲ / ▼ step from hit to hit
 - [ ] Contents, People and Labels sit in the side panel — on a phone, pull up the handle at the bottom
 - [ ] Open the archive with its button in the top bar, or swipe sideways on a touch screen

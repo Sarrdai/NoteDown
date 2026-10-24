@@ -1,7 +1,9 @@
 // The editing toolbar: Markdown helpers, a counter, undo / redo and Done. It
 // sits above the on-screen keyboard on touch devices and floats at the
 // bottom of the list on the desktop. Also the due-date menu, which the
-// note's due chip opens (the toolbar has no due-date button since 2026-10-16).
+// note's due chip opens (the toolbar has no due-date button since 2026-10-16). Copy to… copies a marked
+// passage into another note (ui/move-to.js); prototype variants: it shows only while a passage is marked
+// ("selection") or is always first, greyed out without one ("always").
 import { state, note, setDue } from "../store.js";
 import { currentEditor, endEdit, onEditingChange } from "./note-list.js";
 import { openDateMenu, openTaskDueMenu } from "./due-menu.js";
@@ -12,6 +14,7 @@ import { openSettings } from "./settings.js";
 import { openLookPicker } from "./look-picker.js";
 
 const BUTTONS = [
+  ["copyTo", "Copy to… (the marked passage)", "copy"],
   ["heading", "Heading", "heading"],
   ["bullet", "Bullet list", "list"],
   ["task", "Checkbox", "checkbox"],
@@ -34,8 +37,8 @@ const BUTTONS = [
 const $ = id => document.getElementById(id);
 const HOLD_MS = 450;
 
-/** `onDue(id)`: runs after a due date was set from the menu. */
-export function initToolbar({ onDue }) {
+/** `onDue(id)`: runs after a due date was set from the menu; `onCopyTo(text)`: Copy to… for a marked passage. */
+export function initToolbar({ onDue, onCopyTo }) {
   dueSet = onDue;
   const bar = $("toolbar");
   $("toolbarButtons").replaceChildren(...BUTTONS.map(([cmd, label, ic]) => {
@@ -71,10 +74,21 @@ export function initToolbar({ onDue }) {
     if (b.id === "toolbarDone") return endEdit();
     if (b.dataset.cmd === "look") return openLookPicker(b, [state.editingId]);
     if (b.dataset.cmd === "taskDue") return caretTaskDue(b);
+    if (b.dataset.cmd === "copyTo") { const t = marked(); if (t) onCopyTo(t); return; }
     currentEditor()?.run(b.dataset.cmd);
   });
 
+  // Whether a passage is marked: the editor's selection settles after the browser's selectionchange.
+  const copy = bar.querySelector('[data-cmd="copyTo"]');
+  const markSelection = () => setTimeout(() => {
+    const has = !!marked();
+    bar.classList.toggle("has-selection", has);
+    copy.disabled = !has;
+  });
+  document.addEventListener("selectionchange", markSelection);
+
   onEditingChange(id => {
+    markSelection();
     bar.hidden = !id;
     document.getElementById("app").classList.toggle("is-editing", Boolean(id));
     place();
@@ -98,6 +112,13 @@ export function initToolbar({ onDue }) {
 }
 
 let dueSet = () => {};
+
+// The passage marked in the editor, or "".
+function marked() {
+  const v = currentEditor()?.view;
+  const sel = v?.state.selection.main;
+  return sel && !sel.empty ? v.state.sliceDoc(sel.from, sel.to).trim() : "";
+}
 const refocus = id => { if (id && id === state.editingId) currentEditor()?.view.focus(); };
 
 /** The due-date menu of a note: from the note's due chip. */
