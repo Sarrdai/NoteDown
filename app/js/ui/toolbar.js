@@ -74,7 +74,7 @@ export function initToolbar({ onDue, onCopyTo }) {
     if (b.id === "toolbarDone") return endEdit();
     if (b.dataset.cmd === "look") return openLookPicker(b, [state.editingId]);
     if (b.dataset.cmd === "taskDue") return caretTaskDue(b);
-    if (b.dataset.cmd === "copyTo") { const t = marked(); if (t) onCopyTo(t); return; }
+    if (b.dataset.cmd === "copyTo") return copyTo(onCopyTo);
     currentEditor()?.run(b.dataset.cmd);
   });
 
@@ -112,6 +112,19 @@ export function initToolbar({ onDue, onCopyTo }) {
 }
 
 let dueSet = () => {};
+
+// Copy to…: the picker takes the screen, so the editor gives up the keyboard and the marking first (else the
+// keyboard, the marked text's handles and the system's text menu stay over the dialog); the caret stays at the
+// passage's end, and a tap into the note goes on editing.
+function copyTo(onCopyTo) {
+  const text = marked();
+  const v = currentEditor()?.view;
+  if (!text || !v) return;
+  v.dispatch({ selection: { anchor: v.state.selection.main.to } });
+  v.contentDOM.blur();
+  window.getSelection()?.removeAllRanges();
+  onCopyTo(text);
+}
 
 // The passage marked in the editor, or "".
 function marked() {

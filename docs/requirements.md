@@ -1588,7 +1588,9 @@ that host its IP address and the reading time.
     while a passage is marked (decided over always showing it greyed out:
     the bar stays as it was) — to the end of a section of another note, as its
     own paragraph or as tasks by the same rule, or into a **New note**; its
-    own note keeps it ("Copied to “…” · Undo"). The edited note itself is
+    own note keeps it ("Copied to “…” · Undo"). Opening the picker puts the
+    keyboard and the marking away (the caret stays at the passage's end; a
+    tap into the note goes on editing). The edited note itself is
     no target. Only in the editor: rendered notes keep no text selection on
     touch. *Prototype: 2026-10-24.*
 - **Reorder mode** (decided 2026-10-24, user request, after Google Keep's
