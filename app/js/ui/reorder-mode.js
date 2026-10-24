@@ -6,7 +6,7 @@
 // selects its part instead. A tap on a note's text doesn't edit meanwhile. Ends with the swipe back, Esc, back
 // or a view change. The desktop has no mode: the grip shows under the mouse (ui/drag-drop.js).
 import { state } from "../store.js";
-import { draggableAt, startDrag, startNoteDrag, startShelfDrag, moveDrag, endDrag } from "./drag-drop.js";
+import { draggableAt, startDrag, startNoteDrag, startShelfDrag, moveDrag, endDrag, firstLine } from "./drag-drop.js";
 import { pickAt, showPick, dragGroup, noteDragIds } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 
@@ -68,23 +68,28 @@ export function revealSwipe(dx) {
   };
 }
 
-/** The part whose grip is at `target` and x (its ::before at the element's left), or null. With the Shelves,
- *  a card's own grip (.note-grip, at its top) moves the whole note: { kind: "note", el, head } (the card). */
+/** The part whose grip is at `target` and x (its ::before at the element's left), or null. With the Shelves the
+ *  grip of a note's first line moves the whole note: { kind: "note", el, head } (the card) — in the arrange view
+ *  the only grip besides the shelves'. */
 export function gripAt(target, x) {
   const arranging = $("app").classList.contains("arranging");
   if (!on && !arranging) return null;
   // The arrange view (ui/shelf-arrange.js): a shelf's grip moves it with its notes.
   const shelf = arranging && target?.closest?.(".shelf-grip") && target.closest(".section-header");
   if (shelf) return { kind: "shelf", id: shelf.dataset.section, el: shelf, head: shelf };
-  const card = $("app").classList.contains("shelves") && target?.closest?.(".note-grip") && target.closest(".note");
-  if (card) return { kind: "note", noteId: card.dataset.id, el: card, head: card };
+  const onGrip = el => {
+    const grip = getComputedStyle(el, "::before");
+    if (grip.content === "none") return false;
+    const left = el.getBoundingClientRect().left + parseFloat(grip.left);
+    return x >= left - 8 && x <= left + parseFloat(grip.width) + 8;
+  };
+  const card = $("app").classList.contains("shelves") && target?.closest?.("#list .note:not(.closed)");
+  const first = card && firstLine(card);
+  if (first && (target === first || target.closest(GRIPPABLE + ", p") === first) && onGrip(first)) return { kind: "note", noteId: card.dataset.id, el: card, head: first };
   if (!on) return null;
   const el = target?.closest?.(GRIPPABLE);
   const at = el && draggableAt(el);
-  if (!at) return null;
-  const grip = getComputedStyle(el, "::before");
-  const left = el.getBoundingClientRect().left + parseFloat(grip.left);
-  return x >= left - 8 && x <= left + parseFloat(grip.width) + 8 ? at : null;
+  return at && onGrip(el) ? at : null;
 }
 
 function onPointerDown(e) {

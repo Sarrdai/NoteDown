@@ -180,9 +180,9 @@ export function pileHeader({ count, level, bars, filled, collapsed }, onToggle, 
   } else {
     el.insertAdjacentHTML("beforeend", `<span class="pile-done">${icon("check")}Pile empty</span>`);
   }
-  // The way into the arrange view (ui/shelf-arrange.js). Prototype variants: "icon" — a round button with the
-  // shelf icon, quiet beside the pile's count; "menu" — none here, the sort menu's "Arrange shelves" only.
-  if (onArrange && state.settings.arrangeEntry === "icon") {
+  // The way into the arrange view (ui/shelf-arrange.js): a quiet round button with the shelf icon at the header's
+  // end (decided 2026-10-24 over the sort menu only, and over the "Tidy up…" / "Arrange…" link, which urged).
+  if (onArrange) {
     const b = Object.assign(document.createElement("button"), { type: "button", className: "icon-btn small pile-arrange", innerHTML: icon("shelf") });
     b.setAttribute("aria-label", "Arrange shelves");
     b.title = "Arrange shelves";
@@ -288,8 +288,6 @@ function noteElement(n, view = state.view) {
   meta.innerHTML = metaHtml(n, view);
 
   el.append(body, meta, ...(n.deleted ? [] : [status]));
-  // The reorder mode's grip for the whole note (ui/reorder-mode.js), shown with Shelves only.
-  if (view === "open" && !readOnly) el.append(Object.assign(document.createElement("span"), { className: "note-grip" }));
   markSelected(el);
   return el;
 }

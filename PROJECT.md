@@ -137,7 +137,6 @@ is deleted from code, menu and this table.
 
 | Parameter | Values | What it switches |
 |---|---|---|
-| `arrange` | `icon` · `menu` | The way into the Shelves' arrange view: a round button on the pile header (A) or only the sort menu's "Arrange shelves" (B) |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `sort` | `custom` | Start the main view sorted by Shelves (screenshots of the pile and shelves; not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |

@@ -70,7 +70,7 @@ function initGrip() {
 
 const GRIPPED = ".note-body li[data-line], .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child";
 // A note's first line: its title, else its first block (or that block's first list item).
-const firstLine = card => {
+export const firstLine = card => {
   const first = card.querySelector(".note-body > .md-section:first-child > :first-child");
   return first?.matches("ul, ol") ? first.querySelector(":scope > li") : first;
 };

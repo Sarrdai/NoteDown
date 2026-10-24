@@ -728,9 +728,6 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
-    { section: "Prototype: arranging the shelves" },
-    ...[["icon", "Button on the pile header (A)"], ["menu", "Sort menu only (B)"]].map(([v, label]) =>
-      ({ label, checked: s.arrangeEntry === v, onSelect: () => updateSettings({ arrangeEntry: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -931,8 +928,6 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
-  // Prototype variant: ?arrange=icon|menu (the way into the Shelves' arrange view).
-  if (["icon", "menu"].includes(p.get("arrange"))) patch.arrangeEntry = p.get("arrange");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");

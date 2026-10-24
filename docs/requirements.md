@@ -813,7 +813,8 @@ paid features per user.
     content): **Arrange shelves** turns the list into an overview — the
     cards shrink to their first lines, the pile on top, every shelf shows
     (also one without notes) and nothing is folded. Each note's **grip**
-    (its first line) puts it onto a shelf, between notes, at a shelf's end
+    (at its first line, in the accent colour — the only grip besides the
+    shelves') puts it onto a shelf, between notes, at a shelf's end
     or back onto the pile; a **shelf's grip** moves it with its notes
     (only before another shelf or at the end, so it never splits one); its
     **name** is edited in place, **×** removes it (its notes stay and join
@@ -825,10 +826,12 @@ paid features per user.
     the grips sit in the cards' gutter. The pile is sorted by last edited,
     as in the list (the dialog's "Pile by …" went with it).
     *Prototype: 2026-10-24.*
-  - **Its way in** — the sort menu's **Arrange shelves**, and (prototype
-    variants) **A**: a quiet round button with the shelf icon at the end of
+  - **Its way in**: a quiet round button with the shelf icon at the end of
     the pile's header (in the list and the contents; on the phone it closes
-    the sheet), **B**: no button there, the sort menu only. Open: which.
+    the sheet), and the sort menu's **Arrange shelves** (decided 2026-10-24
+    over the sort menu only: at hand where the pile is, and as an icon it
+    doesn't urge as the "Tidy up…" link did). In the view the pile's fold
+    arrow hides: nothing folds there.
   Shelves have no direction. There is one such order only (several named orders go
   too far for now). It is **synced but private**: one marker in the
   private file lists the note ids (`docs/file-format.md`), so shared notes
@@ -1654,8 +1657,9 @@ that host its IP address and the reading time.
     that mixes kinds moves only the dragged part. *Prototype: 2026-10-24.*
   - **Whole notes with the Shelves** (decided 2026-10-24, user request):
     the grip of the note's first line — its title, else its first line of
-    text — drags the note (one grip per note, decided over a second grip at
-    the card's top: two confused) (with the other selected
+    text or list item, in the accent colour — drags the note (one grip per
+    note, decided over a second grip at the card's top: two confused, and it
+    sat off the line) (with the other selected
     whole notes) between the notes of the order and to the end of a shelf
     (the line before the next shelf) — changing the order only, as
     the arrange view does; a note from the pile joins the order. While it is

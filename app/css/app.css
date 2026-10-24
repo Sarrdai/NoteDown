@@ -528,7 +528,7 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .app.revealing .list { transform: translateX(var(--reveal-give, 0px)); }
 .app.reveal-settle .list { transition: transform 0.2s ease-out; }
 .app.reveal-settle .note-body { transition: padding-left 0.2s ease-out; }
-.app.reveal-settle :is(.note-body *, .note-grip)::before, .app.reveal-settle .note-grip { transition: opacity 0.2s ease-out; }
+.app.reveal-settle .note-body *::before { transition: opacity 0.2s ease-out; }
 .app:is(.reordering, .revealing) .note:not(.closed) .note-body:has(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child) { padding-left: calc(30px * var(--reveal, 1)); }
 .app:is(.reordering, .revealing) .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child { position: relative; }
 .app:is(.reordering, .revealing) .note:not(.closed) .note-body :is(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child)::before {
@@ -538,27 +538,30 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 }
 .app:is(.reordering, .revealing) .note:not(.closed) .note-body li[data-line]:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
 .app:is(.reordering, .revealing) .drag-grip { display: none; }
-/* With the Shelves the grip of a note's first line moves the whole note (ui/reorder-mode.js): the card's own
- * grip lies over the place of that line's grip, which gives way. */
-.note-grip { display: none; }
-.app:is(.reordering, .revealing, .arranging).shelves .note-grip {
-  display: block; position: absolute; z-index: 2; top: 12px; left: 4px; width: 34px; height: 34px;
-  background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat;
-  cursor: grab; touch-action: none; opacity: var(--reveal, 1);
+/* With the Shelves the grip of a note's first line — its title, else its first line of text or list item —
+ * moves the whole note, in the accent colour; also in the arrange view, which shows no other grips. Every note
+ * makes room for it. */
+.app:is(.reordering, .revealing).shelves .note:not(.closed) .note-body { padding-left: calc(30px * var(--reveal, 1)); }
+.app:is(.reordering, .revealing, .arranging).shelves .note:not(.closed) .note-body > .md-section:first-child > :is(:first-child:not(ul, ol), :is(ul, ol):first-child > li:first-child) { position: relative; }
+.app:is(.reordering, .revealing, .arranging).shelves .note:not(.closed) .note-body > .md-section:first-child > :is(:first-child:not(ul, ol), :is(ul, ol):first-child > li:first-child)::before {
+  content: ""; position: absolute; top: 0; left: calc(var(--item-left, 0px) - 30px); width: 26px; height: 1lh;
+  background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; cursor: grab;
+  opacity: var(--reveal, 1);
 }
-.app:is(.reordering, .revealing, .arranging).shelves .note:has(.note-grip) .note-body > .md-section:first-child > :is(:first-child, :is(ul, ol):first-child > li:first-child)::before { visibility: hidden; }
+.app:is(.reordering, .revealing, .arranging).shelves .note:not(.closed) .note-body > .md-section:first-child > :is(ul, ol):first-child > li:first-child:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
 /* While whole notes are dragged (ui/drag-drop.js → compactNotes) the cards shrink to their first lines. */
 .list.notes-compact .note-body { max-height: 3.4em; overflow: hidden; }   /* not the card: the pile's tray hangs on it */
 .list.notes-compact .note :is(.note-meta, .status, .permanent-mark) { display: none; }
 /* The arrange view of the Shelves (ui/shelf-arrange.js): the cards shrink to their first lines as well, each
- * note shows its grip (the text makes room for it on touch), the shelves are edited in place, "+ Shelf" ends
+ * note shows its first line's grip (the text makes room for it on touch), the shelves are edited in place, "+ Shelf" ends
  * the list and "Done" takes the + button's corner. */
 .app.arranging .list .note-body { max-height: 3.4em; overflow: hidden; }
 .app.arranging .list .note :is(.note-meta, .status, .permanent-mark) { display: none; }
 @media not ((hover: hover) and (pointer: fine)) {
-  .app.arranging .note:has(.note-grip) .note-body { padding-left: 30px; }
+  .app.arranging .note:not(.closed) .note-body { padding-left: 30px; }
 }
 .app.arranging :is(#fab, #sortFab, .drag-grip) { display: none; }
+.app.arranging .list .pile-toggle > .icon { visibility: hidden; }   /* nothing folds there */
 #arrangeDone { display: none; position: fixed; z-index: 15; right: 20px; bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2); }
 .app.arranging #arrangeDone { display: inline-flex; background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .app.arranging #arrangeDone .icon { color: var(--on-accent); }
