@@ -39,6 +39,15 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        // Builds of other branches than main: "NoteDown Preview", an app of its own beside the test app
+        // (its own ID and data), so a branch can be tried without replacing it. src/preview/ holds its name
+        // and its app shortcuts' target.
+        preview {
+            initWith release
+            applicationIdSuffix ".preview"
+            signingConfig keystore ? signingConfigs.release : signingConfigs.debug
+            matchingFallbacks = ["release"]
+        }
     }
 }
 

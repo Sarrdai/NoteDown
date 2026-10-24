@@ -1,6 +1,7 @@
 # Android app (mobile/ wraps app/): builds an APK on every push; from main,
 # signed with the release key, it replaces the "android-test" pre-release
-# (docs/operations.md).
+# (docs/operations.md). Other branches build "NoteDown Preview", an app of its
+# own that installs beside the test app (build.gradle → buildTypes.preview).
 name: Android
 
 on:
@@ -48,8 +49,22 @@ jobs:
           OPERATOR_ADDRESS: ${{ vars.OPERATOR_ADDRESS }}
       - run: npx cap sync android
 
+      - name: Build preview APK (branches other than main)
+        if: github.ref != 'refs/heads/main'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: notedown
+        run: |
+          if [ "$HAS_KEY" = true ]; then
+            export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
+          fi
+          (cd android && ./gradlew --no-daemon assemblePreview)
+          cp android/app/build/outputs/apk/preview/app-preview.apk "$RUNNER_TEMP/notedown.apk"
+
       - name: Build signed release APK
-        if: env.HAS_KEY == 'true'
+        if: github.ref == 'refs/heads/main' && env.HAS_KEY == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -61,7 +76,7 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/notedown.apk"
 
       - name: Build debug APK (no release key yet)
-        if: env.HAS_KEY != 'true'
+        if: github.ref == 'refs/heads/main' && env.HAS_KEY != 'true'
         run: |
           (cd android && ./gradlew --no-daemon assembleDebug)
           cp android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/notedown.apk"
