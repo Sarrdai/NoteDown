@@ -26,7 +26,7 @@ private file, plus one per group of people notes are shared with;
 a People tab next to the table of contents filters the list by persons or
 groups, a Labels tab by the #labels written in the notes (emoji like `#😉` work too; several at once
 after a long-press). A note can get a background color from a fixed palette and a built-in motif
-(patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, switched with a small button above +, notes can be put onto **Shelves**, foldable groups with a name each: new notes land on a pile on top, and a small gauge of bars fills with the number and age of those notes and says when it is time to tidy it up (adjustable, and circles can be ignored).
+(patterns, and drawings for birthdays, Christmas, gifts, travel, packing, a camper bus or shopping) that everyone it is shared with sees. Besides the usual sort options, switched with a small button above +, notes can be put onto **Shelves**, foldable groups with a name each: new notes land on a pile on top, and a small gauge of bars fills with the number and age of those notes and says when it is time to tidy it up (adjustable, and circles can be ignored); "Arrange shelves" turns the list into an overview where notes are dragged onto shelves.
 The search filters the list and highlights its hits in the notes and the
 table of contents; ▲ / ▼ step from hit to hit. A tap into it suggests the
 filters (permanent notes, labels, people) and, while typing, matching
@@ -57,7 +57,7 @@ set per device — for all notes and per circle — so no one else's note
 makes a device contact another host. A
 long-press on a note starts multi-select to close, copy, share,
 move into a section of another note (a dictated note joins a task list
-as a task) or into a new note (merging or splitting), onto a shelf,
+as a task) or into a new note (merging or splitting),
 make permanent (notes of lasting value that can't be closed) or delete
 several notes at once, to make a private copy of shared notes (it stays
 linked to the original, shows when that changed and can be compared and
@@ -70,7 +70,7 @@ task or bullet selects that item. A reorder mode (swipe right in the notes; on a
 every task, bullet and heading: tasks, bullets and sections are dragged where they
 belong — within a list, into another section or level, into another note — several
 selected ones together, and with Shelves whole notes too; a passage marked in the editor
-is copied into another note with Copy to…; on the desktop the grip also shows under the mouse (Ctrl+click or a
+is copied into another note with Copy into…; on the desktop the grip also shows under the mouse (Ctrl+click or a
 right-click selects there).
 Export (under ⋮ in the top bar) saves the current view, or all files as a ZIP for a local
 backup, as Markdown — with or without a table of contents and the hidden

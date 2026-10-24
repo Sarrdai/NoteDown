@@ -426,7 +426,7 @@ function update() {
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
-    !archive && { id: "moveto", label: "Move to…", run: moveParts },
+    !archive && { id: "moveto", label: "Move into…", run: moveParts },
     !archive && movable && reorder(-1, "Move up"),
     !archive && movable && reorder(1, "Move down"),
     // A private copy of shared notes, linked back to the original (backlog #45).
@@ -588,11 +588,11 @@ function exportParts() {
   openExport({ label: parts.length === 1 ? (whole ? "note" : "section") : what(parts, whole), items: parts.map(p => ({ note: notes[p.noteId], text: partText(notes[p.noteId].body, p) })) });
 }
 
-// Move to…: the parts go to the end of a section of another note (or of one of theirs), in contents order;
+// Move into…: the parts go to the end of a section of another note (or of one of theirs), in contents order;
 // or to "New note" — merging several parts, splitting one off: they become a new note, in contents order (the
 // order is changed after by the grips), and leave their notes. Across circles the picker asks where the new
 // note goes (core/sharing.js → mergeCircle): a private copy that leaves the shared notes as they are, or shared
-// with everyone involved. Whole notes in the Shelves can go onto a shelf.
+// with everyone involved.
 function moveParts() {
   const { parts, notes, whole } = current();
   const candidates = opts.viewNotes().filter(n => n.status !== "closed");
@@ -607,9 +607,8 @@ function moveParts() {
       opts.onMerged(created, undo, message);
     },
   };
-  const shelves = whole ? opts.shelves?.(parts.map(p => p.noteId)) : null;
   endSelection();
-  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: (id, undo, message) => id ? opts.onMoved(id, undo, message) : showSnackbar(message, undo), newNote, shelves }));
+  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: opts.onMoved, newNote }));
 }
 
 async function writeClipboard(text) {

@@ -541,15 +541,41 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 /* With the Shelves the grip of a note's first line moves the whole note (ui/reorder-mode.js): the card's own
  * grip lies over the place of that line's grip, which gives way. */
 .note-grip { display: none; }
-.app:is(.reordering, .revealing).shelves .note-grip {
+.app:is(.reordering, .revealing, .arranging).shelves .note-grip {
   display: block; position: absolute; z-index: 2; top: 12px; left: 4px; width: 34px; height: 34px;
   background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat;
   cursor: grab; touch-action: none; opacity: var(--reveal, 1);
 }
-.app:is(.reordering, .revealing).shelves .note:has(.note-grip) .note-body > .md-section:first-child > :is(:first-child, :is(ul, ol):first-child > li:first-child)::before { visibility: hidden; }
+.app:is(.reordering, .revealing, .arranging).shelves .note:has(.note-grip) .note-body > .md-section:first-child > :is(:first-child, :is(ul, ol):first-child > li:first-child)::before { visibility: hidden; }
 /* While whole notes are dragged (ui/drag-drop.js → compactNotes) the cards shrink to their first lines. */
 .list.notes-compact .note-body { max-height: 3.4em; overflow: hidden; }   /* not the card: the pile's tray hangs on it */
 .list.notes-compact .note :is(.note-meta, .status, .permanent-mark) { display: none; }
+/* The arrange view of the Shelves (ui/shelf-arrange.js): the cards shrink to their first lines as well, each
+ * note shows its grip (the text makes room for it on touch), the shelves are edited in place, "+ Shelf" ends
+ * the list and "Done" takes the + button's corner. */
+.app.arranging .list .note-body { max-height: 3.4em; overflow: hidden; }
+.app.arranging .list .note :is(.note-meta, .status, .permanent-mark) { display: none; }
+@media not ((hover: hover) and (pointer: fine)) {
+  .app.arranging .note:has(.note-grip) .note-body { padding-left: 30px; }
+}
+.app.arranging :is(#fab, #sortFab, .drag-grip) { display: none; }
+#arrangeDone { display: none; position: fixed; z-index: 15; right: 20px; bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2); }
+.app.arranging #arrangeDone { display: inline-flex; background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.app.arranging #arrangeDone .icon { color: var(--on-accent); }
+.section-header.shelf-edit { cursor: default; gap: 6px; }
+.shelf-grip {
+  flex: none; width: 30px; height: 30px; margin-left: -6px; cursor: grab; touch-action: none; background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat;
+}
+.shelf-title {
+  flex: 0 1 auto; min-width: 4ch; field-sizing: content; max-width: 60%; height: 34px; padding: 0 6px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit; font-size: 1.05rem; font-weight: 800; outline: none;
+}
+.shelf-title:focus { background: var(--surface-hover); box-shadow: inset 0 -2px 0 var(--accent); }
+.shelf-edit::after { order: 3; }
+.shelf-edit .shelf-remove { order: 4; color: var(--text-muted); }
+.shelf-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px 0 12px; }
+.shelf-add .icon { width: 18px; height: 18px; }
 .note-ghost { padding: 10px 14px; font-weight: 700; }
 body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
 .app.selecting .status:hover { color: var(--text-faint); }
@@ -585,29 +611,8 @@ body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-
 .order-grip:focus-visible { outline: 2px solid var(--accent); }
 .order-item.dragging .order-grip { cursor: grabbing; color: var(--accent); }
 .order-item:only-child .order-grip { visibility: hidden; } /* one part: nothing to order */
-/* The custom order's arrange dialog (#24): sorted rows, a line, unsorted rows. */
-.arrange-toggle { flex: none; margin-right: -4px; color: var(--text-muted); }
-.order-item.unsorted { counter-increment: none; }
-.order-item.unsorted::before { display: none; }
-.order-item.unsorted .order-text { color: var(--text-muted); }
-/* A section divider (#24): a tinted row whose title is edited in place. */
-.order-item.arrange-section { counter-increment: none; min-height: 48px; margin-top: 10px; border-color: transparent; background: var(--accent-soft); padding-left: 14px; gap: 4px; }
-.order-item.arrange-section::before { display: none; }
-.arrange-section-title { flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 800; outline: none; }
-.arrange-section-title:focus { box-shadow: inset 0 -2px 0 var(--accent); }
-.dialog-actions .add-section { display: inline-flex; align-items: center; gap: 4px; padding: 0 14px 0 10px; margin-right: auto; }
-:is(.arrange-line, .arrange-head) {
-  display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.78rem; font-weight: 700;
-  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
-}
-:is(.arrange-line, .arrange-head)::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-.arrange-head { margin-top: 0; }   /* the pile's heading on top, as in the list */
-/* Below the list: how the unsorted rows are ordered (not Custom itself). */
-.arrange-sort { flex: none; display: flex; align-items: center; gap: 4px; margin: 8px 8px 0; font-size: 0.88rem; color: var(--text-muted); }
-#arrangeSort { color: var(--text); }
-#arrangeSort .btn-label { display: inline; }
 .dialog-hint.after { margin: 8px 8px 0; }
-/* Move to… (ui/move-to.js): notes and their sections to pick from; above the arrange dialog. */
+/* Move into… (ui/move-to.js): notes and their sections to pick from. */
 #moveDialog { z-index: 46; }
 .move-dialog { height: min(640px, 100%); }
 .move-tools { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px 4px 8px; }
@@ -637,7 +642,6 @@ body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-
 .move-where { flex: none; margin: 10px 8px 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .move-task { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; cursor: pointer; }
 .move-task input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
-.arrange-move { flex: none; margin-right: -6px; color: var(--text-muted); }
 /* Merge across circles: private copy or shared with everyone involved. */
 .merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .choice {
@@ -1243,15 +1247,21 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .tidy-preview { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px 8px 8px; }
 .pile-done { flex: 1; display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 0.9rem; font-weight: 650; color: var(--text-muted); }
 .pile-done .icon { width: 18px; height: 18px; color: var(--done); }
-.pile-header .link-btn { flex: none; border: 0; padding: 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
-.pile-header .link-btn:hover, .pile-toggle:hover { background: var(--surface-hover); border-radius: 8px; }
+/* The way into the arrange view (variant "icon"): a quiet round button at the header's end. */
+.pile-arrange { flex: none; margin-left: auto; color: var(--text-muted); }
+.pile-toggle:hover { background: var(--surface-hover); border-radius: 8px; }
+/* An empty pile is one quiet line: nothing to do there. */
+.pile-header.empty { min-height: 32px; background: transparent; }
+.list .pile-header.empty { box-shadow: none; }
+.pile-header.empty .pile-done { font-size: 0.82rem; font-weight: 600; color: var(--text-faint); }
+.pile-header.empty .pile-done .icon { width: 16px; height: 16px; }
 .pile-toggle:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
 .toc-list .pile-header { min-height: 36px; margin: 6px 0 2px; }
 .toc-list .pile-toggle { min-height: 36px; gap: 6px; }
 .toc-list .pile-toggle > .icon { width: 14px; height: 14px; }
 .toc-list .pile-title { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
 .toc-list .pile-status { display: none; }
-.toc-list .pile-header .link-btn { font-size: 0.8rem; padding: 6px; }
+.toc-list .pile-arrange { min-width: 32px; height: 32px; }
 /* A custom order section's header (#24): title, count and a rule; a tap folds its notes. */
 .section-header {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); margin: 4px 0 -4px; padding: 0 2px;

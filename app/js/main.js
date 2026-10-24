@@ -1,5 +1,5 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, isSectionId, placeInOrder, TRASH_DAYS, PILE_ID } from "./core/query.js";
+import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, orderSections, sectionTitle, sectionId, isSectionId, placeInOrder, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
 import { circleKey, circleEntries } from "./core/sharing.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles, applyMerge } from "./store.js";
@@ -37,10 +37,10 @@ import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
 import { initDragDrop } from "./ui/drag-drop.js";
 import { initReorderMode, setReordering, revealSwipe } from "./ui/reorder-mode.js";
+import { initShelfArrange, setArranging, isArranging } from "./ui/shelf-arrange.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
-import { initArrange, openArrange } from "./ui/arrange.js";
 import { initMoveTo, moveTo } from "./ui/move-to.js";
 import { initReminders } from "./ui/reminders.js";
 import { openDue } from "./ui/due.js";
@@ -103,8 +103,8 @@ const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one 
 
 // A new note kept on top shows even when the filters leave it out (a label
 // filter, permanent only): it must open visibly and editable. With the Shelves
-// it stays on top only while it lies on the pile: sorted onto a shelf (Move to,
-// a grip, Tidy up) it takes its place there, never above the pile.
+// it stays on top only while it lies on the pile: sorted onto a shelf (by its
+// grip) it takes its place there, never above the pile.
 function currentNotes() {
   if (state.topId && isCustom() && orderIds().includes(state.topId)) state.topId = null;
   const notes = inView(listed());
@@ -164,6 +164,7 @@ function renderDueCount() {
 
 function render() {
   const s = state.settings;
+  if (isArranging() && !isCustom()) return setArranging(false);   // a sort change ends the arrange view
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
@@ -214,9 +215,14 @@ function tilesOf(view, notes) {
 }
 
 // renderList's and reorderList's arguments for a view's notes.
+// The arrange view shows every shelf and folds nothing.
 function listArgs(view, notes) {
   const { tiles, pile, sectionOf } = tilesOf(view, notes);
-  return [tiles, { pile, sectionOf, onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection }];
+  const arranging = isArranging() && view === state.view;
+  return [tiles, arranging ? {
+    pile: pile && { ...pile, collapsed: false }, sectionOf: n => { const s = sectionOf(n); return s && { ...s, collapsed: false }; },
+    arrange: { shelves: shelfIds().map(id => ({ id, title: sectionTitle(id) })), edit: shelfEdit, onAdd: addShelf },
+  } : { pile, sectionOf, onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection }];
 }
 
 // How full a pile is (core/tidy.js): only in the main view, ignored circles' notes left out.
@@ -464,6 +470,7 @@ const enterTrash = () => pushEntry({ trash: true }, depth => { trashDepth = dept
 function setView(view, { fromHistory = false } = {}) {
   if (state.view === view) return;
   setReordering(false);
+  setArranging(false);
   endSelection();
   hideSnackbar();
   leaveEntry("search");   // a view change ends the search, and with it its back step
@@ -478,6 +485,7 @@ function setView(view, { fromHistory = false } = {}) {
 // With several circles picked, + first asks which of them the note goes to.
 function newNote() {
   setReordering(false);
+  setArranging(false);
   endSelection();
   const circles = state.circles;
   if (circles.length > 1 && state.view === "open") return openMenu($("fab"), [
@@ -539,32 +547,50 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
-// After Move to…: the target note comes into view and flashes.
+// After Move into…: the target note comes into view and flashes.
 function onMoved(id, undo, message) {
   showNote(id);
   showSnackbar(message, undo);
 }
 
-// The arrange dialog over the notes the list shows: the user's own custom
-// order, or the shared order of the circle in view.
-function arrange() {
-  const shown = inView(listed());
-  const key = sortOf().key === "shared" ? sharedCircle() : null;
-  const { unsorted } = customSplit(shown, orderIds());
-  const sorted = arrangeRows(shown, orderIds());
-  const next = ids => rearrange(orderIds(), shown.map(n => refOf(n)), ids);
-  openArrange(key ? {
-    view: state.view,
-    title: "Shared shelves", hint: `You and ${circleName(key)} see and can change these shelves.`, sorted, unsorted,
-    save: ids => showSnackbar("Shared shelves saved", setCircleOrder(key, next(ids))),
-  } : {
-    view: state.view,
-    sorted, unsorted,
-    save: ids => showSnackbar("Shelves saved", setCustomOrder(next(ids))),
-  });
+// "Arrange shelves" (the pile header's button, the sort menu): the list turns into the arrange view
+// (ui/shelf-arrange.js). Its shelves are edited in place, each change with Undo.
+const arrange = () => setArranging(true);
+
+function shelfIds() { return orderIds().filter(isSectionId); }
+// A shelf name not taken yet: two shelves of one name would be one.
+function freeShelfName(name, except = null) {
+  const taken = new Set(shelfIds().filter(id => id !== except).map(id => sectionTitle(id).toLowerCase()));
+  let n = name.trim() || "Shelf", k = 2;
+  while (taken.has(n.toLowerCase())) n = `${name.trim() || "Shelf"} ${k++}`;
+  return n;
+}
+const shelfEdit = {
+  rename(id, title) {
+    const order = shelfOrder();
+    const next = sectionId(freeShelfName(title, id));
+    if (!order || next === id) return render();
+    const folded = state.settings.collapsedSections;
+    if (folded.includes(id)) updateSettings({ collapsedSections: folded.map(x => x === id ? next : x) });
+    showSnackbar("Shelf renamed", order.set(order.ids.map(x => x === id ? next : x)));
+  },
+  remove(id) {
+    const order = shelfOrder();
+    if (order) showSnackbar(`Shelf “${sectionTitle(id)}” removed`, order.set(order.ids.filter(x => x !== id)));
+  },
+};
+function addShelf() {
+  const order = shelfOrder();
+  if (!order) return;
+  const id = sectionId(freeShelfName("New shelf"));
+  showSnackbar("Shelf added", order.set([...order.ids, id]));
+  const input = $("list").querySelector(`.section-header[data-section="${CSS.escape(id)}"] input`);
+  input?.scrollIntoView({ block: "center" });
+  input?.focus();
+  input?.select();
 }
 
-// Copy to… from the editor's toolbar: the marked passage goes into a section of another note, or into a new
+// Copy into… from the editor's toolbar: the marked passage goes into a section of another note, or into a new
 // note; its own note keeps it (decided 2026-10-24, user request: e.g. an address named in a dictation).
 // The list shows the result once the edit ends.
 function copyPassage(text) {
@@ -575,7 +601,7 @@ function copyPassage(text) {
   });
 }
 
-// Whole notes move within the Shelves — by the reorder mode's grip, or onto a shelf by Move to: its order, or a
+// Whole notes move within the Shelves — by a note's grip, in the arrange view and the reorder mode: its order, or a
 // circle's shared one; null when the view isn't sorted by Shelves.
 function shelfOrder() {
   if (!isCustom()) return null;
@@ -583,16 +609,6 @@ function shelfOrder() {
   return { ids: orderIds(), set };
 }
 
-// Move to's shelves for the whole notes `noteIds`: each shelf, which they end (before the next one).
-function shelvesFor(noteIds) {
-  const order = shelfOrder();
-  const list = order?.ids.filter(isSectionId).map(id => ({ id, title: sectionTitle(id) }));
-  if (!list?.length) return null;
-  return {
-    list,
-    place: id => order.set(placeInOrder(order.ids, noteIds, order.ids.slice(order.ids.indexOf(id) + 1).find(isSectionId) ?? null)),
-  };
-}
 
 // The floating sort button above the + (decided 2026-10-19 over beside / below the +
 // and the top bar's sort button; user request: sorting is a core feature): an arrow
@@ -634,10 +650,10 @@ function sortMenu(anchor = $("sortFab")) {
       label: v.label, checked: sort.key === key, onSelect: () => pick(key, v),
       note: sort.key === key && !v.custom ? direction(key, sort.dir) : "",
     })),
-    // A custom order is arranged instead (named like the pile header's link).
+    // A custom order is arranged instead, in the arrange view (ui/shelf-arrange.js).
     ...(SORT_KEYS[sort.key].custom ? [
       { separator: true },
-      { label: customSplit(inView(listed()), orderIds()).unsorted.length ? "Tidy up…" : "Arrange…", onSelect: arrange },
+      { label: "Arrange shelves", icon: "shelf", onSelect: arrange },
     ] : []),
   ]);
 }
@@ -712,6 +728,9 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
+    { section: "Prototype: arranging the shelves" },
+    ...[["icon", "Button on the pile header (A)"], ["menu", "Sort menu only (B)"]].map(([v, label]) =>
+      ({ label, checked: s.arrangeEntry === v, onSelect: () => updateSettings({ arrangeEntry: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -859,11 +878,11 @@ function wire() {
   initExternal();
   initCompare();
   document.addEventListener("notedown:show-note", e => showNote(e.detail.id));
-  initArrange();
+  initShelfArrange({ canArrange: () => isCustom(), render });
   initMoveTo();
   initToolbar({ onDue: sortInByDue, onCopyTo: copyPassage });
   recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
-  initSelection({ viewNotes: currentNotes, onMerged, onMoved, shelves: shelvesFor, onChange: () => { renderToc(currentNotes()); renderFab(); } });
+  initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initDragDrop({ onMoved, order: shelfOrder });
   initReorderMode();
   initSyncPanel();
@@ -912,6 +931,8 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
+  // Prototype variant: ?arrange=icon|menu (the way into the Shelves' arrange view).
+  if (["icon", "menu"].includes(p.get("arrange"))) patch.arrangeEntry = p.get("arrange");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");

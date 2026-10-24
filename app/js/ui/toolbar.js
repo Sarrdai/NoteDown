@@ -1,7 +1,7 @@
 // The editing toolbar: Markdown helpers, a counter, undo / redo and Done. It
 // sits above the on-screen keyboard on touch devices and floats at the
 // bottom of the list on the desktop. Also the due-date menu, which the
-// note's due chip opens (the toolbar has no due-date button since 2026-10-16). Copy to… copies a marked
+// note's due chip opens (the toolbar has no due-date button since 2026-10-16). Copy into… copies a marked
 // passage into another note (ui/move-to.js); it shows only while a passage is marked (decided 2026-10-24
 // over always showing it greyed out: the bar stays as it was).
 import { state, note, setDue } from "../store.js";
@@ -14,7 +14,7 @@ import { openSettings } from "./settings.js";
 import { openLookPicker } from "./look-picker.js";
 
 const BUTTONS = [
-  ["copyTo", "Copy to… (the marked passage)", "copy"],
+  ["copyTo", "Copy into… (the marked passage)", "copy"],
   ["heading", "Heading", "heading"],
   ["bullet", "Bullet list", "list"],
   ["task", "Checkbox", "checkbox"],
@@ -37,7 +37,7 @@ const BUTTONS = [
 const $ = id => document.getElementById(id);
 const HOLD_MS = 450;
 
-/** `onDue(id)`: runs after a due date was set from the menu; `onCopyTo(text)`: Copy to… for a marked passage. */
+/** `onDue(id)`: runs after a due date was set from the menu; `onCopyTo(text)`: Copy into… for a marked passage. */
 export function initToolbar({ onDue, onCopyTo }) {
   dueSet = onDue;
   const bar = $("toolbar");
@@ -113,7 +113,7 @@ export function initToolbar({ onDue, onCopyTo }) {
 
 let dueSet = () => {};
 
-// Copy to…: the picker takes the screen, so the editor gives up the keyboard and the marking first (else the
+// Copy into…: the picker takes the screen, so the editor gives up the keyboard and the marking first (else the
 // keyboard, the marked text's handles and the system's text menu stay over the dialog); the caret stays at the
 // passage's end, and a tap into the note goes on editing.
 function copyTo(onCopyTo) {

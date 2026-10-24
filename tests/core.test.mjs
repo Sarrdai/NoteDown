@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask, tasks, setTaskState, renderMarkdown } from "../app/js/core/markdown.js";
-import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, placeInOrder, isSectionId, sectionId, sectionTitle, orderSections, arrangeRows, tableOfContents, closedOn, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
+import { viewNotes, matchRanges, sortNotes, customSplit, placeInOrder, isSectionId, sectionId, sectionTitle, orderSections, tableOfContents, closedOn, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -100,12 +100,6 @@ test("custom order: listed notes in list order, the pile by last edited, newest 
   assert.notEqual(view[0].id, b);
 });
 
-test("rearrange: shown notes refill their old places, new ones go last, hidden ones stay", () => {
-  assert.deepEqual(rearrange(["a", "x", "b", "y"], ["a", "b", "c"], ["c", "a", "b"]), ["c", "x", "a", "y", "b"]);
-  assert.deepEqual(rearrange(["a", "x", "b"], ["a", "b"], ["b"]), ["b", "x"]);
-  assert.deepEqual(rearrange([], ["a"], ["a"]), ["a"]);
-});
-
 test("custom order sections: an id entry with the encoded title, notes belong to the one above them", () => {
   const id = sectionId(" Home, garden & more ");
   assert.equal(id, "~Home%2C%20garden%20%26%20more");
@@ -116,13 +110,9 @@ test("custom order sections: an id entry with the encoded title, notes belong to
   assert.deepEqual([...of], [["b", "~One"], ["c", "~One"], ["d", "~Three"]]);
 });
 
-test("custom order sections: the dialog lists every section, sections survive rearranging and the file", () => {
-  const notes = ["a", "b", "c"].map(id => ({ id }));
-  assert.deepEqual(arrangeRows(notes, ["~One", "a", "x", "~Two", "c"]), [{ section: "~One" }, notes[0], { section: "~Two" }, notes[2]]);
-  // x is hidden by a search: it keeps its place; the sections move like shown notes.
-  assert.deepEqual(rearrange(["~One", "a", "x", "~Two", "c"], ["a", "c"], ["~Two", "c", "~One", "a"]), ["~Two", "c", "x", "~One", "a"]);
-  // A removed section's place is refilled; a new one and two of the same title are kept.
-  assert.deepEqual(rearrange(["~One", "a"], ["a"], ["a", "~New", "~New"]), ["a", "~New", "~New"]);
+test("custom order sections: a shelf moves with its notes, the file keeps the sections", () => {
+  // A shelf dragged in the arrange view carries its notes (ui/drag-drop.js → startShelfDrag); x stays where it was.
+  assert.deepEqual(placeInOrder(["~One", "a", "x", "~Two", "c"], ["~Two", "c"], "~One"), ["~Two", "c", "~One", "a", "x"]);
   const file = parseNotesFile(sample);
   const ids = [sectionId("Home & garden"), "s01"];
   assert.deepEqual(parseNotesFile(serializeNotesFile({ ...file, order: { ids, modified: "2026-10-14T09:00Z" } })).order.ids, ids);

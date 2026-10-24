@@ -1,8 +1,9 @@
-// Move to… (docs/requirements.md → "Multi-select" → "Move to"): the one way to move things far — picks a
+// Move into… (docs/requirements.md → "Multi-select" → "Move into"): the one way to move content far — picks a
 // section of another note and moves the parts there (core/move.js), or "New note" (merging several parts,
-// splitting one off; decided 2026-10-24 over a Merge action of its own), or for whole notes in the Shelves a
-// shelf. Copy to… is the same picker for a passage marked in the editor, whose note keeps it. Opened from the
-// selection bar, the editor's toolbar and a row of the Tidy up dialog (ui/arrange.js). Every note with its
+// splitting one off; decided 2026-10-24 over a Merge action of its own). Every target is a note, hence the name
+// (decided 2026-10-24 over "Move to", which also took shelves; where a note stands is the arrange view's,
+// ui/shelf-arrange.js). Copy into… is the same picker for a passage marked in the editor, whose note keeps it. Opened from the
+// selection bar and the editor's toolbar. Every note with its
 // headings in one list, one tap picks (decided 2026-10-19 over note first, then section: fewer taps); − / +
 // set the levels shown, as in the contents.
 import { noteTitle } from "../core/markdown.js";
@@ -15,7 +16,7 @@ import { refOf } from "../core/note-ref.js";
 
 const $ = id => document.getElementById(id);
 // { parts, sources, text, candidates, onDone, newNote, shelves, target }; target: { kind: "section", id, index,
-// text } | { kind: "new" } | { kind: "shelf", id, title }
+// text } | { kind: "new" }
 let pick = null;
 
 const ATX = /^ {0,3}#{1,6}(\s|$)/m;
@@ -24,16 +25,15 @@ const ATX = /^ {0,3}#{1,6}(\s|$)/m;
  * Opens the picker for `parts` ([{ noteId, from, to, whole }]) of the notes `sources` (by id) — or, copying,
  * for a passage `text` — over the `candidates` (notes, in the list's order); after the move or copy
  * `onDone(targetId, undo, message)`. `newNote` ({ shareWith, run(mode) } or null) offers "New note": `run`
- * gets "copy" | "share" (the choice offered when `shareWith`, member ids, is set). `shelves` ({ list: [{ id,
- * title }], place(id) → undo } or null) offers the shelves for whole notes.
+ * gets "copy" | "share" (the choice offered when `shareWith`, member ids, is set).
  */
-export function moveTo({ parts = [], sources = {}, text = null, candidates, onDone, newNote = null, shelves = null }) {
+export function moveTo({ parts = [], sources = {}, text = null, candidates, onDone, newNote = null }) {
   const wholeIds = new Set(parts.filter(p => p.whole).map(p => p.noteId));
-  pick = { parts, sources, text, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, newNote, shelves, target: null };
+  pick = { parts, sources, text, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, newNote, target: null };
   const plain = text !== null ? !ATX.test(text) : parts.some(p => !ATX.test(partText(sources[p.noteId].body, p)));
   $("moveTaskRow").dataset.plain = plain ? "1" : "";
-  $("moveTitle").textContent = text !== null ? "Copy to…"
-    : parts.length === 1 ? (parts[0].whole ? "Move note to…" : parts[0].item ? "Move item to…" : "Move section to…") : `Move ${parts.length} parts to…`;
+  $("moveTitle").textContent = text !== null ? "Copy into…"
+    : parts.length === 1 ? (parts[0].whole ? "Move note into…" : parts[0].item ? "Move item into…" : "Move section into…") : `Move ${parts.length} parts into…`;
   $("moveOk").textContent = text !== null ? "Copy" : "Move";
   $("moveChoice").innerHTML = newNote?.shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
     + choiceHtml("share", `Share with ${esc(membersLabel(newNote.shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(newNote.shareWith)) : "";
@@ -84,7 +84,6 @@ function render() {
   const rows = [];
   // "New note" heads the list (decided 2026-10-24 over a button under it: in sight, one tap).
   if (pick.newNote && !q) rows.push(special({ kind: "new" }, "plus", "New note"));
-  if (pick.shelves && !q) rows.push(...pick.shelves.list.map(sh => special({ kind: "shelf", id: sh.id, title: sh.title }, "shelf", sh.title)));
   for (const [n, sections] of notes) {
     // A search shows every level of the notes it finds.
     const shown = sections.filter(r => q || r.level <= depth);
@@ -121,7 +120,7 @@ function row(n, r, indent, more) {
   return li;
 }
 
-// A row that isn't a note's section: "New note" or a shelf.
+// A row that isn't a note's section: "New note".
 function special(target, ic, text) {
   const li = document.createElement("li");
   const b = document.createElement("button");
@@ -156,17 +155,15 @@ function footer() {
   const n = t?.kind === "section" && note(t.id);
   $("moveWhere").textContent = !t ? "Pick where it goes."
     : t.kind === "new" ? "A new note"
-    : t.kind === "shelf" ? `End of the shelf “${t.title}”`
     : `End of “${t.text || "Untitled"}”${t.index ? ` in “${noteTitle(n.body).text || "Untitled"}”` : ""}`;
 }
 
 function confirm() {
-  const { parts, sources, text, onDone, newNote, shelves, target } = pick;
+  const { parts, sources, text, onDone, newNote, target } = pick;
   const asTask = !$("moveTaskRow").hidden && $("moveTask").checked;
   const mode = $("moveChoice").querySelector("input:checked")?.value || "copy";
   close();
   if (target.kind === "new") return newNote.run(mode);
-  if (target.kind === "shelf") return onDone(null, shelves.place(target.id), `Moved to the shelf “${target.title}”`);
   const where = `“${target.text || "Untitled"}”`;
   if (text !== null) {
     const before = note(target.id).body;

@@ -83,6 +83,7 @@
 
     <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"><span class="fab-face fab-new"></span><span class="fab-face fab-empty"></span></button>
     <button class="sort-fab keep-editing" id="sortFab" aria-haspopup="menu"></button>
+    <button class="sort-fab arrange-done" id="arrangeDone"></button>
     <div class="recorder keep-editing" id="recorder" hidden>
       <div class="rec-preview" id="recPreview" aria-live="polite"></div>
       <div class="rec-bar">
@@ -125,7 +126,7 @@
     </div>
     <div class="dialog-scrim keep-editing" id="moveDialog" hidden>
       <div class="dialog move-dialog" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
-        <h2 class="dialog-title" id="moveTitle">Move to…</h2>
+        <h2 class="dialog-title" id="moveTitle">Move into…</h2>
         <div class="move-tools">
           <input class="move-search" id="moveSearch" type="search" placeholder="Search" aria-label="Search notes and headings" autocomplete="off">
           <div class="stepper" role="group" aria-label="Heading levels">
@@ -144,18 +145,6 @@
         </div>
       </div>
     </div>
-    <div class="dialog-scrim keep-editing" id="arrangeDialog" hidden>
-      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="arrangeTitle">
-        <h2 class="dialog-title" id="arrangeTitle">Shelves</h2>
-        <p class="dialog-hint" id="arrangeHint"></p>
-        <ol class="order-list arrange-list" id="arrangeList"></ol>
-        <div class="arrange-sort">Pile by <button class="icon-btn small labelled" id="arrangeSort" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="arrangeSortLabel"></span></button></div>
-        <div class="dialog-actions">
-          <button class="btn add-section" id="arrangeAddSection"><span class="btn-icon"></span>Shelf</button>
-          <button class="btn" id="arrangeCancel">Cancel</button>
-          <button class="btn primary" id="arrangeOk">Save</button>
-        </div>
-      </div>
     </div>
     <div class="dialog-scrim keep-editing" id="confirmDialog" hidden>
       <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">

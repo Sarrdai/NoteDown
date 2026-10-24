@@ -99,40 +99,13 @@ export function orderSections(ids) {
 }
 
 /** A custom order with the notes `moving` (in their given order) placed before the entry `before` — a note
- *  or a section entry; null: at the end. Notes not in the order yet join it (from the pile). The reorder
- *  mode's note grip (ui/drag-drop.js). */
+ *  or a section entry; null: at the end. Notes not in the order yet join it (from the pile). A note's grip
+ *  and a shelf's grip in the arrange view (ui/drag-drop.js). */
 export function placeInOrder(ids, moving, before) {
   const rest = ids.filter(id => !moving.includes(id));
   const at = before === null ? -1 : rest.indexOf(before);
   rest.splice(at < 0 ? rest.length : at, 0, ...moving);
   return rest;
-}
-
-/** The arrange dialog's rows above the line: every section entry of `ids`
- *  ({ section: id }) and the `notes` listed in `ids`, in the order's order. */
-export function arrangeRows(notes, ids) {
-  const byId = new Map(notes.map(n => [refOf(n), n]));
-  return ids.flatMap(id => isSectionId(id) ? [{ section: id }] : byId.has(id) ? [byId.get(id)] : []);
-}
-
-/**
- * The custom order after arranging: `shown` are the note ids the arrange
- * dialog listed (the current view, filter and search), `arranged` its sorted
- * part in the new order, section entries included (the dialog shows them
- * all). The shown entries' old places are refilled with the new order,
- * further ones go to the end; ids not shown keep their places.
- */
-export function rearrange(order, shown, arranged) {
-  const visible = new Set(shown);
-  const isShown = id => visible.has(id) || isSectionId(id);
-  const queue = arranged.filter(isShown);
-  const out = [];
-  for (const id of order) {
-    if (!isShown(id)) out.push(id);
-    else if (queue.length) out.push(queue.shift());
-  }
-  const seen = new Set();
-  return [...out, ...queue].filter(id => isSectionId(id) || (!seen.has(id) && seen.add(id)));
 }
 
 export function sortNotes(notes, { key, dir }) {

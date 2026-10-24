@@ -6,13 +6,13 @@
 // edge the level: moving sideways nests it deeper or less deep. Near the window's top or bottom edge the
 // list scrolls along. Letting go moves it (core/drag.js), with Undo. Dragged by a selected part's grip, the
 // other selected parts of its kind move along (`group`, ui/selection.js → dragGroup) and land together.
-// With the Shelves, whole notes move too (startNoteDrag): between the notes and to a shelf's end, changing
-// the order only.
+// With the Shelves, whole notes move too (startNoteDrag): between the notes, to a shelf's end or back onto the
+// pile, changing the order only; in the arrange view a shelf moves with its notes (startShelfDrag).
 import { state, note, setBody, applyMoveInto } from "../store.js";
 import { itemSlots, sectionSlots, sectionRange, moveItem, moveSection, moveParts } from "../core/drag.js";
 import { listItems } from "../core/list-items.js";
 import { sections, noteTitle } from "../core/markdown.js";
-import { placeInOrder } from "../core/query.js";
+import { placeInOrder, isSectionId, sectionTitle } from "../core/query.js";
 import { showPick, pickAt, isSelecting, endSelection, dragGroup, noteDragIds } from "./selection.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
@@ -58,7 +58,7 @@ function initGrip() {
   el.innerHTML = icon("grip");
   grip = { el, at: null };
   $("list").addEventListener("pointermove", e => {
-    if (e.pointerType !== "mouse" || e.buttons || drag || e.target.closest(".drag-grip")) return;
+    if (e.pointerType !== "mouse" || e.buttons || drag || e.target.closest(".drag-grip") || $("app").classList.contains("arranging")) return;
     const card = e.target.closest(".note");
     placeGrip(card && card.dataset.id !== state.editingId ? partAtLine(card, e.clientY) : null);
   });
@@ -308,7 +308,8 @@ export function endDrag(commit) {
   document.body.classList.remove("dragging-part");
   drag = null;
   if (commit && slot) src.kind === "note" ? dropNotes(src.ids, slot) : group ? dropGroup(src.kind, group, slot) : drop(src, slot, range, from);
-  if (src.kind === "note") compactNotes(false, src.noteId, y - 12);
+  // The arrange view keeps the cards small.
+  if (src.kind === "note" && !src.shelf && !$("app").classList.contains("arranging")) compactNotes(false, src.noteId, y - 12);
 }
 
 // While whole notes are dragged the cards show only their first lines, so the places between them lie close
@@ -323,7 +324,7 @@ function compactNotes(on, id, top) {
 
 /** Starts dragging the note of `card` — with the other selected whole notes in `ids` — from x, y. */
 export function startNoteDrag(card, ids, x, y) {
-  compactNotes(true, card.dataset.id, Math.min(card.getBoundingClientRect().top, y - 12));
+  if (!$("app").classList.contains("arranging")) compactNotes(true, card.dataset.id, Math.min(card.getBoundingClientRect().top, y - 12));
   const r = card.getBoundingClientRect();
   const ghost = document.createElement("div");
   ghost.className = "drag-ghost md note-ghost";
@@ -341,21 +342,51 @@ export function startNoteDrag(card, ids, x, y) {
   moveDrag(x, y);
 }
 
+/** The arrange view: starts dragging the shelf of `header` with its notes, from x, y. */
+export function startShelfDrag(header, x, y) {
+  const order = opts.order?.();
+  if (!order) return;
+  const id = header.dataset.section;
+  const at = order.ids.indexOf(id);
+  const end = order.ids.findIndex((x, i) => i > at && isSectionId(x));
+  const ids = order.ids.slice(at, end < 0 ? order.ids.length : end);
+  const r = header.getBoundingClientRect();
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost md note-ghost";
+  ghost.style.width = `${r.width}px`;
+  ghost.textContent = sectionTitle(id);
+  if (ids.length > 1) ghost.dataset.count = ids.length - 1;
+  const line = document.createElement("div");
+  line.className = "drop-line";
+  document.body.append(ghost, line);
+  const els = [header, ...ids.slice(1).map(n => $("list").querySelector(`.note[data-id="${CSS.escape(n)}"]`)).filter(Boolean)];
+  for (const el of els) el.classList.add("drag-source");
+  document.body.classList.add("dragging-part");
+  drag = { src: { kind: "note", shelf: true, noteId: null, ids }, els, ghost, line, grab: { dx: x - r.left, dy: y - r.top }, x, y, x0: x, slot: null, frame: 0 };
+  try { navigator.vibrate?.(15); } catch { /* not allowed */ }
+  moveDrag(x, y);
+}
+
 // Before each note of the order and each shelf on the screen (before a shelf: the end of the one above), and
-// after the last of them — with no note in the order yet, below the pile: { before: id | null, y, left, right }.
-// The pile's notes take no slots: the pile stays first.
+// after the last of them — with no note in the order yet, below the pile; a dragged note also at the pile's end
+// (back onto it): { before: id | null | PILE_SLOT, y, left, right }. The pile's notes take no slots: the pile
+// stays first. A shelf lands only before another shelf or at the end, so it never splits one.
+const PILE_SLOT = "pile";
 function nearestNoteSlot() {
   const order = opts.order?.();
   if (!order) return null;
   const inOrder = new Set(order.ids);
+  const shelf = drag.src.shelf;
   const rows = [...$("list").querySelectorAll(".note[data-id], .section-header[data-section]")]
     .map(el => ({ el, id: el.dataset.id ?? el.dataset.section }))
-    .filter(r => inOrder.has(r.id) && !drag.src.ids.includes(r.id));
-  const last = rows.at(-1)?.el || [...$("list").querySelectorAll(".note[data-id]")].at(-1);
+    .filter(r => inOrder.has(r.id) && !drag.src.ids.includes(r.id) && (!shelf || isSectionId(r.id)));
+  const last = [...$("list").querySelectorAll(".note[data-id], .section-header[data-section]")].filter(el => !drag.els.includes(el)).at(-1);
   if (!last) return null;
-  const box = $("list").querySelector(".note")?.getBoundingClientRect();
+  const box = $("list").querySelector(".note")?.getBoundingClientRect() || last.getBoundingClientRect();
   const slots = rows.map(r => ({ before: r.id, y: r.el.getBoundingClientRect().top - 6 }));
   slots.push({ before: null, y: last.getBoundingClientRect().bottom + 6 });
+  const pileEnd = [...$("list").querySelectorAll(".note.on-pile, .pile-header")].at(-1);
+  if (!shelf && pileEnd && drag.src.ids.some(id => inOrder.has(id))) slots.push({ before: PILE_SLOT, y: pileEnd.getBoundingClientRect().bottom - 2 });
   const top = viewTop();
   let best = null;
   for (const s of slots) if (s.y >= top && s.y <= window.innerHeight && (!best || Math.abs(s.y - drag.y) < Math.abs(best.y - drag.y))) best = s;
@@ -365,10 +396,11 @@ function nearestNoteSlot() {
 function dropNotes(ids, slot) {
   const order = opts.order?.();
   if (!order) return;
-  const next = placeInOrder(order.ids, ids, slot.before);
+  // Back onto the pile: out of the order (the pile sorts by last edited).
+  const next = slot.before === PILE_SLOT ? order.ids.filter(id => !ids.includes(id)) : placeInOrder(order.ids, ids, slot.before);
   if (next.join("\n") === order.ids.join("\n")) return;
   if (isSelecting()) endSelection();
-  showSnackbar(ids.length === 1 ? "Moved" : `Moved ${ids.length} notes`, order.set(next));
+  showSnackbar(slot.before === PILE_SLOT ? "Back on the pile" : isSectionId(ids[0]) ? "Shelf moved" : ids.length === 1 ? "Moved" : `Moved ${ids.length} notes`, order.set(next));
 }
 
 function dropGroup(kind, group, slot) {

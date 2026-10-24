@@ -773,7 +773,7 @@ paid features per user.
   down descending) and the sort's short name — "Edit", "New", "Due",
   "ABC", "Closed"; Shelves show a shelf icon and "Shelves", shared shelves
   "Shared". A tap opens the sort menu (the sorts; with Shelves
-  **Tidy up…** / **Arrange…**). It gives way while editing, selecting and
+  **Arrange shelves**). It gives way while editing, selecting and
   recording, and isn't in the trash. On the phone the open contents sheet
   covers it, so the sheet carries the same pill above its level stepper.
   The top bar has no sort button. Decided 2026-10-19 (user request:
@@ -789,7 +789,7 @@ paid features per user.
   over "Custom"; the picture of putting notes onto shelves says what it
   does). Notes start on the **Pile**: the
   notes not sorted in yet, **first in the list** under a header
-  "Pile" with their count and **Tidy up…**, by last edited, newest first;
+  "Pile" with their count, by last edited, newest first;
   header and notes lie on one tinted **tray** (in the list and the table of
   contents) that the tidy-up reminder colours grey, yellow or red and that
   ends before the first shelf (decided 2026-10-20, user request, over loose
@@ -803,26 +803,33 @@ paid features per user.
   unfolded. A new note lands on top of the pile at once, also when it was
   empty, and shows there even with the pile folded (user request
   2026-10-19: an empty pile's header stayed below it); sorted onto a shelf
-  (Move to, a grip, Tidy up) it takes its place there at once, never above
+  (by its grip) it takes its place there at once, never above
   the pile (user feedback 2026-10-24: it stood above "Pile empty"). With the pile empty
-  the header reads "Pile empty" with a check and the link **Arrange…**
-  (user request 2026-10-19: re-arranging a fully sorted order from the
-  list and the contents). The sort menu's **Tidy up…** — **Arrange…** with
-  the pile empty — (and the same link on
-  the header in the list and in the table of contents) opens a dialog like
-  Copy's order dialog: the pile on top, as in the list (decided
-  2026-10-24, user feedback), then a line, below which notes are sorted in
-  by drag (or arrow keys) or with + / − and ordered there.
-  Each note row's move button moves the note into a section of another
-  (Multi-select → "Move to").
-  Shelves have no direction. The dialog arranges what the list shows
-  (circle filter and search applied); other notes keep their places in the
-  order. Below the list, "Pile by …" sorts the pile's rows with any sort
-  but the custom ones, both directions (last edited, newest first, at
-  first), so the next notes to sort in are easy to find; the control sits
-  under the list so nothing but the line stands between the rows
-  (decided 2026-10-15). Save
-  offers Undo. There is one such order only (several named orders go
+  the header is one quiet line, "Pile empty" with a check, no tint
+  (decided 2026-10-24, user feedback: a link there urged to act and broke
+  the calm of a tidy list).
+  - **The arrange view** (decided 2026-10-24, user request, over an arrange
+    dialog: one way to order notes, the list itself; Move into is for
+    content): **Arrange shelves** turns the list into an overview — the
+    cards shrink to their first lines, the pile on top, every shelf shows
+    (also one without notes) and nothing is folded. Each note's **grip**
+    (its first line) puts it onto a shelf, between notes, at a shelf's end
+    or back onto the pile; a **shelf's grip** moves it with its notes
+    (only before another shelf or at the end, so it never splits one); its
+    **name** is edited in place, **×** removes it (its notes stay and join
+    the shelf above) and **+ Shelf** at the end adds one. Every change
+    applies at once with Undo ("Moved", "Shelf moved", "Back on the pile",
+    "Shelf renamed", "Shelf added", "Shelf “…” removed"); **Done** in the
+    + button's corner, `Esc`, back, + or a view or sort change end it. A
+    tap on a note's text doesn't edit meanwhile. Every tier; on the desktop
+    the grips sit in the cards' gutter. The pile is sorted by last edited,
+    as in the list (the dialog's "Pile by …" went with it).
+    *Prototype: 2026-10-24.*
+  - **Its way in** — the sort menu's **Arrange shelves**, and (prototype
+    variants) **A**: a quiet round button with the shelf icon at the end of
+    the pile's header (in the list and the contents; on the phone it closes
+    the sheet), **B**: no button there, the sort menu only. Open: which.
+  Shelves have no direction. There is one such order only (several named orders go
   too far for now). It is **synced but private**: one marker in the
   private file lists the note ids (`docs/file-format.md`), so shared notes
   can be ordered too without the other members seeing it; when two devices
@@ -849,16 +856,14 @@ paid features per user.
   a score or push messages: it should invite tidying, never make it a
   chore. *Prototype: 2026-10-18.*
 - **A shelf** in Shelves (and in shared shelves), called a section until
-  2026-10-19: the arrange dialog's **+ Shelf** adds a named divider right
-  above the pile's line; it moves like a note, its name is edited in place
-  and its × removes it (its notes stay where they are and join the shelf
-  above). A shelf holds the sorted notes below it up to the next one; it
-  is no note (no body, no status, not exported) and exists only above the
-  line. In the list and the table of contents (as the top level there)
+  2026-10-19: a named divider among the sorted notes, made, renamed, moved
+  and removed in the arrange view. A shelf holds the sorted notes below it
+  up to the next one; it is no note (no body, no status, not exported) and
+  never lies on the pile. In the list and the table of contents (as the top level there)
   each shelf heads its notes with a title line and their count; a tap
   folds or unfolds it, remembered per device; a search shows every shelf
   unfolded, so all hits show. A shelf without notes in the current view
-  isn't shown. Stored as entries in the order's id list
+  isn't shown (in the arrange view it is). Stored as entries in the order's id list
   (`docs/file-format.md`). *Prototype: 2026-10-18 (user request; the
   title-line look chosen over a grouping box and a sticky band, as the
   lightest one beside the pile's header).*
@@ -866,8 +871,7 @@ paid features per user.
   the view of a circle with people ("People circles as a filter") the sort
   menu also offers "Shared shelves" — an order of that circle's notes kept
   in the circle's own file, so every member sees and edits the same one;
-  any member may set it, none has to. It works like Shelves (Tidy up…, the pile with its reminder unless that circle is ignored, Undo; the
-  dialog says who sees it) and merges the same way, the newer list
+  any member may set it, none has to. It works like Shelves (the arrange view, the pile with its reminder unless that circle is ignored, Undo) and merges the same way, the newer list
   winning. Outside a circle's view a view set to it shows the user's own
   Shelves. *Prototype: 2026-10-14; real on shared files since
   milestone 2, simulated in the sample (Lea's circle carries one).*
@@ -930,9 +934,8 @@ paid features per user.
 
 - A table of contents over all notes of the current view, in the current
   sort order and search filter. *Prototype: round 1.* Sorted by
-  Shelves, it shows the pile's header with its gauge and **Tidy up…** on
-  top, folding with the list's (on the phone the link closes the sheet),
-  then the shelves. *Prototype: 2026-10-17 (user request: arranging is
+  Shelves, it shows the pile's header with its gauge on top, folding with
+  the list's, then the shelves. *Prototype: 2026-10-17 (user request: arranging is
   reachable from the contents too); pile on top 2026-10-18.*
 - Levels count from the highest heading level that actually occurs; it
   starts with **2 levels** and **− / +** remove or add levels (between 1
@@ -1492,7 +1495,7 @@ that host its IP address and the reading time.
   selected deeper ones right below it — 2026-10-15, so sections picked one
   by one also count and reorder one by one) and
   the actions as icons (with labels on the desktop): the frequent ones —
-  Close, Clear done tasks, Copy, Share, Move to, Delete — in the bar, the
+  Close, Clear done tasks, Copy, Share, Move into, Delete — in the bar, the
   rarer ones — Export, Private copy, Make permanent, Promote / Demote headings, Move up / down — under
   ⋮ with icon and label, the same in every tier (decided 2026-10-17 by the user's own use,
   backlog #36; all of them overran the desktop bar); the + button is
@@ -1503,7 +1506,7 @@ that host its IP address and the reading time.
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Clear done tasks**, **Copy**, **Export** ("Export"), **Share** ("Sync
-  and sharing"), **Move to** (also to a new note: merging and splitting), **Private copy** (shared notes, "Links between
+  and sharing"), **Move into** (also into a new note: merging and splitting), **Private copy** (shared notes, "Links between
   notes and private copies"), **Make permanent / Make closable**, **Delete**,
   **Promote / Demote headings**, **Move up / down** (list items). A selected list item is a
   part of its own; it leaves its indent behind when it is copied, merged or
@@ -1521,7 +1524,7 @@ that host its IP address and the reading time.
   everyone's trash. *Prototype: 2026-10-15 (before: a confirmation).*
 - **Copy** puts the selection on the clipboard as plain Markdown, the
   parts joined by a blank line, without metadata; it keeps the selection.
-- **To a new note** (Move to's **New note**; decided 2026-10-24, user
+- **To a new note** (Move into's **New note**; decided 2026-10-24, user
   request: one way for moving, merging and splitting, over a Merge action
   with its own order dialog): the selected parts (two or more notes, or any
   sections or items, even a single one) leave their notes and become one
@@ -1534,7 +1537,7 @@ that host its IP address and the reading time.
   lived that long); last edited = now. A note left empty disappears; Undo
   brings everything back. The new note stays in the people circle of its
   sources when they share one. When the sources come from different
-  circles (private and shared, or two circles), Move to asks under the
+  circles (private and shared, or two circles), Move into asks under the
   list where it goes: **Private copy** (default) — the new note is private,
   the shared sources stay as they are for everyone, only the private
   ones give up their parts — or **Share with …** (names and avatars) —
@@ -1545,8 +1548,9 @@ that host its IP address and the reading time.
   and don't put the source into their trash — its text lives on in the
   merged note (backlog #35; a concurrent edit of the source lands as a
   displaced edit, `docs/sync-and-sharing.md` → "Merging"). The same holds
-  for "Move to". *Prototype: 2026-10-14; in Move to 2026-10-24.*
-- **Move to** (decided 2026-10-19, user request: sort a dictated note
+  for "Move into". *Prototype: 2026-10-14; in Move into 2026-10-24.*
+- **Move into** (named "Move to" until 2026-10-24: every target is a note;
+  decided 2026-10-19, user request: sort a dictated note
   into an existing task list or section in a few taps, above all while
   tidying up; replaces "Merge into", which only reached notes in the
   selection): the far way to move anything — near, the reorder mode's
@@ -1569,8 +1573,7 @@ that host its IP address and the reading time.
   circle, as deleting the lines there would (decided 2026-10-22, user
   report: moving out of a shared note only copied; before, such a source
   kept its part for its members). Reached
-  from the selection bar (whole notes and sections) and from each note row
-  of the **Tidy up** dialog (its move button; the row leaves the dialog).
+  from the selection bar (whole notes, sections, list items).
   The picker is **one outline**: every note with its headings, one tap
   picks (decided 2026-10-19 over note first, then its sections: fewer
   taps). **− / +** set how many levels it shows, as in the contents (the
@@ -1581,13 +1584,9 @@ that host its IP address and the reading time.
   - **New note** is the first row of the list (unless only one whole note
     moves; decided 2026-10-24 over a button under the list: in sight, one
     tap): see "To a new note".
-  - **Shelves** (decided 2026-10-24, user request: sort new notes in
-    quickly): whole notes moved while the view is sorted by Shelves get a
-    row per shelf above the notes and land at its end ("Moved to the
-    shelf “…” · Undo"), as the Tidy up dialog's rows do.
-  - **Copy to…** (decided 2026-10-24, user request: e.g. an address named
+  - **Copy into…** (decided 2026-10-24, user request: e.g. an address named
     in a dictation): a passage marked in the editor goes the same way
-    through the same picker — the editor's toolbar shows **Copy to…** first
+    through the same picker — the editor's toolbar shows **Copy into…** first
     while a passage is marked (decided over always showing it greyed out:
     the bar stays as it was) — to the end of a section of another note, as its
     own paragraph or as tasks by the same rule, or into a **New note**; its
@@ -1613,7 +1612,7 @@ that host its IP address and the reading time.
   grip; dragging the grip of a selected part moves **every selected
   part of its kind** along. A tap on a note's text doesn't edit
   meanwhile; a part dragged sideways sets its level. With **Shelves** the grip of a note's first line moves
-  the whole note. Far targets are Move to's (the contents are no drop
+  the whole note. Far targets are Move into's (the contents are no drop
   target: decided 2026-10-24, user feedback, two ways are enough). The mode ends with the swipe back, `Esc`,
   back, + or a view change; main view only. No visible switch: the grips
   and the indented text show it's on. The **desktop** has no mode: the
@@ -1639,7 +1638,7 @@ that host its IP address and the reading time.
   bottom edge (0.3 s), the list scrolls along — not at once, so a part
   dragged past the edge on its way doesn't move it (decided 2026-10-24,
   user feedback). Letting go moves it, with "Moved" / "Moved to “…” ·
-  Undo"; into another note it acts like Move to (a source left empty
+  Undo"; into another note it acts like Move into (a source left empty
   disappears, also from a shared note for everyone in its circle). Not in
   the archive, the trash, news posts or the note being edited; paragraphs
   don't drag; a whole note moves into another one by its title's grip (as
@@ -1659,7 +1658,7 @@ that host its IP address and the reading time.
     the card's top: two confused) (with the other selected
     whole notes) between the notes of the order and to the end of a shelf
     (the line before the next shelf) — changing the order only, as
-    Arrange does; a note from the pile joins the order. While it is
+    the arrange view does; a note from the pile joins the order. While it is
     dragged the cards shrink to their first lines, so the places between
     them lie close together on the screen (user feedback 2026-10-24: with
     tall cards no place was in view). "Moved", with
@@ -1693,7 +1692,7 @@ that host its IP address and the reading time.
   entry is previewed by its heading, or its first sentence if it has
   none. *Prototype: round 3.*
 - Multi-select ends with ✕, `Esc`, the Android back button, when the last
-  part is deselected, after Close / Delete / Move to, and on switching
+  part is deselected, after Close / Delete / Move into, and on switching
   between the views.
 - Open: whether merging should also offer keeping the original heading
   levels instead of aligning them — decided after trying the alignment.

@@ -6,7 +6,7 @@
 // selects its part instead. A tap on a note's text doesn't edit meanwhile. Ends with the swipe back, Esc, back
 // or a view change. The desktop has no mode: the grip shows under the mouse (ui/drag-drop.js).
 import { state } from "../store.js";
-import { draggableAt, startDrag, startNoteDrag, moveDrag, endDrag } from "./drag-drop.js";
+import { draggableAt, startDrag, startNoteDrag, startShelfDrag, moveDrag, endDrag } from "./drag-drop.js";
 import { pickAt, showPick, dragGroup, noteDragIds } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 
@@ -71,9 +71,14 @@ export function revealSwipe(dx) {
 /** The part whose grip is at `target` and x (its ::before at the element's left), or null. With the Shelves,
  *  a card's own grip (.note-grip, at its top) moves the whole note: { kind: "note", el, head } (the card). */
 export function gripAt(target, x) {
-  if (!on) return null;
+  const arranging = $("app").classList.contains("arranging");
+  if (!on && !arranging) return null;
+  // The arrange view (ui/shelf-arrange.js): a shelf's grip moves it with its notes.
+  const shelf = arranging && target?.closest?.(".shelf-grip") && target.closest(".section-header");
+  if (shelf) return { kind: "shelf", id: shelf.dataset.section, el: shelf, head: shelf };
   const card = $("app").classList.contains("shelves") && target?.closest?.(".note-grip") && target.closest(".note");
   if (card) return { kind: "note", noteId: card.dataset.id, el: card, head: card };
+  if (!on) return null;
   const el = target?.closest?.(GRIPPABLE);
   const at = el && draggableAt(el);
   if (!at) return null;
@@ -123,7 +128,7 @@ function onTouchStart(e) {
 function begin(at, x, y, touch) {
   showPick(at.kind === "item" ? at.head : at.el);
   press = { at, x0: x, y0: y, touch, dragging: false, held: false, timer: setTimeout(() => {
-    if (!press || press.dragging) return;
+    if (!press || press.dragging || at.kind === "shelf") return;   // a shelf isn't selected
     press.held = true;
     try { navigator.vibrate?.(15); } catch { /* not allowed */ }
     showPick(null);
@@ -137,7 +142,8 @@ function track(x, y) {
     clearTimeout(press.timer);
     press.dragging = true;
     showPick(null);
-    if (press.at.kind === "note") startNoteDrag(press.at.el, noteDragIds(press.at.noteId), press.x0, press.y0);
+    if (press.at.kind === "shelf") startShelfDrag(press.at.el, press.x0, press.y0);
+    else if (press.at.kind === "note") startNoteDrag(press.at.el, noteDragIds(press.at.noteId), press.x0, press.y0);
     else startDrag(press.at, press.x0, press.y0, dragGroup(press.at));
   }
   if (press.dragging) moveDrag(x, y);
@@ -151,5 +157,5 @@ function finish(commit) {
   clearTimeout(timer);
   showPick(null);
   if (dragging) return endDrag(commit);
-  if (commit && !held) pickAt(at.kind === "note" ? at.el : at.head);
+  if (commit && !held && at.kind !== "shelf") pickAt(at.kind === "note" ? at.el : at.head);
 }

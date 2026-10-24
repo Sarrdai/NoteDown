@@ -200,7 +200,7 @@ Current state, edited in place when a decision changes.
   request).
 - Other confirmation dialogs only where the user has something to
   adjust: the order for Copy (drag an entry's grip), the target of Move
-  to and Copy to (a section, a new note, a shelf), the people for Share.
+  into and Copy into (a section of a note, a new note), the people for Share.
 - Panels with several pages (Sync & sharing) go one page back with the
   back button, `Esc` or the system back gesture, and close from the
   first page; the primary button of a page (on the Sync & sharing

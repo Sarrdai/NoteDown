@@ -79,10 +79,19 @@ export function collapseNote(id) {
  *  folds them; with an empty pile the header stands alone so Arrange… stays at hand.
  *  `sectionOf(note)` gives a section ({ id, title, count, collapsed }) or null: a header
  *  heads each section's notes, a folded one hides them (backlog #24). */
-export function listItems(notes, { pile = null, onArrange, onTogglePile, sectionOf = () => null, onToggleSection, view = state.view } = {}) {
+export function listItems(notes, { pile = null, onArrange, onTogglePile, sectionOf = () => null, onToggleSection, view = state.view, arrange = null } = {}) {
   let current = null, piled = !pile;
   const items = [];
   const putPile = () => { if (!piled) items.push(pileHeader(pile, onTogglePile, onArrange)); piled = true; };
+  // The arrange view (`arrange`: { shelves: [{ id, title }], edit, onAdd }) also shows the shelves without notes,
+  // each in its place, and "+ Shelf" at the end.
+  let nextShelf = 0;
+  const shelvesUpTo = id => {
+    if (!arrange) return;
+    const at = id === null ? arrange.shelves.length : arrange.shelves.findIndex(sh => sh.id === id);
+    for (; nextShelf < at; nextShelf++) items.push(sectionHeader({ ...arrange.shelves[nextShelf], count: 0 }, null, arrange.edit));
+    if (id !== null) nextShelf++;
+  };
   for (const n of notes) {
     const id = refOf(n);
     if (pile?.has(id)) {
@@ -93,11 +102,18 @@ export function listItems(notes, { pile = null, onArrange, onTogglePile, section
     }
     if (id !== pile?.top) putPile();
     const s = sectionOf(n);
-    if (s && s.id !== current) items.push(sectionHeader(s, onToggleSection));
+    if (s && s.id !== current) { shelvesUpTo(s.id); items.push(sectionHeader(s, onToggleSection, arrange?.edit)); }
     current = s?.id ?? null;
     if (!s?.collapsed) items.push(noteElement(n, view));
   }
   if (notes.length) putPile();
+  shelvesUpTo(null);
+  if (arrange) {
+    const add = Object.assign(document.createElement("button"), { type: "button", className: "btn shelf-add" });
+    add.innerHTML = `${icon("plus")}<span>Shelf</span>`;
+    add.addEventListener("click", arrange.onAdd);
+    items.push(add);
+  }
   markPileEnd(items);
   return items;
 }
@@ -111,7 +127,8 @@ export function markPileEnd(items) {
 }
 
 /** A shelf's header (a section divider) in Shelves (also in the contents): a tap folds or unfolds it. */
-export function sectionHeader({ id, title, count, collapsed }, onToggle) {
+export function sectionHeader({ id, title, count, collapsed }, onToggle, shelfEdit = null) {
+  if (shelfEdit) return shelfHeader({ id, title, count }, shelfEdit);
   const b = document.createElement("button");
   b.className = "section-header" + (collapsed ? " collapsed" : "");
   b.dataset.section = id;
@@ -129,6 +146,23 @@ const LEVEL_TEXT = { warn: "Tidy up", full: "Time to tidy up" };
 /** The Shelves' pile header (also in the contents): a tap on it folds or unfolds the pile,
  *  its gauge shows the tidy-up reminder's filled bars (core/tidy.js; none when no note counts),
  *  Tidy up… opens the arrange dialog — Arrange… beside the check of an empty pile. */
+// A shelf in the arrange view (ui/shelf-arrange.js): its grip moves it with its notes, its name is edited in
+// place, × removes it (its notes stay, now on the shelf above). `edit`: { rename(id, title), remove(id) }.
+function shelfHeader({ id, title, count }, edit) {
+  const el = document.createElement("div");
+  el.className = "section-header shelf-edit";
+  el.dataset.section = id;
+  el.innerHTML = `<span class="shelf-grip" aria-hidden="true"></span><input class="shelf-title" aria-label="Shelf name">`
+    + `<span class="section-count"></span><button type="button" class="icon-btn small shelf-remove" aria-label="Remove shelf" title="Remove shelf">${icon("close")}</button>`;
+  const input = el.querySelector("input");
+  input.value = title;
+  input.addEventListener("keydown", e => { if (e.key === "Enter") input.blur(); });
+  input.addEventListener("change", () => edit.rename(id, input.value));
+  el.querySelector(".section-count").textContent = String(count);
+  el.querySelector(".shelf-remove").addEventListener("click", () => edit.remove(id));
+  return el;
+}
+
 export function pileHeader({ count, level, bars, filled, collapsed }, onToggle, onArrange) {
   const el = document.createElement("div");
   el.className = "pile-header" + (level ? " level-" + level : "") + (count ? "" : " empty") + (collapsed ? " collapsed" : "");
@@ -146,9 +180,15 @@ export function pileHeader({ count, level, bars, filled, collapsed }, onToggle, 
   } else {
     el.insertAdjacentHTML("beforeend", `<span class="pile-done">${icon("check")}Pile empty</span>`);
   }
-  const link = Object.assign(document.createElement("button"), { className: "link-btn", textContent: count ? "Tidy up…" : "Arrange…" });
-  if (onArrange) link.addEventListener("click", onArrange);
-  el.append(link);
+  // The way into the arrange view (ui/shelf-arrange.js). Prototype variants: "icon" — a round button with the
+  // shelf icon, quiet beside the pile's count; "menu" — none here, the sort menu's "Arrange shelves" only.
+  if (onArrange && state.settings.arrangeEntry === "icon") {
+    const b = Object.assign(document.createElement("button"), { type: "button", className: "icon-btn small pile-arrange", innerHTML: icon("shelf") });
+    b.setAttribute("aria-label", "Arrange shelves");
+    b.title = "Arrange shelves";
+    b.addEventListener("click", onArrange);
+    el.append(b);
+  }
   return el;
 }
 
@@ -412,7 +452,7 @@ function onBodyClick(e, id) {
   if (e.target.closest("a, video")) return;
   if (n.deleted) return;   // read-only; the selection takes the tap
   if (n.status === "closed") return; // closed notes are read-only
-  if (document.getElementById("app").classList.contains("reordering")) return;   // ui/reorder-mode.js: no editing meanwhile
+  if (document.getElementById("app").matches(".reordering, .arranging")) return;   // reorder mode, arrange view: no editing meanwhile
   startEdit(id, { x: e.clientX, y: e.clientY });
 }
 
