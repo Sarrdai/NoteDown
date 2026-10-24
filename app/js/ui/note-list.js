@@ -410,6 +410,7 @@ function onBodyClick(e, id) {
   if (e.target.closest("a, video")) return;
   if (n.deleted) return;   // read-only; the selection takes the tap
   if (n.status === "closed") return; // closed notes are read-only
+  if (document.getElementById("app").classList.contains("reordering")) return;   // ui/reorder-mode.js: no editing meanwhile
   startEdit(id, { x: e.clientX, y: e.clientY });
 }
 

@@ -177,7 +177,6 @@ button { font: inherit; color: inherit; }
   border-bottom: 1px solid transparent;
 }
 .topbar.scrolled { border-bottom-color: var(--border); }
-.title { flex: 1; min-width: 0; margin: 0 6px; font-size: 1.25rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Archive ⇄ Notes: both faces share one grid cell, so the button keeps its
    size and place when the view changes. */
 #viewBtn { display: inline-grid; }
@@ -200,9 +199,11 @@ button { font: inherit; color: inherit; }
 #dueBtn .count.has { background: var(--accent); }
 #dueBtn .count.has.overdue { background: var(--danger); }
 
+/* The search field fills the bar and holds the actions after its text (main.js → fitTopbar); the round
+   settings button sits right of it. While searching, the actions make room for the counter, ▲ / ▼ and ×. */
 .search {
-  display: flex; align-items: center; gap: 6px;
-  width: 260px; height: 40px; padding: 0 6px 0 12px;
+  display: flex; flex: 1; min-width: 0; align-items: center; gap: 4px;
+  height: 46px; padding: 0 3px 0 14px; cursor: text;
   border-radius: 999px; background: var(--surface-hover); color: var(--text-muted);
 }
 .search:focus-within { outline: 2px solid var(--accent); }
@@ -210,11 +211,16 @@ button { font: inherit; color: inherit; }
   flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
   font: inherit; color: var(--text);
 }
+.search input::placeholder { color: var(--text-muted); }
 .search input::-webkit-search-cancel-button { display: none; }
 .search-icon { display: contents; }
 .search-icon .icon { width: 18px; height: 18px; }
-#searchClose { visibility: hidden; }
-.app.has-search #searchClose { visibility: visible; }
+.search-actions { display: flex; align-items: center; flex: none; }
+.search-actions .icon-btn { min-width: 40px; height: 40px; }
+.search-actions .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.app.searching .search-actions { display: none; }
+#searchClose { display: none; }
+.app:is(.searching, .has-search) #searchClose { display: inline-flex; }
 /* Search hits (ui/search-hits.js): the counter and ▲ / ▼ show with a search. */
 .hit-count, .hit-nav { display: none; }
 .app.has-search .hit-count { display: inline; font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -223,7 +229,6 @@ button { font: inherit; color: inherit; }
 .hit-nav:disabled { opacity: 0.4; }
 mark.hit { background: var(--hit); color: inherit; border-radius: 2px; }
 mark.hit.current { background: var(--hit-current); color: var(--on-hit-current); }
-#searchBtn { display: none; }
 /* Suggestions in the search field (ui/search-suggest.js, backlog #66): a box under the field. */
 .suggest {
   position: fixed; z-index: 30; overflow-y: auto; padding: 6px; box-sizing: border-box;
@@ -502,6 +507,16 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   content: attr(data-label); position: absolute; left: 8px; top: -9px; padding: 0 5px; border-radius: 6px;
   background: var(--accent); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px;
 }
+/* Reorder mode (ui/reorder-mode.js): every list item and heading of the open notes shows a grip at its left,
+ * in a gutter the note's text makes room for; nested items carry theirs indented. The hover grip gives way. */
+.app.reordering .note:not(.closed) .note-body:has(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child) { padding-left: 30px; }
+.app.reordering .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child { position: relative; }
+.app.reordering .note:not(.closed) .note-body :is(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child)::before {
+  content: ""; position: absolute; top: 0; left: calc(var(--item-left, 0px) - 30px); width: 26px; height: 1lh;
+  background: var(--text-faint); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; cursor: grab;
+}
+.app.reordering .note:not(.closed) .note-body li[data-line]:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
+.app.reordering .drag-grip { display: none; }
 body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
 .app.selecting .status:hover { color: var(--text-faint); }
 .app.selecting .status:hover .icon { opacity: 0; }
@@ -877,6 +892,27 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   background: var(--danger); transform: rotate(-20deg); border-radius: 1px;
 }
 
+/* The round settings button right of the search (main.js → renderSyncStatus). Variant "ring": the own
+   initial (no name: a person) in a ring coloured by the sync status, spinning while syncing; variant "cloud":
+   the status cloud on the field's tone. */
+.account-btn {
+  position: relative; flex: none; display: inline-grid; place-items: center;
+  width: 46px; height: 46px; margin-left: 8px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.account-face { grid-area: 1 / 1; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--surface-hover); }
+.account-face .icon { width: 20px; height: 20px; }
+.account-initial { font-weight: 700; font-size: 1rem; color: var(--accent); }
+.account-btn[data-variant="ring"] .account-face { background: var(--accent-soft); }
+.account-ring { grid-area: 1 / 1; width: 46px; height: 46px; fill: none; stroke-width: 2.5; stroke: var(--border); }
+.account-btn[data-status="synced"] .account-ring { stroke: var(--done); }
+.account-btn[data-status="syncing"] .account-ring { stroke: var(--accent); stroke-dasharray: 90 40; transform-origin: center; animation: spin 1.6s linear infinite; }
+.account-btn[data-status="offline"] .account-ring, .account-btn[data-status="error"] .account-ring { stroke: var(--danger); }
+.account-btn[data-variant="cloud"] .account-ring { display: none; }
+.account-btn[data-variant="cloud"] .account-face { width: 46px; height: 46px; }
+.account-btn:hover .account-face { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .account-btn .account-ring { animation: none !important; } }
+
 /* Sync status: an icon in the top bar. "syncing" (spinning arrows) lasts at
    least 0.8 s (sync/client.js); then the check draws itself in the accent
    color, which fades (.just-synced). */
@@ -992,7 +1028,6 @@ a.row-open { text-decoration: none; }
 
 @media (max-width: 599px) {
   .foot-actions .btn { flex: 1; }
-  .app.searching #syncBtn { display: none; }
 }
 
 /* ---------- rendered Markdown ---------- */
@@ -1516,6 +1551,19 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 }
 .app:not([data-view="open"]) #sortFab { --archive: 1; }
 .app:is(.is-editing, .selecting, .recording, [data-view="trash"]) #sortFab { display: none; }
+/* The reorder mode's switch (variant "pill"): a round button left of the sort button, in its row; "Done" with
+ * a check while the mode is on. Variant "search": an icon in the search field. Main view only. */
+#reorderFab {
+  position: fixed; z-index: 15; display: inline-flex; justify-content: center; min-width: 40px; padding: 0 10px;
+  right: calc(20px + var(--sort-w, 80px) + 10px);
+  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + var(--fab-size) + 12px);
+}
+#reorderFab .icon { color: var(--text-muted); }
+#reorderFab[aria-pressed="true"], #reorderBtn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+#reorderFab[aria-pressed="true"] .icon { color: var(--on-accent); }
+.app:is(:not([data-view="open"]), .is-editing, .selecting, .recording) #reorderFab,
+.app:not([data-reorder-button="pill"]) #reorderFab { display: none; }
+.app:is(:not([data-view="open"]), :not([data-reorder-button="search"])) #reorderBtn { display: none; }
 
 /* What a long-press lifts, or the grip under the mouse moves (ui/selection.js → showPick), gets an accent
  * outline — the list item, the heading's section or the note. */
@@ -1575,23 +1623,15 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 }
 @media (min-width: 600px) and (max-width: 1023px) {
   :root { --toc-w: 248px; }
-  .search { width: 190px; flex: none; }
-  .app.has-search .search { width: 300px; }   /* room for the hit counter and ▲ / ▼ */
-  .title { flex: 0 1 auto; }
-  /* The buttons sit at the right end, from the first one shown. */
-  #syncBtn, #syncBtn[hidden] + #viewBtn, #syncBtn[hidden] + #viewBtn[hidden] + #dueBtn { margin-left: auto; }
 }
 @media (min-width: 1024px) {
   .topbar { padding-inline: 16px; }
-  /* The search sits centered over the notes, as wide as their cards, while the
-     buttons fit right of it; otherwise right after the title, narrower (fitTopbar). */
-  .title { flex: none; }
-  .search { flex: 0 1 748px; min-width: 240px; margin-left: 12px; }
-  .search.centered {
-    position: absolute; left: 50%; top: calc(var(--safe-top) + (var(--topbar-h) - 40px) / 2); transform: translateX(-50%);
-    width: min(748px, calc(100% - 340px)); margin: 0;
-  }
-  #syncBtn, #syncBtn[hidden] + #viewBtn, #syncBtn[hidden] + #viewBtn[hidden] + #dueBtn { margin-left: auto; }
+  /* The search sits centered over the notes, as wide as their cards; a spacer as wide as the round
+     button balances it. */
+  .topbar::before { content: ""; flex: 1 0 54px; }
+  .search { flex: 0 1 748px; }
+  .topbar::after { content: ""; flex: 1 0 0; order: 1; }
+  .account-btn { order: 2; }
   .list { padding-top: 12px; }
   .selectbar { padding-inline: 16px; }
   .sel-count { flex: 1 0 auto; }
@@ -1608,13 +1648,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .rec-bar { padding-left: calc(var(--toc-w) + 16px); }
 }
 @media (max-width: 599px) {
-  .topbar { padding-inline: 4px; gap: 0; }
-  .search { display: none; }
-  #searchBtn { display: inline-flex; }
-  .app.searching .search { display: flex; flex: 1; width: auto; min-width: 0; }
-  .app.searching :is(.title, #searchBtn, #dueBtn, #viewBtn, #syncBtn),
-  .app.searching #moreBtn { display: none; }
-  .app.searching #searchClose { visibility: visible; }
+  .topbar { padding-inline: 8px; gap: 0; }
   .list { padding-left: 12px; padding-right: 12px; gap: 10px; }
   .note { padding: 12px 8px 4px 14px; }
 
@@ -1658,7 +1692,6 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .toc-head { min-height: 48px; touch-action: none; }
   :root { --fab-lift: 20px; } /* the + button and the recorder clear the peeking handle */
   .snackbar { bottom: calc(16px + var(--peek)); }
-  .title { margin-left: 12px; }
   .filter-bar { padding: 8px 12px 0; }
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }

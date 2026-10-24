@@ -137,6 +137,8 @@ is deleted from code, menu and this table.
 
 | Parameter | Values | What it switches |
 |---|---|---|
+| `reorder` | `pill` · `search` | Where the reorder mode's switch sits: a round button beside the floating sort button (A) or an icon in the search field (B) |
+| `settings` | `ring` · `cloud` | The round settings button right of the search field: the own initial in a ring coloured by the sync status (A) or the status cloud (B) |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `sort` | `custom` | Start the main view sorted by Shelves (screenshots of the pile and shelves; not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |

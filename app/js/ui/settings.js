@@ -80,12 +80,17 @@ function privacySection() {
   ];
 }
 
+const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloudOff", error: "cloudOff" };
+
 const backupSub = () => state.settings.lastBackup
   ? `Encrypted file · last backup ${fullDate(state.settings.lastBackup)}` : "Encrypted file to save where you like";
 
 registerPage("settings", {
   title: "Settings",
   render: () => [
+    // First, as the round button that opens the settings shows the sync status (decided 2026-10-24).
+    h("ul", { class: "sheet-card" },
+      row({ icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", title: "Sync & sharing", sub: state.sync.enabled ? statusText() : "Off", open: () => { go(state.sync.enabled ? "overview" : "off"); syncOnRequest(); } })),
     section("Appearance"),
     h("div", { class: "setting-row" }, h("span", { class: "setting-label" }, "Theme"),
       pickButton(state.settings.flavor, Object.entries(FLAVORS), v => { updateSettings({ flavor: v }); refreshPage({ keepScroll: true }); }, { cls: "ext-select", label: "Theme" })),
@@ -95,9 +100,6 @@ registerPage("settings", {
       row({ icon: "sort", title: "Tidy-up reminder", sub: tidySummary(), open: () => go("settingsTidy") }),
       row({ icon: "link", title: "Links & media", sub: externalSummary(), open: () => go("settingsLinks") })),
     ...privacySection(),
-    section("Sync"),
-    h("ul", { class: "sheet-card" },
-      row({ icon: "cloud", title: "Sync & sharing", sub: state.sync.enabled ? statusText() : "Off", open: () => { go(state.sync.enabled ? "overview" : "off"); syncOnRequest(); } })),
     section("Data"),
     h("ul", { class: "sheet-card" },
       row({ icon: "protect", title: "Backup", sub: backupSub(), open: () => go("settingsBackup") }),

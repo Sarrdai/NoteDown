@@ -21,7 +21,7 @@ import {
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings, toggleItem, selectedItemLines, shiftItemKeys,
 } from "../core/selection.js";
 import { listItems, parseItemKey, moveItems, itemBlocks } from "../core/list-items.js";
-import { draggableAt, startDrag as startPartDrag, moveDrag, endDrag } from "./drag-drop.js";
+import { gripAt } from "./reorder-mode.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
 import { noteTitle } from "../core/markdown.js";
@@ -129,6 +129,7 @@ const onFrame = target => !target.closest(".note-body, button, a, input");
 
 function onPointerDown(e) {
   swallowClick = false;
+  if (gripAt(e.target, e.clientX)) { down = null; return; }   // the reorder mode's grip (ui/reorder-mode.js)
   // Only with the mouse: on touch the frame is a small target and the long-press stays.
   frameDown = e.pointerType === "mouse" && onFrame(e.target);
   downType = e.pointerType;
@@ -156,7 +157,7 @@ function onHold() {
   swallowClick = true; // the click that follows the release
   buzz();
   window.getSelection()?.removeAllRanges();
-  if (downType !== "mouse") return startLift(target, x, y);
+  if (downType !== "mouse") return startLift(target);
   if (split) return splitNote(id);
   if (key) return toggleSection(key, { ownNote: true });
   if (line !== null) return toggleListItem(id, line);
@@ -213,48 +214,32 @@ export function showPick(el) {
 }
 
 // ---------- long-press and lift (touch) ----------
-// The long-press lifts what is under the finger: an accent outline shows it. Moving the finger then drags it
-// (a list item or a heading's section, ui/drag-drop.js); letting go without moving selects it (while
-// selecting it toggles, like a tap).
-let lift = null;   // { target, x0, y0, dragging } while a lifted finger is down
+// The long-press lifts what is under the finger: an accent outline shows it; letting go selects it (while
+// selecting it toggles, like a tap). Moving parts is the reorder mode's grip (ui/reorder-mode.js; decided
+// 2026-10-24, user request, over dragging after the long-press).
+let lift = null;   // { target } while a lifted finger is down
 
-function startLift(target, x, y) {
-  lift = { target, x0: x, y0: y, dragging: false };
+function startLift(target) {
+  lift = { target };
   showPick(pickTarget(target));
-  window.addEventListener("touchmove", onLiftMove);
   window.addEventListener("touchend", endLift);
   window.addEventListener("touchcancel", endLift);
 }
 
-function onLiftMove(e) {
-  if (!lift) return;
-  const t = e.touches[0];
-  if (!lift.dragging && Math.hypot(t.clientX - lift.x0, t.clientY - lift.y0) > MOVE_TOLERANCE) {
-    const part = draggableAt(lift.target);
-    if (!part) return;   // a whole note doesn't move; letting go selects it
-    lift.dragging = true;
-    showPick(null);
-    startPartDrag(part, lift.x0, lift.y0);
-  }
-  if (lift.dragging) moveDrag(t.clientX, t.clientY);
-}
-
 function endLift(e) {
   if (!lift) return;
-  const { target, dragging } = lift;
+  const { target } = lift;
   lift = null;
-  window.removeEventListener("touchmove", onLiftMove);
   window.removeEventListener("touchend", endLift);
   window.removeEventListener("touchcancel", endLift);
   showPick(null);
-  if (dragging) return endDrag(e.type === "touchend");
   if (e.type === "touchend") pickAt(target);
 }
 
 function onClick(e) {
   const el = e.target.closest("#list .note");
-  // The grip (ui/drag-drop.js) drags and selects on its own.
-  if (e.target.closest("#list .drag-grip")) { e.preventDefault(); e.stopPropagation(); return; }
+  // The grips (ui/drag-drop.js, ui/reorder-mode.js) drag and select on their own.
+  if (e.target.closest("#list .drag-grip") || gripAt(e.target, e.clientX)) { e.preventDefault(); e.stopPropagation(); return; }
   if (swallowClick) {
     swallowClick = false;
     if (el) { e.preventDefault(); e.stopPropagation(); }

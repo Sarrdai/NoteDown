@@ -36,6 +36,7 @@ import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
 import { initDragDrop } from "./ui/drag-drop.js";
+import { initReorderMode, setReordering } from "./ui/reorder-mode.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
@@ -64,6 +65,7 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
 const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
+const PLACEHOLDERS = { open: "Search notes", closed: "Search archive", trash: "Search trash" };
 
 
 const phone = window.matchMedia("(max-width: 599px)");
@@ -115,27 +117,29 @@ function currentNotes() {
 let shownNotes = [];
 const stillShown = () => shownNotes.filter(n => note(refOf(n)));
 
-// The sync status: a cloud icon in the top bar while sync is on.
+// The round button right of the search field (decided 2026-10-24, user request, after Google Keep): it shows
+// the sync status and opens the settings, whose first row is Sync & sharing. Prototype variants: "ring" — the
+// own initial in a ring coloured by the status; "cloud" — the status cloud.
 const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloudOff", error: "cloudOff" };
 
 function renderSyncStatus() {
   const btn = $("syncBtn");
-  if (!state.sync.enabled) {
-    btn.dataset.status = "";
-    btn.innerHTML = icon("cloud");
-    btn.setAttribute("aria-label", "Sync & sharing");
-    btn.title = "Sync & sharing";
-    return;
+  const variant = state.settings.syncButton;
+  const status = state.sync.enabled ? state.sync.status : "";
+  const changed = btn.dataset.status !== status || btn.dataset.variant !== variant;
+  // A round that transferred something ends with the check drawing itself in.
+  if (changed) btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
+  btn.dataset.status = status;
+  btn.dataset.variant = variant;
+  if (changed) {
+    const initial = (state.sync.enabled && state.sync.name || "").trim().charAt(0).toUpperCase();
+    $("syncFace").innerHTML = variant === "cloud" ? icon(status ? SYNC_ICONS[status] : "cloud")
+      : initial ? `<span class="account-initial"></span>` : icon("user");
+    if (initial && variant !== "cloud") $("syncFace").firstChild.textContent = initial;
   }
-  const { status } = state.sync;
-  if (btn.dataset.status !== status) {
-    // A round that transferred something ends with the check drawing itself in.
-    btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
-    btn.dataset.status = status;
-    btn.innerHTML = icon(SYNC_ICONS[status]);
-  }
-  btn.setAttribute("aria-label", "Sync & sharing: " + statusText());
-  btn.title = "Sync & sharing · " + statusText();
+  const text = "Settings · Sync " + (status ? statusText().charAt(0).toLowerCase() + statusText().slice(1) : "off");
+  btn.setAttribute("aria-label", text);
+  btn.title = text;
 }
 
 // The Due button: its badge counts the items overdue or due today (red when one is overdue), its ring fills
@@ -162,13 +166,16 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
+  app.dataset.reorderButton = s.reorderButton;
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
+  $("searchInput").placeholder = PLACEHOLDERS[state.view];
   const sort = sortOf();
   // Time to tidy up the Shelves' pile: a dot on the sort button, whatever the list is sorted by.
   const due = state.view === "open" && mainPile().level === "full";
   renderSortFab(sort, due);
+  app.style.setProperty("--sort-w", $("sortFab").offsetWidth + "px");
   renderWatchBar();
   renderDueCount();
   $("viewBtn").setAttribute("aria-label", state.view === "open" ? "Archive" : "Notes");
@@ -456,6 +463,7 @@ const enterTrash = () => pushEntry({ trash: true }, depth => { trashDepth = dept
 
 function setView(view, { fromHistory = false } = {}) {
   if (state.view === view) return;
+  setReordering(false);
   endSelection();
   hideSnackbar();
   leaveEntry("search");   // a view change ends the search, and with it its back step
@@ -469,6 +477,7 @@ function setView(view, { fromHistory = false } = {}) {
 
 // With several circles picked, + first asks which of them the note goes to.
 function newNote() {
+  setReordering(false);
   endSelection();
   const circles = state.circles;
   if (circles.length > 1 && state.view === "open") return openMenu($("fab"), [
@@ -634,47 +643,33 @@ async function loadWelcome() {
   replaceFiles({ file });
 }
 
-// The top bar's actions, left to right (search before them, ⋮ after them; Export
-// lives under ⋮, sort floats above the +). What doesn't fit moves under ⋮ in
-// FOLD_ORDER — Due first, the view button last, so the switch between the views
-// stays in reach; on the desktop the search gives up its centered place and
-// narrows before that.
+// The top bar is the search field (decided 2026-10-24, user request, after Google Keep): it fills the bar and
+// holds the actions after the text — the view button, Due, ⋮ — with the round settings button right of it.
+// What doesn't fit moves under ⋮ in FOLD_ORDER — Due first, the view button last, so the switch between the
+// views stays in reach.
 const ACTIONS = [
-  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "viewBtn", menu: () => state.view === "open"
     ? { label: "Archive", icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
   { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
 ];
-const FOLD_ORDER = ["dueBtn", "syncBtn", "viewBtn"];
-const wide = window.matchMedia("(min-width: 1024px)");
+const FOLD_ORDER = ["dueBtn", "viewBtn"];
+const MIN_INPUT = 110;   // px the search text keeps before buttons fold
 
 function fitTopbar() {
-  const bar = $("topbar");
-  const title = $("title");
-  const search = $("search");
+  const input = $("searchInput");
   for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
-  search.classList.toggle("centered", wide.matches);
-  // Too tight: the title is cut, the buttons run out of the bar, or (desktop)
-  // into the centered search.
-  const tight = () => title.scrollWidth > title.clientWidth + 1
-    || $("moreBtn").getBoundingClientRect().right > bar.getBoundingClientRect().right + 1
-    || (search.classList.contains("centered") && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
-  if (!bar.offsetWidth) return;
-  // Measured with the longer title, so both views keep the same buttons and
-  // the view button its place.
-  const text = title.textContent;
-  title.textContent = "Archive";
-  // Desktop: the title keeps the longer one's width, so the search stays in place too.
-  title.style.minWidth = "";
-  if (wide.matches) title.style.minWidth = title.scrollWidth + "px";
-  // Desktop: the search leaves the middle and sits after the title, narrower.
-  if (tight()) search.classList.remove("centered");
-  for (let i = 0; i < FOLD_ORDER.length && tight(); i++) {
+  if (!input.offsetWidth) return;
+  for (let i = 0; i < FOLD_ORDER.length && input.offsetWidth < MIN_INPUT; i++) {
     const btn = $(FOLD_ORDER[i]);
-    if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
+    btn.hidden = true; btn.dataset.folded = "1";
   }
-  title.textContent = text;
+}
+
+// The round button: the settings, synced on opening like Sync & sharing.
+function openAccount() {
+  openSettings();
+  if (state.sync.enabled) syncOnRequest();
 }
 
 function moreMenu() {
@@ -687,7 +682,12 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
-    { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
+    { section: "Prototype: reorder switch" },
+    ...[["pill", "Beside the sort button (A)"], ["search", "In the search field (B)"]].map(([v, label]) =>
+      ({ label, checked: s.reorderButton === v, onSelect: () => updateSettings({ reorderButton: v }) })),
+    { section: "Prototype: settings button" },
+    ...[["ring", "Initial in a status ring (A)"], ["cloud", "Status cloud (B)"]].map(([v, label]) =>
+      ({ label, checked: s.syncButton === v, onSelect: () => updateSettings({ syncButton: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -769,7 +769,7 @@ function showNote(id) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("dueBtn").querySelector(".btn-icon").innerHTML = icon("calendar");
   $("dueBtn").addEventListener("click", openDue);
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
@@ -778,7 +778,7 @@ function wire() {
   $("fab").querySelector(".fab-new").innerHTML = icon("plus");
   $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
   window.addEventListener("resize", fitTopbar);
-  $("syncBtn").addEventListener("click", openSyncPanel);
+  $("syncBtn").addEventListener("click", openAccount);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
   // One button switches between the notes and the archive, in the same place; from the trash it leads to the notes.
@@ -795,11 +795,13 @@ function wire() {
     if (e.target.value && !history.state?.search) pushEntry({ search: true });
     setUi({ search: e.target.value, topId: null });
   });
-  $("searchBtn").addEventListener("click", () => {
-    app.classList.add("searching");
-    if (!history.state?.search) pushEntry({ search: true });
-    $("searchInput").focus();
-  });
+  // The field searches while its text has the focus or holds a search: its buttons then make room for the
+  // hit counter, ▲ / ▼ and ×. A tap on its free part goes to the text.
+  $("search").addEventListener("click", e => { if (!e.target.closest("button")) $("searchInput").focus(); });
+  $("searchInput").addEventListener("focus", () => app.classList.add("searching"));
+  $("searchInput").addEventListener("blur", () => setTimeout(() => {
+    if (!state.search && document.activeElement !== $("searchInput")) app.classList.remove("searching");
+  }));
   $("searchClose").addEventListener("click", () => endSearch());
   window.addEventListener("popstate", () => {
     if ((state.search || app.classList.contains("searching")) && !history.state?.search) endSearch({ fromHistory: true });
@@ -839,6 +841,7 @@ function wire() {
   recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initDragDrop({ onMoved });
+  initReorderMode();
   initSyncPanel();
   initContactRequests();
   initPullRefresh({
@@ -882,6 +885,9 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
+  // Prototype variants: ?reorder=pill|search (the reorder switch), ?settings=ring|cloud (the settings button).
+  if (["pill", "search"].includes(p.get("reorder"))) patch.reorderButton = p.get("reorder");
+  if (["ring", "cloud"].includes(p.get("settings"))) patch.syncButton = p.get("settings");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
