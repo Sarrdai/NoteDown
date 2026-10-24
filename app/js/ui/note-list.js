@@ -248,6 +248,8 @@ function noteElement(n, view = state.view) {
   meta.innerHTML = metaHtml(n, view);
 
   el.append(body, meta, ...(n.deleted ? [] : [status]));
+  // The reorder mode's grip for the whole note (ui/reorder-mode.js), shown with Shelves only.
+  if (view === "open" && !readOnly) el.append(Object.assign(document.createElement("span"), { className: "note-grip" }));
   markSelected(el);
   return el;
 }

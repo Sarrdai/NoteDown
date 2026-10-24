@@ -98,6 +98,16 @@ export function orderSections(ids) {
   return of;
 }
 
+/** A custom order with the notes `moving` (in their given order) placed before the entry `before` — a note
+ *  or a section entry; null: at the end. Notes not in the order yet join it (from the pile). The reorder
+ *  mode's note grip (ui/drag-drop.js). */
+export function placeInOrder(ids, moving, before) {
+  const rest = ids.filter(id => !moving.includes(id));
+  const at = before === null ? -1 : rest.indexOf(before);
+  rest.splice(at < 0 ? rest.length : at, 0, ...moving);
+  return rest;
+}
+
 /** The arrange dialog's rows above the line: every section entry of `ids`
  *  ({ section: id }) and the `notes` listed in `ids`, in the order's order. */
 export function arrangeRows(notes, ids) {

@@ -164,6 +164,7 @@ function render() {
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
+  app.classList.toggle("shelves", state.view === "open" && isCustom());
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
@@ -830,7 +831,9 @@ function wire() {
   initToolbar({ onDue: sortInByDue });
   recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
-  initDragDrop({ onMoved });
+  // Whole notes move within the Shelves (the reorder mode's note grip): its order, or a circle's shared one.
+  initDragDrop({ onMoved, order: () => !isCustom() ? null : sortOf().key === "shared"
+    ? { ids: orderIds(), set: ids => setCircleOrder(sharedCircle(), ids) } : { ids: orderIds(), set: setCustomOrder } });
   initReorderMode();
   initSyncPanel();
   initContactRequests();

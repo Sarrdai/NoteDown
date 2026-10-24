@@ -5,8 +5,8 @@
 // or a view change. The switch floats above the + (decided over an icon in the search field: within thumb
 // reach, as the mode is switched on and off often).
 import { state } from "../store.js";
-import { draggableAt, startDrag, moveDrag, endDrag } from "./drag-drop.js";
-import { pickAt, showPick } from "./selection.js";
+import { draggableAt, startDrag, startNoteDrag, moveDrag, endDrag } from "./drag-drop.js";
+import { pickAt, showPick, dragGroup, noteDragIds } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
 import { icon } from "./icons.js";
 
@@ -50,9 +50,12 @@ function renderButtons() {
   $("reorderFab").title = label;
 }
 
-/** The part whose grip is at `target` and x (its ::before at the element's left), or null. */
+/** The part whose grip is at `target` and x (its ::before at the element's left), or null. With the Shelves,
+ *  a card's own grip (.note-grip, at its top) moves the whole note: { kind: "note", el, head } (the card). */
 export function gripAt(target, x) {
   if (!on) return null;
+  const card = $("app").classList.contains("shelves") && target?.closest?.(".note-grip") && target.closest(".note");
+  if (card) return { kind: "note", noteId: card.dataset.id, el: card, head: card };
   const el = target?.closest?.(GRIPPABLE);
   const at = el && draggableAt(el);
   if (!at) return null;
@@ -100,7 +103,7 @@ function onTouchStart(e) {
 
 // Held without moving, the grip selects its part (the start of a multi-select); moved, it drags.
 function begin(at, x, y, touch) {
-  showPick(at.kind === "section" ? at.el : at.head);
+  showPick(at.kind === "item" ? at.head : at.el);
   press = { at, x0: x, y0: y, touch, dragging: false, held: false, timer: setTimeout(() => {
     if (!press || press.dragging) return;
     press.held = true;
@@ -116,7 +119,8 @@ function track(x, y) {
     clearTimeout(press.timer);
     press.dragging = true;
     showPick(null);
-    startDrag(press.at, press.x0, press.y0);
+    if (press.at.kind === "note") startNoteDrag(press.at.el, noteDragIds(press.at.noteId), press.x0, press.y0);
+    else startDrag(press.at, press.x0, press.y0, dragGroup(press.at));
   }
   if (press.dragging) moveDrag(x, y);
 }

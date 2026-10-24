@@ -24,7 +24,7 @@ import { listItems, parseItemKey, moveItems, itemBlocks } from "../core/list-ite
 import { gripAt } from "./reorder-mode.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
-import { noteTitle } from "../core/markdown.js";
+import { noteTitle, sections } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
 import { mergeCircle } from "../core/sharing.js";
 import { moveTo } from "./move-to.js";
@@ -354,6 +354,32 @@ export function syncSelection(visible) {
   for (const k of state.selected) if (!keys.has(k) && !isItem(k)) state.selected.delete(k);
   if (state.selected.size === 0) endSelection();
   else update();
+}
+
+/** The selected parts that move along when `at` (ui/drag-drop.js → draggableAt) is dragged: all of them when
+ *  `at` is one and every one is of its kind (list items, or sections — a whole note by its title's section),
+ *  as [{ noteId, lines: [a, b), from }] (from: the item's indent, the heading's level); else null. */
+export function dragGroup(at) {
+  if (!isSelecting()) return null;
+  const { parts } = current();
+  if (parts.length < 2) return null;
+  const group = [];
+  for (const p of parts) {
+    if ((at.kind === "item") !== !!p.item) return null;
+    if (p.item) { group.push({ noteId: p.noteId, lines: p.lines, from: p.indent }); continue; }
+    const ss = sections(note(p.noteId).body);
+    if (!ss[p.from]?.depth) return null;
+    group.push({ noteId: p.noteId, lines: [ss[p.from].start, ss[p.to - 1].end], from: ss[p.from].depth });
+  }
+  return group.some(g => g.noteId === at.noteId && g.lines[0] === at.line) ? group : null;
+}
+
+/** The notes that move when note `id` is dragged by its grip (the Shelves): the selected whole notes in the
+ *  list's order when it is one of them and only whole notes are selected, else just `id`. */
+export function noteDragIds(id) {
+  if (!isSelecting()) return [id];
+  const { parts } = current();
+  return parts.every(p => p.whole) && parts.some(p => p.noteId === id) ? parts.map(p => p.noteId) : [id];
 }
 
 // The selection as parts with their notes.

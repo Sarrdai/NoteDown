@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile, serializeNotesFile, createNote } from "../app/js/core/notes-file.js";
 import { headings, noteTitle, firstSentence, toggleTask, tasks, setTaskState, renderMarkdown } from "../app/js/core/markdown.js";
-import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, isSectionId, sectionId, sectionTitle, orderSections, arrangeRows, tableOfContents, closedOn, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
+import { viewNotes, matchRanges, sortNotes, customSplit, rearrange, placeInOrder, isSectionId, sectionId, sectionTitle, orderSections, arrangeRows, tableOfContents, closedOn, inViewOf, expiredTrash, TRASH_DAYS } from "../app/js/core/query.js";
 
 const sample = readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8");
 
@@ -212,4 +212,11 @@ test("renderMarkdown: a table sits in a box that scrolls sideways (backlog #44)"
   const html = renderMarkdown("| a | b |\n|---|---|\n| 1 | 2 |");
   assert.match(html, /^<div class="md-table"><table>[\s\S]*<\/table><\/div>\s*$/);
   assert.doesNotMatch(renderMarkdown("<table>x</table>"), /md-table/, "raw HTML stays text");
+});
+
+test("placeInOrder: notes move before an entry, a shelf's end is before the next shelf, pile notes join", () => {
+  const ids = ["~A", "a", "b", "~B", "c"];
+  assert.deepEqual(placeInOrder(ids, ["c"], "a"), ["~A", "c", "a", "b", "~B"]);
+  assert.deepEqual(placeInOrder(ids, ["a"], "~B"), ["~A", "b", "a", "~B", "c"]);
+  assert.deepEqual(placeInOrder(ids, ["p", "b"], null), ["~A", "a", "~B", "c", "p", "b"]);
 });

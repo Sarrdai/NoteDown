@@ -498,6 +498,11 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   background: var(--surface); box-shadow: 0 0 0 2px var(--accent), var(--shadow-high); opacity: 0.8;
 }
 .drag-ghost > ul, .drag-ghost > ol { margin: 0; }
+/* Several selected parts dragged together: the grabbed one shows, with their count. */
+.drag-ghost[data-count]::after {
+  content: attr(data-count); position: absolute; top: -10px; right: -10px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+  border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 0.75rem; font-weight: 700; line-height: 22px; text-align: center;
+}
 .drag-ghost .md-section { margin: 0; }
 .drop-line {
   position: fixed; z-index: 61; left: 0; top: 0; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none;
@@ -517,6 +522,17 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 }
 .app.reordering .note:not(.closed) .note-body li[data-line]:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
 .app.reordering .drag-grip { display: none; }
+/* With the Shelves, a card's own grip at its top edge moves the whole note (ui/reorder-mode.js). */
+.note-grip { display: none; }
+.app.reordering.shelves .note-grip {
+  display: block; position: absolute; z-index: 2; top: 0; left: calc(50% - 22px); width: 44px; height: 18px;
+  background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='6' cy='9' r='1.6'/%3E%3Ccircle cx='12' cy='9' r='1.6'/%3E%3Ccircle cx='18' cy='9' r='1.6'/%3E%3Ccircle cx='6' cy='15' r='1.6'/%3E%3Ccircle cx='12' cy='15' r='1.6'/%3E%3Ccircle cx='18' cy='15' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 24px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='6' cy='9' r='1.6'/%3E%3Ccircle cx='12' cy='9' r='1.6'/%3E%3Ccircle cx='18' cy='9' r='1.6'/%3E%3Ccircle cx='6' cy='15' r='1.6'/%3E%3Ccircle cx='12' cy='15' r='1.6'/%3E%3Ccircle cx='18' cy='15' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 24px no-repeat;
+  cursor: grab; touch-action: none;
+}
+.app.reordering.shelves .note:has(.note-grip) { padding-top: 20px; }
+.note-ghost { padding: 10px 14px; font-weight: 700; }
+/* The contents as a target while dragging (ui/drag-drop.js → tocSlot): the entry it lands in. */
+.toc-entry.drop-into { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
 .app.selecting .status:hover { color: var(--text-faint); }
 .app.selecting .status:hover .icon { opacity: 0; }
