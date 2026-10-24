@@ -93,7 +93,7 @@ function onPointerDown(e) {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
-    finish(ev.type === "pointerup", true);
+    finish(ev.type === "pointerup");
   };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
@@ -112,7 +112,7 @@ function onTouchStart(e) {
     window.removeEventListener("touchmove", move);
     window.removeEventListener("touchend", end);
     window.removeEventListener("touchcancel", end);
-    finish(ev.type === "touchend", false);
+    finish(ev.type === "touchend");
   };
   window.addEventListener("touchmove", move, { passive: false });
   window.addEventListener("touchend", end);
@@ -127,7 +127,7 @@ function begin(at, x, y, touch) {
     press.held = true;
     try { navigator.vibrate?.(15); } catch { /* not allowed */ }
     showPick(null);
-    pickAt(at.head);
+    pickAt(at.kind === "note" ? at.el : at.head);
   }, HOLD_MS) };
 }
 
@@ -143,13 +143,13 @@ function track(x, y) {
   if (press.dragging) moveDrag(x, y);
 }
 
-// A click with the mouse selects the part, as the desktop's hover grip does; a short tap on touch does nothing.
-function finish(commit, mouse) {
+// A short tap or click selects the part — while selecting it adds or takes it out —, as a held grip does.
+function finish(commit) {
   if (!press) return;
   const { at, dragging, held, timer } = press;
   press = null;
   clearTimeout(timer);
   showPick(null);
   if (dragging) return endDrag(commit);
-  if (commit && mouse && !held) pickAt(at.head);
+  if (commit && !held) pickAt(at.kind === "note" ? at.el : at.head);
 }

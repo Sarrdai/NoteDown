@@ -1605,9 +1605,11 @@ that host its IP address and the reading time.
   which didn't look good). Then every list item
   and heading of the open notes shows a **grip** at its left, nested items
   theirs indented, the text making room for them. A grip **drags at
-  once** ("Drag and drop"); **held** without moving it **selects** its part
-  and so starts or extends the multi-select (a click with the mouse does
-  the same); dragging the grip of a selected part moves **every selected
+  once** ("Drag and drop"); **tapped or held** without moving it, it
+  **selects** its part and so starts the multi-select, and while selecting
+  a tap on a grip adds its part or takes it out (user feedback 2026-10-24:
+  adding needed a long-press); a task's state menu never opens from its
+  grip; dragging the grip of a selected part moves **every selected
   part of its kind** along. A tap on a note's text doesn't edit
   meanwhile; a part dragged sideways sets its level. With **Shelves** the grip of a note's first line moves
   the whole note. Far targets are Move to's (the contents are no drop

@@ -3,6 +3,7 @@
 // opens a small menu with all four states. Used on rendered notes
 // (ui/note-list.js) and on the editor's checkboxes (ui/live-preview.js).
 import { openMenu } from "./menu.js";
+import { gripAt } from "./reorder-mode.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 10;
@@ -26,11 +27,12 @@ export function holdForStates(box, pick) {
     })));
   };
   const cancel = () => { if (press) clearTimeout(press.timer); press = null; };
-  // While notes are selected, a tap or hold on a box belongs to the selection.
+  // While notes are selected, a tap or hold on a box belongs to the selection; on the reorder mode's grip
+  // beside it (the box's enlarged target reaches it) to the grip (ui/reorder-mode.js).
   const selecting = () => !!box.closest(".app.selecting");
   box.addEventListener("pointerdown", e => {
     held = false;
-    if (e.button !== 0 || selecting()) return;
+    if (e.button !== 0 || selecting() || gripAt(box, e.clientX)) return;
     press = { x: e.clientX, y: e.clientY, timer: setTimeout(() => {
       press = null;
       try { navigator.vibrate?.(15); } catch { /* not allowed */ }
@@ -45,7 +47,7 @@ export function holdForStates(box, pick) {
   box.addEventListener("contextmenu", e => {
     e.preventDefault();
     e.stopPropagation();
-    if (held || selecting()) return;
+    if (held || selecting() || gripAt(box, e.clientX)) return;
     cancel();
     open();
   });
