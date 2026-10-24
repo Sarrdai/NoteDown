@@ -137,8 +137,6 @@ is deleted from code, menu and this table.
 
 | Parameter | Values | What it switches |
 |---|---|---|
-| `newnote` | `row` · `button` | Move to's "New note" (merge or split): the list's first row (A) or a button under the list (B) |
-| `copybutton` | `selection` · `always` | The editor toolbar's Copy to…: shows only while a passage is marked (A) or is always there, greyed out without one (B) |
 | `flavor` | `system` · `latte` · `frappe` · `macchiato` · `mocha` | Theme (a real setting, not a variant) |
 | `sort` | `custom` | Start the main view sorted by Shelves (screenshots of the pile and shelves; not a variant) |
 | `view` | `closed` · `trash` | Start in the archive or the trash |

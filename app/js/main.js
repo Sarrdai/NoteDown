@@ -36,7 +36,7 @@ import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
 import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
 import { initDragDrop } from "./ui/drag-drop.js";
-import { initReorderMode, setReordering } from "./ui/reorder-mode.js";
+import { initReorderMode, setReordering, revealSwipe } from "./ui/reorder-mode.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
@@ -165,7 +165,6 @@ function render() {
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
   app.classList.toggle("shelves", state.view === "open" && isCustom());
-  app.dataset.copyButton = s.copyButton;   // prototype variant (ui/toolbar.js)
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
@@ -592,8 +591,8 @@ function shelvesFor(noteIds) {
   };
 }
 
-// The floating sort button left of the + (decided 2026-10-24, user request: the place above the + went to
-// the reorder switch; 2026-10-19 over the top bar's sort button: sorting is a core feature): an arrow
+// The floating sort button above the + (decided 2026-10-19 over beside / below the +
+// and the top bar's sort button; user request: sorting is a core feature): an arrow
 // for the direction (up ascending, down descending; Shelves show a shelf) and the
 // sort's short name; a tap opens the sort menu (Shelves: Tidy up… / Arrange… in it).
 // On the phone the open contents sheet carries the same button above its level
@@ -710,12 +709,6 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
-    { section: "Prototype: Move to's New note" },
-    ...[["row", "First row of the list (A)"], ["button", "Button under the list (B)"]].map(([v, label]) =>
-      ({ label, checked: s.newNoteTarget === v, onSelect: () => updateSettings({ newNoteTarget: v }) })),
-    { section: "Prototype: Copy to… in the toolbar" },
-    ...[["selection", "Shows with a marked passage (A)"], ["always", "Always there, greyed out (B)"]].map(([v, label]) =>
-      ({ label, checked: s.copyButton === v, onSelect: () => updateSettings({ copyButton: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -880,9 +873,8 @@ function wire() {
   // Swiping sideways switches views on the list (the archive lies right of the
   // notes, the trash right of the archive; the contents list moves along) and
   // tabs on the contents panel (also the open sheet).
-  // Not in the reorder mode: moving a part sideways sets its level there (ui/drag-drop.js), it never switches views.
   const canSwipe = target => !state.editingId && !state.selected.size && $("syncPanel").hidden && $("menu").hidden
-    && !app.classList.contains("recording") && !app.classList.contains("reordering") && !target.closest(".topbar, .selectbar, .toc-handle");
+    && !app.classList.contains("recording") && !target.closest(".topbar, .selectbar, .toc-handle");
   initViewSwipe({
     order: ["open", "closed", "trash"],
     canSwipe: target => canSwipe(target) && !!target.closest(".main, .scrim"),
@@ -890,6 +882,9 @@ function wire() {
     view: () => state.view,
     setView,
     lanes: swipeLanes,
+    // To the right, where no view lies, the swipe shows the reorder mode's grips; to the left it hides them
+    // again before it goes to the archive (ui/reorder-mode.js).
+    edge: revealSwipe,
     // The + turns into the bin as the archive comes in (--archive: 0 notes, 1 archive).
     follow: (pos, ms) => {
       for (const fab of [$("fab"), $("sortFab")]) {
@@ -914,9 +909,6 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
-  // Prototype variants: ?newnote=row|button (Move to's New note), ?copybutton=selection|always (Copy to…).
-  if (["row", "button"].includes(p.get("newnote"))) patch.newNoteTarget = p.get("newnote");
-  if (["selection", "always"].includes(p.get("copybutton"))) patch.copyButton = p.get("copybutton");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");

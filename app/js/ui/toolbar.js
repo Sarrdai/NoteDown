@@ -2,8 +2,8 @@
 // sits above the on-screen keyboard on touch devices and floats at the
 // bottom of the list on the desktop. Also the due-date menu, which the
 // note's due chip opens (the toolbar has no due-date button since 2026-10-16). Copy to… copies a marked
-// passage into another note (ui/move-to.js); prototype variants: it shows only while a passage is marked
-// ("selection") or is always first, greyed out without one ("always").
+// passage into another note (ui/move-to.js); it shows only while a passage is marked (decided 2026-10-24
+// over always showing it greyed out: the bar stays as it was).
 import { state, note, setDue } from "../store.js";
 import { currentEditor, endEdit, onEditingChange } from "./note-list.js";
 import { openDateMenu, openTaskDueMenu } from "./due-menu.js";

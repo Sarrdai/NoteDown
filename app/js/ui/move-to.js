@@ -35,7 +35,6 @@ export function moveTo({ parts = [], sources = {}, text = null, candidates, onDo
   $("moveTitle").textContent = text !== null ? "Copy to…"
     : parts.length === 1 ? (parts[0].whole ? "Move note to…" : parts[0].item ? "Move item to…" : "Move section to…") : `Move ${parts.length} parts to…`;
   $("moveOk").textContent = text !== null ? "Copy" : "Move";
-  $("moveNew").hidden = !newNote || state.settings.newNoteTarget !== "button";
   $("moveChoice").innerHTML = newNote?.shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
     + choiceHtml("share", `Share with ${esc(membersLabel(newNote.shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(newNote.shareWith)) : "";
   $("moveSearch").value = "";
@@ -83,8 +82,8 @@ function render() {
   $("moveLess").disabled = depth <= 1;
   $("moveMore").disabled = depth >= maxLevel;
   const rows = [];
-  // Prototype variant "row": "New note" heads the list; "button": a button under it (#moveNew).
-  if (pick.newNote && state.settings.newNoteTarget === "row" && !q) rows.push(special({ kind: "new" }, "plus", "New note"));
+  // "New note" heads the list (decided 2026-10-24 over a button under it: in sight, one tap).
+  if (pick.newNote && !q) rows.push(special({ kind: "new" }, "plus", "New note"));
   if (pick.shelves && !q) rows.push(...pick.shelves.list.map(sh => special({ kind: "shelf", id: sh.id, title: sh.title }, "shelf", sh.title)));
   for (const [n, sections] of notes) {
     // A search shows every level of the notes it finds.
@@ -92,7 +91,6 @@ function render() {
     const hidden = sections.length - shown.length;
     shown.forEach(r => rows.push(row(n, r, r.level - 1, r.index === 0 ? hidden : 0)));
   }
-  $("moveNew").setAttribute("aria-pressed", String(pick.target?.kind === "new"));
   if (!rows.length) {
     const li = document.createElement("li");
     li.className = "move-empty";
@@ -190,8 +188,6 @@ export function initMoveTo() {
   $("moveSearch").addEventListener("input", () => render());
   $("moveCancel").addEventListener("click", close);
   $("moveOk").addEventListener("click", confirm);
-  $("moveNew").innerHTML = icon("plus") + "<span>New note</span>";
-  $("moveNew").addEventListener("click", () => setTarget({ kind: "new" }));
   $("moveDialog").addEventListener("click", e => { if (e.target === $("moveDialog")) close(); });
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape" || !isOpen()) return;

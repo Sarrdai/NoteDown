@@ -370,9 +370,9 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 .toolbar-scroll::-webkit-scrollbar { display: none; }
-/* Copy to… (ui/toolbar.js): in the accent colour; variant "selection" shows it only while a passage is marked. */
+/* Copy to… (ui/toolbar.js): in the accent colour, only while a passage is marked. */
 .tool[data-cmd="copyTo"] { color: var(--accent); }
-.app[data-copy-button="selection"] .toolbar:not(.has-selection) .tool[data-cmd="copyTo"] { display: none; }
+.toolbar:not(.has-selection) .tool[data-cmd="copyTo"] { display: none; }
 .tool {
   position: relative; flex: none; width: var(--tap); height: var(--tap); border: 0; border-radius: 10px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -483,10 +483,14 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .md li[data-line]:has(> input.task, > p:first-child > input.task) { --item-left: -10px; }
 .md li[data-line]::after { content: ""; position: absolute; z-index: -1; inset: -1px -4px -1px var(--item-left); border-radius: 6px; pointer-events: none; }
 .md li.selected::after { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-/* Drag and drop (ui/drag-drop.js). The desktop's grip: at the right end of the list item or heading under the
- * mouse; dragged, the part moves, clicked, it is selected. */
+/* Drag and drop (ui/drag-drop.js). The desktop's grip: left of the list item or heading under the mouse, in a
+ * gutter the notes keep with a mouse (where the touch grips sit); dragged, the part moves, clicked, it is
+ * selected. */
+@media (hover: hover) and (pointer: fine) {
+  .list .note:not(.closed, .trashed) { padding-left: 34px; }
+}
 .drag-grip {
-  position: absolute; z-index: 3; right: 20px; width: 24px; height: 20px; margin-top: -10px; padding: 0;   /* inside the outline it shows, centred on the first line */
+  position: absolute; z-index: 3; width: 24px; height: 20px; margin-top: -10px; padding: 0;   /* centred on the first line; left set by placeGrip */
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; border-radius: 6px; background: var(--surface); color: var(--text-muted);
   cursor: grab; touch-action: none;
@@ -518,24 +522,31 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   background: var(--accent); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px;
 }
 /* Reorder mode (ui/reorder-mode.js): every list item and heading of the open notes shows a grip at its left,
- * in a gutter the note's text makes room for; nested items carry theirs indented. The hover grip gives way. */
-.app.reordering .note:not(.closed) .note-body:has(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child) { padding-left: 30px; }
-.app.reordering .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child { position: relative; }
-.app.reordering .note:not(.closed) .note-body :is(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child)::before {
+ * in a gutter the note's text makes room for; nested items carry theirs indented. The hover grip gives way.
+ * The swipe that shows or hides them (.revealing) sets --reveal from 0 to 1 as the finger goes; past the full
+ * way the list gives a little (--reveal-give), and on letting go everything settles (.reveal-settle). */
+.app.revealing .list { transform: translateX(var(--reveal-give, 0px)); }
+.app.reveal-settle .list { transition: transform 0.2s ease-out; }
+.app.reveal-settle .note-body { transition: padding-left 0.2s ease-out; }
+.app.reveal-settle :is(.note-body *, .note-grip)::before, .app.reveal-settle .note-grip { transition: opacity 0.2s ease-out; }
+.app:is(.reordering, .revealing) .note:not(.closed) .note-body:has(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child) { padding-left: calc(30px * var(--reveal, 1)); }
+.app:is(.reordering, .revealing) .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child { position: relative; }
+.app:is(.reordering, .revealing) .note:not(.closed) .note-body :is(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child)::before {
   content: ""; position: absolute; top: 0; left: calc(var(--item-left, 0px) - 30px); width: 26px; height: 1lh;
   background: var(--text-faint); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; cursor: grab;
+  opacity: var(--reveal, 1);
 }
-.app.reordering .note:not(.closed) .note-body li[data-line]:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
-.app.reordering .drag-grip { display: none; }
+.app:is(.reordering, .revealing) .note:not(.closed) .note-body li[data-line]:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
+.app:is(.reordering, .revealing) .drag-grip { display: none; }
 /* With the Shelves the grip of a note's first line moves the whole note (ui/reorder-mode.js): the card's own
  * grip lies over the place of that line's grip, which gives way. */
 .note-grip { display: none; }
-.app.reordering.shelves .note-grip {
+.app:is(.reordering, .revealing).shelves .note-grip {
   display: block; position: absolute; z-index: 2; top: 12px; left: 4px; width: 34px; height: 34px;
   background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat;
-  cursor: grab; touch-action: none;
+  cursor: grab; touch-action: none; opacity: var(--reveal, 1);
 }
-.app.reordering.shelves .note:has(.note-grip) .note-body > .md-section:first-child > :is(:first-child, :is(ul, ol):first-child > li:first-child)::before { visibility: hidden; }
+.app:is(.reordering, .revealing).shelves .note:has(.note-grip) .note-body > .md-section:first-child > :is(:first-child, :is(ul, ol):first-child > li:first-child)::before { visibility: hidden; }
 /* While whole notes are dragged (ui/drag-drop.js → compactNotes) the cards shrink to their first lines. */
 .list.notes-compact .note-body { max-height: 3.4em; overflow: hidden; }   /* not the card: the pile's tray hangs on it */
 .list.notes-compact .note :is(.note-meta, .status, .permanent-mark) { display: none; }
@@ -617,14 +628,10 @@ body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-
 .move-tag { flex: none; display: inline-flex; color: var(--text-faint); }
 .move-tag .icon { width: 16px; height: 16px; }
 .move-more { flex: none; font-size: 0.8rem; color: var(--text-faint); }
-/* Rows that aren't a note's section: "New note" (variant "row") and the shelves for whole notes. */
+/* Rows that aren't a note's section: "New note" and the shelves for whole notes. */
 .move-row.special { color: var(--accent); }
 .move-lead { flex: none; display: inline-flex; }
 .move-lead .icon { width: 18px; height: 18px; }
-/* "New note" as a button under the list (variant "button"). */
-.move-new { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px 0 10px; }
-.move-new .icon { width: 18px; height: 18px; }
-.move-new[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .move-empty { padding: 12px 10px; font-size: 0.9rem; color: var(--text-muted); }
 .move-where { flex: none; margin: 10px 8px 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .move-task { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; cursor: pointer; }
@@ -1558,7 +1565,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .fab-empty { opacity: var(--archive); transform: rotate(calc((var(--archive) - 1) * 90deg)) scale(calc(0.4 + var(--archive) * 0.6)); }
 .app:not([data-view="open"]) .fab { --archive: 1; }
 .app:not([data-view="open"]) .fab.inert { box-shadow: none; cursor: default; }
-/* The sort button floats left of the +: a small pill with an arrow for the direction and the
+/* The sort button floats above the +: a small pill with an arrow for the direction and the
    sort's short name. In the archive, where the + turns into the bin at the left, it takes the
    + button's corner, following --archive like the +. */
 .sort-fab {
@@ -1573,21 +1580,11 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 }
 #sortFab {
   position: fixed; z-index: 15; --archive: 0; transition: --archive var(--archive-ms, 0.35s) cubic-bezier(.3,.7,.3,1);
-  display: inline-flex; right: calc(20px + (var(--fab-size) + 12px) * (1 - var(--archive)));
-  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2);
+  display: inline-flex; right: 20px;
+  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) + 12px) * (1 - var(--archive)) + (var(--fab-size) - 40px) / 2 * var(--archive));
 }
 .app:not([data-view="open"]) #sortFab { --archive: 1; }
 .app:is(.is-editing, .selecting, .recording, [data-view="trash"]) #sortFab { display: none; }
-/* The reorder mode's switch: a round button above the +, its grip in the accent colour; "Done" with a check
- * while the mode is on, growing to the left. Main view only. */
-#reorderFab {
-  position: fixed; z-index: 15; display: inline-flex; justify-content: center; min-width: 40px; padding: 0 10px;
-  right: calc(20px + (var(--fab-size) - 40px) / 2);
-  bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + var(--fab-size) + 12px);
-}
-#reorderFab[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
-#reorderFab[aria-pressed="true"] .icon { color: var(--on-accent); }
-.app:is(:not([data-view="open"]), .is-editing, .selecting, .recording) #reorderFab { display: none; }
 
 /* What a long-press lifts, or the grip under the mouse moves (ui/selection.js → showPick), gets an accent
  * outline — the list item, the heading's section or the note. */

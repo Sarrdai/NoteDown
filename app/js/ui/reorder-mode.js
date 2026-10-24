@@ -1,17 +1,20 @@
 // Reorder mode (docs/requirements.md → "Multi-select" → "Reorder mode"; decided 2026-10-24, user request, after
-// Google Keep's handles): a button switches it on and off; while it is on, every list item and heading of the
-// open notes shows a grip at its left. A grip drags at once (no long-press first); held without moving, it
-// selects its part instead. A tap on a note's text doesn't edit meanwhile. Ends with the button, Esc, back
-// or a view change. The switch floats above the + (decided over an icon in the search field: within thumb
-// reach, as the mode is switched on and off often).
+// Google Keep's handles): on touch a swipe to the right in the notes — where no view lies — shows the grips,
+// following the finger, and a swipe to the left hides them again instead of going to the archive (revealSwipe,
+// ui/view-swipe.js → edge; decided over a button above the +). While it is on, every list item and heading of
+// the open notes shows a grip at its left. A grip drags at once (no long-press first); held without moving, it
+// selects its part instead. A tap on a note's text doesn't edit meanwhile. Ends with the swipe back, Esc, back
+// or a view change. The desktop has no mode: the grip shows under the mouse (ui/drag-drop.js).
 import { state } from "../store.js";
 import { draggableAt, startDrag, startNoteDrag, moveDrag, endDrag } from "./drag-drop.js";
 import { pickAt, showPick, dragGroup, noteDragIds } from "./selection.js";
 import { pushEntry, leaveEntry } from "./dom.js";
-import { icon } from "./icons.js";
 
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 8;
+const REVEAL_PX = 90;   // the finger's way that shows (or hides) the grips fully
+const FLICK = 0.4;      // px/ms that finishes the swipe regardless of the way
+const SETTLE_MS = 200;
 const GRIPPABLE = ".note-body li[data-line], .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child";
 
 const $ = id => document.getElementById(id);
@@ -21,8 +24,6 @@ let press = null;   // { at, x0, y0, timer, dragging, touch } while a grip is he
 export const isReordering = () => on;
 
 export function initReorderMode() {
-  $("reorderFab").addEventListener("click", () => setReordering(!on));
-  renderButtons();
   const list = $("list");
   list.addEventListener("pointerdown", onPointerDown);
   // On touch the grip must keep the list from scrolling: only a touchstart listener can.
@@ -39,15 +40,32 @@ export function setReordering(next, { fromHistory = false } = {}) {
   $("app").classList.toggle("reordering", on);
   if (on) pushEntry({ reorder: true });
   else if (!fromHistory) leaveEntry("reorder");
-  renderButtons();
 }
 
-function renderButtons() {
-  const label = on ? "Done reordering" : "Reorder: show the handles";
-  $("reorderFab").innerHTML = on ? icon("check") + `<span class="sort-fab-label">Done</span>` : icon("grip");
-  $("reorderFab").setAttribute("aria-pressed", String(on));
-  $("reorderFab").setAttribute("aria-label", label);
-  $("reorderFab").title = label;
+/** The sideways swipe on the notes (ui/view-swipe.js → edge) when it shows or hides the grips: to the right
+ *  (dx > 0) while the mode is off, to the left while it is on; null otherwise (it switches views). The grips
+ *  follow the finger (--reveal 0…1), past the full way the list gives a little, like a list at its end;
+ *  let go past half the way or with a flick, the mode switches, else everything settles back. */
+export function revealSwipe(dx) {
+  if (state.view !== "open" || (dx > 0) === on) return null;
+  const app = $("app"), showing = !on;
+  const share = d => Math.min(1, Math.abs(d) / REVEAL_PX);
+  app.classList.add("revealing");
+  const set = (reveal, give) => { app.style.setProperty("--reveal", reveal); app.style.setProperty("--reveal-give", give + "px"); };
+  return {
+    move: d => set(showing ? share(d) : 1 - share(d), Math.sign(d) * Math.max(0, Math.abs(d) - REVEAL_PX) * 0.15),
+    end: (d, v) => {
+      const done = share(d) > 0.5 || (Math.abs(v) > FLICK && Math.sign(v) === Math.sign(d));
+      app.classList.add("reveal-settle");
+      set(showing === done ? 1 : 0, 0);
+      setTimeout(() => {
+        if (done) setReordering(showing);
+        app.classList.remove("revealing", "reveal-settle");
+        app.style.removeProperty("--reveal");
+        app.style.removeProperty("--reveal-give");
+      }, SETTLE_MS);
+    },
+  };
 }
 
 /** The part whose grip is at `target` and x (its ::before at the element's left), or null. With the Shelves,

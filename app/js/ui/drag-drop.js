@@ -13,7 +13,7 @@ import { itemSlots, sectionSlots, sectionRange, moveItem, moveSection, moveParts
 import { listItems } from "../core/list-items.js";
 import { sections, noteTitle } from "../core/markdown.js";
 import { placeInOrder } from "../core/query.js";
-import { showPick, pickAt, isSelecting, endSelection } from "./selection.js";
+import { showPick, pickAt, isSelecting, endSelection, dragGroup, noteDragIds } from "./selection.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
 
@@ -59,7 +59,8 @@ function initGrip() {
   grip = { el, at: null };
   $("list").addEventListener("pointermove", e => {
     if (e.pointerType !== "mouse" || e.buttons || drag || e.target.closest(".drag-grip")) return;
-    placeGrip(draggableAt(e.target));
+    const card = e.target.closest(".note");
+    placeGrip(card && card.dataset.id !== state.editingId ? partAtLine(card, e.clientY) : null);
   });
   $("list").addEventListener("pointerleave", () => { if (!drag) placeGrip(null); });
   el.addEventListener("pointerenter", () => { if (!drag) showPick(grip.at?.el); });
@@ -67,16 +68,44 @@ function initGrip() {
   el.addEventListener("pointerdown", onGripDown);
 }
 
-// Shows the grip at the right end of the part's first line (its card holds it), or hides it.
+const GRIPPED = ".note-body li[data-line], .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child";
+// A note's first line: its title, else its first block (or that block's first list item).
+const firstLine = card => {
+  const first = card.querySelector(".note-body > .md-section:first-child > :first-child");
+  return first?.matches("ul, ol") ? first.querySelector(":scope > li") : first;
+};
+
+// The part whose first line is at height y in `card` — also with the mouse in the margin left of it, where
+// its grip shows; with the Shelves a note's first line moves the whole note ({ kind: "note", el: card, head }).
+function partAtLine(card, y) {
+  const band = el => {
+    const r = el.getBoundingClientRect();
+    return y >= r.top - 2 && y <= r.top + Math.min(parseFloat(getComputedStyle(el).lineHeight) || r.height, r.height) + 2;
+  };
+  const first = firstLine(card);
+  if ($("app").classList.contains("shelves") && first && band(first) && opts.order?.()) {
+    const n = note(card.dataset.id);
+    if (n && n.status !== "closed" && !n.news) return { kind: "note", noteId: card.dataset.id, el: card, head: first };
+  }
+  let hit = null;
+  for (const el of card.querySelectorAll(GRIPPED)) if (band(el)) hit = el;   // the deepest, the last one found
+  return hit && draggableAt(hit);
+}
+
+// Shows the grip left of the part's first line, in the card's gutter (its card holds it), or hides it.
 function placeGrip(at) {
   grip.at = at;
   const card = at?.el.closest(".note");
   if (!at || !card) { grip.el.remove(); return; }
   if (grip.el.parentElement !== card) card.append(grip.el);
   const head = at.head.getBoundingClientRect();
+  const box = card.getBoundingClientRect();
   const lineH = parseFloat(getComputedStyle(at.head).lineHeight) || head.height;
-  // Relative to the card's padding box (inside its border).
-  grip.el.style.top = `${head.top - card.getBoundingClientRect().top - card.clientTop + Math.min(lineH, head.height) / 2}px`;
+  // Left of the bullet or number (a task's box is part of its item), relative to the card's padding box.
+  const em = parseFloat(getComputedStyle(at.head).fontSize);
+  const lead = at.head.matches("li") && !at.head.querySelector(":scope > input.task, :scope > p:first-child > input.task") ? 1.5 * em : 4;
+  grip.el.style.left = `${Math.max(2, head.left - lead - 26 - box.left - card.clientLeft)}px`;
+  grip.el.style.top = `${head.top - box.top - card.clientTop + Math.min(lineH, head.height) / 2}px`;
 }
 
 function onGripDown(e) {
@@ -86,7 +115,12 @@ function onGripDown(e) {
   const at = grip.at;
   const x0 = e.clientX, y0 = e.clientY;
   const move = ev => {
-    if (!drag && Math.hypot(ev.clientX - x0, ev.clientY - y0) > 4) { showPick(null); placeGrip(null); startDrag(at, x0, y0); }
+    if (!drag && Math.hypot(ev.clientX - x0, ev.clientY - y0) > 4) {
+      showPick(null);
+      placeGrip(null);
+      if (at.kind === "note") startNoteDrag(at.el, noteDragIds(at.noteId), x0, y0);
+      else startDrag(at, x0, y0, dragGroup(at));
+    }
     if (drag) moveDrag(ev.clientX, ev.clientY);
   };
   // On the window: the grip leaves its card when the drag starts.
@@ -95,9 +129,9 @@ function onGripDown(e) {
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
     if (drag) return endDrag(ev.type === "pointerup");
-    // A click on the grip selects the part, as Ctrl+click does.
+    // A click on the grip selects the part (with the Shelves' note grip the whole note), as Ctrl+click does.
     showPick(null);
-    pickAt(at.head);
+    pickAt(at.kind === "note" ? at.el : at.head);
   };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);

@@ -9,7 +9,9 @@
 // it shows, moves along the same way, and what changes with the view (the +
 // button) is told how far the swipe has come. The top bar and the contents'
 // head stay in place; they are redrawn once the page has switched
-// (docs/interaction-concept.md → "Input").
+// (docs/interaction-concept.md → "Input"). `edge(dx)` may take a swipe over
+// instead — the notes' swipe to the right, where no view lies, shows the
+// reorder mode's grips (ui/reorder-mode.js → revealSwipe).
 // Desktop has no touch, so no gesture; the view button and the tabs switch there.
 
 const SLOP = 8;           // px before the direction is decided
@@ -30,8 +32,8 @@ const SLIDE_MS = 220;
  *  move in proportion to their width. `follow(pos, ms)`: where the swipe
  *  stands between the views as an index into `order` (0…1), to get there over
  *  `ms`; null once it is over. */
-export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, setView, lanes, follow }) {
-  let g = null;     // { x, y, dx, horizontal, lastX, lastT, v, next, lanes } while a finger is down
+export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, setView, lanes, follow, edge = () => null }) {
+  let g = null;     // { x, y, dx, horizontal, lastX, lastT, v, next, lanes, edge } while a finger is down
   let busy = false;
 
   const neighbour = dir => {   // dir +1: to the right
@@ -87,7 +89,8 @@ export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, se
   document.addEventListener("touchstart", e => {
     if (busy) return;
     g = null;
-    if (e.touches.length !== 1 || !canSwipe(e.target) || inScroller(e.target)) return;
+    // A touch something below took for itself (the reorder mode's grip) doesn't swipe.
+    if (e.touches.length !== 1 || e.defaultPrevented || !canSwipe(e.target) || inScroller(e.target)) return;
     const { clientX: x, clientY: y } = e.touches[0];
     g = { x, y, dx: 0, horizontal: null, lastX: x, lastT: e.timeStamp, v: 0, next: null, lanes: [] };
   }, { passive: true });
@@ -104,6 +107,17 @@ export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, se
       if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
       g.horizontal = e.cancelable && Math.abs(dx) > Math.abs(dy);
       if (!g.horizontal) { g = null; return; }
+      g.edge = edge(dx);
+    }
+    if (g.edge) {
+      if (e.cancelable) e.preventDefault();
+      const dt = e.timeStamp - g.lastT;
+      if (dt > 0) g.v = 0.7 * ((x - g.lastX) / dt) + 0.3 * g.v;
+      g.lastX = x; g.lastT = e.timeStamp;
+      g.dx = dx;
+      return g.edge.move(dx);
+    }
+    if (!g.lanes.length) {
       g.next = neighbour(dx < 0 ? 1 : -1) ?? neighbour(dx < 0 ? -1 : 1);
       g.lanes = lanes().map(lane => openLane(lane, g.next));
       for (const lane of g.lanes) lane.move.classList.add("swiping");
@@ -120,6 +134,7 @@ export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, se
   const towardsNext = dx => g.next && Math.sign(dx) === (order.indexOf(g.next) > order.indexOf(view()) ? -1 : 1);
 
   document.addEventListener("touchend", async e => {
+    if (g?.edge) { g.edge.end(g.dx, e.timeStamp - g.lastT < HOLD_MS ? g.v : 0); g = null; return; }
     if (!g?.horizontal || busy) { if (!busy) g = null; return; }
     const { dx } = g;
     const v = e.timeStamp - g.lastT < HOLD_MS ? g.v : 0;   // held still before letting go: no flick
@@ -139,6 +154,7 @@ export function initViewSwipe({ order, canSwipe, canEnter = () => true, view, se
     busy = false;
   });
   document.addEventListener("touchcancel", async () => {
+    if (g?.edge) { g.edge.end(0, 0); g = null; return; }
     if (!g?.horizontal || busy) { if (!busy) g = null; return; }
     busy = true;
     place(0, SLIDE_MS);

@@ -767,10 +767,9 @@ paid features per user.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
-- **The sort button floats left of the + button** (main view and archive; in
+- **The sort button floats above the + button** (main view and archive; in
   the archive, where + turns into the bin at the left, it takes the
-  corner; moved there from above the + on 2026-10-24, user request, which
-  the reorder switch took): a small pill with an arrow for the direction (up ascending,
+  corner): a small pill with an arrow for the direction (up ascending,
   down descending) and the sort's short name — "Edit", "New", "Due",
   "ABC", "Closed"; Shelves show a shelf icon and "Shelves", shared shelves
   "Shared". A tap opens the sort menu (the sorts; with Shelves
@@ -1577,41 +1576,49 @@ that host its IP address and the reading time.
   a note with sections on hidden levels shows "+n", and a search shows
   every level of the notes it finds. *Prototype: 2026-10-19.*
   - **New note** is the first row of the list (unless only one whole note
-    moves): see "To a new note".
+    moves; decided 2026-10-24 over a button under the list: in sight, one
+    tap): see "To a new note".
   - **Shelves** (decided 2026-10-24, user request: sort new notes in
     quickly): whole notes moved while the view is sorted by Shelves get a
     row per shelf above the notes and land at its end ("Moved to the
     shelf “…” · Undo"), as the Tidy up dialog's rows do.
   - **Copy to…** (decided 2026-10-24, user request: e.g. an address named
     in a dictation): a passage marked in the editor goes the same way
-    through the same picker — the editor's toolbar shows **Copy to…** while
-    a passage is marked — to the end of a section of another note, as its
+    through the same picker — the editor's toolbar shows **Copy to…** first
+    while a passage is marked (decided over always showing it greyed out:
+    the bar stays as it was) — to the end of a section of another note, as its
     own paragraph or as tasks by the same rule, or into a **New note**; its
     own note keeps it ("Copied to “…” · Undo"). The edited note itself is
     no target. Only in the editor: rendered notes keep no text selection on
     touch. *Prototype: 2026-10-24.*
 - **Reorder mode** (decided 2026-10-24, user request, after Google Keep's
-  handles, which help organising but would disturb when always shown): the
-  **reorder switch** right above the + (`docs/interaction-concept.md` →
-  "Layout per tier") turns it on — then "✓ Done" — and every list item
+  handles, which help organising but would disturb when always shown): on
+  phone and tablet a **swipe to the right** in the notes, where no view
+  lies, turns it on — the grips fade in as the finger goes, with a little
+  elastic give like at a list's end — and a swipe to the left turns it off
+  before the next one goes to the archive (`docs/interaction-concept.md`
+  → "Input"; decided 2026-10-24, user request, over a button above the +,
+  which didn't look good). Then every list item
   and heading of the open notes shows a **grip** at its left, nested items
   theirs indented, the text making room for them. A grip **drags at
   once** ("Drag and drop"); **held** without moving it **selects** its part
   and so starts or extends the multi-select (a click with the mouse does
   the same); dragging the grip of a selected part moves **every selected
   part of its kind** along. A tap on a note's text doesn't edit
-  meanwhile, and swiping doesn't switch to the archive: moving sideways
-  sets the level. With **Shelves** the grip of a note's first line moves
+  meanwhile; a part dragged sideways sets its level. With **Shelves** the grip of a note's first line moves
   the whole note. Far targets are Move to's (the contents are no drop
-  target: decided 2026-10-24, user feedback, two ways are enough). The mode ends with "Done", `Esc`, back,
-  + or a view change; main view only. All tiers (the desktop also keeps
-  its hover grip). *Prototype: 2026-10-24.*
+  target: decided 2026-10-24, user feedback, two ways are enough). The mode ends with the swipe back, `Esc`,
+  back, + or a view change; main view only. No visible switch: the grips
+  and the indented text show it's on. The **desktop** has no mode: the
+  grip shows under the mouse, left of the line in a gutter the notes keep
+  there — the same place as on touch, with the Shelves on a note's first
+  line for the whole note. *Prototype: 2026-10-24.*
 - **Drag and drop** (decided 2026-10-22, user request: move tasks and
   sections where they belong in one go): a **list item** (with its
   sub-items) or a **heading's section** (with the deeper ones below it)
-  is dragged by its grip — in the reorder mode (every tier), and on the
-  desktop also by the **grip** that shows at the right of the list item
-  or heading under the mouse (an accent outline marks what it moves while
+  is dragged by its grip — in the reorder mode (phone, tablet), and on the
+  desktop by the **grip** that shows left of the list item or heading
+  under the mouse (an accent outline marks what it moves while
   the mouse is on it; a click on it selects). A floating copy follows the
   pointer and the part stays faint in its place; a **line** shows where
   it lands, in any open note of the main view: a list item between the

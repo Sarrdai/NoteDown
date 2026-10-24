@@ -16,7 +16,7 @@ The three notes below show you around. Close each one once you've read it.
 - [ ] Search narrows the list to matching notes; ▲ / ▼ step from hit to hit
 - [ ] Contents, People and Labels sit in the side panel — on a phone, pull up the handle at the bottom
 - [ ] Open the archive with its button in the top bar, or swipe sideways on a touch screen
-- [ ] Sorting sits left of +; the button above + shows handles to drag tasks, bullets and sections where they belong
+- [ ] Swipe right over your notes to show handles: drag tasks, bullets and sections where they belong (on a computer the handle shows under the mouse); swipe left to hide them
 - [ ] Export is under ⋮, the color theme in the settings (the round button right of the search)
 
 ## Where your notes live

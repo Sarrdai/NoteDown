@@ -50,14 +50,9 @@ Current state, edited in place when a decision changes.
   swipe between the views in step with the finger; left, so it is never
   taken for +). The snackbar then sits right of it.
 - **Sorting** is a secondary floating button: a small pill with the
-  sort's direction arrow and short name, left of + (in the archive in
+  sort's direction arrow and short name, right above + (in the archive in
   its corner), opening the sort menu (decided 2026-10-19, user request;
-  moved there 2026-10-24; `docs/requirements.md` → "Sorting and search").
-- **The reorder switch** floats right above + in the main view: a round
-  button with the grip in the accent colour, "✓ Done" while the reorder
-  mode is on (decided 2026-10-24, user request, over an icon in the search
-  field: in thumb reach, as the mode is switched often;
-  `docs/requirements.md` → "Reorder mode").
+  `docs/requirements.md` → "Sorting and search").
 - The app draws edge-to-edge: top bars, the sidebar and full-screen
   panels extend their background behind the system status bar and keep
   their controls below it, bottom elements stay above the gesture bar
@@ -117,8 +112,15 @@ Current state, edited in place when a decision changes.
   moves with the pages, split where the two views meet, in one straight
   line with them also in a flick. The whole screen below the top bar
   except the contents panel takes the swipe, also below the last card.
-  Not in the reorder mode: moving a part sideways sets its level there
-  and never switches views (decided 2026-10-24, user request).
+  **To the right in the notes**, where no view lies, the swipe shows the
+  reorder mode's grips instead of only giving a little: they fade in and
+  the text makes room as the finger goes, past the full way the list
+  gives a little like at its end; let go past half or with a flick, the
+  mode is on, else it settles back. While it is on, the swipe to the left
+  hides them the same way, and only the next one goes to the archive; a
+  part dragged sideways by its grip sets its level and never switches
+  views (decided 2026-10-24, user request, over a button above +;
+  `docs/requirements.md` → "Reorder mode").
 - **On the contents panel** (tablet sidebar, phone's open sheet, its tab
   row included) the same swipe moves between its tabs Contents, People,
   Labels instead, left to right, the same way: the tab's pane follows the finger, the neighbouring one moves
@@ -146,8 +148,9 @@ Current state, edited in place when a decision changes.
   and spins until the sync is over. Desktop syncs by opening Sync &
   sharing instead.
 - No hover-only functions: a control that shows only under the mouse
-  (the drag grip) is a shortcut for what touch reaches otherwise (the
-  reorder mode). Touch targets are at least 44 px
+  (the drag grip, left of the line in the notes' gutter, where the touch
+  grips sit) is the mouse's way to what touch reaches otherwise (the
+  reorder mode's swipe). Touch targets are at least 44 px
   (task checkboxes get an enlarged invisible target).
 - **Editing** happens in place: the tapped note turns into the editor,
   the rest of the list stays as it is. One note is edited at a time;
