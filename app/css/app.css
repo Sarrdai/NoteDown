@@ -1555,6 +1555,8 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .menu-item:disabled { opacity: 0.4; cursor: default; background: transparent; }
 .menu-item .check { width: 18px; height: 18px; color: var(--accent); visibility: hidden; }
 .menu-item[aria-checked="true"] .check { visibility: visible; }
+.menu-note { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding-left: 16px; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+.menu-note .icon { width: 16px; height: 16px; }
 /* A choice that opens the app's menu (menu.js → pickButton), in place of a native <select>. */
 .pick {
   display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 40px; padding: 0 8px 0 10px;

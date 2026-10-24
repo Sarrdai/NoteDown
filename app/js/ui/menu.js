@@ -1,4 +1,5 @@
-// A popup menu anchored to a button. Items: { label, icon?, checked?, disabled?, onSelect }
+// A popup menu anchored to a button. Items: { label, icon?, checked?, note?, disabled?, onSelect } (`note`:
+// trusted HTML after the label, e.g. the active sort's direction)
 // or { section: "Title" } or { separator: true } or { node: Element } (placed as it is, e.g. a row of swatches;
 // it stays open on a tap inside). Picking an item closes it.
 import { icon } from "./icons.js";
@@ -19,6 +20,7 @@ export function openMenu(anchor, items) {
     // `lead`: trusted HTML before the label, e.g. a circle's avatars.
     b.innerHTML = (item.checked !== undefined ? icon("check", "icon check") : item.icon ? icon(item.icon) : item.lead ? `<span class="menu-lead">${item.lead}</span>` : "") + `<span></span>`;
     b.lastChild.textContent = item.label;
+    if (item.note) b.insertAdjacentHTML("beforeend", `<span class="menu-note">${item.note}</span>`);
     b.disabled = !!item.disabled;
     // No focus change: a menu opened from the editor toolbar keeps the keyboard up.
     b.addEventListener("pointerdown", e => e.preventDefault());

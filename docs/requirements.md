@@ -758,7 +758,10 @@ paid features per user.
 
 - Both views sort by **last edited**, **created**, **due date** or
   **alphabetically** (first heading, else first sentence); the archive
-  additionally by **closed** date. Each option can be reversed. Defaults:
+  additionally by **closed** date. Each option can be reversed: the sort
+  menu shows the active sort's direction in words with its arrow ("Newest
+  first", "A–Z"), and picking the active sort again reverses it (decided
+  2026-10-24, user request, over a separate entry per direction). Defaults:
   last edited, newest first; in the archive closed, newest first.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
@@ -768,7 +771,7 @@ paid features per user.
   corner): a small pill with an arrow for the direction (up ascending,
   down descending) and the sort's short name — "Edit", "New", "Due",
   "ABC", "Closed"; Shelves show a shelf icon and "Shelves", shared shelves
-  "Shared". A tap opens the sort menu (sort and direction; with Shelves
+  "Shared". A tap opens the sort menu (the sorts; with Shelves
   **Tidy up…** / **Arrange…**). It gives way while editing, selecting and
   recording, and isn't in the trash. On the phone the open contents sheet
   covers it, so the sheet carries the same pill above its level stepper.

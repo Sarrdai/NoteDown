@@ -578,19 +578,28 @@ function renderSortFab(sort, due) {
 function sortMenu(anchor = $("sortFab")) {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.views || v.views.includes(state.view)) && (!v.circleOnly || sharedCircle()));
-  const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   // A sort change ends a new note's place on top, like a view or search change.
   const reorder = patch => { state.topId = null; updateSettings(patch); };
   const setSort = next => reorder({ sort: { ...state.settings.sort, [state.view]: next } });
+  // The active sort shows its direction in words; picking it again reverses it (decided 2026-10-24, user
+  // request, over separate entries per direction). A custom order has no direction.
+  const direction = (key, dir) => {
+    const words = (DIR_LABELS[key] || DIR_LABELS.default)[dir === "desc" ? 1 : 0];
+    return icon(dir === "desc" ? "arrowDown" : "arrowUp") + `<span>${words}</span>`;
+  };
+  const pick = (key, v) => sort.key !== key ? setSort({ key, dir: DEFAULT_DIR[key] })
+    : v.custom ? null : setSort({ ...sort, dir: sort.dir === "desc" ? "asc" : "desc" });
   openMenu(anchor, [
     { section: "Sort by" },
-    ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
-    { separator: true },
-    // A custom order has no direction; it is arranged instead (named like the pile header's link).
-    ...(SORT_KEYS[sort.key].custom ? [{ label: customSplit(inView(listed()), orderIds()).unsorted.length ? "Tidy up…" : "Arrange…", onSelect: arrange }] : [
-      { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
-      { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
-    ]),
+    ...keys.map(([key, v]) => ({
+      label: v.label, checked: sort.key === key, onSelect: () => pick(key, v),
+      note: sort.key === key && !v.custom ? direction(key, sort.dir) : "",
+    })),
+    // A custom order is arranged instead (named like the pile header's link).
+    ...(SORT_KEYS[sort.key].custom ? [
+      { separator: true },
+      { label: customSplit(inView(listed()), orderIds()).unsorted.length ? "Tidy up…" : "Arrange…", onSelect: arrange },
+    ] : []),
   ]);
 }
 
