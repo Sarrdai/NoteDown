@@ -381,8 +381,8 @@ before the first live test).
 - The server is built to scale to many users (stateless API, database,
   later an object store; `PROJECT.md` → "Technology direction").
 - **Where it is operated** (decided 2026-10-13):
-  - The top bar's **Sync & sharing** button (a cloud showing the sync
-    status; under ⋮ when it doesn't fit) holds everything around sync: turning it on
+  - **Sync & sharing** (the first row of the Settings, which the round
+    button right of the search opens) holds everything around sync: turning it on
     (name, then the recovery key, which has to be confirmed as stored),
     linking this device to an existing one (its QR code, or the recovery
     key), the devices (link a device by scanning, remove one) and the
@@ -406,18 +406,19 @@ before the first live test).
     line (up to three, then "+n"), one stable color per contact; tapping
     them opens the share dialog. Chosen over a colored stripe or a list
     grouped by people: it says who reads along and keeps one sorted list.
-  - **Sync status** is a cloud icon in the top bar (synced, syncing,
-    offline), hidden while sync is off; tapping it opens Sync & sharing.
-    A round that transferred something shows "syncing" (spinning arrows)
-    for at least 0.8 s, then the check draws itself in the accent color
-    and fades — a fast sync stays visible (decided 2026-10-13 over only
-    spinning, which doesn't mark the end, and a pulsing cloud, too easy
-    to miss).
+  - **Sync status** shows on the round settings button right of the
+    search: a ring around the own initial, in the done colour when synced,
+    a turning accent arc while syncing, red offline; without sync a plain
+    person and no colour (decided 2026-10-24, user request, after Google
+    Keep, over the status cloud). Tapping it opens the Settings with Sync
+    & sharing and its status in the first row. A round that transferred
+    something shows "syncing" for at least 0.8 s, so a fast sync stays
+    visible. *Prototype: 2026-10-24.*
   - **Syncing on request**, so the user can be sure to have the latest
-    state: opening Sync & sharing (button or ⋮, every tier) syncs, its
+    state: opening the Settings by the round button, or Sync & sharing, syncs (every tier); its
     footer shows "Syncing…" and then when it last synced; on phone and
     tablet, **pull to refresh** on the list syncs too (decided
-    2026-10-13 over a sync button: the icon already opens the panel).
+    2026-10-13 over a sync button: the button already opens the panel).
   - Without sync, sharing explains that it needs sync and offers to turn
     it on. Notes in the archive aren't shared from there.
   - *Prototype: round 4. **Real sync** runs against the server:
@@ -604,13 +605,13 @@ paid features per user.
   2026-10-14.*
 - The **archive button** in the main view leads to the archive; in the
   archive the same button reads **Notes** and leads back, so one place
-  switches between both views. It is an icon (tooltip) in the top bar
-  right after Sync & sharing, before Due and ⋮
+  switches between both views. It is an icon (tooltip) in the search
+  field, first after its text, before Due and ⋮
   (`docs/interaction-concept.md` → "Layout per tier"), and keeps its place
   in both views: the top bar keeps the same buttons in both. It carries no
   count: what was done today shows in the Due button's ring ("Due view").
   *Prototype: round 1; Notes button 2026-10-13; place and no count
-  2026-10-18; top bar order 2026-10-19.* Why: a second
+  2026-10-18; top bar order 2026-10-19; in the search field 2026-10-24.* Why: a second
   "today" count next to the Due button read as overloaded, so the archive
   became the less important button.
 - On phone and tablet, **swiping sideways** anywhere on the list
@@ -621,7 +622,7 @@ paid features per user.
   tablet's sidebar, the phone's open sheet) moves along the same way;
   the top bar and the contents' head stay in place and are only refilled
   (decided 2026-10-14: contents that jumped only at the end irritated).
-  The title at the left of the top bar
+  The search field's placeholder ("Search notes", "Search archive")
   says where the user is. The view button stays as the visible way.
   *Prototype: 2026-10-14; pager behavior 2026-10-14 (swiping only worked
   on some tries and only switched after the gesture).*
@@ -766,9 +767,10 @@ paid features per user.
   Notes without the sort value (no due date) always come last; by due
   date a note's open task dates count too ("Due date per task"). The choice
   is remembered per view. *Prototype: round 1.*
-- **The sort button floats above the + button** (main view and archive; in
+- **The sort button floats left of the + button** (main view and archive; in
   the archive, where + turns into the bin at the left, it takes the
-  corner): a small pill with an arrow for the direction (up ascending,
+  corner; moved there from above the + on 2026-10-24, user request, which
+  the reorder switch took): a small pill with an arrow for the direction (up ascending,
   down descending) and the sort's short name — "Edit", "New", "Due",
   "ABC", "Closed"; Shelves show a shelf icon and "Shelves", shared shelves
   "Shared". A tap opens the sort menu (the sorts; with Shelves
@@ -880,7 +882,12 @@ paid features per user.
   "Note hidden by the filter", so its disappearing can be followed
   (user request 2026-10-19). *Prototype: 2026-10-19.*
 - A **full-text search** in the top bar filters the current view; the
-  table of contents follows the filter. *Prototype: round 1.*
+  table of contents follows the filter. The field is the top bar itself,
+  in every tier: it holds the view button, Due and ⋮ after its text, and a
+  tap into it searches, its buttons then making room for the counter, ▲ / ▼
+  and × (decided 2026-10-24, user request, after Google Keep: the field
+  fills the bar and holds as many buttons as fit). *Prototype: round 1;
+  the top bar's field 2026-10-24.*
 - Where the search text occurs it is **highlighted** in the notes and in
   the contents entries (also across formatting), so the place of a hit
   shows, not only its note (decided 2026-10-15). The note being edited
@@ -1457,7 +1464,8 @@ that host its IP address and the reading time.
   note, a heading, a list item or a contents entry starts / extends the
   selection, as do a **right-click** (the browser's menu stays on links and
   in the editor) and a click on the **grip** ("Drag and drop"; decided
-  2026-10-22, user request: the long-press is slow with a mouse);
+  2026-10-22, user request: the long-press is slow with a mouse); in the
+  reorder mode a held grip (a click with the mouse) selects its part too;
   Shift+click selects a range (in the list, on a heading by section, and in the contents); a
   plain click on a card's frame — its margin or the free part of the meta
   line, outside the text and the controls — selects the note too
@@ -1466,14 +1474,13 @@ that host its IP address and the reading time.
   stay with the editor; the archive selects whole notes only. *Prototype: round 3; sections
   2026-10-14; list items and right-click 2026-10-22.*
 - **Long-press lifts** (phone, tablet; decided 2026-10-22, user request:
-  one gesture for selecting and moving, as in Google Keep or iOS
-  Reminders): the long-press lifts what is under the finger — an **accent
-  outline** shows it, the phone buzzes. Letting go without moving selects
-  it (while selecting it toggles, like a tap); moving the finger drags a
-  list item or a heading's section ("Drag and drop"; a whole note stays
-  in place). It replaces "held on longer selects the sections one by
-  one" on touch, and an earlier glide to the target: the outline shows at
-  once what was hit, a wrong hit is let go and taken out with a tap.
+  as in Google Keep or iOS Reminders): the long-press lifts what is under
+  the finger — an **accent outline** shows it, the phone buzzes — and
+  letting go selects it (while selecting it toggles, like a tap). It
+  replaces "held on longer selects the sections one by one" on touch: the
+  outline shows at once what was hit, a wrong hit is taken out with a
+  tap. Moving the lifted finger no longer drags (decided 2026-10-24, user
+  request): moving is the reorder mode's.
 - A fully selected note is marked only by the **accent border**; a partly
   selected one tints its selected sections. In the contents, selected
   entries are tinted and selected sections on hidden levels show as "+n"
@@ -1564,13 +1571,28 @@ that host its IP address and the reading time.
   starts at 2, remembered on this device apart from the contents' count);
   a note with sections on hidden levels shows "+n", and a search shows
   every level of the notes it finds. *Prototype: 2026-10-19.*
+- **Reorder mode** (decided 2026-10-24, user request, after Google Keep's
+  handles, which help organising but would disturb when always shown): the
+  **reorder switch** right above the + (`docs/interaction-concept.md` →
+  "Layout per tier") turns it on — then "✓ Done" — and every list item
+  and heading of the open notes shows a **grip** at its left, nested items
+  theirs indented, the text making room for them. A grip **drags at
+  once** ("Drag and drop"); **held** without moving it **selects** its part
+  and so starts or extends the multi-select (a click with the mouse does
+  the same); dragging the grip of a selected part moves **every selected
+  part of its kind** along. A tap on a note's text doesn't edit
+  meanwhile, and swiping doesn't switch to the archive: moving sideways
+  sets the level. With **Shelves** each card also shows a grip at its top
+  edge that moves the whole note. The mode ends with "Done", `Esc`, back,
+  + or a view change; main view only. All tiers (the desktop also keeps
+  its hover grip). *Prototype: 2026-10-24.*
 - **Drag and drop** (decided 2026-10-22, user request: move tasks and
   sections where they belong in one go): a **list item** (with its
   sub-items) or a **heading's section** (with the deeper ones below it)
-  is dragged — on the desktop by the **grip** that shows at the right of
-  the list item or heading under the mouse (an accent outline marks what
-  it moves while the mouse is on it; a click on it selects), on touch by
-  moving the finger after the long-press. A floating copy follows the
+  is dragged by its grip — in the reorder mode (every tier), and on the
+  desktop also by the **grip** that shows at the right of the list item
+  or heading under the mouse (an accent outline marks what it moves while
+  the mouse is on it; a click on it selects). A floating copy follows the
   pointer and the part stays faint in its place; a **line** shows where
   it lands, in any open note of the main view: a list item between the
   items of any list or at the end of a section's own text (a new list
@@ -1584,10 +1606,32 @@ that host its IP address and the reading time.
   Undo"; into another note it acts like Move to (a source left empty
   disappears, also from a shared note for everyone in its circle). Not in
   the archive, the trash, news posts or the note being edited; paragraphs
-  and whole notes don't drag. Selected list items that follow each other
+  don't drag; a whole note moves into another one by its title's grip (as
+  a section). Selected list items that follow each other
   in one list also move up or down among their siblings by **Alt+↑ / ↓**
   and **Move up / down** under ⋮ (keyboard, accessibility). *Prototype:
   2026-10-22.*
+  - **Several parts together** (decided 2026-10-24, user request): dragged
+    by the grip of a selected part, all selected parts of its kind (list
+    items, or sections) go along — the floating copy shows their count —
+    and land together at the line, in the selection's order, each on the
+    line's level. "Moved n items" / "n sections", with Undo. A selection
+    that mixes kinds moves only the dragged part. *Prototype: 2026-10-24.*
+  - **Into the contents** (decided 2026-10-24, user request: far targets
+    without scrolling): dropped on a contents entry, a list item lands at
+    the end of that section's own text, a section at the end of that
+    section as a subsection (one level deeper); on the upper edge of a
+    heading's entry a section lands before that heading, shown by a line.
+    The entry it lands in is tinted. On the phone, held over the closed
+    sheet's handle the sheet opens, and it closes again after the drop;
+    on tablet and desktop the sidebar is a target as it is. *Prototype:
+    2026-10-24.*
+  - **Whole notes with the Shelves** (decided 2026-10-24, user request):
+    the card's grip at its top edge drags the note (with the other selected
+    whole notes) between the notes of the order and to the end of a shelf
+    (the line before the next shelf) — changing the order only, as
+    Arrange does; a note from the pile joins the order. "Moved", with
+    Undo. *Prototype: 2026-10-24.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked and the cancelled task items
   (`- [x]`, `- [-]`, with the indented lines below them) of the selection leave their note — of the
@@ -1817,15 +1861,18 @@ decided 2026-10-21, user request), designed for the first generation:
 Decided 2026-10-16 (user request): the app's own settings sit in one
 place instead of the top bar and ⋮.
 
-- ⋮ → **Settings…** opens them in the panel container of Sync & sharing
-  (phone: full-screen sheet; tablet and desktop: centered dialog; back,
-  Esc and the Android back key go one page back). Under ⋮, as settings
-  are rarely needed and the phone's top bar is full.
-- Sections: **Appearance** — Theme (System, Latte, Frappé, Macchiato,
+- The **round button right of the search** (the own initial in the sync
+  status ring, "Sync and sharing" → "Sync status") opens them in the panel container of
+  Sync & sharing (phone: full-screen sheet; tablet and desktop: centered
+  dialog; back, Esc and the Android back key go one page back). Decided
+  2026-10-24 (user request, after Google Keep) over ⋮ → Settings… and a
+  separate Sync & sharing button: one button for the sync status and the
+  settings.
+- First, without a heading, **Sync & sharing** (the panel's own pages,
+  its line the sync status). Then the sections: **Appearance** — Theme (System, Latte, Frappé, Macchiato,
   Mocha); **Notes** — Reminders, Tidy-up reminder (the gauge's numbers
   and which circles count, "Sorting and search"), Links & media (each a page, its line
-  saying what is set); **Sync** — Sync & sharing (the panel's own pages,
-  its line the sync status; its top-bar icon stays for the status);
+  saying what is set);
   **Privacy** (Android app only) — Screen lock, Screen security,
   Incognito keyboard, Speech recognition ("Privacy on the device",
   "Dictation"); **Data** — Backup
