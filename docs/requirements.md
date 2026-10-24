@@ -802,7 +802,9 @@ paid features per user.
   one line, remembered per device like a section; a search shows it
   unfolded. A new note lands on top of the pile at once, also when it was
   empty, and shows there even with the pile folded (user request
-  2026-10-19: an empty pile's header stayed below it). With the pile empty
+  2026-10-19: an empty pile's header stayed below it); sorted onto a shelf
+  (Move to, a grip, Tidy up) it takes its place there at once, never above
+  the pile (user feedback 2026-10-24: it stood above "Pile empty"). With the pile empty
   the header reads "Pile empty" with a check and the link **Arrange…**
   (user request 2026-10-19: re-arranging a fully sorted order from the
   list and the contents). The sort menu's **Tidy up…** — **Arrange…** with

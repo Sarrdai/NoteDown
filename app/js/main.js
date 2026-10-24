@@ -102,8 +102,11 @@ function newNoteMembers(key = activeCircle()) {
 const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one circle only" : null;
 
 // A new note kept on top shows even when the filters leave it out (a label
-// filter, permanent only): it must open visibly and editable.
+// filter, permanent only): it must open visibly and editable. With the Shelves
+// it stays on top only while it lies on the pile: sorted onto a shelf (Move to,
+// a grip, Tidy up) it takes its place there, never above the pile.
 function currentNotes() {
+  if (state.topId && isCustom() && orderIds().includes(state.topId)) state.topId = null;
   const notes = inView(listed());
   const i = notes.findIndex(n => refOf(n) === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
