@@ -810,8 +810,9 @@ paid features per user.
   list and the contents). The sort menu's **Tidy up…** — **Arrange…** with
   the pile empty — (and the same link on
   the header in the list and in the table of contents) opens a dialog like
-  the merge order dialog, where notes move above a line by drag (or arrow
-  keys) or with + / −, and are ordered there; the pile is below the line.
+  Copy's order dialog: the pile on top, as in the list (decided
+  2026-10-24, user feedback), then a line, below which notes are sorted in
+  by drag (or arrow keys) or with + / − and ordered there.
   Each note row's move button moves the note into a section of another
   (Multi-select → "Move to").
   Shelves have no direction. The dialog arranges what the list shows

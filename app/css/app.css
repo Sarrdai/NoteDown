@@ -596,11 +596,12 @@ body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-
 .arrange-section-title { flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 800; outline: none; }
 .arrange-section-title:focus { box-shadow: inset 0 -2px 0 var(--accent); }
 .dialog-actions .add-section { display: inline-flex; align-items: center; gap: 4px; padding: 0 14px 0 10px; margin-right: auto; }
-.arrange-line {
+:is(.arrange-line, .arrange-head) {
   display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.78rem; font-weight: 700;
   letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
 }
-.arrange-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+:is(.arrange-line, .arrange-head)::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.arrange-head { margin-top: 0; }   /* the pile's heading on top, as in the list */
 /* Below the list: how the unsorted rows are ordered (not Custom itself). */
 .arrange-sort { flex: none; display: flex; align-items: center; gap: 4px; margin: 8px 8px 0; font-size: 0.88rem; color: var(--text-muted); }
 #arrangeSort { color: var(--text); }

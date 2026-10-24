@@ -1,10 +1,10 @@
 // The arrange dialog of Shelves (backlog #24; the sort named My order until 2026-10-19), opened by Tidy up…: the notes
-// of the current view in two parts — sorted ones on top, then a line and the
-// pile, the notes not sorted in yet. Rows move by drag or arrow keys (the grip of the merge order
-// dialog), + adds a note at the end of the sorted part, − takes it out.
-// Below the list a sort (any but the custom ones) orders the unsorted rows,
+// of the current view in two parts — the pile on top, the notes not sorted in yet, as in the list (decided
+// 2026-10-24, user feedback), then a line and the sorted ones. Rows move by drag or arrow keys (the grip of the
+// order dialog), + adds a note at the end of the sorted part, − takes it out (to the pile's end).
+// Below the list a sort (any but the custom ones) orders the pile's rows,
 // so the next ones to sort in are easy to find. "Shelf" adds a shelf (a section
-// divider in the code) above the line: a titled row that moves like a note and groups
+// divider in the code) at the end: a titled row that moves like a note and groups
 // the notes below it; its × removes it (the notes stay where they are). A note's
 // move button moves it into a section of another note (ui/move-to.js): its row goes.
 import { noteTitle } from "../core/markdown.js";
@@ -32,8 +32,8 @@ export function openArrange({ title = "Shelves", hint = "Only you see these shel
   unsortedBy = { key: "modified", dir: "desc" };
   $("arrangeSortLabel").textContent = SORT_KEYS[unsortedBy.key].label;
   $("arrangeTitle").textContent = title;
-  $("arrangeHint").textContent = hint + " Drag notes above the line to sort them, or tap + and −. Shelves hold the notes below them.";
-  $("arrangeList").replaceChildren(...sorted.map(r => r.section ? sectionRow(sectionTitle(r.section)) : row(r)), line(), ...unsorted.map(row));
+  $("arrangeHint").textContent = hint + " Drag notes below the line to sort them, or tap + and −. Shelves hold the notes below them.";
+  $("arrangeList").replaceChildren(head(), ...unsorted.map(row), line(), ...sorted.map(r => r.section ? sectionRow(sectionTitle(r.section)) : row(r)));
   refresh();
   $("arrangeDialog").hidden = false;
   $("arrangeOk").focus({ preventScroll: true, focusVisible: false });
@@ -58,7 +58,7 @@ function row(n) {
   toggle.className = "icon-btn small arrange-toggle";
   toggle.addEventListener("click", () => {
     const divider = $("arrangeList").querySelector(".arrange-line");
-    if (li.classList.contains("unsorted")) divider.before(li); else divider.after(li);
+    if (li.classList.contains("unsorted")) $("arrangeList").append(li); else divider.before(li);
     refresh();
   });
   const move = document.createElement("button");
@@ -96,31 +96,39 @@ function sectionRow(title) {
   return li;
 }
 
-// A new shelf goes right above the line: + on a note then sorts it in there.
+// A new shelf goes at the end: + on a note then sorts it in there.
 function addSection() {
   const li = sectionRow("New shelf");
-  $("arrangeList").querySelector(".arrange-line").before(li);
+  $("arrangeList").append(li);
   const input = li.querySelector("input");
   input.focus({ preventScroll: true });
   input.select();
   li.scrollIntoView({ block: "nearest" });
 }
 
-function line() {
+// The pile's heading on top, and the line between the pile and the sorted notes.
+function head() {
   const li = document.createElement("li");
-  li.className = "arrange-line";
+  li.className = "arrange-head";
   li.textContent = "Pile";
   return li;
 }
 
-// Orders the rows below the line; rows above it keep their order.
+function line() {
+  const li = document.createElement("li");
+  li.className = "arrange-line";
+  li.textContent = "Sorted";
+  return li;
+}
+
+// Orders the pile's rows (above the line); the sorted rows keep their order.
 function sortUnsorted(by) {
   unsortedBy = by;
   $("arrangeSortLabel").textContent = SORT_KEYS[by.key].label;
   const list = $("arrangeList");
   const rows = [...list.querySelectorAll(".order-item.unsorted")];
   const byId = new Map(rows.map(li => [li.dataset.id, li]));
-  list.append(...sortNotes(rows.map(li => notes.get(li.dataset.id)), by).map(n => byId.get(refOf(n))));
+  list.querySelector(".arrange-line").before(...sortNotes(rows.map(li => notes.get(li.dataset.id)), by).map(n => byId.get(refOf(n))));
 }
 
 function sortMenu() {
@@ -135,23 +143,26 @@ function sortMenu() {
   ]);
 }
 
-// Rows below the line are unsorted: their button adds, the others' removes.
+// Rows above the line are the pile: their button adds, the others' removes.
 // Only rows that changed sides get a new icon: replacing the icon under a
 // press would swallow the click on the button (refresh runs on pointerup).
-// A section carried below the line goes back right above it.
+// A shelf carried into the pile goes to the end (holding nothing, as a new one); the pile's heading stays first.
 function refresh() {
-  let below = false;
-  for (const li of [...$("arrangeList").children]) {
-    if (li.classList.contains("arrange-line")) { below = true; continue; }
+  const list = $("arrangeList");
+  list.prepend(list.querySelector(".arrange-head"));
+  let pile = true;
+  for (const li of [...list.children]) {
+    if (li.classList.contains("arrange-head")) continue;
+    if (li.classList.contains("arrange-line")) { pile = false; continue; }
     if (li.classList.contains("arrange-section")) {
-      if (below) $("arrangeList").querySelector(".arrange-line").before(li);
+      if (pile) list.append(li);
       continue;
     }
     const b = li.querySelector(".arrange-toggle");
-    if (b.hasChildNodes() && li.classList.contains("unsorted") === below) continue;
-    li.classList.toggle("unsorted", below);
-    b.innerHTML = icon(below ? "plus" : "minus");
-    b.setAttribute("aria-label", below ? "Add to the order" : "Take out of the order");
+    if (b.hasChildNodes() && li.classList.contains("unsorted") === pile) continue;
+    li.classList.toggle("unsorted", pile);
+    b.innerHTML = icon(pile ? "plus" : "minus");
+    b.setAttribute("aria-label", pile ? "Add to the order" : "Take out of the order");
   }
 }
 
@@ -164,8 +175,10 @@ export function initArrange() {
   $("arrangeDialog").addEventListener("click", e => { if (e.target === $("arrangeDialog")) close(); });
   $("arrangeOk").addEventListener("click", () => {
     const ids = [];
+    let sorted = false;
     for (const li of $("arrangeList").children) {
-      if (li.classList.contains("arrange-line")) break;
+      if (li.classList.contains("arrange-line")) { sorted = true; continue; }
+      if (!sorted) continue;
       ids.push(li.classList.contains("arrange-section") ? sectionId(li.querySelector("input").value.trim() || "Section") : li.dataset.id);
     }
     const save = onSave;
