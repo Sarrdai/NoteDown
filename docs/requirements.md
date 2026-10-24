@@ -1601,8 +1601,10 @@ that host its IP address and the reading time.
   level**: moving sideways nests it deeper or less deep, within what the
   place allows — from the level of what follows down to one below what
   precedes, as in an outliner; a section's line names its heading level
-  ("H3"), and its headings shift along. Near the window's edge the list
-  scrolls along. Letting go moves it, with "Moved" / "Moved to “…” ·
+  ("H3"), and its headings shift along. Resting near the list's top or
+  bottom edge (0.3 s), the list scrolls along — not at once, so passing the
+  edge on the way to the phone's contents handle doesn't move it (decided
+  2026-10-24, user feedback). Letting go moves it, with "Moved" / "Moved to “…” ·
   Undo"; into another note it acts like Move to (a source left empty
   disappears, also from a shared note for everyone in its circle). Not in
   the archive, the trash, news posts or the note being edited; paragraphs
@@ -1622,7 +1624,10 @@ that host its IP address and the reading time.
     the end of that section's own text, a section at the end of that
     section as a subsection (one level deeper); on the upper edge of a
     heading's entry a section lands before that heading, shown by a line.
-    The entry it lands in is tinted. On the phone, held over the closed
+    The entry it lands in is tinted. Over the contents only their entries
+    are targets, never the list behind them, and the floating copy shrinks
+    to its first line (user feedback 2026-10-24: lines from the hidden list
+    and a large copy irritated). On the phone, held over the closed
     sheet's handle the sheet opens, and it closes again after the drop;
     on tablet and desktop the sidebar is a target as it is. *Prototype:
     2026-10-24.*
@@ -1630,7 +1635,10 @@ that host its IP address and the reading time.
     the card's grip at its top edge drags the note (with the other selected
     whole notes) between the notes of the order and to the end of a shelf
     (the line before the next shelf) — changing the order only, as
-    Arrange does; a note from the pile joins the order. "Moved", with
+    Arrange does; a note from the pile joins the order. While it is
+    dragged the cards shrink to their first lines, so the places between
+    them lie close together on the screen (user feedback 2026-10-24: with
+    tall cards no place was in view). "Moved", with
     Undo. *Prototype: 2026-10-24.*
 - **Clear done tasks** (decided 2026-10-15, user request) tidies a list
   without losing what was done: the ticked and the cancelled task items

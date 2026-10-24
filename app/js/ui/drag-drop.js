@@ -23,6 +23,7 @@ import { icon } from "./icons.js";
 let opts = null;   // { onMoved(targetId, undo, message), order() → { ids, set(ids) → undo } | null (not the Shelves) }
 let drag = null;   // while dragging: { src, range, from, group, level0, els, ghost, line, grab, x, y, x0, slot, frame, dwell, opened }
 const DWELL_MS = 450;   // held this long over the phone's contents handle, the sheet opens
+const EDGE_MS = 300;    // the list scrolls along once the pointer rests this long near its top or bottom edge
 const phone = window.matchMedia("(max-width: 599px)");
 let grip = null;   // the desktop's grip and what it moves: { el, at }
 
@@ -161,17 +162,29 @@ export function moveDrag(x, y) {
   Object.assign(drag, { x, y });
   drag.ghost.style.transform = `translate(${x - drag.grab.dx}px, ${y - drag.grab.dy}px)`;
   const notes = drag.src.kind === "note";
-  const toc = notes ? null : tocSlot(x, y);
-  drag.slot = toc || (notes ? nearestNoteSlot() : nearestSlot());
+  // Over the contents only their entries are targets, never the list hidden below them.
+  const toc = !notes && overToc(x, y);
+  drag.ghost.classList.toggle("over-toc", toc);
+  if (!toc) unmarkToc();
+  drag.slot = notes ? nearestNoteSlot() : toc ? tocSlot(x, y) : nearestSlot();
   drawLine();
   if (!notes) watchHandle(y);
-  if (!drag.frame && !toc) drag.frame = requestAnimationFrame(autoScroll);
+  if (!drag.frame) drag.frame = requestAnimationFrame(autoScroll);
 }
 
 // ---------- the contents as a target ----------
 
 const sheetOpen = () => document.getElementById("app").classList.contains("toc-open");
-const handleZone = y => phone.matches && !sheetOpen() && y > window.innerHeight - 44;
+// The list's visible bottom: on the phone above the closed sheet's handle (its zone opens the sheet).
+const listBottom = () => phone.matches && !sheetOpen() ? $("tocHandle").getBoundingClientRect().top - 12 : window.innerHeight;
+const handleZone = y => phone.matches && !sheetOpen() && y > listBottom();
+// Over the contents: the phone's open sheet, the sidebar elsewhere.
+function overToc(x, y) {
+  if (phone.matches) return sheetOpen();
+  const r = $("tocPanel").getBoundingClientRect();
+  return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+}
+const unmarkToc = () => { for (const old of document.querySelectorAll("#tocList .drop-into")) old.classList.remove("drop-into"); };
 
 // Phone: held over the closed sheet's handle, the sheet opens (and closes again after the drop).
 function watchHandle(y) {
@@ -189,7 +202,7 @@ const ownRanges = id => drag.group ? drag.group.filter(p => p.noteId === id).map
 
 // The contents entry under the pointer as a slot — { noteId, line, level, gap, entry, before } — or null.
 function tocSlot(x, y) {
-  for (const old of document.querySelectorAll("#tocList .drop-into")) old.classList.remove("drop-into");
+  unmarkToc();
   const entry = document.elementFromPoint(x, y)?.closest("#tocList .toc-entry[data-key]");
   if (!entry || (phone.matches && !sheetOpen())) return null;
   const key = entry.dataset.key;
@@ -224,12 +237,16 @@ function tocSlot(x, y) {
 // The visible part of the list: below the top bar (or the selection bar).
 const viewTop = () => Math.max(0, ...[$("topbar"), $("selectBar")].filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect().bottom));
 
+// Near the list's top or bottom edge it scrolls along — after a short rest there, so passing the edge on the
+// way to the phone's contents handle doesn't move the list. Not over the contents.
 function autoScroll() {
   if (!drag) return;
-  if (handleZone(drag.y) || (phone.matches && sheetOpen())) { drag.frame = 0; return; }
-  const step = drag.y < viewTop() + 40 ? -12 : drag.y > window.innerHeight - 60 ? 12 : 0;
-  if (step) { window.scrollBy(0, step); moveDrag(drag.x, drag.y); }
-  drag.frame = step ? requestAnimationFrame(autoScroll) : 0;
+  const { x, y } = drag;
+  const step = handleZone(y) || overToc(x, y) ? 0 : y < viewTop() + 40 ? -12 : y > listBottom() - 60 ? 12 : 0;
+  if (!step) { drag.edge = 0; drag.frame = 0; return; }
+  drag.edge ||= performance.now();
+  drag.frame = requestAnimationFrame(autoScroll);
+  if (performance.now() - drag.edge >= EDGE_MS) { window.scrollBy(0, step); moveDrag(x, y); }
 }
 
 // The cards a part may land in: open notes of the view, not the edited one.
@@ -319,10 +336,10 @@ function drawLine() {
 /** Ends the drag: moves the part to the slot when `commit`, else puts it back. */
 export function endDrag(commit) {
   if (!drag) return;
-  const { src, slot, range, from, group, ghost, line, els, frame, dwell, opened } = drag;
+  const { src, slot, range, from, group, ghost, line, els, frame, dwell, opened, y } = drag;
   cancelAnimationFrame(frame);
   clearTimeout(dwell);
-  for (const old of document.querySelectorAll("#tocList .drop-into")) old.classList.remove("drop-into");
+  unmarkToc();
   if (opened) setTocOpen(false);
   ghost.remove();
   line.remove();
@@ -330,12 +347,22 @@ export function endDrag(commit) {
   document.body.classList.remove("dragging-part");
   drag = null;
   if (commit && slot) src.kind === "note" ? dropNotes(src.ids, slot) : group ? dropGroup(src.kind, group, slot) : drop(src, slot, range, from);
+  if (src.kind === "note") compactNotes(false, src.noteId, y - 12);
+}
+
+// While whole notes are dragged the cards show only their first lines, so the places between them lie close
+// together on the screen. The dragged note's card keeps its top at `top` when they shrink and grow back.
+function compactNotes(on, id, top) {
+  $("list").classList.toggle("notes-compact", on);
+  const card = $("list").querySelector(`.note[data-id="${CSS.escape(id)}"]`);
+  if (card) window.scrollBy(0, card.getBoundingClientRect().top - top);
 }
 
 // ---------- whole notes (the Shelves) ----------
 
 /** Starts dragging the note of `card` — with the other selected whole notes in `ids` — from x, y. */
 export function startNoteDrag(card, ids, x, y) {
+  compactNotes(true, card.dataset.id, Math.min(card.getBoundingClientRect().top, y - 12));
   const r = card.getBoundingClientRect();
   const ghost = document.createElement("div");
   ghost.className = "drag-ghost md note-ghost";
