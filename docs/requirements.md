@@ -2001,14 +2001,22 @@ like the colored notes in Google Keep.
   illustration style of fine even lines over a soft offset wash, fading
   from the corner toward the text; the patterns fade out too (a halftone
   for Dots, graph paper for Grid, layered swells for Waves).
-- Color and motif **belong to the note** (`docs/file-format.md` →
+- A note can also have a **texture**, independent of color and motif:
+  **Grain**, a fine noise blended into the card so its surface looks
+  slightly uneven, like the grain texture of the Zen browser (user request
+  2026-10-25). It works with every color and without one, a little softer
+  in the dark flavors so text stays readable. One texture for now; more
+  only when there is a need.
+- Color, motif and texture **belong to the note** (`docs/file-format.md` →
   "Marker attributes"): they sync, and everyone the note is shared with
   sees them, like labels. Setting them is no content change (the "Edited"
   time stays). A merged note takes the look of the first source that has
   one; the Google Keep import takes over Keep's note color where the
   palette has it.
-- **Picker:** a popup with a row of colors and a row of motif tiles
-  (previewed in the chosen color), each starting with "None"; a tap
+- **Picker:** a popup with a row of colors, the texture and a row of
+  motif tiles (previewed in the chosen color), each starting with "None"
+  (how the texture is offered — its own row or a second row of textured
+  colors — is still open, `PROJECT.md` → "Prototype options"); a tap
   applies at once and the popup stays open to try others; a tap outside
   or Esc closes it. Not for closed notes, the trash or news posts.
 - **Where it is reached:** a palette button in the editing toolbar, for

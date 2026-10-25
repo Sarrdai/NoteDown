@@ -59,7 +59,7 @@ export function markExisting(notes, existing) {
   return notes;
 }
 
-/** The NoteDown note for a previewed export note. It keeps its id, dates, status, due date, color and motif unless the id
+/** The NoteDown note for a previewed export note. It keeps its id, dates, status, due date and look unless the id
  *  is `taken` (already here, or twice in the file): then it is a copy with a new id. Existing notes are never overwritten. */
 export function exportToNoteDown(e, taken) {
   const id = e.id && !taken.has(e.id) ? e.id : newId();
@@ -71,5 +71,6 @@ export function exportToNoteDown(e, taken) {
   if (e.due) n.due = e.due;
   if (e.color) n.color = e.color;
   if (e.decor) n.decor = e.decor;
+  if (e.texture) n.texture = e.texture;
   return n;
 }

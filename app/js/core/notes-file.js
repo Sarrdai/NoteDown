@@ -17,13 +17,13 @@
 // An `<!-- order … -->` marker holds a custom note order: the user's own in
 // the private file, a circle's shared one in a shared file. `<!-- news … -->`
 // markers in the private file remember which news posts the user has seen,
-// archived or deleted (core/news.js). A note's `color=` and `decor=` are its
+// archived or deleted (core/news.js). A note's `color=`, `decor=` and `texture=` are its
 // look (core/look.js); a private copy of a shared note names its original in
 // `copyof=` and the original's `modified` it took its text from in `copied=` (core/note-links.js);
 // a note imported from Google Keep names its origin in `keep=` (core/keep-import.js). `<!-- source … -->`
 // markers in the private file name the user's folder sources, and a note read from one names it in `source=`
 // (core/folder-source.js).
-import { validColor, validDecor } from "./look.js";
+import { validColor, validDecor, validTexture } from "./look.js";
 
 const MARKER = /^<!-- (note|device|contact|member|news|source|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
@@ -93,6 +93,7 @@ export function noteMarker(n) {
   if (n.closed) attrs.push("closed=" + n.closed);
   if (n.color) attrs.push("color=" + n.color);
   if (n.decor) attrs.push("decor=" + n.decor);
+  if (n.texture) attrs.push("texture=" + n.texture);
   if (n.left && n.left.length) attrs.push("left=" + n.left.join(","));
   if (n.deleted) attrs.push("deleted=" + n.deleted);
   if (n.kept) attrs.push("kept=" + n.kept);
@@ -184,6 +185,7 @@ function finishNote({ meta, body }) {
     ...(meta.source && { source: meta.source }),
     ...(validColor(meta.color) && { color: meta.color }),
     ...(validDecor(meta.decor) && { decor: meta.decor }),
+    ...(validTexture(meta.texture) && { texture: meta.texture }),
   };
 }
 

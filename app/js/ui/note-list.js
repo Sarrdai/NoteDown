@@ -239,10 +239,11 @@ export function patchNote(id) {
   else el.replaceWith(noteElement(n));
 }
 
-// A note's color and motif (core/look.js) as attributes the styles pick up (app.css → "Note colors and motifs").
+// A note's color, motif and texture (core/look.js) as attributes the styles pick up (app.css → "Note colors and motifs").
 function applyLook(el, n) {
   if (n.color) el.dataset.color = n.color; else delete el.dataset.color;
   if (n.decor) el.dataset.decor = n.decor; else delete el.dataset.decor;
+  if (n.texture) el.dataset.texture = n.texture; else delete el.dataset.texture;
 }
 
 function noteElement(n, view = state.view) {
