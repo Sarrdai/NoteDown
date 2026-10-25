@@ -34,6 +34,7 @@ import { openShareDialog } from "./share-dialog.js";
 import { openMenu, pickButton } from "./menu.js";
 import { openConfirm, isConfirmOpen } from "./confirm.js";
 import { openExport } from "./export.js";
+import { openLookPicker } from "./look-picker.js";
 import { icon } from "./icons.js";
 import { pushEntry, leaveEntry, afterLeave } from "./dom.js";
 import { refOf } from "../core/note-ref.js";
@@ -430,6 +431,8 @@ function update() {
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
+    // Color, motif and texture of whole notes (decided 2026-10-25 over the editing toolbar, user request).
+    !archive && { id: "look", label: "Look", run: e => openLookPicker(e.currentTarget, ids), disabled: !whole },
     !archive && movable && reorder(-1, "Move up"),
     !archive && movable && reorder(1, "Move down"),
     // A private copy of shared notes, linked back to the original (backlog #45).

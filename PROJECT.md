@@ -144,7 +144,6 @@ is deleted from code, menu and this table.
 | `sample` | — | Replace the stored notes, shared files and sync state with the sample notes and the sample identity (not a variant; replaces real data) |
 | `sync` | `off` | Like `sample`, but with sync off and no shared files, all sample notes private (not a variant) |
 | `api` | URL | Use this sync server and remember it in this browser (local testing, e.g. `http://127.0.0.1:8765`; empty value forgets it; not a variant) |
-| `texturePicker` | `row` · `colors` | Note texture in the color picker: its own "Texture" row (A, default) or a second row of textured colors (B); open decision |
 | `platform` | `android` | Simulate the Android app in a browser: Settings → Privacy (screen lock, screen security, incognito keyboard) and the lock screen, with stand-ins for the native plugins (not a variant) |
 
 In ⋮ → "Prototype", "Go offline" / "Go online" simulates losing the connection, "Simulate device removal" shows what a removed device sees (sync off, the card above the notes; reload with `?sample` to get the sample identity back), "Simulate outdated app" the card of an app the server no longer serves, and "Show storage hint again" brings back a hidden "only stored in this browser" card (not variants).

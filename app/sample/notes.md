@@ -48,7 +48,7 @@ The deadline was extended, but ==the accountant wants the papers this week==.
 - *Piranesi* — Susanna Clarke
 - Something on the history of maps
 
-<!-- note id=s06 status=open created=2026-09-28T18:00Z modified=2026-10-10T20:30Z color=green decor=leaves texture=grain -->
+<!-- note id=s06 status=open created=2026-09-28T18:00Z modified=2026-10-10T20:30Z color=green decor=leaves texture=grain:60 -->
 ## Garden plan for spring
 ### Raised bed
 - Move the strawberries to the sunny corner

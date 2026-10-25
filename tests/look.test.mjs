@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { commonLook, validColor, validDecor, validTexture, keepColor } from "../app/js/core/look.js";
+import { commonLook, validColor, validDecor, validTexture, grainStrength, grainTexture, keepColor } from "../app/js/core/look.js";
 import { parseNotesFile, serializeNotesFile } from "../app/js/core/notes-file.js";
 import { mergeNotesFiles } from "../app/js/core/merge.js";
 
@@ -26,6 +26,9 @@ test("look: unknown values read as none", () => {
   assert.equal(n.decor, undefined);
   assert.equal(n.texture, undefined);
   assert.equal(validTexture("grain"), "grain");
+  assert.equal(validTexture("grain:100"), "grain:100");
+  assert.equal(validTexture("grain:0"), null);
+  assert.equal(validTexture("grain:101"), null);
   assert.equal(validColor("red"), "red");
   assert.equal(validDecor("plaid"), null);
   assert.equal(keepColor("CERULEAN"), "blue");
@@ -50,4 +53,13 @@ test("look: color and motif merge on their own, beside a text edit", () => {
   const cleared = mergeNotesFiles(base, edit("s03", { color: undefined }), base).file.notes.find(n => n.id === "s03");
   assert.equal(cleared.color, undefined);
   assert.equal(cleared.decor, "travel");
+});
+
+test("look: the grain strength reads from and writes to the texture", () => {
+  assert.equal(byId("s06").texture, "grain:60");
+  assert.equal(grainStrength("grain:60"), 60);
+  assert.equal(grainStrength("grain"), 35);
+  assert.equal(grainStrength(undefined), 0);
+  assert.equal(grainTexture(42.4), "grain:42");
+  assert.equal(grainTexture(0), null);
 });

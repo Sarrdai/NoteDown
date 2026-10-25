@@ -11,7 +11,6 @@ import { icon } from "./icons.js";
 import { lineDue, setLineDue } from "../core/task-due.js";
 import { toggleTaskItem, listPrefix } from "../core/md-commands.js";
 import { openSettings } from "./settings.js";
-import { openLookPicker } from "./look-picker.js";
 
 const BUTTONS = [
   ["copyTo", "Copy into… (the marked passage)", "copy"],
@@ -29,7 +28,6 @@ const BUTTONS = [
   ["media", "Image or video from the web", "image"],
   ["counter", "Counter (hold: time counter with stopwatch)", "counter"],
   ["rating", "Star rating", "star"],
-  ["look", "Color and motif", "look"],
   ["undo", "Undo (Ctrl+Z)", "undo"],
   ["redo", "Redo (Ctrl+Shift+Z)", "redo"],
 ];
@@ -72,7 +70,6 @@ export function initToolbar({ onDue, onCopyTo }) {
     if (!b) return;
     if (held) { held = false; return; }
     if (b.id === "toolbarDone") return endEdit();
-    if (b.dataset.cmd === "look") return openLookPicker(b, [state.editingId]);
     if (b.dataset.cmd === "taskDue") return caretTaskDue(b);
     if (b.dataset.cmd === "copyTo") return copyTo(onCopyTo);
     currentEditor()?.run(b.dataset.cmd);

@@ -17,6 +17,7 @@ import { taskDue, setTaskDue } from "../core/task-due.js";
 import { progressBadge } from "./toc.js";
 import { sectionProgress } from "../core/tasks.js";
 import { sectionKey } from "../core/query.js";
+import { grainStrength } from "../core/look.js";
 import { listItems as mdListItems, itemKey } from "../core/list-items.js";
 import { state, setUi, note, setBody, setStatus, purgeNotes, circleOf, markNewsSeen, copyOriginal } from "../store.js";
 import { trashMarkerHtml } from "./trash.js";
@@ -243,7 +244,8 @@ export function patchNote(id) {
 function applyLook(el, n) {
   if (n.color) el.dataset.color = n.color; else delete el.dataset.color;
   if (n.decor) el.dataset.decor = n.decor; else delete el.dataset.decor;
-  if (n.texture) el.dataset.texture = n.texture; else delete el.dataset.texture;
+  if (n.texture) { el.dataset.texture = "grain"; el.style.setProperty("--grain-strength", grainStrength(n.texture) / 100); }
+  else { delete el.dataset.texture; el.style.removeProperty("--grain-strength"); }
 }
 
 function noteElement(n, view = state.view) {
