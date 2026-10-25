@@ -39,7 +39,6 @@ export const DEFAULT_SETTINGS = {
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   moveDepth: 2,              // levels the Move to… picker shows (ui/move-to.js), like tocDepth; this device only
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
-  texturePicker: "row",      // prototype variant (ui/look-picker.js): the texture in its own row (A) | "colors": textured colors (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,

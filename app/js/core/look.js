@@ -5,7 +5,6 @@
 // flavor maps them to its own shade (app.css), so the text stays readable.
 
 export const COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
-export const TEXTURES = ["grain"];
 export const DECORS = ["dots", "grid", "waves", "leaves", "stars", "birthday", "christmas", "gifts", "travel", "packing", "camper", "shopping"];
 
 export const COLOR_NAMES = { red: "Red", orange: "Orange", yellow: "Yellow", green: "Green", teal: "Teal", blue: "Blue", purple: "Purple", pink: "Pink" };
@@ -16,8 +15,15 @@ export const DECOR_NAMES = {
 
 /** A known color or null (unknown values from newer apps read as none). */
 export const validColor = c => (COLORS.includes(c) ? c : null);
+// The texture: grain with a strength of 1–100 (`texture=grain:40`; plain `grain` is the default strength).
+export const GRAIN_DEFAULT = 35;
+const GRAIN = /^grain(?::([1-9]\d?|100))?$/;
 /** A known texture or null. */
-export const validTexture = t => (TEXTURES.includes(t) ? t : null);
+export const validTexture = t => (GRAIN.test(t || "") ? t : null);
+/** The grain strength of a texture, 0 for none. */
+export const grainStrength = t => { const m = GRAIN.exec(t || ""); return m ? +(m[1] || GRAIN_DEFAULT) : 0; };
+/** The texture for a grain strength (0–100), null for none. */
+export const grainTexture = strength => (strength > 0 ? "grain:" + Math.min(100, Math.round(strength)) : null);
 /** A known motif or null. */
 export const validDecor = d => (DECORS.includes(d) ? d : null);
 

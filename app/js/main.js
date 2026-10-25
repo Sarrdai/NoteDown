@@ -729,8 +729,6 @@ function moreMenu() {
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
     { section: "Prototype" },
-    ...[["row", "Texture: own row (A)"], ["colors", "Texture: textured colors (B)"]].map(([v, label]) =>
-      ({ label, checked: s.texturePicker === v, onSelect: () => updateSettings({ texturePicker: v }) })),
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
     sync.simulated && sync.enabled && { label: "Simulate contact request", onSelect: simulateRequest },
@@ -933,7 +931,6 @@ function applyUrlOptions() {
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
-  if (["row", "colors"].includes(p.get("texturePicker"))) patch.texturePicker = p.get("texturePicker");
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");

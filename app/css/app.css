@@ -1475,9 +1475,11 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 }
 
 /* Grain: fine noise blended into the card, so the surface looks slightly uneven
-   (soft lighter and darker specks around the card's own color, in every theme). */
-.note[data-texture="grain"], .look-row .look-swatch[data-texture="grain"] {
-  background-image: var(--grain); background-size: 180px 180px; background-blend-mode: soft-light;
+   (soft lighter and darker specks around the card's own color, in every theme);
+   its strength (the note's, 0–1) is the layer's opacity. */
+.note[data-texture="grain"]::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: var(--grain) 0 0 / 180px 180px; mix-blend-mode: soft-light; opacity: var(--grain-strength, 0.35);
 }
 
 /* The picker: rows of round swatches in the popup menu. */
@@ -1488,9 +1490,11 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
   border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer;
 }
 .look-swatch[data-color] { background: color-mix(in srgb, var(--tone) 55%, var(--surface)); border-color: color-mix(in srgb, var(--tone) 70%, var(--border)); }
-.look-decors .look-swatch, .look-textures .look-swatch { border-radius: 10px; }
-/* Texture tiles preview the card itself: its light tint, with or without grain. */
-.look-textures .look-swatch[data-color] { background-color: color-mix(in srgb, var(--tone) 15%, var(--surface)); border-color: color-mix(in srgb, var(--tone) 32%, var(--border)); }
+.look-decors .look-swatch { border-radius: 10px; }
+/* The grain slider: as wide as the swatch rows, its value beside it. */
+.look-grain { display: flex; align-items: center; gap: 10px; padding: 0 6px 8px; max-width: 312px; }
+.look-grain input { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--accent); }
+.look-grain-value { min-width: 3.2em; text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .look-decors[data-color="red"] .look-swatch { --tone: var(--ctp-red); }
 .look-decors[data-color="orange"] .look-swatch { --tone: var(--ctp-peach); }
 .look-decors[data-color="yellow"] .look-swatch { --tone: var(--ctp-yellow); }

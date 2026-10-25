@@ -1511,11 +1511,11 @@ that host its IP address and the reading time.
   bottom stay free) and 2026-10-14 over a separate bar in the contents
   (one selection, one bar). *Prototype: round 3.*
 - Actions: **Close**, **Clear done tasks**, **Copy**, **Export** ("Export"), **Share** ("Sync
-  and sharing"), **Move into** (also into a new note: merging and splitting), **Private copy** (shared notes, "Links between
+  and sharing"), **Look** (color, grain and motif, "Note colors and motifs"), **Move into** (also into a new note: merging and splitting), **Private copy** (shared notes, "Links between
   notes and private copies"), **Make permanent / Make closable**, **Delete**,
   **Promote / Demote headings**, **Move up / down** (list items). A selected list item is a
   part of its own; it leaves its indent behind when it is copied, merged or
-  moved, its sub-items keep theirs below it. Close, Share, Make permanent and Delete act on whole notes
+  moved, its sub-items keep theirs below it. Close, Share, Look, Make permanent and Delete act on whole notes
   (disabled while only parts of a note are selected) and end the
   selection with Undo; Close leaves permanent notes alone (disabled when
   only those are selected). Make permanent applies unless all selected
@@ -2004,24 +2004,28 @@ like the colored notes in Google Keep.
 - A note can also have a **texture**, independent of color and motif:
   **Grain**, a fine noise blended into the card so its surface looks
   slightly uneven, like the grain texture of the Zen browser (user request
-  2026-10-25). It works with every color and without one, a little softer
-  in the dark flavors so text stays readable. One texture for now; more
-  only when there is a need.
+  2026-10-25). Its **strength** is set per note with a slider (0 = none,
+  default 35 %), because the fixed grain was too strong for the user. It
+  works with every color and without one, a little softer in the dark
+  flavors so text stays readable. One texture for now; more only when
+  there is a need.
 - Color, motif and texture **belong to the note** (`docs/file-format.md` →
   "Marker attributes"): they sync, and everyone the note is shared with
   sees them, like labels. Setting them is no content change (the "Edited"
   time stays). A merged note takes the look of the first source that has
   one; the Google Keep import takes over Keep's note color where the
   palette has it.
-- **Picker:** a popup with a row of colors, the texture and a row of
-  motif tiles (previewed in the chosen color), each starting with "None"
-  (how the texture is offered — its own row or a second row of textured
-  colors — is still open, `PROJECT.md` → "Prototype options"); a tap
-  applies at once and the popup stays open to try others; a tap outside
-  or Esc closes it. Not for closed notes, the trash or news posts.
-- **Where it is reached:** a palette button in the editing toolbar, for
-  the note being edited (decided 2026-10-17 over Color in the selection
-  bar: color is set while writing, one note at a time).
+- **Picker:** a popup with a row of colors, the Grain slider and a row
+  of motif tiles (previewed in the chosen color); the rows start with
+  "None". A tap or slide applies at once and the popup stays open to try
+  others; a tap outside or Esc closes it. The grain has its own slider
+  rather than a second row of textured colors (decided 2026-10-25: keeps
+  the picker short and sets texture like color and motif). Notes with
+  different looks show no color or motif ticked and the slider at none.
+- **Where it is reached:** "Look" (palette) in the selection bar, for the
+  selected whole notes, several at once (decided 2026-10-25, user request,
+  replacing the palette button in the editing toolbar). Not in the
+  archive, the trash or for news posts.
 
 ### Not in scope (for now)
 
