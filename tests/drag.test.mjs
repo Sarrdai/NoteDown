@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseNotesFile } from "../app/js/core/notes-file.js";
-import { itemSlots, sectionSlots, sectionRange, moveItem, moveSection } from "../app/js/core/drag.js";
+import { itemSlots, sectionSlots, sectionRange, moveItem, moveSection, moveParts } from "../app/js/core/drag.js";
 
 const notes = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8")).notes;
 const lisbon = notes.find(n => n.body.includes("Book flights")).body;
@@ -75,4 +75,25 @@ test("section slots: a note's end lies before its closing labels", () => {
 
 test("section slots: each heading's slot names the section it starts", () => {
   assert.deepEqual(sectionSlots("Intro\n## A\n## B").map(s => s.anchor), [{ section: 1 }, { section: 2 }, { end: true }]);
+});
+
+test("move parts: several items of two notes land together on one level", () => {
+  const bodies = { a: "- a1\n  - a1x\n- a2\n- a3", b: "## B\n- b1\n- b2" };
+  const out = moveParts(bodies, [{ noteId: "a", lines: [0, 2], from: 0 }, { noteId: "a", lines: [3, 4], from: 0 }], "b", 2, 0, "item");
+  assert.equal(out.a, "- a2");
+  assert.equal(out.b, "## B\n- b1\n- a1\n  - a1x\n- a3\n- b2");
+});
+
+test("move parts: within one note, the slot counted with the parts still in place; a note left empty is null", () => {
+  const bodies = { a: "- x\n- y\n- z", b: "- only" };
+  const out = moveParts(bodies, [{ noteId: "b", lines: [0, 1], from: 0 }, { noteId: "a", lines: [0, 1], from: 0 }], "a", 3, 2, "item");
+  assert.equal(out.b, null);
+  assert.equal(out.a, "- y\n- z\n  - only\n  - x");
+});
+
+test("move parts: sections take the dropped level, their subsections shift along", () => {
+  const bodies = { a: "# T\n## S1\ntext\n### S1a\n## S2\nmore", b: "# U\n## V\nv" };
+  const out = moveParts(bodies, [{ noteId: "a", lines: [1, 4], from: 2 }, { noteId: "a", lines: [4, 6], from: 2 }], "b", 3, 3, "section");
+  assert.equal(out.a, "# T");
+  assert.equal(out.b, "# U\n## V\nv\n\n### S1\ntext\n#### S1a\n### S2\nmore");
 });

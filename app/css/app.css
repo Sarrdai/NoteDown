@@ -177,7 +177,6 @@ button { font: inherit; color: inherit; }
   border-bottom: 1px solid transparent;
 }
 .topbar.scrolled { border-bottom-color: var(--border); }
-.title { flex: 1; min-width: 0; margin: 0 6px; font-size: 1.25rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Archive ⇄ Notes: both faces share one grid cell, so the button keeps its
    size and place when the view changes. */
 #viewBtn { display: inline-grid; }
@@ -200,9 +199,11 @@ button { font: inherit; color: inherit; }
 #dueBtn .count.has { background: var(--accent); }
 #dueBtn .count.has.overdue { background: var(--danger); }
 
+/* The search field fills the bar and holds the actions after its text (main.js → fitTopbar); the round
+   settings button sits right of it. While searching, the actions make room for the counter, ▲ / ▼ and ×. */
 .search {
-  display: flex; align-items: center; gap: 6px;
-  width: 260px; height: 40px; padding: 0 6px 0 12px;
+  display: flex; flex: 1; min-width: 0; align-items: center; gap: 4px;
+  height: 46px; padding: 0 3px 0 14px; cursor: text;
   border-radius: 999px; background: var(--surface-hover); color: var(--text-muted);
 }
 .search:focus-within { outline: 2px solid var(--accent); }
@@ -210,11 +211,16 @@ button { font: inherit; color: inherit; }
   flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
   font: inherit; color: var(--text);
 }
+.search input::placeholder { color: var(--text-muted); }
 .search input::-webkit-search-cancel-button { display: none; }
 .search-icon { display: contents; }
 .search-icon .icon { width: 18px; height: 18px; }
-#searchClose { visibility: hidden; }
-.app.has-search #searchClose { visibility: visible; }
+.search-actions { display: flex; align-items: center; flex: none; }
+.search-actions .icon-btn { min-width: 40px; height: 40px; }
+.search-actions .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.app.searching .search-actions { display: none; }
+#searchClose { display: none; }
+.app:is(.searching, .has-search) #searchClose { display: inline-flex; }
 /* Search hits (ui/search-hits.js): the counter and ▲ / ▼ show with a search. */
 .hit-count, .hit-nav { display: none; }
 .app.has-search .hit-count { display: inline; font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -223,7 +229,6 @@ button { font: inherit; color: inherit; }
 .hit-nav:disabled { opacity: 0.4; }
 mark.hit { background: var(--hit); color: inherit; border-radius: 2px; }
 mark.hit.current { background: var(--hit-current); color: var(--on-hit-current); }
-#searchBtn { display: none; }
 /* Suggestions in the search field (ui/search-suggest.js, backlog #66): a box under the field. */
 .suggest {
   position: fixed; z-index: 30; overflow-y: auto; padding: 6px; box-sizing: border-box;
@@ -365,12 +370,16 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 .toolbar-scroll::-webkit-scrollbar { display: none; }
+/* Copy to… (ui/toolbar.js): in the accent colour, only while a passage is marked. */
+.tool[data-cmd="copyTo"] { color: var(--accent); }
+.toolbar:not(.has-selection) .tool[data-cmd="copyTo"] { display: none; }
 .tool {
   position: relative; flex: none; width: var(--tap); height: var(--tap); border: 0; border-radius: 10px;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; color: var(--text-muted); cursor: pointer; isolation: isolate;
 }
 .tool:hover { background: var(--ctp-surface0); color: var(--text); }
+.tool:disabled { opacity: 0.35; cursor: default; background: transparent; }
 .toolbar-done {
   flex: none; height: 38px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer;
   background: var(--accent); color: var(--on-accent); font-weight: 650;
@@ -424,7 +433,7 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .app.rec-locked .rec-lock { display: none; }
 
 /* ---------- multi-select (ui/selection.js) ---------- */
-.app.selecting:not([data-view="trash"]) .fab { display: none; }   /* the trash's bin acts on the selection */
+.app.selecting:not([data-view="trash"], .selection-moves) .fab { display: none; }   /* the trash's bin acts on the selection */
 .app.selecting .note, .app.selecting .note-body { cursor: pointer; -webkit-user-select: none; user-select: none; }
 /* A held note shows no text selection or callout on touch screens. */
 /* The mouse selects a note by its frame (ui/selection.js); the edited note's frame stays inert. */
@@ -474,10 +483,14 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .md li[data-line]:has(> input.task, > p:first-child > input.task) { --item-left: -10px; }
 .md li[data-line]::after { content: ""; position: absolute; z-index: -1; inset: -1px -4px -1px var(--item-left); border-radius: 6px; pointer-events: none; }
 .md li.selected::after { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-/* Drag and drop (ui/drag-drop.js). The desktop's grip: at the right end of the list item or heading under the
- * mouse; dragged, the part moves, clicked, it is selected. */
+/* Drag and drop (ui/drag-drop.js). The desktop's grip: left of the list item or heading under the mouse, in a
+ * gutter the notes keep with a mouse (where the touch grips sit); dragged, the part moves, clicked, it is
+ * selected. */
+@media (hover: hover) and (pointer: fine) {
+  .list .note:not(.closed, .trashed) { padding-left: 34px; }
+}
 .drag-grip {
-  position: absolute; z-index: 3; right: 20px; width: 24px; height: 20px; margin-top: -10px; padding: 0;   /* inside the outline it shows, centred on the first line */
+  position: absolute; z-index: 3; width: 24px; height: 20px; margin-top: -10px; padding: 0;   /* centred on the first line; left set by placeGrip */
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; border-radius: 6px; background: var(--surface); color: var(--text-muted);
   cursor: grab; touch-action: none;
@@ -492,7 +505,13 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   position: fixed; z-index: 60; left: 0; top: 0; pointer-events: none; padding: 2px 10px; border-radius: 10px;
   background: var(--surface); box-shadow: 0 0 0 2px var(--accent), var(--shadow-high); opacity: 0.8;
 }
+.drag-ghost { max-height: 9em; overflow: hidden; }
 .drag-ghost > ul, .drag-ghost > ol { margin: 0; }
+/* Several selected parts dragged together: the grabbed one shows, with their count. */
+.drag-ghost[data-count]::after {
+  content: attr(data-count); position: absolute; top: -10px; right: -10px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+  border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 0.75rem; font-weight: 700; line-height: 22px; text-align: center;
+}
 .drag-ghost .md-section { margin: 0; }
 .drop-line {
   position: fixed; z-index: 61; left: 0; top: 0; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none;
@@ -502,6 +521,65 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   content: attr(data-label); position: absolute; left: 8px; top: -9px; padding: 0 5px; border-radius: 6px;
   background: var(--accent); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px;
 }
+/* Reorder mode (ui/reorder-mode.js): every list item and heading of the open notes shows a grip at its left,
+ * in a gutter the note's text makes room for; nested items carry theirs indented. The hover grip gives way.
+ * The swipe that shows or hides them (.revealing) sets --reveal from 0 to 1 as the finger goes; past the full
+ * way the list gives a little (--reveal-give), and on letting go everything settles (.reveal-settle). */
+.app.revealing .list { transform: translateX(var(--reveal-give, 0px)); }
+.app.reveal-settle .list { transition: transform 0.2s ease-out; }
+.app.reveal-settle .note-body { transition: padding-left 0.2s ease-out; }
+.app.reveal-settle .note-body *::before { transition: opacity 0.2s ease-out; }
+.app:is(.reordering, .revealing) .note:not(.closed) .note-body:has(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child) { padding-left: calc(30px * var(--reveal, 1)); }
+.app:is(.reordering, .revealing) .note-body .md-section > :is(h1, h2, h3, h4, h5, h6):first-child { position: relative; }
+.app:is(.reordering, .revealing) .note:not(.closed) .note-body :is(li[data-line], .md-section > :is(h1, h2, h3, h4, h5, h6):first-child)::before {
+  content: ""; position: absolute; top: 0; left: calc(var(--item-left, 0px) - 30px); width: 26px; height: 1lh;
+  background: var(--text-faint); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; cursor: grab;
+  opacity: var(--reveal, 1);
+}
+.app:is(.reordering, .revealing) .note:not(.closed) .note-body li[data-line]:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
+.app:is(.reordering, .revealing) .drag-grip { display: none; }
+/* With the Shelves the grip of a note's first line — its title, else its first line of text or list item —
+ * moves the whole note, in the accent colour; also in the arrange view, which shows no other grips. Every note
+ * makes room for it. */
+.app:is(.reordering, .revealing).shelves .note:not(.closed) .note-body { padding-left: calc(30px * var(--reveal, 1)); }
+.app:is(.reordering, .revealing, .arranging).shelves .note:not(.closed) .note-body > .md-section:first-child > :is(:first-child:not(ul, ol), :is(ul, ol):first-child > li:first-child) { position: relative; }
+.app:is(.reordering, .revealing, .arranging).shelves .note:not(.closed) .note-body > .md-section:first-child > :is(:first-child:not(ul, ol), :is(ul, ol):first-child > li:first-child)::before {
+  content: ""; position: absolute; top: 0; left: calc(var(--item-left, 0px) - 30px); width: 26px; height: 1lh;
+  background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; cursor: grab;
+  opacity: var(--reveal, 1);
+}
+.app:is(.reordering, .revealing, .arranging).shelves .note:not(.closed) .note-body > .md-section:first-child > :is(ul, ol):first-child > li:first-child:has(> input.task, > p:first-child > input.task)::before { left: calc(var(--item-left) - 22px); }
+/* While whole notes are dragged (ui/drag-drop.js → compactNotes) the cards shrink to their first lines. */
+.list.notes-compact .note-body { max-height: 3.4em; overflow: hidden; }   /* not the card: the pile's tray hangs on it */
+.list.notes-compact .note :is(.note-meta, .status, .permanent-mark) { display: none; }
+/* The arrange view of the Shelves (ui/shelf-arrange.js): the cards shrink to their first lines as well, each
+ * note shows its first line's grip (the text makes room for it on touch), the shelves are edited in place, "+ Shelf" ends
+ * the list and "Done" takes the + button's corner. */
+.app.arranging .list .note-body { max-height: 3.4em; overflow: hidden; }
+.app.arranging .list .note :is(.note-meta, .status, .permanent-mark) { display: none; }
+@media not ((hover: hover) and (pointer: fine)) {
+  .app.arranging .note:not(.closed) .note-body { padding-left: 30px; }
+}
+.app.arranging :is(#fab, #sortFab, .drag-grip) { display: none; }
+.app.arranging .list .pile-toggle > .icon { visibility: hidden; }   /* nothing folds there */
+#arrangeDone { display: none; position: fixed; z-index: 15; right: 20px; bottom: calc(20px + var(--safe-bottom) + var(--fab-lift, 0px) + (var(--fab-size) - 40px) / 2); }
+.app.arranging #arrangeDone { display: inline-flex; background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.app.arranging #arrangeDone .icon { color: var(--on-accent); }
+.section-header.shelf-edit { cursor: default; gap: 6px; }
+.shelf-grip {
+  flex: none; width: 30px; height: 30px; margin-left: -6px; cursor: grab; touch-action: none; background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black'%3E%3Ccircle cx='9' cy='6' r='1.6'/%3E%3Ccircle cx='15' cy='6' r='1.6'/%3E%3Ccircle cx='9' cy='12' r='1.6'/%3E%3Ccircle cx='15' cy='12' r='1.6'/%3E%3Ccircle cx='9' cy='18' r='1.6'/%3E%3Ccircle cx='15' cy='18' r='1.6'/%3E%3C/g%3E%3C/svg%3E") center / 22px no-repeat;
+}
+.shelf-title {
+  flex: 0 1 auto; min-width: 4ch; field-sizing: content; max-width: 60%; height: 34px; padding: 0 6px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit; font-size: 1.05rem; font-weight: 800; outline: none;
+}
+.shelf-title:focus { background: var(--surface-hover); box-shadow: inset 0 -2px 0 var(--accent); }
+.shelf-edit::after { order: 3; }
+.shelf-edit .shelf-remove { order: 4; color: var(--text-muted); }
+.shelf-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px 0 12px; }
+.shelf-add .icon { width: 18px; height: 18px; }
+.note-ghost { padding: 10px 14px; font-weight: 700; }
 body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
 .app.selecting .status:hover { color: var(--text-faint); }
 .app.selecting .status:hover .icon { opacity: 0; }
@@ -536,28 +614,8 @@ body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-
 .order-grip:focus-visible { outline: 2px solid var(--accent); }
 .order-item.dragging .order-grip { cursor: grabbing; color: var(--accent); }
 .order-item:only-child .order-grip { visibility: hidden; } /* one part: nothing to order */
-/* The custom order's arrange dialog (#24): sorted rows, a line, unsorted rows. */
-.arrange-toggle { flex: none; margin-right: -4px; color: var(--text-muted); }
-.order-item.unsorted { counter-increment: none; }
-.order-item.unsorted::before { display: none; }
-.order-item.unsorted .order-text { color: var(--text-muted); }
-/* A section divider (#24): a tinted row whose title is edited in place. */
-.order-item.arrange-section { counter-increment: none; min-height: 48px; margin-top: 10px; border-color: transparent; background: var(--accent-soft); padding-left: 14px; gap: 4px; }
-.order-item.arrange-section::before { display: none; }
-.arrange-section-title { flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 800; outline: none; }
-.arrange-section-title:focus { box-shadow: inset 0 -2px 0 var(--accent); }
-.dialog-actions .add-section { display: inline-flex; align-items: center; gap: 4px; padding: 0 14px 0 10px; margin-right: auto; }
-.arrange-line {
-  display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; font-size: 0.78rem; font-weight: 700;
-  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
-}
-.arrange-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-/* Below the list: how the unsorted rows are ordered (not Custom itself). */
-.arrange-sort { flex: none; display: flex; align-items: center; gap: 4px; margin: 8px 8px 0; font-size: 0.88rem; color: var(--text-muted); }
-#arrangeSort { color: var(--text); }
-#arrangeSort .btn-label { display: inline; }
 .dialog-hint.after { margin: 8px 8px 0; }
-/* Move to… (ui/move-to.js): notes and their sections to pick from; above the arrange dialog. */
+/* Move into… (ui/move-to.js): notes and their sections to pick from. */
 #moveDialog { z-index: 46; }
 .move-dialog { height: min(640px, 100%); }
 .move-tools { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px 4px 8px; }
@@ -579,11 +637,14 @@ body.dragging-part, body.dragging-part * { cursor: grabbing !important; -webkit-
 .move-tag { flex: none; display: inline-flex; color: var(--text-faint); }
 .move-tag .icon { width: 16px; height: 16px; }
 .move-more { flex: none; font-size: 0.8rem; color: var(--text-faint); }
+/* Rows that aren't a note's section: "New note" and the shelves for whole notes. */
+.move-row.special { color: var(--accent); }
+.move-lead { flex: none; display: inline-flex; }
+.move-lead .icon { width: 18px; height: 18px; }
 .move-empty { padding: 12px 10px; font-size: 0.9rem; color: var(--text-muted); }
 .move-where { flex: none; margin: 10px 8px 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .move-task { flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 8px 0; font-size: 0.92rem; cursor: pointer; }
 .move-task input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
-.arrange-move { flex: none; margin-right: -6px; color: var(--text-muted); }
 /* Merge across circles: private copy or shared with everyone involved. */
 .merge-choice { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .choice {
@@ -877,6 +938,23 @@ button.shared-mark:focus-visible { outline: 2px solid var(--accent); outline-off
   background: var(--danger); transform: rotate(-20deg); border-radius: 1px;
 }
 
+/* The round settings button right of the search (main.js → renderSyncStatus): the own initial (no name: a
+   person) in a ring coloured by the sync status, spinning while syncing. */
+.account-btn {
+  position: relative; flex: none; display: inline-grid; place-items: center;
+  width: 46px; height: 46px; margin-left: 8px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.account-face { grid-area: 1 / 1; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); }
+.account-face .icon { width: 20px; height: 20px; }
+.account-initial { font-weight: 700; font-size: 1rem; color: var(--accent); }
+.account-ring { grid-area: 1 / 1; width: 46px; height: 46px; fill: none; stroke-width: 2.5; stroke: var(--border); }
+.account-btn[data-status="synced"] .account-ring { stroke: var(--done); }
+.account-btn[data-status="syncing"] .account-ring { stroke: var(--accent); stroke-dasharray: 90 40; transform-origin: center; animation: spin 1.6s linear infinite; }
+.account-btn[data-status="offline"] .account-ring, .account-btn[data-status="error"] .account-ring { stroke: var(--danger); }
+.account-btn:hover .account-face { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .account-btn .account-ring { animation: none !important; } }
+
 /* Sync status: an icon in the top bar. "syncing" (spinning arrows) lasts at
    least 0.8 s (sync/client.js); then the check draws itself in the accent
    color, which fades (.just-synced). */
@@ -992,7 +1070,6 @@ a.row-open { text-decoration: none; }
 
 @media (max-width: 599px) {
   .foot-actions .btn { flex: 1; }
-  .app.searching #syncBtn { display: none; }
 }
 
 /* ---------- rendered Markdown ---------- */
@@ -1173,15 +1250,21 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 .tidy-preview { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px 8px 8px; }
 .pile-done { flex: 1; display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 0.9rem; font-weight: 650; color: var(--text-muted); }
 .pile-done .icon { width: 18px; height: 18px; color: var(--done); }
-.pile-header .link-btn { flex: none; border: 0; padding: 8px; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
-.pile-header .link-btn:hover, .pile-toggle:hover { background: var(--surface-hover); border-radius: 8px; }
+/* The way into the arrange view (variant "icon"): a quiet round button at the header's end. */
+.pile-arrange { flex: none; margin-left: auto; color: var(--text-muted); }
+.pile-toggle:hover { background: var(--surface-hover); border-radius: 8px; }
+/* An empty pile is one quiet line: nothing to do there. */
+.pile-header.empty { min-height: 32px; background: transparent; }
+.list .pile-header.empty { box-shadow: none; }
+.pile-header.empty .pile-done { font-size: 0.82rem; font-weight: 600; color: var(--text-faint); }
+.pile-header.empty .pile-done .icon { width: 16px; height: 16px; }
 .pile-toggle:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
 .toc-list .pile-header { min-height: 36px; margin: 6px 0 2px; }
 .toc-list .pile-toggle { min-height: 36px; gap: 6px; }
 .toc-list .pile-toggle > .icon { width: 14px; height: 14px; }
 .toc-list .pile-title { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
 .toc-list .pile-status { display: none; }
-.toc-list .pile-header .link-btn { font-size: 0.8rem; padding: 6px; }
+.toc-list .pile-arrange { min-width: 32px; height: 32px; }
 /* A custom order section's header (#24): title, count and a rule; a tap folds its notes. */
 .section-header {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); margin: 4px 0 -4px; padding: 0 2px;
@@ -1493,6 +1576,10 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .fab.inert { --bin: var(--surface-hover); --bin-ink: var(--text-faint); }   /* nothing to delete */
 .fab-face { grid-area: 1 / 1; display: inline-flex; }
 .fab-new { opacity: calc(1 - var(--archive)); transform: rotate(calc(var(--archive) * 90deg)) scale(calc(1 - var(--archive) * 0.6)); }
+/* While selecting in the notes the + turns into Move into… (ui/selection.js). */
+.fab-move { opacity: 0; transform: scale(0.4); transition: opacity 0.15s, transform 0.15s; }
+.app.selection-moves .fab-move { opacity: 1; transform: none; }
+.app.selection-moves .fab-new { opacity: 0; transform: scale(0.4); }
 .fab-empty { opacity: var(--archive); transform: rotate(calc((var(--archive) - 1) * 90deg)) scale(calc(0.4 + var(--archive) * 0.6)); }
 .app:not([data-view="open"]) .fab { --archive: 1; }
 .app:not([data-view="open"]) .fab.inert { box-shadow: none; cursor: default; }
@@ -1555,6 +1642,8 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 .menu-item:disabled { opacity: 0.4; cursor: default; background: transparent; }
 .menu-item .check { width: 18px; height: 18px; color: var(--accent); visibility: hidden; }
 .menu-item[aria-checked="true"] .check { visibility: visible; }
+.menu-note { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding-left: 16px; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+.menu-note .icon { width: 16px; height: 16px; }
 /* A choice that opens the app's menu (menu.js → pickButton), in place of a native <select>. */
 .pick {
   display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 40px; padding: 0 8px 0 10px;
@@ -1573,23 +1662,15 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
 }
 @media (min-width: 600px) and (max-width: 1023px) {
   :root { --toc-w: 248px; }
-  .search { width: 190px; flex: none; }
-  .app.has-search .search { width: 300px; }   /* room for the hit counter and ▲ / ▼ */
-  .title { flex: 0 1 auto; }
-  /* The buttons sit at the right end, from the first one shown. */
-  #syncBtn, #syncBtn[hidden] + #viewBtn, #syncBtn[hidden] + #viewBtn[hidden] + #dueBtn { margin-left: auto; }
 }
 @media (min-width: 1024px) {
   .topbar { padding-inline: 16px; }
-  /* The search sits centered over the notes, as wide as their cards, while the
-     buttons fit right of it; otherwise right after the title, narrower (fitTopbar). */
-  .title { flex: none; }
-  .search { flex: 0 1 748px; min-width: 240px; margin-left: 12px; }
-  .search.centered {
-    position: absolute; left: 50%; top: calc(var(--safe-top) + (var(--topbar-h) - 40px) / 2); transform: translateX(-50%);
-    width: min(748px, calc(100% - 340px)); margin: 0;
-  }
-  #syncBtn, #syncBtn[hidden] + #viewBtn, #syncBtn[hidden] + #viewBtn[hidden] + #dueBtn { margin-left: auto; }
+  /* The search sits centered over the notes, as wide as their cards; a spacer as wide as the round
+     button balances it. */
+  .topbar::before { content: ""; flex: 1 0 54px; }
+  .search { flex: 0 1 748px; }
+  .topbar::after { content: ""; flex: 1 0 0; order: 1; }
+  .account-btn { order: 2; }
   .list { padding-top: 12px; }
   .selectbar { padding-inline: 16px; }
   .sel-count { flex: 1 0 auto; }
@@ -1606,13 +1687,7 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .rec-bar { padding-left: calc(var(--toc-w) + 16px); }
 }
 @media (max-width: 599px) {
-  .topbar { padding-inline: 4px; gap: 0; }
-  .search { display: none; }
-  #searchBtn { display: inline-flex; }
-  .app.searching .search { display: flex; flex: 1; width: auto; min-width: 0; }
-  .app.searching :is(.title, #searchBtn, #dueBtn, #viewBtn, #syncBtn),
-  .app.searching #moreBtn { display: none; }
-  .app.searching #searchClose { visibility: visible; }
+  .topbar { padding-inline: 8px; gap: 0; }
   .list { padding-left: 12px; padding-right: 12px; gap: 10px; }
   .note { padding: 12px 8px 4px 14px; }
 
@@ -1656,7 +1731,6 @@ h1 .label-chip, h2 .label-chip, h3 .label-chip, h4 .label-chip { font-size: 0.7e
   .toc-head { min-height: 48px; touch-action: none; }
   :root { --fab-lift: 20px; } /* the + button and the recorder clear the peeking handle */
   .snackbar { bottom: calc(16px + var(--peek)); }
-  .title { margin-left: 12px; }
   .filter-bar { padding: 8px 12px 0; }
   .selectbar { gap: 0; padding-inline: 4px; z-index: 21; } /* above the contents sheet's scrim */
   .sel-count { margin: 0 4px; }

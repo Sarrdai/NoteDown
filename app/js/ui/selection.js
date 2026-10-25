@@ -21,14 +21,13 @@ import {
   copyText, mergeParts, hasHeadings, canShiftHeadings, shiftHeadings, toggleItem, selectedItemLines, shiftItemKeys,
 } from "../core/selection.js";
 import { listItems, parseItemKey, moveItems, itemBlocks } from "../core/list-items.js";
-import { draggableAt, startDrag as startPartDrag, moveDrag, endDrag } from "./drag-drop.js";
+import { gripAt } from "./reorder-mode.js";
 import { state, note, removeNotes, setStatuses, setBody, applyMerge, circleOf, keptCircle, archiveDone, doneSource, returnDoneTasks, makePrivateCopies } from "../store.js";
 import { countDone, clearDone } from "../core/tasks.js";
-import { noteTitle } from "../core/markdown.js";
+import { noteTitle, sections } from "../core/markdown.js";
 import { restore, restoreOwn, purge } from "./trash.js";
 import { mergeCircle } from "../core/sharing.js";
 import { moveTo } from "./move-to.js";
-import { membersLabel, avatarStackHtml, esc } from "./people.js";
 import { endEdit, markSelected } from "./note-list.js";
 import { showSnackbar } from "./snackbar.js";
 import { openShareDialog } from "./share-dialog.js";
@@ -67,9 +66,8 @@ export function initSelection(options) {
   $("orderCancel").addEventListener("click", closeDialog);
   $("orderOk").addEventListener("click", () => {
     const fn = dialog.onConfirm, ordered = orderedFromDialog();
-    const mode = $("orderChoice").querySelector("input:checked")?.value || "copy";
     closeDialog();
-    fn(ordered, mode);
+    fn(ordered);
   });
   $("orderDialog").addEventListener("click", e => { if (e.target === $("orderDialog")) closeDialog(); });
 
@@ -129,6 +127,7 @@ const onFrame = target => !target.closest(".note-body, button, a, input");
 
 function onPointerDown(e) {
   swallowClick = false;
+  if (gripAt(e.target, e.clientX)) { down = null; return; }   // the reorder mode's grip (ui/reorder-mode.js)
   // Only with the mouse: on touch the frame is a small target and the long-press stays.
   frameDown = e.pointerType === "mouse" && onFrame(e.target);
   downType = e.pointerType;
@@ -156,7 +155,7 @@ function onHold() {
   swallowClick = true; // the click that follows the release
   buzz();
   window.getSelection()?.removeAllRanges();
-  if (downType !== "mouse") return startLift(target, x, y);
+  if (downType !== "mouse") return startLift(target);
   if (split) return splitNote(id);
   if (key) return toggleSection(key, { ownNote: true });
   if (line !== null) return toggleListItem(id, line);
@@ -213,48 +212,32 @@ export function showPick(el) {
 }
 
 // ---------- long-press and lift (touch) ----------
-// The long-press lifts what is under the finger: an accent outline shows it. Moving the finger then drags it
-// (a list item or a heading's section, ui/drag-drop.js); letting go without moving selects it (while
-// selecting it toggles, like a tap).
-let lift = null;   // { target, x0, y0, dragging } while a lifted finger is down
+// The long-press lifts what is under the finger: an accent outline shows it; letting go selects it (while
+// selecting it toggles, like a tap). Moving parts is the reorder mode's grip (ui/reorder-mode.js; decided
+// 2026-10-24, user request, over dragging after the long-press).
+let lift = null;   // { target } while a lifted finger is down
 
-function startLift(target, x, y) {
-  lift = { target, x0: x, y0: y, dragging: false };
+function startLift(target) {
+  lift = { target };
   showPick(pickTarget(target));
-  window.addEventListener("touchmove", onLiftMove);
   window.addEventListener("touchend", endLift);
   window.addEventListener("touchcancel", endLift);
 }
 
-function onLiftMove(e) {
-  if (!lift) return;
-  const t = e.touches[0];
-  if (!lift.dragging && Math.hypot(t.clientX - lift.x0, t.clientY - lift.y0) > MOVE_TOLERANCE) {
-    const part = draggableAt(lift.target);
-    if (!part) return;   // a whole note doesn't move; letting go selects it
-    lift.dragging = true;
-    showPick(null);
-    startPartDrag(part, lift.x0, lift.y0);
-  }
-  if (lift.dragging) moveDrag(t.clientX, t.clientY);
-}
-
 function endLift(e) {
   if (!lift) return;
-  const { target, dragging } = lift;
+  const { target } = lift;
   lift = null;
-  window.removeEventListener("touchmove", onLiftMove);
   window.removeEventListener("touchend", endLift);
   window.removeEventListener("touchcancel", endLift);
   showPick(null);
-  if (dragging) return endDrag(e.type === "touchend");
   if (e.type === "touchend") pickAt(target);
 }
 
 function onClick(e) {
   const el = e.target.closest("#list .note");
-  // The grip (ui/drag-drop.js) drags and selects on its own.
-  if (e.target.closest("#list .drag-grip")) { e.preventDefault(); e.stopPropagation(); return; }
+  // The grips (ui/drag-drop.js, ui/reorder-mode.js) drag and select on their own.
+  if (e.target.closest("#list .drag-grip") || gripAt(e.target, e.clientX)) { e.preventDefault(); e.stopPropagation(); return; }
   if (swallowClick) {
     swallowClick = false;
     if (el) { e.preventDefault(); e.stopPropagation(); }
@@ -371,6 +354,32 @@ export function syncSelection(visible) {
   else update();
 }
 
+/** The selected parts that move along when `at` (ui/drag-drop.js → draggableAt) is dragged: all of them when
+ *  `at` is one and every one is of its kind (list items, or sections — a whole note by its title's section),
+ *  as [{ noteId, lines: [a, b), from }] (from: the item's indent, the heading's level); else null. */
+export function dragGroup(at) {
+  if (!isSelecting()) return null;
+  const { parts } = current();
+  if (parts.length < 2) return null;
+  const group = [];
+  for (const p of parts) {
+    if ((at.kind === "item") !== !!p.item) return null;
+    if (p.item) { group.push({ noteId: p.noteId, lines: p.lines, from: p.indent }); continue; }
+    const ss = sections(note(p.noteId).body);
+    if (!ss[p.from]?.depth) return null;
+    group.push({ noteId: p.noteId, lines: [ss[p.from].start, ss[p.to - 1].end], from: ss[p.from].depth });
+  }
+  return group.some(g => g.noteId === at.noteId && g.lines[0] === at.line) ? group : null;
+}
+
+/** The notes that move when note `id` is dragged by its grip (the Shelves): the selected whole notes in the
+ *  list's order when it is one of them and only whole notes are selected, else just `id`. */
+export function noteDragIds(id) {
+  if (!isSelecting()) return [id];
+  const { parts } = current();
+  return parts.every(p => p.whole) && parts.some(p => p.noteId === id) ? parts.map(p => p.noteId) : [id];
+}
+
 // The selection as parts with their notes.
 function current() {
   const bodies = Object.fromEntries(selectedItemNotes().map(id => [id, note(id)?.body ?? ""]));
@@ -384,6 +393,9 @@ function current() {
 function update() {
   const on = state.selected.size > 0;
   $("app").classList.toggle("selecting", on);
+  // Move into… is the + button's while selecting in the notes, not the bar's (decided 2026-10-24, user request:
+  // the main action in thumb reach, where + is; main.js → renderFab); news posts don't move.
+  $("app").classList.toggle("selection-moves", on && state.view === "open" && !current().byNote.every(([n]) => n.news));
   $("selectBar").hidden = !on;
   for (const el of list().querySelectorAll(".note")) markSelected(el);
   opts.onChange();
@@ -402,6 +414,7 @@ function update() {
     disabled: !movable || !moveItems(note(movable).body, selectedItemLines(state.selected, movable), delta), menu: true });
   // News posts are read-only and only this user's: close or reopen, copy, delete.
   const news = byNote.every(([n]) => n.news);
+
   const actions = trash ? [
     { id: "restore", label: "Restore", run: () => withIds(restore) },
     ids.some(id => keptCircle(id).length) && { id: "lock", label: "Restore as my own", run: () => withIds(restoreOwn) },
@@ -417,8 +430,6 @@ function update() {
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
-    !archive && { id: "merge", label: "Merge", run: merge, disabled: whole && parts.length < 2 },
-    !archive && { id: "moveto", label: "Move to…", run: moveParts },
     !archive && movable && reorder(-1, "Move up"),
     !archive && movable && reorder(1, "Move down"),
     // A private copy of shared notes, linked back to the original (backlog #45).
@@ -580,32 +591,27 @@ function exportParts() {
   openExport({ label: parts.length === 1 ? (whole ? "note" : "section") : what(parts, whole), items: parts.map(p => ({ note: notes[p.noteId], text: partText(notes[p.noteId].body, p) })) });
 }
 
-// Merge and "move to a new note" are one mechanism: the parts, in the
-// confirmed order, become a new note and leave their notes. Across circles
-// the dialog asks where it goes (core/sharing.js → mergeCircle): a private
-// copy that leaves the shared notes as they are, or shared with everyone involved.
-// Into an existing note goes Move to… (ui/move-to.js).
-function merge() {
+// Move into…: the parts go to the end of a section of another note (or of one of theirs), in contents order;
+// or to "New note" — merging several parts, splitting one off: they become a new note, in contents order (the
+// order is changed after by the grips), and leave their notes. Across circles the picker asks where the new
+// note goes (core/sharing.js → mergeCircle): a private copy that leaves the shared notes as they are, or shared
+// with everyone involved.
+export function moveParts() {
   const { parts, notes, whole } = current();
-  const single = parts.length === 1;
+  const candidates = opts.viewNotes().filter(n => n.status !== "closed");
   const circles = Object.keys(notes).map(circleOf);
   const across = mergeCircle(circles, "copy").keepShared;
-  const choice = across ? mergeCircle(circles, "share").members : null;
-  openDialog(single ? "Move to a new note" : `Merge ${what(parts, whole)}`, single ? "Move" : "Merge", parts, notes, (ordered, mode) => {
-    endSelection();
-    const m = mergeParts(notes, ordered);
-    const { note: created, undo } = applyMerge(m.changes, m, mode);
-    const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
-    opts.onMerged(created, undo, message);
-  }, choice);
-}
-
-// Move to…: the parts go to the end of a section of another note (or of one of theirs), in contents order.
-function moveParts() {
-  const { parts, notes } = current();
-  const candidates = opts.viewNotes().filter(n => n.status !== "closed");
+  const newNote = parts.length === 1 && whole ? null : {
+    shareWith: across ? mergeCircle(circles, "share").members : null,
+    run: mode => {
+      const m = mergeParts(notes, parts);
+      const { note: created, undo } = applyMerge(m.changes, m, mode);
+      const message = across && mode === "copy" ? "Merged into a private note" : whole ? "Notes merged" : "Moved to a new note";
+      opts.onMerged(created, undo, message);
+    },
+  };
   endSelection();
-  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: opts.onMoved }));
+  afterLeave(() => moveTo({ parts, sources: notes, candidates, onDone: opts.onMoved, newNote }));
 }
 
 async function writeClipboard(text) {
@@ -623,24 +629,15 @@ async function writeClipboard(text) {
 
 // ---------- order dialog ----------
 
-// `shareWith` (member ids) adds the choice between a private copy and
-// sharing with these people; onConfirm gets the order and "copy" | "share".
-function openDialog(title, okLabel, parts, notes, onConfirm, shareWith = null) {
+// Copy's order dialog: onConfirm gets the parts in the order the dialog shows.
+function openDialog(title, okLabel, parts, notes, onConfirm) {
   dialog = { onConfirm, parts, notes };
   $("orderTitle").textContent = title;
   $("orderOk").textContent = okLabel;
-  $("orderChoice").innerHTML = shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
-    + choiceHtml("share", `Share with ${esc(membersLabel(shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(shareWith)) : "";
-  $("orderChoice").hidden = !shareWith;
   $("orderHint").hidden = parts.length < 2;
   $("orderList").replaceChildren(...parts.map((p, i) => orderItem(partPreview(notes[p.noteId].body, p), i)));
   $("orderDialog").hidden = false;
   $("orderOk").focus({ preventScroll: true, focusVisible: false });
-}
-
-function choiceHtml(value, title, hint, checked, extra = "") {
-  return `<label class="choice"><input type="radio" name="mergeMode" value="${value}"${checked ? " checked" : ""}>`
-    + `<span class="choice-text"><span class="choice-title">${title}</span><span class="choice-hint">${hint}</span></span>${extra}</label>`;
 }
 
 function closeDialog() {

@@ -12,11 +12,12 @@ The three notes below show you around. Close each one once you've read it.
 ## Find your way around
 - [ ] Tap or click a note to edit it; the toolbar adds headings, lists, tasks and a due date
 - [ ] Add a note with **+**, or hold **+** to dictate one
-- [ ] Long-press a note (Ctrl+click on a computer) to select several and close, copy, merge, share or delete them
+- [ ] Long-press a note (Ctrl+click on a computer) to select several and close, copy, share, move or delete them
 - [ ] Search narrows the list to matching notes; ▲ / ▼ step from hit to hit
 - [ ] Contents, People and Labels sit in the side panel — on a phone, pull up the handle at the bottom
 - [ ] Open the archive with its button in the top bar, or swipe sideways on a touch screen
-- [ ] Sorting, export and the color theme are in the top bar and under ⋮
+- [ ] Swipe right over your notes to show handles: drag tasks, bullets and sections where they belong (on a computer the handle shows under the mouse); swipe left to hide them
+- [ ] Export is under ⋮, the color theme in the settings (the round button right of the search)
 
 ## Where your notes live
 - On this device, in one plain Markdown file — they work offline and nothing leaves the device until you turn on sync
@@ -26,7 +27,7 @@ The three notes below show you around. Close each one once you've read it.
 - **Export** saves your notes as Markdown files, as a backup or to take them anywhere
 
 ## Sync and sharing
-- [ ] Turn on sync under **Sync & sharing** (the cloud button, or under ⋮) to have your notes on all your devices
+- [ ] Turn on sync under **Sync & sharing** (the round button right of the search) to have your notes on all your devices
 - [ ] Link another device by scanning the QR code it shows
 - [ ] Add people by their code or an invitation link, then select notes and choose **Share**
 - [ ] Shared notes stay in sync with those people, encrypted the same way; the People tab filters by them

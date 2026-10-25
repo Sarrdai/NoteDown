@@ -17,7 +17,8 @@ const labelsOnly = line => {
   return words[0] !== "" && words.every(w => LABEL_AT.test(w) && LABEL_AT.exec(w)[0] === w);
 };
 
-const inside = (line, skip) => skip && line >= skip[0] && line < skip[1];
+// `skip`: one range [a, b) or a list of them (several selected parts dragged together).
+const inside = (line, skip) => !!skip && (Array.isArray(skip[0]) ? skip.some(r => line >= r[0] && line < r[1]) : line >= skip[0] && line < skip[1]);
 
 // Where a child of `it` starts: past its marker ("- " 2, "1. " 3).
 const childIndent = (lines, it) => it.indent + (MARKER.exec(lines[it.line])?.[1].length ?? 2);
@@ -177,4 +178,46 @@ export function moveSection(src, range, from, dst, line, to) {
     return l.replace(ATX, (_, sp, h) => sp + "#".repeat(Math.min(6, Math.max(1, h.length + delta))));
   };
   return moveLines(src, range, dst, line, turn, { heading: true });
+}
+
+/**
+ * Moves several parts of one kind together (the reorder mode's grip on a selected part, ui/drag-drop.js):
+ * `parts` [{ noteId, lines: [a, b), from }] in the selection's order — list items (`from` their indent) or
+ * sections (`from` their heading level) — to before `line` of note `dstId` (counted as the slots gave it, with
+ * all the parts skipped), each on level `to`: items with that indent, sections with that heading level, what
+ * is below them shifting along. `bodies` by note id. Returns the new bodies by note id (null: nothing left).
+ */
+export function moveParts(bodies, parts, dstId, line, to, kind, { gap = false } = {}) {
+  const ranges = {};
+  for (const p of parts) (ranges[p.noteId] ||= []).push(p.lines);
+  const moved = parts.flatMap(p => {
+    const lines = bodies[p.noteId].split("\n").slice(p.lines[0], p.lines[1]);
+    return kind === "item" ? lines.map(l => (l.trim() ? " ".repeat(to) + l.replace(new RegExp(`^ {0,${p.from}}`), "") : l))
+      : shiftHeadings(lines, to - p.from);
+  }).filter((l, i, all) => kind === "item" ? l.trim() : true);
+  const out = {};
+  for (const id of new Set([...Object.keys(ranges), dstId])) {
+    const lines = bodies[id].split("\n");
+    const own = ranges[id] || [];
+    const keep = (l, i) => !inside(i, own.length ? own : null);
+    if (id !== dstId) {
+      const left = tidy(lines.filter(keep));
+      out[id] = left.trim() ? left : null;
+      continue;
+    }
+    const at = line - own.reduce((n, [a, b]) => n + Math.max(0, Math.min(b, line) - a), 0);
+    out[id] = tidy(insert(lines.filter(keep), at, moved, kind === "item" ? { gap } : { heading: true }));
+  }
+  return out;
+}
+
+// Shifts the headings in `lines` by `delta` levels (between 1 and 6), not inside code fences.
+function shiftHeadings(lines, delta) {
+  let fence = null;
+  return lines.map(l => {
+    const f = /^\s*(```|~~~)/.exec(l);
+    if (f) fence = fence === null ? f[1] : fence === f[1] ? null : fence;
+    if (fence !== null || f) return l;
+    return l.replace(ATX, (_, sp, h) => sp + "#".repeat(Math.min(6, Math.max(1, h.length + delta))));
+  });
 }

@@ -1,8 +1,8 @@
 // NoteDown prototype: wires the store to the views.
-import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, rearrange, arrangeRows, orderSections, sectionTitle, TRASH_DAYS, PILE_ID } from "./core/query.js";
+import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, orderSections, sectionTitle, sectionId, isSectionId, placeInOrder, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
 import { circleKey, circleEntries } from "./core/sharing.js";
-import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles } from "./store.js";
+import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles, applyMerge } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
 import { parseNotesFile } from "./core/notes-file.js";
@@ -34,13 +34,14 @@ import { setPicking } from "./ui/filter-pick.js";
 import { hasAnyLabel } from "./core/filters.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
-import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
+import { initSelection, syncSelection, endSelection, purgeSelected, moveParts } from "./ui/selection.js";
 import { initDragDrop } from "./ui/drag-drop.js";
+import { initReorderMode, setReordering, revealSwipe } from "./ui/reorder-mode.js";
+import { initShelfArrange, setArranging, isArranging } from "./ui/shelf-arrange.js";
 import { openMenu, initMenu, closeMenu } from "./ui/menu.js";
 import { hideSnackbar, showSnackbar } from "./ui/snackbar.js";
 import { initConfirm, openConfirm } from "./ui/confirm.js";
-import { initArrange, openArrange } from "./ui/arrange.js";
-import { initMoveTo } from "./ui/move-to.js";
+import { initMoveTo, moveTo } from "./ui/move-to.js";
 import { initReminders } from "./ui/reminders.js";
 import { openDue } from "./ui/due.js";
 import { dueItems, dueNowCount } from "./core/due-list.js";
@@ -64,6 +65,7 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 const DEFAULT_DIR = { modified: "desc", created: "desc", closed: "desc", deleted: "desc", due: "asc", title: "asc", custom: "asc" };
 const TITLES = { open: "Notes", closed: "Archive", trash: "Trash" };
+const PLACEHOLDERS = { open: "Search notes", closed: "Search archive", trash: "Search trash" };
 
 
 const phone = window.matchMedia("(max-width: 599px)");
@@ -100,8 +102,11 @@ function newNoteMembers(key = activeCircle()) {
 const dictationBlocked = () => state.circles.length > 1 ? "To dictate, show one circle only" : null;
 
 // A new note kept on top shows even when the filters leave it out (a label
-// filter, permanent only): it must open visibly and editable.
+// filter, permanent only): it must open visibly and editable. With the Shelves
+// it stays on top only while it lies on the pile: sorted onto a shelf (by its
+// grip) it takes its place there, never above the pile.
 function currentNotes() {
+  if (state.topId && isCustom() && orderIds().includes(state.topId)) state.topId = null;
   const notes = inView(listed());
   const i = notes.findIndex(n => refOf(n) === state.topId);
   if (i > 0) notes.unshift(...notes.splice(i, 1));
@@ -115,27 +120,27 @@ function currentNotes() {
 let shownNotes = [];
 const stillShown = () => shownNotes.filter(n => note(refOf(n)));
 
-// The sync status: a cloud icon in the top bar while sync is on.
+// The round button right of the search field (decided 2026-10-24, user request, after Google Keep): it shows
+// the sync status and opens the settings, whose first row is Sync & sharing: the own initial (no name: a person)
+// in a ring coloured by the status (decided over the status cloud: it reads as "mine", as in Keep).
 const SYNC_ICONS = { synced: "cloudCheck", syncing: "cloudSync", offline: "cloudOff", error: "cloudOff" };
 
 function renderSyncStatus() {
   const btn = $("syncBtn");
-  if (!state.sync.enabled) {
-    btn.dataset.status = "";
-    btn.innerHTML = icon("cloud");
-    btn.setAttribute("aria-label", "Sync & sharing");
-    btn.title = "Sync & sharing";
-    return;
+  const status = state.sync.enabled ? state.sync.status : "";
+  const initial = (state.sync.enabled && state.sync.name || "").trim().charAt(0).toUpperCase();
+  const changed = btn.dataset.status !== status || btn.dataset.initial !== initial;
+  // A round that transferred something ends with the check drawing itself in.
+  if (changed) btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
+  btn.dataset.status = status;
+  btn.dataset.initial = initial;
+  if (changed) {
+    $("syncFace").innerHTML = initial ? `<span class="account-initial"></span>` : icon("user");
+    if (initial) $("syncFace").firstChild.textContent = initial;
   }
-  const { status } = state.sync;
-  if (btn.dataset.status !== status) {
-    // A round that transferred something ends with the check drawing itself in.
-    btn.classList.toggle("just-synced", btn.dataset.status === "syncing" && status === "synced");
-    btn.dataset.status = status;
-    btn.innerHTML = icon(SYNC_ICONS[status]);
-  }
-  btn.setAttribute("aria-label", "Sync & sharing: " + statusText());
-  btn.title = "Sync & sharing · " + statusText();
+  const text = "Settings · Sync " + (status ? statusText().charAt(0).toLowerCase() + statusText().slice(1) : "off");
+  btn.setAttribute("aria-label", text);
+  btn.title = text;
 }
 
 // The Due button: its badge counts the items overdue or due today (red when one is overdue), its ring fills
@@ -159,12 +164,15 @@ function renderDueCount() {
 
 function render() {
   const s = state.settings;
+  if (isArranging() && !isCustom()) return setArranging(false);   // a sort change ends the arrange view
   const flavor = s.flavor === "system" ? (systemDark.matches ? "mocha" : "latte") : s.flavor;
   document.documentElement.dataset.flavor = flavor;
   app.dataset.view = state.view;
+  app.classList.toggle("shelves", state.view === "open" && isCustom());
   app.classList.toggle("has-search", state.search !== "");
 
   $("title").textContent = TITLES[state.view];
+  $("searchInput").placeholder = PLACEHOLDERS[state.view];
   const sort = sortOf();
   // Time to tidy up the Shelves' pile: a dot on the sort button, whatever the list is sorted by.
   const due = state.view === "open" && mainPile().level === "full";
@@ -207,9 +215,14 @@ function tilesOf(view, notes) {
 }
 
 // renderList's and reorderList's arguments for a view's notes.
+// The arrange view shows every shelf and folds nothing.
 function listArgs(view, notes) {
   const { tiles, pile, sectionOf } = tilesOf(view, notes);
-  return [tiles, { pile, sectionOf, onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection }];
+  const arranging = isArranging() && view === state.view;
+  return [tiles, arranging ? {
+    pile: pile && { ...pile, collapsed: false }, sectionOf: n => { const s = sectionOf(n); return s && { ...s, collapsed: false }; },
+    arrange: { shelves: shelfIds().map(id => ({ id, title: sectionTitle(id) })), edit: shelfEdit, onAdd: addShelf },
+  } : { pile, sectionOf, onArrange: arrange, onTogglePile: () => toggleSection(PILE_ID), onToggleSection: toggleSection }];
 }
 
 // How full a pile is (core/tidy.js): only in the main view, ignored circles' notes left out.
@@ -456,6 +469,8 @@ const enterTrash = () => pushEntry({ trash: true }, depth => { trashDepth = dept
 
 function setView(view, { fromHistory = false } = {}) {
   if (state.view === view) return;
+  setReordering(false);
+  setArranging(false);
   endSelection();
   hideSnackbar();
   leaveEntry("search");   // a view change ends the search, and with it its back step
@@ -469,6 +484,8 @@ function setView(view, { fromHistory = false } = {}) {
 
 // With several circles picked, + first asks which of them the note goes to.
 function newNote() {
+  setReordering(false);
+  setArranging(false);
   endSelection();
   const circles = state.circles;
   if (circles.length > 1 && state.view === "open") return openMenu($("fab"), [
@@ -530,30 +547,68 @@ function onMerged(n, undo, message) {
   showSnackbar(message, undo);
 }
 
-// After Move to…: the target note comes into view and flashes.
+// After Move into…: the target note comes into view and flashes.
 function onMoved(id, undo, message) {
   showNote(id);
   showSnackbar(message, undo);
 }
 
-// The arrange dialog over the notes the list shows: the user's own custom
-// order, or the shared order of the circle in view.
-function arrange() {
-  const shown = inView(listed());
-  const key = sortOf().key === "shared" ? sharedCircle() : null;
-  const { unsorted } = customSplit(shown, orderIds());
-  const sorted = arrangeRows(shown, orderIds());
-  const next = ids => rearrange(orderIds(), shown.map(n => refOf(n)), ids);
-  openArrange(key ? {
-    view: state.view,
-    title: "Shared shelves", hint: `You and ${circleName(key)} see and can change these shelves.`, sorted, unsorted,
-    save: ids => showSnackbar("Shared shelves saved", setCircleOrder(key, next(ids))),
-  } : {
-    view: state.view,
-    sorted, unsorted,
-    save: ids => showSnackbar("Shelves saved", setCustomOrder(next(ids))),
+// "Arrange shelves" (the pile header's button, the sort menu): the list turns into the arrange view
+// (ui/shelf-arrange.js). Its shelves are edited in place, each change with Undo.
+const arrange = () => setArranging(true);
+
+function shelfIds() { return orderIds().filter(isSectionId); }
+// A shelf name not taken yet: two shelves of one name would be one.
+function freeShelfName(name, except = null) {
+  const taken = new Set(shelfIds().filter(id => id !== except).map(id => sectionTitle(id).toLowerCase()));
+  let n = name.trim() || "Shelf", k = 2;
+  while (taken.has(n.toLowerCase())) n = `${name.trim() || "Shelf"} ${k++}`;
+  return n;
+}
+const shelfEdit = {
+  rename(id, title) {
+    const order = shelfOrder();
+    const next = sectionId(freeShelfName(title, id));
+    if (!order || next === id) return render();
+    const folded = state.settings.collapsedSections;
+    if (folded.includes(id)) updateSettings({ collapsedSections: folded.map(x => x === id ? next : x) });
+    showSnackbar("Shelf renamed", order.set(order.ids.map(x => x === id ? next : x)));
+  },
+  remove(id) {
+    const order = shelfOrder();
+    if (order) showSnackbar(`Shelf “${sectionTitle(id)}” removed`, order.set(order.ids.filter(x => x !== id)));
+  },
+};
+function addShelf() {
+  const order = shelfOrder();
+  if (!order) return;
+  const id = sectionId(freeShelfName("New shelf"));
+  showSnackbar("Shelf added", order.set([...order.ids, id]));
+  const input = $("list").querySelector(`.section-header[data-section="${CSS.escape(id)}"] input`);
+  input?.scrollIntoView({ block: "center" });
+  input?.focus();
+  input?.select();
+}
+
+// Copy into… from the editor's toolbar: the marked passage goes into a section of another note, or into a new
+// note; its own note keeps it (decided 2026-10-24, user request: e.g. an address named in a dictation).
+// The list shows the result once the edit ends.
+function copyPassage(text) {
+  const candidates = currentNotes().filter(n => n.status !== "closed" && refOf(n) !== state.editingId);
+  moveTo({
+    text, candidates, onDone: (id, undo, message) => showSnackbar(message, undo),
+    newNote: { shareWith: null, run: () => showSnackbar("Copied to a new note", applyMerge([], { body: text }, "copy").undo) },
   });
 }
+
+// Whole notes move within the Shelves — by a note's grip, in the arrange view and the reorder mode: its order, or a
+// circle's shared one; null when the view isn't sorted by Shelves.
+function shelfOrder() {
+  if (!isCustom()) return null;
+  const set = sortOf().key === "shared" ? ids => setCircleOrder(sharedCircle(), ids) : setCustomOrder;
+  return { ids: orderIds(), set };
+}
+
 
 // The floating sort button above the + (decided 2026-10-19 over beside / below the +
 // and the top bar's sort button; user request: sorting is a core feature): an arrow
@@ -578,19 +633,28 @@ function renderSortFab(sort, due) {
 function sortMenu(anchor = $("sortFab")) {
   const sort = sortOf();
   const keys = Object.entries(SORT_KEYS).filter(([, v]) => (!v.views || v.views.includes(state.view)) && (!v.circleOnly || sharedCircle()));
-  const dirs = DIR_LABELS[sort.key] || DIR_LABELS.default;
   // A sort change ends a new note's place on top, like a view or search change.
   const reorder = patch => { state.topId = null; updateSettings(patch); };
   const setSort = next => reorder({ sort: { ...state.settings.sort, [state.view]: next } });
+  // The active sort shows its direction in words; picking it again reverses it (decided 2026-10-24, user
+  // request, over separate entries per direction). A custom order has no direction.
+  const direction = (key, dir) => {
+    const words = (DIR_LABELS[key] || DIR_LABELS.default)[dir === "desc" ? 1 : 0];
+    return icon(dir === "desc" ? "arrowDown" : "arrowUp") + `<span>${words}</span>`;
+  };
+  const pick = (key, v) => sort.key !== key ? setSort({ key, dir: DEFAULT_DIR[key] })
+    : v.custom ? null : setSort({ ...sort, dir: sort.dir === "desc" ? "asc" : "desc" });
   openMenu(anchor, [
     { section: "Sort by" },
-    ...keys.map(([key, v]) => ({ label: v.label, checked: sort.key === key, onSelect: () => setSort({ key, dir: DEFAULT_DIR[key] }) })),
-    { separator: true },
-    // A custom order has no direction; it is arranged instead (named like the pile header's link).
-    ...(SORT_KEYS[sort.key].custom ? [{ label: customSplit(inView(listed()), orderIds()).unsorted.length ? "Tidy up…" : "Arrange…", onSelect: arrange }] : [
-      { label: dirs[1], checked: sort.dir === "desc", onSelect: () => setSort({ ...sort, dir: "desc" }) },
-      { label: dirs[0], checked: sort.dir === "asc", onSelect: () => setSort({ ...sort, dir: "asc" }) },
-    ]),
+    ...keys.map(([key, v]) => ({
+      label: v.label, checked: sort.key === key, onSelect: () => pick(key, v),
+      note: sort.key === key && !v.custom ? direction(key, sort.dir) : "",
+    })),
+    // A custom order is arranged instead, in the arrange view (ui/shelf-arrange.js).
+    ...(SORT_KEYS[sort.key].custom ? [
+      { separator: true },
+      { label: "Arrange shelves", icon: "shelf", onSelect: arrange },
+    ] : []),
   ]);
 }
 
@@ -625,47 +689,33 @@ async function loadWelcome() {
   replaceFiles({ file });
 }
 
-// The top bar's actions, left to right (search before them, ⋮ after them; Export
-// lives under ⋮, sort floats above the +). What doesn't fit moves under ⋮ in
-// FOLD_ORDER — Due first, the view button last, so the switch between the views
-// stays in reach; on the desktop the search gives up its centered place and
-// narrows before that.
+// The top bar is the search field (decided 2026-10-24, user request, after Google Keep): it fills the bar and
+// holds the actions after the text — the view button, Due, ⋮ — with the round settings button right of it.
+// What doesn't fit moves under ⋮ in FOLD_ORDER — Due first, the view button last, so the switch between the
+// views stays in reach.
 const ACTIONS = [
-  { id: "syncBtn", menu: () => ({ label: "Sync & sharing…", icon: state.sync.enabled ? SYNC_ICONS[state.sync.status] : "cloud", onSelect: openSyncPanel }) },
   { id: "viewBtn", menu: () => state.view === "open"
     ? { label: "Archive", icon: "archive", onSelect: () => setView("closed") }
     : { label: "Notes", icon: "notes", onSelect: () => setView("open") } },
   { id: "dueBtn", menu: () => ({ label: "Due" + (dueNowCount(dueItems(allNotes(), today()), today()) ? ` (${dueNowCount(dueItems(allNotes(), today()), today())} now)` : ""), icon: "calendar", onSelect: openDue }) },
 ];
-const FOLD_ORDER = ["dueBtn", "syncBtn", "viewBtn"];
-const wide = window.matchMedia("(min-width: 1024px)");
+const FOLD_ORDER = ["dueBtn", "viewBtn"];
+const MIN_INPUT = 110;   // px the search text keeps before buttons fold
 
 function fitTopbar() {
-  const bar = $("topbar");
-  const title = $("title");
-  const search = $("search");
+  const input = $("searchInput");
   for (const a of ACTIONS) { $(a.id).hidden = false; delete $(a.id).dataset.folded; }
-  search.classList.toggle("centered", wide.matches);
-  // Too tight: the title is cut, the buttons run out of the bar, or (desktop)
-  // into the centered search.
-  const tight = () => title.scrollWidth > title.clientWidth + 1
-    || $("moreBtn").getBoundingClientRect().right > bar.getBoundingClientRect().right + 1
-    || (search.classList.contains("centered") && $(ACTIONS.find(a => !$(a.id).hidden)?.id || "moreBtn").getBoundingClientRect().left < search.getBoundingClientRect().right + 8);
-  if (!bar.offsetWidth) return;
-  // Measured with the longer title, so both views keep the same buttons and
-  // the view button its place.
-  const text = title.textContent;
-  title.textContent = "Archive";
-  // Desktop: the title keeps the longer one's width, so the search stays in place too.
-  title.style.minWidth = "";
-  if (wide.matches) title.style.minWidth = title.scrollWidth + "px";
-  // Desktop: the search leaves the middle and sits after the title, narrower.
-  if (tight()) search.classList.remove("centered");
-  for (let i = 0; i < FOLD_ORDER.length && tight(); i++) {
+  if (!input.offsetWidth) return;
+  for (let i = 0; i < FOLD_ORDER.length && input.offsetWidth < MIN_INPUT; i++) {
     const btn = $(FOLD_ORDER[i]);
-    if (!btn.hidden) { btn.hidden = true; btn.dataset.folded = "1"; }
+    btn.hidden = true; btn.dataset.folded = "1";
   }
-  title.textContent = text;
+}
+
+// The round button: the settings, synced on opening like Sync & sharing.
+function openAccount() {
+  openSettings();
+  if (state.sync.enabled) syncOnRequest();
 }
 
 function moreMenu() {
@@ -678,7 +728,6 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
-    { label: "Settings…", icon: "settings", onSelect: () => openSettings() },
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -702,13 +751,15 @@ function simulateRemoval() {
 // in the selection bar.
 function renderFab() {
   const fab = $("fab");
-  const label = { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Delete selected permanently" }[state.view];
+  const moves = app.classList.contains("selection-moves");
+  const label = moves ? "Move into…" : { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Delete selected permanently" }[state.view];
   fab.setAttribute("aria-label", label);
-  fab.title = state.view === "open" ? "" : label;
+  fab.title = state.view === "open" && !moves ? "" : label;
   // Also in the main view, so the bin a swipe brings in looks as it will.
   fab.classList.toggle("inert", state.view === "trash" ? !state.selected.size : !allNotes().some(n => n.status === "closed"));
 }
-const fabTap = () => state.view === "open" ? newNote()
+const fabTap = () => app.classList.contains("selection-moves") ? moveParts()
+  : state.view === "open" ? newNote()
   : $("fab").classList.contains("inert") ? null
   : state.view === "trash" ? purgeSelected() : emptyArchive();
 
@@ -760,7 +811,7 @@ function showNote(id) {
 }
 
 function wire() {
-  for (const [id, name] of [["searchBtn", "search"], ["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
+  for (const [id, name] of [["moreBtn", "more"], ["searchClose", "close"], ["hitPrev", "up"], ["hitNext", "down"], ["tocLess", "minus"], ["tocMore", "plus"], ["tocProgress", "checkbox"], ]) $(id).innerHTML = icon(name);
   $("dueBtn").querySelector(".btn-icon").innerHTML = icon("calendar");
   $("dueBtn").addEventListener("click", openDue);
   $("viewBtn").querySelector(".to-archive .btn-icon").innerHTML = icon("archive");
@@ -768,8 +819,9 @@ function wire() {
   $("searchIcon").innerHTML = icon("search");
   $("fab").querySelector(".fab-new").innerHTML = icon("plus");
   $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
+  $("fab").querySelector(".fab-move").innerHTML = icon("moveto");
   window.addEventListener("resize", fitTopbar);
-  $("syncBtn").addEventListener("click", openSyncPanel);
+  $("syncBtn").addEventListener("click", openAccount);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
 
   // One button switches between the notes and the archive, in the same place; from the trash it leads to the notes.
@@ -786,11 +838,13 @@ function wire() {
     if (e.target.value && !history.state?.search) pushEntry({ search: true });
     setUi({ search: e.target.value, topId: null });
   });
-  $("searchBtn").addEventListener("click", () => {
-    app.classList.add("searching");
-    if (!history.state?.search) pushEntry({ search: true });
-    $("searchInput").focus();
-  });
+  // The field searches while its text has the focus or holds a search: its buttons then make room for the
+  // hit counter, ▲ / ▼ and ×. A tap on its free part goes to the text.
+  $("search").addEventListener("click", e => { if (!e.target.closest("button")) $("searchInput").focus(); });
+  $("searchInput").addEventListener("focus", () => app.classList.add("searching"));
+  $("searchInput").addEventListener("blur", () => setTimeout(() => {
+    if (!state.search && document.activeElement !== $("searchInput")) app.classList.remove("searching");
+  }));
   $("searchClose").addEventListener("click", () => endSearch());
   window.addEventListener("popstate", () => {
     if ((state.search || app.classList.contains("searching")) && !history.state?.search) endSearch({ fromHistory: true });
@@ -824,12 +878,13 @@ function wire() {
   initExternal();
   initCompare();
   document.addEventListener("notedown:show-note", e => showNote(e.detail.id));
-  initArrange();
+  initShelfArrange({ canArrange: () => isCustom(), render });
   initMoveTo();
-  initToolbar({ onDue: sortInByDue });
-  recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
+  initToolbar({ onDue: sortInByDue, onCopyTo: copyPassage });
+  recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open" && !state.selected.size, holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
-  initDragDrop({ onMoved });
+  initDragDrop({ onMoved, order: shelfOrder });
+  initReorderMode();
   initSyncPanel();
   initContactRequests();
   initPullRefresh({
@@ -849,6 +904,9 @@ function wire() {
     view: () => state.view,
     setView,
     lanes: swipeLanes,
+    // To the right, where no view lies, the swipe shows the reorder mode's grips; to the left it hides them
+    // again before it goes to the archive (ui/reorder-mode.js).
+    edge: revealSwipe,
     // The + turns into the bin as the archive comes in (--archive: 0 notes, 1 archive).
     follow: (pos, ms) => {
       for (const fab of [$("fab"), $("sortFab")]) {

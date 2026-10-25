@@ -1,35 +1,50 @@
-// Move to… (docs/requirements.md → "Multi-select" → "Move to"): picks a
-// section of another note and moves the parts there (core/move.js). Opened
-// from the selection bar and from a row of the Tidy up dialog (ui/arrange.js).
-// Every note with its headings in one list, one tap picks (decided 2026-10-19
-// over note first, then section: fewer taps); − / + set the levels shown, as
-// in the contents.
+// Move into… (docs/requirements.md → "Multi-select" → "Move into"): the one way to move content far — picks a
+// section of another note and moves the parts there (core/move.js), or "New note" (merging several parts,
+// splitting one off; decided 2026-10-24 over a Merge action of its own). Every target is a note, hence the name
+// (decided 2026-10-24 over "Move to", which also took shelves; where a note stands is the arrange view's,
+// ui/shelf-arrange.js). Copy into… is the same picker for a passage marked in the editor, whose note keeps it. Opened from the
+// selection bar and the editor's toolbar. Every note with its
+// headings in one list, one tap picks (decided 2026-10-19 over note first, then section: fewer taps); − / +
+// set the levels shown, as in the contents.
 import { noteTitle } from "../core/markdown.js";
-import { moveOutline, moveInto, targetRest } from "../core/move.js";
+import { moveOutline, moveInto, targetRest, insertText } from "../core/move.js";
 import { partText } from "../core/selection.js";
-import { state, note, circleOf, applyMoveInto, updateSettings } from "../store.js";
+import { state, note, setBody, applyMoveInto, updateSettings } from "../store.js";
 import { icon } from "./icons.js";
+import { avatarStackHtml, membersLabel, esc } from "./people.js";
 import { refOf } from "../core/note-ref.js";
 
 const $ = id => document.getElementById(id);
-let pick = null;   // { parts, sources, candidates, onDone, target: { id, index, text } }
+// { parts, sources, text, candidates, onDone, newNote, shelves, target }; target: { kind: "section", id, index,
+// text } | { kind: "new" }
+let pick = null;
 
 const ATX = /^ {0,3}#{1,6}(\s|$)/m;
 
 /**
- * Opens the picker for `parts` ([{ noteId, from, to, whole }]) of the notes
- * `sources` (by id) over the `candidates` (notes, in the list's order);
- * after the move `onDone(targetId, undo, message)`.
+ * Opens the picker for `parts` ([{ noteId, from, to, whole }]) of the notes `sources` (by id) — or, copying,
+ * for a passage `text` — over the `candidates` (notes, in the list's order); after the move or copy
+ * `onDone(targetId, undo, message)`. `newNote` ({ shareWith, run(mode) } or null) offers "New note": `run`
+ * gets "copy" | "share" (the choice offered when `shareWith`, member ids, is set).
  */
-export function moveTo({ parts, sources, candidates, onDone }) {
+export function moveTo({ parts = [], sources = {}, text = null, candidates, onDone, newNote = null }) {
   const wholeIds = new Set(parts.filter(p => p.whole).map(p => p.noteId));
-  pick = { parts, sources, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, target: null };
-  const plain = parts.some(p => !ATX.test(partText(sources[p.noteId].body, p)));
+  pick = { parts, sources, text, candidates: candidates.filter(n => !wholeIds.has(refOf(n)) && !n.news), onDone, newNote, target: null };
+  const plain = text !== null ? !ATX.test(text) : parts.some(p => !ATX.test(partText(sources[p.noteId].body, p)));
   $("moveTaskRow").dataset.plain = plain ? "1" : "";
-  $("moveTitle").textContent = parts.length === 1 ? (parts[0].whole ? "Move note to…" : parts[0].item ? "Move item to…" : "Move section to…") : `Move ${parts.length} parts to…`;
+  $("moveTitle").textContent = text !== null ? "Copy into…"
+    : parts.length === 1 ? (parts[0].whole ? "Move note into…" : parts[0].item ? "Move item into…" : "Move section into…") : `Move ${parts.length} parts into…`;
+  $("moveOk").textContent = text !== null ? "Copy" : "Move";
+  $("moveChoice").innerHTML = newNote?.shareWith ? choiceHtml("copy", "Private copy", "Shared notes stay as they are.", true)
+    + choiceHtml("share", `Share with ${esc(membersLabel(newNote.shareWith))}`, "Everything merged becomes visible to them.", false, avatarStackHtml(newNote.shareWith)) : "";
   $("moveSearch").value = "";
   render();
   $("moveDialog").hidden = false;
+}
+
+function choiceHtml(value, title, hint, checked, extra = "") {
+  return `<label class="choice"><input type="radio" name="moveMode" value="${value}"${checked ? " checked" : ""}>`
+    + `<span class="choice-text"><span class="choice-title">${title}</span><span class="choice-hint">${hint}</span></span>${extra}</label>`;
 }
 
 const isOpen = () => !$("moveDialog").hidden;
@@ -67,6 +82,8 @@ function render() {
   $("moveLess").disabled = depth <= 1;
   $("moveMore").disabled = depth >= maxLevel;
   const rows = [];
+  // "New note" heads the list (decided 2026-10-24 over a button under it: in sight, one tap).
+  if (pick.newNote && !q) rows.push(special({ kind: "new" }, "plus", "New note"));
   for (const [n, sections] of notes) {
     // A search shows every level of the notes it finds.
     const shown = sections.filter(r => q || r.level <= depth);
@@ -91,7 +108,7 @@ function row(n, r, indent, more) {
   b.type = "button";
   b.className = "move-row" + (r.index === 0 ? " head" : "") + (r.fromHeading ? "" : " plain");
   b.style.setProperty("--indent", indent);
-  b.setAttribute("aria-pressed", String(pick.target?.id === id && pick.target.index === r.index));
+  b.setAttribute("aria-pressed", String(pick.target?.kind === "section" && pick.target.id === id && pick.target.index === r.index));
   const label = document.createElement("span");
   label.className = "move-text";
   label.textContent = r.text || "Untitled";
@@ -103,31 +120,60 @@ function row(n, r, indent, more) {
   return li;
 }
 
+// A row that isn't a note's section: "New note".
+function special(target, ic, text) {
+  const li = document.createElement("li");
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "move-row head special";
+  b.setAttribute("aria-pressed", String(pick.target?.kind === target.kind && pick.target.id === target.id));
+  b.innerHTML = `<span class="move-lead">${icon(ic)}</span><span class="move-text"></span>`;
+  b.querySelector(".move-text").textContent = text;
+  b.addEventListener("click", () => setTarget(target));
+  li.append(b);
+  return li;
+}
+
 function choose(id, r) {
-  pick.target = { id, index: r.index, text: r.text };
   $("moveTask").checked = r.tasks;
+  setTarget({ kind: "section", id, index: r.index, text: r.text });
+}
+
+function setTarget(target) {
+  pick.target = target;
   const top = $("moveList").scrollTop;
   render();
   $("moveList").scrollTop = top;
 }
 
-// Where it lands and the task switch.
+// Where it lands, the task switch and, for a new note of shared parts, where that note goes.
 function footer() {
   const t = pick.target;
   $("moveOk").disabled = !t;
-  $("moveTaskRow").hidden = !t || !$("moveTaskRow").dataset.plain;
-  const n = t && note(t.id);
-  $("moveWhere").textContent = t ? `End of “${t.text || "Untitled"}”${t.index ? ` in “${noteTitle(n.body).text || "Untitled"}”` : ""}` : "Pick where it goes.";
+  $("moveTaskRow").hidden = t?.kind !== "section" || !$("moveTaskRow").dataset.plain;
+  $("moveChoice").hidden = t?.kind !== "new" || !pick.newNote?.shareWith;
+  const n = t?.kind === "section" && note(t.id);
+  $("moveWhere").textContent = !t ? "Pick where it goes."
+    : t.kind === "new" ? "A new note"
+    : `End of “${t.text || "Untitled"}”${t.index ? ` in “${noteTitle(n.body).text || "Untitled"}”` : ""}`;
 }
 
 function confirm() {
-  const { parts, sources, onDone, target } = pick;
+  const { parts, sources, text, onDone, newNote, target } = pick;
   const asTask = !$("moveTaskRow").hidden && $("moveTask").checked;
+  const mode = $("moveChoice").querySelector("input:checked")?.value || "copy";
   close();
+  if (target.kind === "new") return newNote.run(mode);
+  const where = `“${target.text || "Untitled"}”`;
+  if (text !== null) {
+    const before = note(target.id).body;
+    setBody(target.id, insertText(before, target.index, text, { asTask }));
+    return onDone(target.id, () => setBody(target.id, before), `Copied to ${where}`);
+  }
   const notes = { ...sources, [target.id]: note(target.id) };
   const m = moveInto(notes, parts, target.id, target.index, { asTask });
   const undo = applyMoveInto(target.id, m.body, m.changes);
-  onDone(target.id, undo, `Moved to “${target.text || "Untitled"}”`);
+  onDone(target.id, undo, `Moved to ${where}`);
 }
 
 export function initMoveTo() {

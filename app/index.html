@@ -46,23 +46,24 @@
 
     <main class="main">
       <header class="topbar" id="topbar">
-        <h1 class="title" id="title">Notes</h1>
-        <label class="search" id="search">
+        <h1 class="visually-hidden" id="title">Notes</h1>
+        <div class="search" id="search">
           <span class="search-icon" id="searchIcon"></span>
-          <input type="search" id="searchInput" placeholder="Search" autocomplete="off" enterkeyhint="next">
+          <input type="search" id="searchInput" placeholder="Search notes" aria-label="Search" autocomplete="off" enterkeyhint="next">
           <span class="hit-count" id="hitCount" aria-live="polite"></span>
           <button class="icon-btn small hit-nav" id="hitPrev" aria-label="Previous hit" title="Previous hit · Shift+Enter"></button>
           <button class="icon-btn small hit-nav" id="hitNext" aria-label="Next hit" title="Next hit · Enter"></button>
           <button class="icon-btn small" id="searchClose" aria-label="Close search"></button>
-        </label>
-        <button class="icon-btn" id="searchBtn" aria-label="Search"></button>
-        <button class="icon-btn" id="syncBtn"></button>
-        <button class="icon-btn" id="viewBtn">
-          <span class="view-face to-archive"><span class="btn-icon"></span></span>
-          <span class="view-face to-notes"><span class="btn-icon"></span></span>
-        </button>
-        <button class="icon-btn" id="dueBtn" aria-label="Due" title="Due"><svg class="due-ring" id="dueRing" viewBox="0 0 40 40" aria-hidden="true"><circle class="track" cx="20" cy="20" r="17"/><circle class="done" id="dueRingDone" cx="20" cy="20" r="17" pathLength="100" stroke-dasharray="0 100"/></svg><span class="btn-icon"></span><span class="count" id="dueCount">0</span></button>
-        <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More" title="More"></button>
+          <div class="search-actions" id="searchActions">
+            <button class="icon-btn" id="viewBtn">
+              <span class="view-face to-archive"><span class="btn-icon"></span></span>
+              <span class="view-face to-notes"><span class="btn-icon"></span></span>
+            </button>
+            <button class="icon-btn" id="dueBtn" aria-label="Due" title="Due"><svg class="due-ring" id="dueRing" viewBox="0 0 40 40" aria-hidden="true"><circle class="track" cx="20" cy="20" r="17"/><circle class="done" id="dueRingDone" cx="20" cy="20" r="17" pathLength="100" stroke-dasharray="0 100"/></svg><span class="btn-icon"></span><span class="count" id="dueCount">0</span></button>
+            <button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-label="More" title="More"></button>
+          </div>
+        </div>
+        <button class="account-btn" id="syncBtn"><svg class="account-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20.5"/></svg><span class="account-face" id="syncFace"></span></button>
       </header>
       <div class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></div>
       <div class="selectbar keep-editing" id="selectBar" role="toolbar" aria-label="Selection" hidden>
@@ -80,8 +81,9 @@
       <p class="empty" id="empty" hidden></p>
     </main>
 
-    <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"><span class="fab-face fab-new"></span><span class="fab-face fab-empty"></span></button>
+    <button class="fab keep-editing" id="fab" aria-label="New note (hold to dictate)"><span class="fab-face fab-new"></span><span class="fab-face fab-empty"></span><span class="fab-face fab-move"></span></button>
     <button class="sort-fab keep-editing" id="sortFab" aria-haspopup="menu"></button>
+    <button class="sort-fab arrange-done" id="arrangeDone"></button>
     <div class="recorder keep-editing" id="recorder" hidden>
       <div class="rec-preview" id="recPreview" aria-live="polite"></div>
       <div class="rec-bar">
@@ -116,7 +118,6 @@
         <h2 class="dialog-title" id="orderTitle"></h2>
         <p class="dialog-hint" id="orderHint">Drag to change the order.</p>
         <ol class="order-list" id="orderList"></ol>
-        <div class="merge-choice" id="orderChoice" role="radiogroup" aria-label="Shared notes" hidden></div>
         <div class="dialog-actions">
           <button class="btn" id="orderCancel">Cancel</button>
           <button class="btn primary" id="orderOk"></button>
@@ -125,7 +126,7 @@
     </div>
     <div class="dialog-scrim keep-editing" id="moveDialog" hidden>
       <div class="dialog move-dialog" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
-        <h2 class="dialog-title" id="moveTitle">Move to…</h2>
+        <h2 class="dialog-title" id="moveTitle">Move into…</h2>
         <div class="move-tools">
           <input class="move-search" id="moveSearch" type="search" placeholder="Search" aria-label="Search notes and headings" autocomplete="off">
           <div class="stepper" role="group" aria-label="Heading levels">
@@ -137,24 +138,13 @@
         <ul class="move-list" id="moveList"></ul>
         <p class="move-where" id="moveWhere"></p>
         <label class="move-task" id="moveTaskRow" hidden><input type="checkbox" id="moveTask"><span>As tasks</span></label>
+        <div class="merge-choice" id="moveChoice" role="radiogroup" aria-label="Shared notes" hidden></div>
         <div class="dialog-actions">
           <button class="btn" id="moveCancel">Cancel</button>
           <button class="btn primary" id="moveOk" disabled>Move</button>
         </div>
       </div>
     </div>
-    <div class="dialog-scrim keep-editing" id="arrangeDialog" hidden>
-      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="arrangeTitle">
-        <h2 class="dialog-title" id="arrangeTitle">Shelves</h2>
-        <p class="dialog-hint" id="arrangeHint"></p>
-        <ol class="order-list arrange-list" id="arrangeList"></ol>
-        <div class="arrange-sort">Pile by <button class="icon-btn small labelled" id="arrangeSort" aria-haspopup="menu"><span class="btn-icon"></span><span class="btn-label" id="arrangeSortLabel"></span></button></div>
-        <div class="dialog-actions">
-          <button class="btn add-section" id="arrangeAddSection"><span class="btn-icon"></span>Shelf</button>
-          <button class="btn" id="arrangeCancel">Cancel</button>
-          <button class="btn primary" id="arrangeOk">Save</button>
-        </div>
-      </div>
     </div>
     <div class="dialog-scrim keep-editing" id="confirmDialog" hidden>
       <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">

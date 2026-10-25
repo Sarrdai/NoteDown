@@ -96,16 +96,17 @@ const syncState = page => page.evaluate(() => window.__store.state.sync);
 const bodies = page => page.evaluate(() => window.__store.allNotes().map(n => n.body));
 const addNote = (page, body) => page.evaluate(b => window.__store.addNote(b), body);
 
-// The top bar's cloud button, or ⋮ → "Sync & sharing…" when it didn't fit.
+// Sync & sharing as its own panel, as the app's other ways in open it (People's "+", the storage hint), so one
+// Esc closes it. The round button right of the search reaches it as the settings' first row (checked once in
+// turnOnSync).
 async function openPanel(page) {
-  if (await page.locator("#syncBtn").isVisible()) return page.click("#syncBtn");
-  await page.click("#moreBtn");
-  await page.locator(".menu-item", { hasText: "Sync & sharing" }).click();
+  await page.evaluate(async () => (await import("/app/js/ui/sync-panel.js")).openSyncPanel());
 }
 
 // Turns sync on through the panel, as a new user does; closes the panel. → the recovery key shown.
 async function turnOnSync(page, name) {
-  await openPanel(page);
+  await page.click("#syncBtn");
+  await page.locator("#syncBody").getByText("Sync & sharing", { exact: true }).first().click();
   await page.locator("#syncBody").getByRole("button", { name: "Turn on sync" }).click();
   await page.fill("#syncBody input", name);
   await page.getByRole("button", { name: "Continue" }).click();
@@ -113,6 +114,8 @@ async function turnOnSync(page, name) {
   await page.check("#keySaved");
   await page.getByRole("button", { name: "Done" }).click();
   await page.getByText("This device", { exact: true }).waitFor();
+  // Back to the settings, then closed.
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   return key;
 }

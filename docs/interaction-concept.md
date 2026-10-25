@@ -18,24 +18,29 @@ Current state, edited in place when a decision changes.
 
 | | Phone (< 600 px) | Tablet (600–1023 px) | Desktop (≥ 1024 px) |
 |---|---|---|---|
-| Top bar | Title; icons for search, Sync & sharing (sync status), archive, Due (count on its corner, ring of what is done today), ⋮ | Title, the search field right after it, then the same icons | Title; the search field centered over the notes, as wide as their cards, while the icons fit right of it — otherwise right after the title and narrower (at least 240 px); the same icons right of it |
+| Top bar | The search field fills the bar, with archive / Notes, Due (count on its corner, ring of what is done today) and ⋮ inside after its text; right of it the round settings button | Same | The search field centered over the notes, as wide as their cards, the same icons inside; the settings button at the bar's right end |
 | Table of contents and People (#23) | Bottom sheet whose handle peeks out at the bottom; tabs "Contents \| People", always | Fixed sidebar on the left, same tabs | Fixed sidebar on the left, same tabs |
 | Note list | Cards, full width | Cards next to the sidebar | Cards next to the sidebar, at most 780 px wide |
-| Search | Icon turns the top bar into a search field; with a text it shows the hit counter and ▲ / ▼; suggestions as a list under it; × or back ends it on the current hit | Always visible field, wider with a text for the counter and ▲ / ▼; suggestions under it | Always visible field, counter and ▲ / ▼ inside; suggestions under it |
+| Search | The top bar's field: a tap into it searches, its icons make room for the hit counter, ▲ / ▼ and ×; suggestions as a list under it; × or back ends it on the current hit | Same | Same |
 | Multi-select | Contextual top bar: ✕, count, main action icons, rest under ⋮ (icon and label); the contents handle stays | Contextual top bar: ✕, count, action icons | Same, actions with labels |
-| Panels (Sync & sharing, share dialog, Settings) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
+| Panels (Settings with Sync & sharing, share dialog) | Full-screen sheet with ✕ / back | Centered dialog, max 480 px | Centered dialog, max 480 px |
 
-- **Top bar actions** are icons with a tooltip, in this order: search,
-  Sync & sharing, archive / Notes, Due, ⋮ (decided 2026-10-19, user
-  request; sort floats above the +, see below). Whatever doesn't fit
-  goes under ⋮, with its icon and label: Due first, then Sync & sharing,
-  and the archive button last, so the switch between the views stays
-  in reach (on the desktop the search first leaves the middle and
-  narrows). Both views keep the same buttons,
-  so the view button keeps its place. ⋮ holds what didn't fit, then
-  **Export…**, the trash, **Settings…** and the prototype's tools, each
-  with icon and label. Settings (theme, reminders, links & media) never
-  get a top-bar icon of their own.
+- **The top bar is the search field** (decided 2026-10-24, user request,
+  after Google Keep: the field fills the bar and holds as many buttons as
+  fit): after its text the icons archive / Notes, Due and ⋮, each with a
+  tooltip. Whatever doesn't fit goes under ⋮, with its icon and label:
+  Due first, the archive button last, so the switch between the views
+  stays in reach. The field's placeholder names the view ("Search
+  notes", "Search archive", "Search trash"); there is no title. ⋮ holds
+  what didn't fit, then **Export…**, the trash and the prototype's tools,
+  each with icon and label.
+- **The round settings button** right of the field shows the own initial
+  (without sync a person) in a ring coloured by the sync status — done
+  colour synced, the accent turning while syncing, red offline — and
+  opens the Settings, whose first row is Sync & sharing with the status;
+  opening them syncs, like Sync & sharing (decided 2026-10-24, user
+  request; the initial over the status cloud: it reads as "mine", as in
+  Keep). There is no other Settings entry.
 - One primary action per view, as a floating button: + at the bottom
   right in the main view; in the archive it moves to the bottom left and
   turns into the red bin that empties the archive (in the trash the same
@@ -44,7 +49,7 @@ Current state, edited in place when a decision changes.
   selection bar) (animated, during a
   swipe between the views in step with the finger; left, so it is never
   taken for +). The snackbar then sits right of it.
-- **Sorting** is the one secondary floating button: a small pill with the
+- **Sorting** is a secondary floating button: a small pill with the
   sort's direction arrow and short name, right above + (in the archive in
   its corner), opening the sort menu (decided 2026-10-19, user request;
   `docs/requirements.md` → "Sorting and search").
@@ -53,10 +58,10 @@ Current state, edited in place when a decision changes.
   their controls below it, bottom elements stay above the gesture bar
   (safe-area insets; Android forces edge-to-edge from version 15).
 - The archive keeps the main view's layout; only the background tint, the
-  title and the view button tell them apart: "Archive" in the main view
-  turns into "Notes" in the archive, in the same place and size right
-  after sort, so one tap switches back and
-  forth (decided 2026-10-13 over a back button at the left). On touch
+  search field's placeholder and the view button tell them apart: the
+  archive icon in the main view turns into Notes in the archive, in the
+  same place and size, so one tap switches back and forth (decided
+  2026-10-13 over a back button at the left). On touch
   devices the archive also lies to the right of the notes (see "Input").
 - The phone keeps bottom elements clear of the contents handle: the +
   button and the snackbar sit above it.
@@ -74,14 +79,19 @@ Current state, edited in place when a decision changes.
   entry of the People or Labels tab it starts picking several filters
   (a bar with × and the count, a checkbox per entry), on + it starts dictation, on a task
   checkbox it picks the task's state. On a note's content the long-press
-  **lifts**: letting go selects, moving drags (a list item or a section).
+  **lifts**: an outline shows what it hit, letting go selects it.
+  **Moving** parts is the reorder mode's: its grips drag at once and,
+  held, select (decided 2026-10-24, user request, over dragging after the
+  long-press).
   On the desktop a click edits, Ctrl+click and a right-click select (links
   and the editor keep the browser's menu), and the grip that shows at the
   hovered list item or heading drags or, clicked, selects; nothing
   essential is long-press-only there (also Shift+click, a click on a
   card's frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
-  normal one and the primary action button is hidden; a tap anywhere on
+  normal one and the primary action button becomes the selection's: Move
+  into… in the main view, the bin in the trash, hidden in the archive; a
+  tap anywhere on
   an item toggles it, nothing inside the item acts. The note list and the
   contents share one selection, and the user can switch between them
   while selecting. The back button and
@@ -104,6 +114,15 @@ Current state, edited in place when a decision changes.
   moves with the pages, split where the two views meet, in one straight
   line with them also in a flick. The whole screen below the top bar
   except the contents panel takes the swipe, also below the last card.
+  **To the right in the notes**, where no view lies, the swipe shows the
+  reorder mode's grips instead of only giving a little: they fade in and
+  the text makes room as the finger goes, past the full way the list
+  gives a little like at its end; let go past half or with a flick, the
+  mode is on, else it settles back. While it is on, the swipe to the left
+  hides them the same way, and only the next one goes to the archive; a
+  part dragged sideways by its grip sets its level and never switches
+  views (decided 2026-10-24, user request, over a button above +;
+  `docs/requirements.md` → "Reorder mode").
 - **On the contents panel** (tablet sidebar, phone's open sheet, its tab
   row included) the same swipe moves between its tabs Contents, People,
   Labels instead, left to right, the same way: the tab's pane follows the finger, the neighbouring one moves
@@ -131,8 +150,9 @@ Current state, edited in place when a decision changes.
   and spins until the sync is over. Desktop syncs by opening Sync &
   sharing instead.
 - No hover-only functions: a control that shows only under the mouse
-  (the drag grip) is a shortcut for what touch reaches otherwise (the
-  long-press). Touch targets are at least 44 px
+  (the drag grip, left of the line in the notes' gutter, where the touch
+  grips sit) is the mouse's way to what touch reaches otherwise (the
+  reorder mode's swipe). Touch targets are at least 44 px
   (task checkboxes get an enlarged invisible target).
 - **Editing** happens in place: the tapped note turns into the editor,
   the rest of the list stays as it is. One note is edited at a time;
@@ -181,10 +201,8 @@ Current state, edited in place when a decision changes.
   accent-colored action button; Undo follows (decided 2026-10-15, user
   request).
 - Other confirmation dialogs only where the user has something to
-  adjust: the order for Copy and Merge (drag an entry's grip; Merge shows
-  it even for a single part, as the confirmation of what moves, and
-  there picks a new note or an existing one as the target), the
-  people for Share.
+  adjust: the order for Copy (drag an entry's grip), the target of Move
+  into and Copy into (a section of a note, a new note), the people for Share.
 - Panels with several pages (Sync & sharing) go one page back with the
   back button, `Esc` or the system back gesture, and close from the
   first page; the primary button of a page (on the Sync & sharing
