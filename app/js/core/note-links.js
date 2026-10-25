@@ -58,6 +58,7 @@ export function privateCopy(original, now, id) {
   if (original.due) n.due = original.due;
   if (original.color) n.color = original.color;
   if (original.decor) n.decor = original.decor;
+  if (original.texture) n.texture = original.texture;
   n.copyof = original.id;
   n.copied = original.modified;
   return n;

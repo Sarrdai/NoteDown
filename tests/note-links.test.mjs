@@ -52,7 +52,7 @@ test("private copy: same text and look, linked back to the original, and in the 
   const c = privateCopy(o, "2026-10-14T09:00Z", "c1");
   assert.equal(c.body, o.body);
   assert.equal(c.status, "open");
-  assert.deepEqual([c.due, c.color, c.decor, c.copyof, c.copied], [o.due, o.color, o.decor, "s09", o.modified]);
+  assert.deepEqual([c.due, c.color, c.decor, c.texture, c.copyof, c.copied], [o.due, o.color, o.decor, o.texture, "s09", o.modified]);
   assert.equal(copyState(c, o), "same");
   assert.equal(copyState({ ...c, body: c.body + "\nmine" }, o), "differs");
   assert.equal(copyState(c, { ...o, modified: "2026-10-15T10:00Z" }), "changed");

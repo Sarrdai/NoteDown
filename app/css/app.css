@@ -23,6 +23,7 @@
 }
 
 [data-flavor] {
+  --grain: url(../decor/grain-dark.svg);   /* softer and a touch darker: soft-light lifts dark surfaces more */
   --bg: var(--ctp-mantle);
   --surface: var(--ctp-base);
   --surface-raised: var(--ctp-base);
@@ -58,6 +59,7 @@
   --shadow-high: 0 4px 12px rgb(0 0 0 / 0.18), 0 12px 32px rgb(0 0 0 / 0.16);
 }
 [data-flavor="latte"] {
+  --grain: url(../decor/grain.svg);
   --on-accent: #ffffff;
   --hit-current: color-mix(in srgb, var(--ctp-peach) 70%, transparent);
   --on-hit-current: inherit;
@@ -1472,7 +1474,13 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
   }
 }
 
-/* The picker: two rows of round swatches in the popup menu. */
+/* Grain: fine noise blended into the card, so the surface looks slightly uneven
+   (soft lighter and darker specks around the card's own color, in every theme). */
+.note[data-texture="grain"], .look-row .look-swatch[data-texture="grain"] {
+  background-image: var(--grain); background-size: 180px 180px; background-blend-mode: soft-light;
+}
+
+/* The picker: rows of round swatches in the popup menu. */
 .look-row { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 6px; padding: 4px 6px 8px; max-width: 312px; }
 .look-swatch {
   position: relative; isolation: isolate; width: 44px; height: 44px; padding: 0; overflow: hidden;
@@ -1480,7 +1488,9 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
   border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer;
 }
 .look-swatch[data-color] { background: color-mix(in srgb, var(--tone) 55%, var(--surface)); border-color: color-mix(in srgb, var(--tone) 70%, var(--border)); }
-.look-decors .look-swatch { border-radius: 10px; }
+.look-decors .look-swatch, .look-textures .look-swatch { border-radius: 10px; }
+/* Texture tiles preview the card itself: its light tint, with or without grain. */
+.look-textures .look-swatch[data-color] { background-color: color-mix(in srgb, var(--tone) 15%, var(--surface)); border-color: color-mix(in srgb, var(--tone) 32%, var(--border)); }
 .look-decors[data-color="red"] .look-swatch { --tone: var(--ctp-red); }
 .look-decors[data-color="orange"] .look-swatch { --tone: var(--ctp-peach); }
 .look-decors[data-color="yellow"] .look-swatch { --tone: var(--ctp-yellow); }

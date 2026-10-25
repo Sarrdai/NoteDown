@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = {
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced
   moveDepth: 2,              // levels the Move to… picker shows (ui/move-to.js), like tocDepth; this device only
   storageHintHidden: null,   // "YYYY-MM-DD" the "only in this browser" hint was hidden (ui/storage-hint.js), this device only
+  texturePicker: "row",      // prototype variant (ui/look-picker.js): the texture in its own row (A) | "colors": textured colors (B)
 };
 
 // Sync and identity. Real sync (sync/client.js) keeps `identity`,
@@ -562,7 +563,7 @@ export function setDue(id, due) {
   emit("note:" + id);
 }
 
-/** Sets the color and / or motif (`look`: { color?, decor? }, null clears) of notes (core/look.js); like the due
+/** Sets the color, motif and / or texture (`look`: { color?, decor?, texture? }, null clears) of notes (core/look.js); like the due
  *  date it is no content change, so `modified` stays. Returns a function that undoes it. */
 export function setLook(ids, look) {
   const changed = ids.map(note).filter(n => n && !n.news && Object.keys(look).some(k => (n[k] || null) !== look[k]));
@@ -728,9 +729,10 @@ export function applyMerge(changes, merged, mode = "copy") {
   target.notes.unshift(n);
   if (permanent) n.status = "permanent";
   // It takes the look of the first source that has one.
-  const look = ids.map(note).find(x => x && (x.color || x.decor));
+  const look = ids.map(note).find(x => x && (x.color || x.decor || x.texture));
   if (look?.color) n.color = look.color;
   if (look?.decor) n.decor = look.decor;
+  if (look?.texture) n.texture = look.texture;
   saveFiles();
   emit("structure");
   return {
