@@ -1498,11 +1498,13 @@ that host its IP address and the reading time.
   selected deeper ones right below it — 2026-10-15, so sections picked one
   by one also count and reorder one by one) and
   the actions as icons (with labels on the desktop): the frequent ones —
-  Close, Clear done tasks, Copy, Share, Move into, Delete — in the bar, the
+  Close, Clear done tasks, Copy, Share, Delete — in the bar, the
   rarer ones — Export, Private copy, Make permanent, Promote / Demote headings, Move up / down — under
   ⋮ with icon and label, the same in every tier (decided 2026-10-17 by the user's own use,
-  backlog #36; all of them overran the desktop bar); the + button is
-  hidden. On the phone the contents sheet's handle stays at the bottom,
+  backlog #36; all of them overran the desktop bar); in the main view the
+  + button turns into **Move into…** (decided 2026-10-24, user request:
+  the main action of a selection in thumb reach, where + is; news posts
+  don't move, there it is hidden). On the phone the contents sheet's handle stays at the bottom,
   so the selection can be refined in the contents and back; the bar shows
   only the number there. Decided
   2026-10-13 over a bottom action bar (the thumb area and the list's

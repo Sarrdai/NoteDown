@@ -34,7 +34,7 @@ import { setPicking } from "./ui/filter-pick.js";
 import { hasAnyLabel } from "./core/filters.js";
 import { initToolbar } from "./ui/toolbar.js";
 import { initRecorder } from "./ui/recorder.js";
-import { initSelection, syncSelection, endSelection, purgeSelected } from "./ui/selection.js";
+import { initSelection, syncSelection, endSelection, purgeSelected, moveParts } from "./ui/selection.js";
 import { initDragDrop } from "./ui/drag-drop.js";
 import { initReorderMode, setReordering, revealSwipe } from "./ui/reorder-mode.js";
 import { initShelfArrange, setArranging, isArranging } from "./ui/shelf-arrange.js";
@@ -751,13 +751,15 @@ function simulateRemoval() {
 // in the selection bar.
 function renderFab() {
   const fab = $("fab");
-  const label = { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Delete selected permanently" }[state.view];
+  const moves = app.classList.contains("selection-moves");
+  const label = moves ? "Move into…" : { open: "New note (hold to dictate)", closed: "Empty archive", trash: "Delete selected permanently" }[state.view];
   fab.setAttribute("aria-label", label);
-  fab.title = state.view === "open" ? "" : label;
+  fab.title = state.view === "open" && !moves ? "" : label;
   // Also in the main view, so the bin a swipe brings in looks as it will.
   fab.classList.toggle("inert", state.view === "trash" ? !state.selected.size : !allNotes().some(n => n.status === "closed"));
 }
-const fabTap = () => state.view === "open" ? newNote()
+const fabTap = () => app.classList.contains("selection-moves") ? moveParts()
+  : state.view === "open" ? newNote()
   : $("fab").classList.contains("inert") ? null
   : state.view === "trash" ? purgeSelected() : emptyArchive();
 
@@ -817,6 +819,7 @@ function wire() {
   $("searchIcon").innerHTML = icon("search");
   $("fab").querySelector(".fab-new").innerHTML = icon("plus");
   $("fab").querySelector(".fab-empty").innerHTML = icon("trash");
+  $("fab").querySelector(".fab-move").innerHTML = icon("moveto");
   window.addEventListener("resize", fitTopbar);
   $("syncBtn").addEventListener("click", openAccount);
   $("syncBtn").addEventListener("animationend", e => { if (e.target === $("syncBtn")) $("syncBtn").classList.remove("just-synced"); });
@@ -878,7 +881,7 @@ function wire() {
   initShelfArrange({ canArrange: () => isCustom(), render });
   initMoveTo();
   initToolbar({ onDue: sortInByDue, onCopyTo: copyPassage });
-  recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open", holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
+  recorder = initRecorder({ onTap: fabTap, canHold: () => state.view === "open" && !state.selected.size, holdBlocked: dictationBlocked, onTranscript: addDictatedNote });
   initSelection({ viewNotes: currentNotes, onMerged, onMoved, onChange: () => { renderToc(currentNotes()); renderFab(); } });
   initDragDrop({ onMoved, order: shelfOrder });
   initReorderMode();

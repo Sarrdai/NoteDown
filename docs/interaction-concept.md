@@ -89,7 +89,9 @@ Current state, edited in place when a decision changes.
   essential is long-press-only there (also Shift+click, a click on a
   card's frame outside its text, keyboard).
 - **Selection mode** (multi-select): a contextual top bar replaces the
-  normal one and the primary action button is hidden; a tap anywhere on
+  normal one and the primary action button becomes the selection's: Move
+  into… in the main view, the bin in the trash, hidden in the archive; a
+  tap anywhere on
   an item toggles it, nothing inside the item acts. The note list and the
   contents share one selection, and the user can switch between them
   while selecting. The back button and

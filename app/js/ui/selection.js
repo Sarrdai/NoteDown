@@ -393,6 +393,9 @@ function current() {
 function update() {
   const on = state.selected.size > 0;
   $("app").classList.toggle("selecting", on);
+  // Move into… is the + button's while selecting in the notes, not the bar's (decided 2026-10-24, user request:
+  // the main action in thumb reach, where + is; main.js → renderFab); news posts don't move.
+  $("app").classList.toggle("selection-moves", on && state.view === "open" && !current().byNote.every(([n]) => n.news));
   $("selectBar").hidden = !on;
   for (const el of list().querySelectorAll(".note")) markSelected(el);
   opts.onChange();
@@ -411,6 +414,7 @@ function update() {
     disabled: !movable || !moveItems(note(movable).body, selectedItemLines(state.selected, movable), delta), menu: true });
   // News posts are read-only and only this user's: close or reopen, copy, delete.
   const news = byNote.every(([n]) => n.news);
+
   const actions = trash ? [
     { id: "restore", label: "Restore", run: () => withIds(restore) },
     ids.some(id => keptCircle(id).length) && { id: "lock", label: "Restore as my own", run: () => withIds(restoreOwn) },
@@ -426,7 +430,6 @@ function update() {
     { id: "copy", label: "Copy", run: copy },
     { id: "download", label: "Export", run: exportParts, menu: true },
     !archive && { id: "share", label: "Share", run: share, disabled: !whole },
-    !archive && { id: "moveto", label: "Move into…", run: moveParts },
     !archive && movable && reorder(-1, "Move up"),
     !archive && movable && reorder(1, "Move down"),
     // A private copy of shared notes, linked back to the original (backlog #45).
@@ -593,7 +596,7 @@ function exportParts() {
 // order is changed after by the grips), and leave their notes. Across circles the picker asks where the new
 // note goes (core/sharing.js → mergeCircle): a private copy that leaves the shared notes as they are, or shared
 // with everyone involved.
-function moveParts() {
+export function moveParts() {
   const { parts, notes, whole } = current();
   const candidates = opts.viewNotes().filter(n => n.status !== "closed");
   const circles = Object.keys(notes).map(circleOf);
