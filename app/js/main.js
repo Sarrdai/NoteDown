@@ -15,6 +15,7 @@ import { initSyncNotice } from "./ui/sync-notice.js";
 import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initQuickCapture } from "./quick-capture.js";
+import { sharedNoteBody } from "./core/shared-text.js";
 import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
@@ -483,22 +484,22 @@ function setView(view, { fromHistory = false } = {}) {
 }
 
 // With several circles picked, + first asks which of them the note goes to.
-function newNote() {
+function newNote(body = "") {
   setReordering(false);
   setArranging(false);
   endSelection();
   const circles = state.circles;
   if (circles.length > 1 && state.view === "open") return openMenu($("fab"), [
     { section: "New note in" },
-    ...circles.map(k => ({ label: circleName(k), lead: circleLeadHtml(k, "small"), onSelect: () => createNote(k) })),
+    ...circles.map(k => ({ label: circleName(k), lead: circleLeadHtml(k, "small"), onSelect: () => createNote(k, body) })),
   ]);
-  createNote();
+  createNote(undefined, body);
 }
 
-function createNote(key) {
+function createNote(key, body = "") {
   if (state.view !== "open") setView("open");
   if (state.search) setUi({ search: "" }, "silent");
-  const n = addNote("", newNoteMembers(key));
+  const n = addNote(body, newNoteMembers(key));
   state.topId = refOf(n);
   render();
   window.scrollTo(0, 0);
@@ -518,6 +519,13 @@ function quickCapture() {
 function quickNewNote() {
   quickCapture();
   newNote();
+}
+// Text shared from another app (Android share sheet): a new note with it, open in the editor.
+function quickShare(shared) {
+  const body = sharedNoteBody(shared);
+  if (!body) return;
+  quickCapture();
+  newNote(body);
 }
 function quickDictate() {
   quickCapture();
@@ -973,7 +981,7 @@ async function start() {
   initSync(readApi() || config.api, webAddress(config.web));
   render();
   initInviteLinks(openInvite);
-  initQuickCapture({ new: quickNewNote, dictate: quickDictate });
+  initQuickCapture({ new: quickNewNote, dictate: quickDictate, share: quickShare });
   // After the notes are loaded: a reminder tapped while the app was closed opens the Due page.
   initReminders({ open: openDue });
   initExport();

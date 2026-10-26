@@ -8,8 +8,9 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 /**
  * Quick capture from outside the app (docs/requirements.md → "Quick capture"): the app shortcuts "New note" and
  * "Dictate" (res/xml/shortcuts.xml, through QuickCaptureActivity) and the Quick Settings tile (QuickNoteTileService)
- * start MainActivity with one of the actions below. The plugin hands it to the web code (app/js/quick-capture.js)
- * as the event "action" with { action: "new" | "dictate" }, retained on a cold start until the listener is there.
+ * start MainActivity with one of the actions below; the share sheet starts it with ACTION_SEND and plain text. The
+ * plugin hands it to the web code (app/js/quick-capture.js) as the event "action" with { action: "new" | "dictate" }
+ * or { action: "share", text, subject }, retained on a cold start until the listener is there.
  */
 @CapacitorPlugin(name = "QuickCapture")
 public class QuickCapturePlugin extends Plugin {
@@ -32,11 +33,22 @@ public class QuickCapturePlugin extends Plugin {
         if (intent == null) return;
         // Reopened from the recent apps, the activity gets its first intent again: that action was done then.
         if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
-        String action = ACTION_NEW_NOTE.equals(intent.getAction()) ? "new"
-            : ACTION_DICTATE.equals(intent.getAction()) ? "dictate" : null;
-        if (action == null) return;
         JSObject data = new JSObject();
-        data.put("action", action);
+        if (Intent.ACTION_SEND.equals(intent.getAction()) && intent.getType() != null && intent.getType().startsWith("text/plain")) {
+            data.put("action", "share");
+            data.put("text", text(intent, Intent.EXTRA_TEXT));
+            data.put("subject", text(intent, Intent.EXTRA_SUBJECT));
+        } else {
+            String action = ACTION_NEW_NOTE.equals(intent.getAction()) ? "new"
+                : ACTION_DICTATE.equals(intent.getAction()) ? "dictate" : null;
+            if (action == null) return;
+            data.put("action", action);
+        }
         notifyListeners("action", data, true);
+    }
+
+    private static String text(Intent intent, String extra) {
+        CharSequence value = intent.getCharSequenceExtra(extra);
+        return value == null ? "" : value.toString();
     }
 }

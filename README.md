@@ -34,7 +34,8 @@ headings, found fuzzily.
 Notes are edited in place with an Obsidian-style live preview and a
 formatting toolbar; holding the + button dictates a new note. The
 Android app also starts a new note or dictation from its app icon's
-shortcuts (long-press) and a Quick Settings tile. The
+shortcuts (long-press) and a Quick Settings tile, and turns text
+shared from another app into a new note. The
 Android app can read notes another app writes into a folder (e.g. the
 Pebble app's voice notes from the Index 01 ring) as a **folder source**,
 shown under its own name in People. Tasks can
