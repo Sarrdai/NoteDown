@@ -6,16 +6,21 @@
 import { quickCapturePlugin } from "./platform.js";
 import { whenUnlocked } from "./ui/app-lock.js";
 
-/** Calls `actions.new()` or `actions.dictate()` for the quick-capture action the app was opened with, now or later. */
+/** Calls `actions.new()`, `actions.dictate()` or `actions.share({ text, subject })` for the quick-capture action
+ *  the app was opened with, now or later. */
 export function initQuickCapture(actions) {
-  const run = action => { if (action === "new" || action === "dictate") whenUnlocked(actions[action]); };
+  const run = ({ action, text = "", subject = "" }) => {
+    if (action === "new" || action === "dictate") whenUnlocked(actions[action]);
+    else if (action === "share") whenUnlocked(() => actions.share({ text, subject }));
+  };
   const url = new URL(location.href);
   const action = url.searchParams.get("shortcut");
   if (action !== null) {
+    const shared = { action, text: url.searchParams.get("text") ?? "", subject: url.searchParams.get("subject") ?? "" };
     // Once only: a reload doesn't create another note.
-    url.searchParams.delete("shortcut");
+    for (const key of ["shortcut", "text", "subject"]) url.searchParams.delete(key);
     history.replaceState(history.state, "", url.pathname + url.search + url.hash);
-    run(action);
+    run(shared);
   }
-  if (quickCapturePlugin) quickCapturePlugin.addListener("action", ({ action }) => run(action));
+  if (quickCapturePlugin) quickCapturePlugin.addListener("action", run);
 }

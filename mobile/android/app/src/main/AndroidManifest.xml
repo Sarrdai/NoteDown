@@ -37,6 +37,13 @@
                 <data android:scheme="https" android:host="${webHost}" android:pathPrefix="/invite" />
             </intent-filter>
 
+            <!-- Text shared from another app becomes a new note (QuickCapturePlugin, docs/requirements.md → "Quick capture"). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
             <!-- App shortcuts "New note" and "Dictate" on a long-press of the app icon (QuickCapturePlugin). -->
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 

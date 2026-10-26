@@ -1825,6 +1825,17 @@ notes can be restored or moved to another device without sync.
   waits until NoteDown is unlocked; a running NoteDown keeps its state.
   *Prototype: `?shortcut=new` / `?shortcut=dictate` stand in for them
   (`app/js/quick-capture.js`).*
+- **Sharing text into NoteDown** (Android; decided 2026-10-26, user
+  request): NoteDown appears in the system share sheet for plain text. A
+  shared text becomes a new note, opened in the editor like "New note"
+  (with several circles shown it asks which one; with the screen lock on
+  it waits until unlocked). A subject the other app sends along (a web
+  page's title, an e-mail's subject) becomes the note's heading, the text
+  its body; without one the note has no heading, like a dictated note.
+  Only plain text — images and files are not taken; the installed web app
+  doesn't offer it (sharing into a web app is rare, the Android app is the
+  way in). *Prototype: `?shortcut=share&subject=…&text=…` stands in for it
+  (`app/js/quick-capture.js`, `app/js/core/shared-text.js`).*
 - A home-screen widget is not part of the scope yet (backlog #2).
 
 ### TRMNL display
