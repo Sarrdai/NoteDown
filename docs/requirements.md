@@ -463,7 +463,8 @@ before the first live test).
     (chosen over a label or an avatar badge in every row: the hint shows
     where it matters, the list stays calm). Tapping a contact opens
     **Verify contact** with two tabs: **Compare code** shows the safety
-    code, the same 20 digits on both phones, to compare e.g. on a call
+    code, the same 40 digits on both phones (a line of 20 per person),
+    to compare e.g. on a call
     ("Codes match" / "They differ", which advises removing and adding
     the contact again in person), and **Scan code** scans the contact's
     "My code" (chosen over one page with the code first: two equal ways,

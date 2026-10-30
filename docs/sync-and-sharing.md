@@ -277,13 +277,18 @@ the first sync round.
   gives an unverified contact — also a code scanned with the phone's own
   camera, which opens as a link. Later, the user verifies a contact by
   scanning their code (an existing contact is verified instead of asked
-  again) or by comparing the **safety code**: PBKDF2-SHA256 (100,000
-  rounds, salt `notedown-safety-code-v1`) over both identity IDs in
-  sorted order, joined by `:`, shown as five groups of four digits (each
-  a 32-bit big-endian chunk mod 10,000). Both phones compute the same
-  code without the server; 66 bits and the slow hash make it too costly
-  for someone in the middle to find two forged identities whose codes
-  match. Each side verifies for itself; the state is kept in the private
+  again) or by comparing the **safety code**: one part per identity,
+  PBKDF2-SHA256 (100,000 rounds, salt `notedown-safety-code-v2`) over
+  that identity's ID alone, shown as four groups of five digits (each a
+  40-bit big-endian chunk mod 100,000) on a line of its own, the two
+  lines in the code point order of the IDs. Both phones compute the same
+  40 digits without the server. Someone in the middle has to match each
+  real part with a forged identity, a second preimage of about 2⁸⁴
+  SHA-256 computations, and comparing only one line stays one; one hash
+  over both IDs let them search for two forged identities with equal
+  codes instead, a birthday search of some 60 hours on one GPU (security
+  review M1; decided 2026-10-30 over 2 × 30 digits, Signal's length,
+  which is harder to read out on a call). Each side verifies for itself; the state is kept in the private
   file (`docs/file-format.md` → "Contacts"). Contacts that existed
   before count as not verified, since how they were added isn't known.
 - Contact names are **local**: the user names a contact; the contact's

@@ -8,7 +8,7 @@
   - [H2 — a file rolled back by the server (fixed)](#h2--a-file-rolled-back-by-the-server-fixed)
   - [H3 — a device list served cut back (fixed)](#h3--a-device-list-served-cut-back-fixed)
   - [H4 — a signed-out device handing out keys (fixed)](#h4--a-signed-out-device-handing-out-keys-fixed)
-  - [M1 — the safety code (decision open)](#m1--the-safety-code-decision-open)
+  - [M1 — the safety code (fixed)](#m1--the-safety-code-fixed)
   - [M2 — no Content-Security-Policy (fixed)](#m2--no-content-security-policy-fixed)
   - [M3 — prototype URL switches in the deployed app (fixed)](#m3--prototype-url-switches-in-the-deployed-app-fixed)
   - [M4 — inflating without a limit (fixed)](#m4--inflating-without-a-limit-fixed)
@@ -23,9 +23,9 @@
 
 A review of whether NoteDown's end-to-end encryption holds what
 `docs/sync-and-sharing.md` promises, done on 2026-10-30 before a release in
-the Play Store. Findings H1–H4 and M2–M6 were fixed the same day (M5 takes
-effect once the signing secrets are moved in GitHub); M1 waits for a decision
-between two code lengths; the low findings are open. The other docs describe
+the Play Store. Findings H1–H4 and M1–M6 were fixed the same day (M5 takes
+effect once the signing secrets are moved in GitHub); the low findings are
+open. The other docs describe
 the fixed state; this file keeps the findings, their status and why.
 
 ## Scope and method
@@ -62,7 +62,7 @@ code (a stated exception, "Principles").
 | H2 | High | A file's ciphertext wasn't bound to its file and version: the server could roll a file back | Fixed 2026-10-30 |
 | H3 | High | A device list could be served cut back: a removed device was trusted again | Fixed 2026-10-30 |
 | H4 | High | A signed-out device kept the power to hand out new file keys | Fixed 2026-10-30 |
-| M1 | Medium | The safety code is a birthday target | Decision open: two variants in the prototype |
+| M1 | Medium | The safety code is a birthday target | Fixed 2026-10-30 |
 | M2 | Medium | No Content-Security-Policy | Fixed 2026-10-30 |
 | M3 | Medium | Prototype URL switches work in the deployed web app | Fixed 2026-10-30 |
 | M4 | Medium | Inflating a file has no size limit (app and TRMNL plugin) | Fixed 2026-10-30 |
@@ -137,7 +137,7 @@ code (a stated exception, "Principles").
 - **Tests:** `tests/sync-state.test.mjs`, `scripts/e2e-sync.js` ("Lea signs
   out … and are renewed at once").
 
-### M1 — the safety code (decision open)
+### M1 — the safety code (fixed)
 
 - **What:** 20 digits from one PBKDF2 over *both* identity IDs. Someone in the
   middle who knows both IDs beforehand needs two forged identities with equal
@@ -149,10 +149,13 @@ code (a stated exception, "Principles").
   alone doesn't help at the same length (two second preimages of 10 digits
   cost what the birthday search on 20 costs), but it keeps a comparison of
   only one part a second preimage, where it was a birthday search on the
-  compared digits. So the code also gets longer, which the user decides
-  between two variants (⋮ → "Prototype: Safety code", `?safety=a|b`):
-  2 × 20 digits (about 2⁸⁴ SHA-256 computations to forge) or 2 × 30 digits,
-  Signal's length (about 2¹¹⁷).
+  compared digits. So the code also got longer: 2 × 20 digits, about 2⁸⁴
+  SHA-256 computations to forge (decided over 2 × 30 digits, Signal's
+  length, about 2¹¹⁷, which is harder to read out on a call).
+  `docs/sync-and-sharing.md` → "Contacts".
+- **Tests:** `tests/crypto.test.mjs` (pinned digits, checked against
+  `node:crypto`; the same code on both sides; a part depends on its
+  identity alone).
 
 ### M2 — no Content-Security-Policy (fixed)
 
