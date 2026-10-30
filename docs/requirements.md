@@ -234,7 +234,12 @@ before the first live test).
   PQXDH), so a recorded server database stays unreadable for a future
   quantum computer (backlog #20), and each wrapped key is signed by the
   device that made it, so not even the server can slip a device a key
-  of its own (decided 2026-10-17).
+  of its own (decided 2026-10-17). Every upload is bound to its file and
+  version, so the server can't hand out an older state as a newer one;
+  every device remembers how far it has seen each device list, so the
+  server can't bring back a removed device; and a sign-in names the
+  server, so another server can't use it (security review 2026-10-30,
+  `docs/security-review.md`, which also lists what is still open).
 - **Abuse protection without accounts** (backlog #8): the default server
   keeps at most **2 MB** of encrypted files per identity — thousands of
   notes; the user wants to raise it later as a paid option — and limits
@@ -312,7 +317,9 @@ before the first live test).
   the warning that unsynced changes are lost and the device stays listed
   until another one removes it. No new file key: a device that erases
   itself needs none, and one that may have been copied is removed from
-  another device, which renews it. *Prototype: 2026-10-14.*
+  another device, which renews it; a copy of a signed-out device can't
+  hand the other devices a key of its own either (security review
+  2026-10-30). *Prototype: 2026-10-14.*
 - **Deleting your sync data** (backlog #34, decided 2026-10-16, user
   request): Sync & sharing → "Delete sync data" (below "Your identity")
   and a page of its own at `<web app>/delete/` (no link from the app,
@@ -559,8 +566,10 @@ paid features per user.
   admin's own device out. Devices notice the restore at their next sync
   and merge their notes into the restored files, so **nothing a device
   holds is lost** (notes deleted since the backup may come back, notes
-  changed since then may show up twice as a conflict copy); a
-  device linked after the backup has to be linked again. Hosting limits:
+  changed since then may show up twice as a conflict copy). The devices
+  also put back what the restored device lists lack, so a device linked
+  after the backup is back once another device of its identity synced;
+  if it syncs first, it has to be linked again. Hosting limits:
   a backup up to 32 MB can be restored through the page; the database
   host's own point-in-time restore covers the same case
   (`docs/operations.md`).

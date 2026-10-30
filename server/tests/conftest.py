@@ -15,6 +15,7 @@ from notedown_server.protocol import b64u, canonical, entry_hash, invitation_mes
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@127.0.0.1:5433/notedown_test")
 SECRET = b"test-secret"
+HOST = "testserver"   # the TestClient's host: what a device names as the server it signs in to
 
 
 def raw(public_key) -> bytes:
@@ -82,7 +83,7 @@ def limited_client():
 
 def token(client: TestClient, identity: Identity, device: Keys) -> dict:
     challenge = client.get("/v1/auth/challenge").json()["challenge"]
-    sig = b64u(device.sign_key.sign(auth.auth_message(challenge)))
+    sig = b64u(device.sign_key.sign(auth.auth_message(HOST, identity.id, device.id, challenge)))
     r = client.post("/v1/auth/token", json={
         "identity": identity.id, "device": device.id, "challenge": challenge, "sig": sig})
     assert r.status_code == 200, r.text

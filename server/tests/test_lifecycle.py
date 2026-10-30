@@ -8,7 +8,7 @@ import psycopg
 from notedown_server import auth
 from notedown_server.protocol import b64u
 
-from conftest import DATABASE_URL
+from conftest import DATABASE_URL, HOST
 from test_admin import admin, put_private, share   # noqa: F401 (fixture)
 from test_api import upload
 
@@ -20,13 +20,13 @@ def block(client, admin, who, blocked=True, until=None):
 
 def self_delete(client, person, key=None):
     challenge = client.get("/v1/auth/challenge").json()["challenge"]
-    sig = b64u((key or person.identity.key).sign_key.sign(auth.delete_message(challenge)))
+    sig = b64u((key or person.identity.key).sign_key.sign(auth.delete_message(HOST, person.id, challenge)))
     return client.post(f"/v1/identities/{person.id}/delete", json={"challenge": challenge, "sig": sig})
 
 
 def sign_in_status(client, person):
     challenge = client.get("/v1/auth/challenge").json()["challenge"]
-    sig = b64u(person.phone.sign_key.sign(auth.auth_message(challenge)))
+    sig = b64u(person.phone.sign_key.sign(auth.auth_message(HOST, person.id, person.phone.id, challenge)))
     return client.post("/v1/auth/token", json={
         "identity": person.id, "device": person.phone.id, "challenge": challenge, "sig": sig})
 
@@ -159,10 +159,22 @@ def test_a_blocked_user_can_still_delete(client, people, admin):
     assert client.get("/v1/files", headers=alice.h).status_code == 410
 
 
+def test_a_delete_signature_made_for_another_server_deletes_nothing(client, people):
+    """Security review H1: the delete page signs for the server it talks to; another server can't pass it on."""
+    alice, bob = people(), people()
+    challenge = client.get("/v1/auth/challenge").json()["challenge"]
+    for message in (auth.delete_message("evil.example", alice.id, challenge), auth.delete_message(HOST, bob.id, challenge),
+                    f"notedown-delete-v1:{challenge}".encode()):
+        sig = b64u(alice.identity.key.sign_key.sign(message))
+        r = client.post(f"/v1/identities/{alice.id}/delete", json={"challenge": challenge, "sig": sig})
+        assert r.status_code == 403, message
+    assert client.get("/v1/files", headers=alice.h).status_code == 200
+
+
 def test_the_delete_signature_is_not_a_sign_in(client, people):
     alice = people()
     challenge = client.get("/v1/auth/challenge").json()["challenge"]
-    sig = b64u(alice.identity.key.sign_key.sign(auth.auth_message(challenge)))
+    sig = b64u(alice.identity.key.sign_key.sign(auth.auth_message(HOST, alice.id, alice.id, challenge)))
     r = client.post(f"/v1/identities/{alice.id}/delete", json={"challenge": challenge, "sig": sig})
     assert r.status_code == 403
     r = client.post(f"/v1/identities/{alice.id}/delete", json={"challenge": "bogus", "sig": sig})

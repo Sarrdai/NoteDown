@@ -3,7 +3,7 @@
 // server on 127.0.0.1:8765. Browser contexts stand in for devices: A turns
 // sync on, B joins with the recovery key, D links by QR code (A really scans
 // it: Chromium's fake camera plays a video of D's code), all edit (also the
-// same note at once), A removes B, and C restores. Then contacts: E (Lea) pastes
+// same note at once), a key or an older state a server swaps in is refused, A removes B, and C restores. Then contacts: E (Lea) pastes
 // A's invitation link, A confirms the request on the card above the notes; F (Tom)
 // scans A's "My code" with the fake camera and A declines; stale, own and
 // repeated invitations are refused. Then shared files: A shares notes with Lea, both edit (also at once),
@@ -41,6 +41,7 @@ const AGENTS = {
   E: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
   F: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
   G: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
+  H: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
   D: "Mozilla/5.0 (Linux; Android 14; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
   O: "Mozilla/5.0 (Android 14; Mobile; rv:132.0) Gecko/132.0 Firefox/132.0",
   P: "Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0",
@@ -238,7 +239,7 @@ const adminCall = (page, method, route, body) => page.evaluate(async ([base, met
   const level = String((await import("/app/js/sync/api.js")).CLIENT_LEVEL);
   const get = async (path, init = {}) => fetch(base + path, { ...init, headers: { ...init.headers, "NoteDown-Client": level } });
   const { challenge } = await (await get("/v1/auth/challenge")).json();
-  const sig = await window.__crypto.signChallenge(keys.sign.privateKey, challenge);
+  const sig = await window.__crypto.signChallenge(keys.sign.privateKey, { server: new URL(base).host, identity: s.identity, device: s.device, challenge });
   const { token } = await (await get("/v1/auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity: s.identity, device: s.device, challenge, sig }) })).json();
   const res = await get(route, { method, headers: { Authorization: "Bearer " + token }, body });
   return { status: res.status, body: await res.text() };
@@ -386,7 +387,7 @@ async function main() {
           wrap = await c.signWrap(wrap, { file: s.file.id, to, gen: 99 }, s.device, stranger.sign.privateKey);
         }
         await api.putFile(s.file.id, {
-          base_version: current.version, ciphertext: await c.encryptFile(evil, window.__store.fileText()),
+          base_version: current.version, ciphertext: await c.encryptFile(evil, window.__store.fileText(), { file: s.file.id, version: current.version + 1 }),
           keys: { [to]: wrap }, previous_key: await c.sealPreviousKey(evil, c.generateFileKey()),
         });
       }, { to: bDevice, mode });
@@ -406,9 +407,43 @@ async function main() {
         const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
         const current = await api.getFile(s.file.id);
         await api.addKeys(s.file.id, { [to]: original, [s.device]: originalA });
-        await api.putFile(s.file.id, { base_version: current.version, ciphertext: await c.encryptFile(c.fromB64u(key), window.__store.fileText()) });
+        await api.putFile(s.file.id, { base_version: current.version, ciphertext: await c.encryptFile(c.fromB64u(key), window.__store.fileText(), { file: s.file.id, version: current.version + 1 }) });
       }, { to: bDevice, original, originalA, key: before.key });
       await converge(a, b);
+    });
+
+    await step("an older state the server hands out as a newer version is refused: B keeps its notes (security review H2)", async () => {
+      // A malicious server (or a stolen token): the ciphertext of an earlier version uploaded again as the newest one.
+      const replay = (page, mode) => page.evaluate(async mode => {
+        const s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
+        const { createApis } = await import("/app/js/sync/api.js");
+        const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
+        if (mode === "capture") return (await api.getFile(s.file.id)).ciphertext;
+        const current = await api.getFile(s.file.id);
+        await api.putFile(s.file.id, { base_version: current.version, ciphertext: mode });
+      }, mode);
+      const old = await replay(a, "capture");
+      await addNote(a, sample.s20);
+      await converge(a, b);
+      const before = await fileText(b);
+      assert.ok(before.includes(sample.s20));
+      await replay(a, old);
+      await sync(b);
+      const st = await syncState(b);
+      assert.equal(st.status, "error");
+      assert.match(st.error, /doesn't match its version/);
+      assert.equal(await fileText(b), before, "the newer note is still on B");
+      // A uploads its notes again on top: both sync on.
+      await a.evaluate(async () => {
+        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
+        const { createApis } = await import("/app/js/sync/api.js");
+        const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
+        const current = await api.getFile(s.file.id);
+        const key = await window.__keystore.getSecret("file:" + s.server + "/" + s.file.id);
+        await api.putFile(s.file.id, { base_version: current.version, ciphertext: await c.encryptFile(key, window.__store.fileText(), { file: s.file.id, version: current.version + 1 }) });
+      });
+      await converge(a, b);
+      assert.ok((await bodies(b)).includes(sample.s20));
     });
 
     await step("the same note edited on both: lines added on both combine, the same line changed on both keeps both versions", async () => {
@@ -861,7 +896,7 @@ async function main() {
       }
     });
 
-    await step("a restored server loses no note: backup, both of Sam's devices edit on, restore, sync", async () => {
+    await step("a restored server loses no note: backup, both of Sam's devices edit on, restore, sync; the device list gets back what it lost", async () => {
       await tidy(a);
       await converge(a, d);
       await convergeShared([a, e], a, d, e);
@@ -882,6 +917,14 @@ async function main() {
         await setBody(d, noteK, (await noteBody(d, noteK)) + "\n\nafter the backup");
         await converge(a, d);
         await convergeShared([a, e], a, d, e);
+        // H joins with the recovery key after the backup: the restored device list won't have it. Its page is
+        // closed until A and D have put the list back (signing in before that, it would count as removed).
+        let h = await device(browser, "H", { width: 1440, height: 900 });
+        await h.evaluate(k => window.__sync.restore(k), key);
+        await converge(a, d, h);
+        const hDevice = (await syncState(h)).device;
+        const hContext = h.context();
+        await h.close();
         const expected = await bodies(a);
         assert.ok(expected.includes(sample.s14) && expected.includes(sample.s15));
 
@@ -893,6 +936,16 @@ async function main() {
           await sync(p);
           assert.equal((await syncState(p)).status, "synced", (await syncState(p)).error);
         }
+        // A's and D's device lists were longer than the restored one: they appended what it lacked, H is back.
+        assert.equal(await a.evaluate(async id => (await window.__sync.loadDevices()).get(id)?.active, hDevice), true, "H is on the list again");
+        h = await hContext.newPage();
+        h.on("pageerror", err => errors.push(`H: ${err.message}`));
+        await h.goto(`http://127.0.0.1:${PORT}/app/index.html?api=${API}`);
+        await h.waitForFunction(() => document.body.dataset.ready === "1");
+        await loadModules(h);
+        await sync(h);
+        assert.equal((await syncState(h)).status, "synced", (await syncState(h)).error);
+        await h.context().close();
         await converge(a, d);
         const after = await bodies(a);
         for (const b of expected) assert.ok(after.includes(b), "a note survived the restore on A: " + b.slice(0, 30));
@@ -963,9 +1016,15 @@ async function main() {
       }
     });
 
-    await step("Lea signs out her only device and restores it with the recovery key: the keys her device signed still count", async () => {
+    await step("Lea signs out her only device and restores it with the recovery key: the keys her device signed still count, and are renewed at once", async () => {
       await convergeShared([a, e], a, d, e);
       const before = (await bodies(e)).sort();
+      // The key generation of Lea's private file: only her signed-out device vouches for it after the restore.
+      const generation = page => page.evaluate(async () => {
+        const r = window.__store.state.sync.file;
+        return window.__keystore.getSecret("filegen:" + r.server + "/" + r.id);
+      });
+      const genBefore = await generation(e);
       await openPanel(e);
       await e.getByRole("button", { name: "Sign out this device" }).click();
       await Promise.all([
@@ -984,6 +1043,8 @@ async function main() {
       await e.keyboard.press("Escape");
       await convergeShared([a, e], a, d, e);
       assert.deepEqual((await bodies(e)).sort(), before, "every note of Lea's comes back");
+      assert.deepEqual((await syncState(e)).renew, [], "renewed");
+      assert.equal(await generation(e), genBefore + 1, "a key a signed-out device signed is renewed (security review H4)");
     });
 
     await step("the owner blocks Lea until a day and lifts it; Lea deletes her sync data with the recovery key and keeps her notes, Sam keeps the shared one", async () => {

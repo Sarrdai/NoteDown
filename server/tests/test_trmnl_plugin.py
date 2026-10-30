@@ -45,7 +45,7 @@ def client():
         r = holder["c"].request(method, path, json=body, headers=headers)
         return r.status_code, (r.json() if r.content else None)
 
-    trmnl = TrmnlSettings("client-id", "https://notes.example", send=send,
+    trmnl = TrmnlSettings("client-id", "https://notes.example", api="https://testserver", send=send,
                           exchange=lambda code: f"token-{code}", jwt_key=lambda token: TRMNL_KEY.public_key())
     settings = Settings(DATABASE_URL, SECRET, ["https://localhost"], rate_limits=False, trmnl=trmnl)
     with TestClient(create_app(settings), base_url="https://testserver",

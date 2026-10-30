@@ -23,7 +23,7 @@ MAX_NEWS = 200
 # The oldest app the server serves (docs/server-api.md → "App versions", backlog #51): every app sends its
 # compatibility level in the NoteDown-Client header (none = 0); raised together with the app's CLIENT_LEVEL when
 # a change ships that older apps can't read or would break.
-MIN_CLIENT = 2
+MIN_CLIENT = 3
 KEM_PUBLIC_BYTES = 1184   # ML-KEM-768 encapsulation key
 _B64U = re.compile(r"^[A-Za-z0-9_-]*$")
 _ID = re.compile(r"^[A-Za-z0-9_-]{22}$")
@@ -110,6 +110,11 @@ def check_members(members: object, caller: str) -> list[str]:
     if len(members) > MAX_MEMBERS:
         raise ProtocolError("too many members")
     return sorted(members)
+
+
+def file_binding(file_id: str, version: int) -> bytes:
+    """The associated data of a file's ciphertext: the file and the version it was uploaded as (security review H2)."""
+    return canonical({"label": "notedown-file", "file": file_id, "version": version})
 
 
 def invitation_message(invitation: str) -> bytes:

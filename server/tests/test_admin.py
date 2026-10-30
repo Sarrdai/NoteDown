@@ -12,7 +12,7 @@ from notedown_server.admin import MAX_QUOTA_OVERRIDE
 from notedown_server.app import MAX_STORAGE_BYTES, Settings
 from notedown_server.protocol import b64u
 
-from conftest import DATABASE_URL, Identity, Keys, new_slot, token
+from conftest import DATABASE_URL, HOST, Identity, Keys, new_slot, token
 from test_api import upload
 
 NOT_FOUND = {"detail": "not found"}
@@ -297,7 +297,7 @@ def test_backup_mutate_restore_round_trip(client, people, admin):
     # Tokens still work (devices rebuilt), the new device and identity are gone.
     assert client.get("/v1/files", headers=alice.h).status_code == 200
     challenge = client.get("/v1/auth/challenge").json()["challenge"]
-    sig = b64u(late.sign_key.sign(auth.auth_message(challenge)))
+    sig = b64u(late.sign_key.sign(auth.auth_message(HOST, alice.id, late.id, challenge)))
     assert client.post("/v1/auth/token", json={"identity": alice.id, "device": late.id, "challenge": challenge,
                                                "sig": sig}).status_code == 401
     assert client.get("/v1/files", headers=carol.h).status_code == 401

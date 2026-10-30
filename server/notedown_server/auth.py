@@ -31,13 +31,23 @@ def check_challenge(secret: bytes, challenge: str, now: float | None = None) -> 
         raise ProtocolError("challenge expired")
 
 
-def auth_message(challenge: str) -> bytes:
-    return f"notedown-auth-v1:{challenge}".encode()
+def auth_message(server: str, identity: str, device: str, challenge: str) -> bytes:
+    """What a device signs to sign in: the server (the host the app calls it at), the identity, the device and the
+    challenge, so a server the device talked to can't pass on another server's challenge and sign in there
+    (security review H1)."""
+    return canonical({"label": "notedown-auth-v2", "server": server, "identity": identity, "device": device,
+                      "challenge": challenge})
 
 
-def delete_message(challenge: str) -> bytes:
+def delete_message(server: str, identity: str, challenge: str) -> bytes:
     """What the identity key signs to delete its identity (never the same bytes as a sign-in)."""
-    return f"notedown-delete-v1:{challenge}".encode()
+    return canonical({"label": "notedown-delete-v2", "server": server, "identity": identity, "challenge": challenge})
+
+
+def server_host(host_header: str | None) -> str:
+    """This server as a signature names it: the host of the request (the deployment answers only its own host
+    names, docs/server-api.md → "Authentication")."""
+    return (host_header or "").strip().lower()
 
 
 def new_token(secret: bytes, identity: str, device: str, now: float | None = None) -> tuple[str, int]:

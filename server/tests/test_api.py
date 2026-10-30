@@ -2,9 +2,10 @@ import os
 
 import psycopg
 
+from notedown_server import auth
 from notedown_server.protocol import b64u
 
-from conftest import DATABASE_URL, Identity, Keys, new_slot, token
+from conftest import DATABASE_URL, HOST, Identity, Keys, new_slot, token
 
 FILE = b64u(os.urandom(16))
 
@@ -61,6 +62,27 @@ def test_token_needs_the_device_signature(client, setup):
     r = client.post("/v1/auth/token", json={
         "identity": identity.id, "device": phone.id, "challenge": challenge, "sig": wrong})
     assert r.status_code == 401
+
+
+def test_a_signature_made_for_another_server_identity_or_device_signs_in_nowhere(client, setup):
+    """Security review H1: a server named in an invitation link passes on this server's challenge; the device signs
+    it for that server, so the signature is no sign-in here, nor for another identity or device."""
+    identity, phone, _ = setup
+
+    def sign_in(server=HOST, named_identity=identity.id, named_device=phone.id):
+        challenge = client.get("/v1/auth/challenge").json()["challenge"]
+        sig = b64u(phone.sign_key.sign(auth.auth_message(server, named_identity, named_device, challenge)))
+        return client.post("/v1/auth/token", json={
+            "identity": identity.id, "device": phone.id, "challenge": challenge, "sig": sig})
+
+    assert sign_in(server="evil.example").status_code == 401
+    assert sign_in(named_identity=Identity().id).status_code == 401
+    assert sign_in(named_device=Keys().id).status_code == 401
+    challenge = client.get("/v1/auth/challenge").json()["challenge"]
+    old = b64u(phone.sign_key.sign(f"notedown-auth-v1:{challenge}".encode()))   # what apps before signed
+    assert client.post("/v1/auth/token", json={
+        "identity": identity.id, "device": phone.id, "challenge": challenge, "sig": old}).status_code == 401
+    assert sign_in().status_code == 200
 
 
 def test_file_upload_versions_and_conflicts(client, setup):

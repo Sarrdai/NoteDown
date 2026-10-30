@@ -82,12 +82,23 @@ and the hybrid wrap as b64u. `gen` is 1 for a new file and one more with
 every renewal. A device takes a key only when the signer is an active
 device on the verified list of one of the file's members and `gen` is
 higher than the one it has (equal: the same key); otherwise it refuses
-the file and keeps its key. Reason: the wraps used to be unsigned, so a
+the file and keeps its key. A device that signed itself out counts only
+for the key a device has already, or for a device without one (restoring
+after the last device signed out), which renews that key at once: a copy
+of a signed-out device can't hand out a key of its own (security review
+H4, 2026-10-30). Reason: the wraps used to be unsigned, so a
 server could wrap a key of its own for a device's public keys, which the
 device would have taken and then encrypted everything after with; the
 generation stops an older key, which a removed device knows, from being
 handed out again. The server keeps the value as it is. **File ciphertext**: 12-byte nonce ‖ AES-GCM of
-the padded, compressed Markdown file, a fresh nonce per upload.
+the padded, compressed Markdown file, a fresh nonce per upload, with the associated data canonical JSON
+`{"file", "label": "notedown-file", "version"}`: the file ID and the version the upload creates
+(`base_version` + 1; a state of the version history keeps its version). Reason (security review H2,
+2026-10-30): unbound, a server could hand out an older state of a file as a newer version, and the merge would
+quietly drop every note added since; now such a state doesn't open, and an older version served as itself is
+a restored server (merged from scratch, "Admin"). Files uploaded before carry no associated data: a client
+opens one only while it hasn't seen a bound version of that file, or when it merges from scratch, and uploads
+it again bound; the version history shows older states as they are.
 Compressed: one `0x01` byte, then the raw DEFLATE stream (RFC 1951, no
 zlib header) of the UTF-8 text (`CompressionStream("deflate-raw")` in
 the browser); Markdown shrinks to about a third,
@@ -131,6 +142,12 @@ An identity's devices are an append-only chain of signed entries:
   removed; a device can remove itself.
 - The server checks the whole chain on every append, and every client
   checks it before trusting a key from it.
+- **Pins** (security review H3, 2026-10-30): a client remembers per identity
+  the length of the longest list it verified and the hash of its last entry,
+  and refuses a list that is shorter or has another entry there — an older
+  list, in which a removed device is still active, would otherwise get new
+  file keys wrapped for that device. It keeps its own list whole and appends
+  what a list served to it lacks (a restored server, "Admin") before using it.
 
 ## Contacts and invitations
 
@@ -193,9 +210,16 @@ No accounts and no passwords: a device signs a challenge.
 1. `GET /v1/auth/challenge` → `{"challenge": "<b64u>"}`, valid 2 minutes
    (stateless: time, random bytes and a server MAC).
 2. `POST /v1/auth/token` with `{"identity", "device", "challenge",
-   "sig"}`; `sig` is the device's Ed25519 signature over the UTF-8 bytes
-   of `notedown-auth-v1:<challenge>`. → `{"token", "expires"}`, valid one
-   hour.
+   "sig"}`; `sig` is the device's Ed25519 signature over the canonical JSON
+   `{"challenge", "device", "identity", "label": "notedown-auth-v2",
+   "server"}`, where `server` is the host the app calls the API at (as in the
+   `Host` header: lower case, with the port unless it is the default). The
+   server checks it against the host of the request. → `{"token",
+   "expires"}`, valid one hour. Reason (security review H1, 2026-10-30): a
+   server the device talks to (one an invitation link names) could pass on
+   this server's challenge and sign in with the answer; now that answer
+   names the other server. So a server must only be reachable under its own
+   host names, as Cloud Run's domain mapping and `*.run.app` address are.
 3. Every authenticated request sends `Authorization: Bearer <token>`.
    The server also checks on each request that the device is still on
    the list, so a removed device is locked out at once.
@@ -225,7 +249,8 @@ recovery key (below).
 - **Deleting it yourself:** `POST /v1/identities/{id}/delete` with
   `{"challenge", "sig"}`, where `challenge` comes from `GET
   /v1/auth/challenge` and `sig` is the **identity key's** Ed25519
-  signature over the UTF-8 bytes of `notedown-delete-v1:<challenge>`.
+  signature over the canonical JSON `{"challenge", "identity", "label":
+  "notedown-delete-v2", "server"}` (`server` as for signing in).
   So only whoever holds the recovery key can delete, also without a
   device and while blocked. → 204 (also when already deleted); 403 for a
   signature that doesn't match the identity key (a device key is not
@@ -249,8 +274,11 @@ it can't read.
   so the web app can read it. `/health` is not checked.
 - A change that older apps can't read or would break (a file format, the
   key scheme) raises `CLIENT_LEVEL` and `MIN_CLIENT` in the same commit.
-  Today the app sends 2 and `MIN_CLIENT` is 2: level 1 apps can't read
-  device records with `kem` or hybrid wraps (backlog #20).
+  Today the app sends 3 and `MIN_CLIENT` is 3: level 2 apps sign in
+  without naming the server and upload files unbound (security review
+  2026-10-30), and their failed sign-in would end their sync as if the
+  device were removed; level 1 apps can't read device records with `kem` or
+  hybrid wraps (backlog #20).
 - The app keeps its notes and its changes and shows a card ("Update
   NoteDown to keep syncing"; `docs/requirements.md` → "Sync and
   sharing"); every later round gets the 426 again until it is updated.
@@ -456,8 +484,15 @@ changes nothing:
   (never from the JSON keys), `devices` is rebuilt from the verified lists
   a new random **restore epoch** is stored and the news version is renewed. Tokens stay valid for
   devices that are active in the backup.
-- Devices linked after the backup are not on the restored list and have to
-  be linked again; so are identities created after it (they are gone).
+- The restored device lists are older than the ones the devices have seen
+  ("Device list" → "Pins"): each device appends the entries its identity's
+  list lacks (they are signed, so the server takes them again), so a device
+  linked after the backup is back once another device of its identity has
+  synced, and opens the files with the keys it holds (the backup lacks its
+  wrapped keys); one that signs in before that is refused, counts as removed
+  and has to be linked again. A member's list that went back is refused until
+  its own devices have put it back. Identities created after the backup are
+  gone.
 - The request body is at most 32 MB (Cloud Run's limit), which is the
   largest backup that can be restored; the code doesn't enforce it.
 
@@ -534,8 +569,8 @@ default (error 1010).
   verified list of one of the file's members; it doesn't track the key
   generation (it keeps no state between requests). It never uploads.
 - Its requests to the API go to the same container
-  (`http://127.0.0.1:$PORT`) with the user's address in
-  `X-Forwarded-For`, so the per-IP limits count the user.
+  (`http://127.0.0.1:$PORT`, the host its sign-in names) with the user's
+  address in `X-Forwarded-For`, so the per-IP limits count the user.
 
 ## Limits
 

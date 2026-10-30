@@ -20,6 +20,7 @@ import { initContacts, contactsRound } from "./contacts.js";
 import { initFiles, filesRound, forgetKeys, grantKeys, unsynced, markRenew, readForRestore, installRestored,
   listVersions, readVersion, restoreVersion, saveVersion } from "./files.js";
 import { getSecret, setSecret, clearSecrets, deleteOldKeyStore } from "./keystore.js";
+import { pinnedChain, pinChain, forgetPins } from "./pins.js";
 
 const AFTER_CHANGE_MS = 1500;
 const ATTEMPTS = 3;
@@ -173,11 +174,37 @@ async function loadKeys() {
   if (!keys) throw new Error("This device's keys are missing");
 }
 
-// The verified device list: { devices (Map), entries }.
+// The verified own device list, going on from what this device saw of it (sync/pins.js): { devices (Map), entries }.
+// This device keeps the list whole: a server restored from a backup lost the entries since, and gets them back
+// (they are signed, so it takes them again) before the list counts.
 async function chain() {
-  const { identity_key: identityKey, entries } = await serverApi().getIdentity(state.sync.identity);
+  let { identity_key: identityKey, entries } = await serverApi().getIdentity(state.sync.identity);
   if (identityKey !== state.sync.identityKey) throw new Error("The server answered with another identity");
-  return { devices: await c.verifyChain(c.fromB64u(identityKey, 32), entries), entries };
+  const kept = (await getSecret("chain")) || [];
+  if (kept.length > entries.length && await putBack(kept, entries)) ({ entries } = await serverApi().getIdentity(state.sync.identity));
+  const devices = await pinnedChain(state.sync.identity, c.fromB64u(identityKey, 32), entries);
+  if (entries.length > kept.length) await setSecret("chain", entries);
+  return { devices, entries };
+}
+
+// Appends what the server lost of the kept list, when its list is the start of it. → whether it did.
+async function putBack(kept, entries) {
+  if (entries.length && await c.entryHash(entries[entries.length - 1]) !== await c.entryHash(kept[entries.length - 1])) return false;
+  for (const entry of kept.slice(entries.length)) {
+    try {
+      await serverApi().appendEntry(state.sync.identity, entry);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) return true;   // another device put it back first
+      throw e;
+    }
+  }
+  return true;
+}
+
+// The own list after this device appended to it (or joined it): kept whole and pinned.
+async function keepChain(entries) {
+  await setSecret("chain", entries);
+  await pinChain(state.sync.identity, entries);
 }
 
 /** The verified devices of this identity (Map), for the device list. */
@@ -191,6 +218,7 @@ async function adopt({ name, identity, server, identityKey, device }) {
   await saveKeys(device);
   keys = device;
   forgetKeys();
+  forgetPins();
   setSync({
     enabled: true, simulated: false, name, identity, server, identityKey: c.b64u(identityKey),
     device: await c.keyId(device.sign.publicKey), file: null, files: {}, epochs: {}, renew: [], usage: null, maxMembers: null, recoveryKey: "", status: "syncing", error: "", ended: "", blocked: null,
@@ -213,6 +241,7 @@ export async function turnOn(name, recoveryKey) {
     throw e;
   }
   await adopt({ name, identity, server: defaultServer, identityKey: r.identity.publicKey, device });
+  await keepChain([first, second]);
   nameThisDevice();
   await syncNow();
 }
@@ -233,7 +262,7 @@ export async function restore(recoveryKey) {
   const recoveryId = await c.keyId(r.recovery.sign.publicKey);
   const device = await c.generateDeviceKeys();
   const deviceId = await c.keyId(device.sign.publicKey);
-  let remote = [], own = null;
+  let remote = [], own = null, listed = [];
   // The recovery device signs in for everything below, reading the list included.
   caller = { identity, device: recoveryId, sign: r.recovery.sign.privateKey };
   try {
@@ -260,12 +289,14 @@ export async function restore(recoveryKey) {
     // Every file of the identity, the shared ones too: the key is wrapped for the new device.
     const { entries } = await api.getIdentity(identity);   // with the new device on it
     own = await c.verifyChain(r.identity.publicKey, entries);
+    listed = entries;
     remote = await readForRestore((await api.listFiles()).files, r.recovery, recoveryId, identity, own, { id: deviceId, keys: device });
   } finally {
     caller = null;
     apis.forgetTokens();
   }
   await adopt({ name: state.sync.name, identity, server: defaultServer, identityKey: r.identity.publicKey, device });
+  await keepChain(listed);
   await installRestored(remote, identity, withoutUntouchedWelcome(state.file));
   nameThisDevice();
   await syncNow();
@@ -330,6 +361,7 @@ export async function waitForLink({ device, slot }, cancelled) {
   if (!devices.get(deviceId)?.active) throw new Error("This device isn't on the device list; scan the code again");
   if (withoutUntouchedWelcome(state.file) !== state.file) setPrivateFile(withoutUntouchedWelcome(state.file));
   await adopt({ name: message.name, identity: message.identity, server, identityKey: keyBytes, device });
+  await keepChain(entries);
   await syncNow();
   return true;
 }
@@ -365,9 +397,10 @@ export async function linkDevice(text) {
   if (!state.sync.file) throw new Error("Sync first, then link the device");
   const record = { id: await c.keyId(c.fromB64u(code.sign, 32)), kind: "device", sign: code.sign, enc: code.enc, kem };
   for (let entries = (await chain()).entries; ;) {
-    const body = await c.newEntry(state.sync.identity, entries, "add", record);
+    const entry = await c.signEntry(await c.newEntry(state.sync.identity, entries, "add", record), state.sync.device, keys.sign.privateKey);
     try {
-      await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+      await serverApi().appendEntry(state.sync.identity, entry);
+      await keepChain([...entries, entry]);
       break;
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 409)) throw e;
@@ -402,8 +435,9 @@ export async function removeDevice(id) {
   await syncNow();
   await loadKeys();
   const { entries } = await chain();
-  const body = await c.newEntry(state.sync.identity, entries, "remove", { id });
-  await serverApi().appendEntry(state.sync.identity, await c.signEntry(body, state.sync.device, keys.sign.privateKey));
+  const entry = await c.signEntry(await c.newEntry(state.sync.identity, entries, "remove", { id }), state.sync.device, keys.sign.privateKey);
+  await serverApi().appendEntry(state.sync.identity, entry);
+  await keepChain([...entries, entry]);   // the renewal below only takes a list with the removal on it
   setPrivateFile(withDeviceName(state.file, id, null));
   markRenew();
   for (let i = 0; i < ATTEMPTS && state.sync.renew.length; i++) await syncNow();
@@ -465,6 +499,7 @@ async function detach(why) {
   const file = detachedFile(state.file, state.shared, state.sync.identity);
   keys = null;
   forgetKeys();
+  forgetPins();
   apis.forgetTokens();
   replaceFiles({ file, shared: [], sync: { ended: why } });
   await clearSecrets();
@@ -483,6 +518,7 @@ export async function eraseDevice() {
   await eraseStoredState();
   keys = null;
   forgetKeys();
+  forgetPins();
   await deleteOldKeyStore();
 }
 

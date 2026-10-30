@@ -242,15 +242,26 @@ export function detachedFile(file, shared, me) {
 /**
  * What a device does with a file key the server hands it (docs/sync-and-sharing.md → "Keys"): each
  * wrapped key is signed by the device that made it, with the key's generation, which goes up with every renewal.
- * `signed`: the wrap carries a signature; `trusted`: it checks out against an active device of one of the file's
- * members; `gen`: its generation; `known`: the highest generation this device took for the file (0: none);
- * `have`: this device has a key for the file; `same`: the offered key is that key.
- * → "keep" (nothing new), "take" (remember the offered key) or throws: a server can't swap in a key of its own,
- * nor an older one a removed device still knows.
+ * `signed`: the wrap carries a signature; `trusted`: it checks out against an active or signed-out device of one of
+ * the file's members; `active`: that device is still active; `gen`: its generation; `known`: the highest generation
+ * this device took for the file (0: none); `have`: this device has a key for the file; `same`: the offered key is that key.
+ * → "keep" (nothing new), "take" (remember the offered key), "renew" (remember it, then renew it at once) or throws:
+ * a server can't swap in a key of its own, nor an older one a removed device still knows. A device that signed out
+ * may have left a copy behind (security review H4): the wraps it made stay valid, but only a device without a key
+ * (restoring after the last device signed out) takes a key from it, and renews that key right away.
  */
-export function keyVerdict({ signed, trusted, gen, known, have, same }) {
+export function keyVerdict({ signed, trusted, gen, known, have, same, active = true }) {
   if (!signed || !trusted) throw new Error("A file's key isn't signed by a device of its members; sync stopped for it");
   if (have && same && gen <= known) return "keep";
   if (gen < known || (gen === known && have)) throw new Error("The server offered an outdated key for a file; sync stopped for it");
-  return "take";
+  if (!active && have) throw new Error("A file's key is signed by a device that signed out; sync stopped for it");
+  return active ? "take" : "renew";
 }
+
+/**
+ * Whether a file uploaded before files were bound to their version (security review H2) may be opened for the
+ * record `{ version, base, bound }` of it: only while this device never saw a bound version of the file, or when
+ * it merges from scratch (empty base: a file found on another device, a restored server), where an older state
+ * can't take a note away. Otherwise a server could hand out an old state as a newer version.
+ */
+export const legacyFileAllowed = record => !record.bound || !record.base;

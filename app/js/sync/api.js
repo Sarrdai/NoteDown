@@ -9,7 +9,7 @@ import { blockedMessage } from "../core/sync-state.js";
  * This app's compatibility level, sent with every request (docs/server-api.md → "App versions", backlog #51).
  * Raised together with the server's MIN_CLIENT when a change ships that older apps can't read or would break.
  */
-export const CLIENT_LEVEL = 2;
+export const CLIENT_LEVEL = 3;
 
 // The server's answers that get a sentence of their own in the sync status.
 function describe(status, body) {
@@ -39,6 +39,7 @@ export class NetworkError extends Error {}
  */
 export function createApi(baseUrl, who) {
   let token = null;      // { value, expires (ms), device }
+  const host = new URL(baseUrl).host;   // what a sign-in names as its server (docs/server-api.md → "Authentication")
 
   async function call(method, path, body, auth = false, retry = true) {
     const headers = { "NoteDown-Client": String(CLIENT_LEVEL) };
@@ -62,13 +63,14 @@ export function createApi(baseUrl, who) {
     const me = who();
     if (token && token.device === me.device && token.expires - 60000 > Date.now()) return token.value;
     const { challenge } = await call("GET", "/v1/auth/challenge");
-    const sig = await signChallenge(me.sign, challenge);
+    const sig = await signChallenge(me.sign, { server: host, identity: me.identity, device: me.device, challenge });
     const res = await call("POST", "/v1/auth/token", { identity: me.identity, device: me.device, challenge, sig });
     token = { value: res.token, expires: res.expires * 1000, device: me.device };
     return token.value;
   }
 
   return {
+    host,
     createIdentity: (identityKey, entries) => call("POST", "/v1/identities", { identity_key: identityKey, entries }),
     challenge: () => call("GET", "/v1/auth/challenge"),   // → { challenge }
     // Signed with the identity key (the recovery key), no token: works without a device and while blocked.

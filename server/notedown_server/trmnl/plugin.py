@@ -129,7 +129,7 @@ def register_trmnl(app: FastAPI, pool, config: TrmnlSettings, client_ip: Callabl
                            headers=USER_AGENT)
 
     def client(keys: Keys, request: Request) -> Client:
-        return Client(config.send or http_send(config.api, client_ip(request)), keys)
+        return Client(config.send or http_send(config.api, client_ip(request)), keys, urlparse(config.api).netloc)
 
     def load(where: str, value: str) -> Installation | None:
         with pool.connection() as conn:

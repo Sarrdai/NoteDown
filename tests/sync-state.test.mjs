@@ -246,3 +246,21 @@ test("keyVerdict: a new key only when a member's device signed it, never an olde
   assert.throws(() => v({ gen: 1, known: 2 }), /outdated/, "an older key (a removed device knows it)");
   assert.throws(() => v({ gen: 2, known: 2 }), /outdated/, "another key of the same generation");
 });
+
+test("keyVerdict: a device that signed out never replaces a key; its wraps open for a device without one, which renews", async () => {
+  const { keyVerdict } = await import("../app/js/core/sync-state.js");
+  const v = o => keyVerdict({ signed: true, trusted: true, gen: 2, known: 1, have: true, same: false, active: false, ...o });
+  assert.throws(() => v({}), /signed out/, "a new key from a copy of a signed-out device (security review H4)");
+  assert.throws(() => v({ gen: 0xffffffff }), /signed out/, "nor one that would block every later renewal");
+  assert.throws(() => v({ same: true }), /signed out/, "nor the same key with a higher generation");
+  assert.equal(v({ same: true, gen: 1 }), "keep", "the wraps it made before stay in use");
+  assert.equal(v({ have: false, known: 0 }), "renew", "restoring after the last device signed out: taken, then renewed");
+  assert.equal(v({ active: true }), "take", "an active device renews as before");
+});
+
+test("legacyFileAllowed: a file from before the binding opens only where a replay can't take notes away", async () => {
+  const { legacyFileAllowed } = await import("../app/js/core/sync-state.js");
+  assert.equal(legacyFileAllowed({ version: 3, base: "text" }), true, "a record that never saw a bound version (the update)");
+  assert.equal(legacyFileAllowed({ version: 3, base: "text", bound: true }), false, "after a bound one: a replay of an old file");
+  assert.equal(legacyFileAllowed({ version: 0, base: "", bound: true }), true, "merging from scratch (a restored server) loses nothing");
+});

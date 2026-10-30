@@ -40,6 +40,10 @@ and the sample simulates everything without a server.
     verifiable updates like Signal Desktop's.
   - **The TRMNL display** (backlog #49): notes shared with a TRMNL
     contact leave end-to-end encryption by the user's choice ("TRMNL").
+  - **The open findings of the security review** (`docs/security-review.md`,
+    2026-10-30), among them no forward secrecy: a file key stays until a
+    device is removed, so a recorded server database and a key found later
+    open every state it encrypted.
 - **Local first.** Every device holds a complete copy of the user's
   notes and works fully offline; on the device only NoteDown reads it
   (encrypted at rest, "Where the files live"). The server is a relay and backup
@@ -122,7 +126,7 @@ and the sample simulates everything without a server.
 
 | Platform | Location |
 |---|---|
-| Android | The app's private storage (`files/vault/`), not visible in the Files app and not in any system backup: one record each for the private file, the shared files, the sync state, the settings and every file key, encrypted with the device's **data key**; the data key is sealed with an AES key of the **Android Keystore** (StrongBox where the device has it, else the TEE), which can't be read out of the device (as Signal's database secret) |
+| Android | The app's private storage (`files/vault/`), not visible in the Files app and not in any system backup: one record each for the private file, the shared files, the sync state, the settings, every file key and the device-list pins, encrypted with the device's **data key**; the data key is sealed with an AES key of the **Android Keystore** (StrongBox where the device has it, else the TEE), which can't be read out of the device (as Signal's database secret) |
 | Web | Browser storage (IndexedDB `notedown-vault`), the same records, the data key a non-extractable WebCrypto key in the same database |
 | iOS (later) | The same records, the data key in the Keychain |
 
@@ -190,7 +194,12 @@ the first sync round.
 - **The server knows an identity only by an ID, its public keys and its
   device list.** The ID is a hash of the public identity key, so a
   restoring device finds it from the recovery key alone. A device proves who it is by signing a challenge
-  with its own device key; there is no login, code or password.
+  with its own device key, naming the server it signs in to (so another server can't pass the challenge
+  on, security review H1); there is no login, code or password.
+- **Device lists only grow** (security review H3): every device remembers how far it has
+  seen each identity's list and refuses one that is shorter or has another past — an older
+  list would make a removed device active again and get it the renewed keys. Its own list it
+  keeps whole and puts back what a restored server lost ("Server").
 - **Linking a device:** the new device (e.g. the web app on the desktop)
   shows a QR code with its public device keys, a relay slot and its
   suggested name; a linked device (e.g. the phone) scans it, asks for
@@ -215,7 +224,9 @@ the first sync round.
   the device list and erases everything NoteDown stored on it: notes,
   settings, sync state and keys. The file key is **not** renewed — a
   device that erases itself needs no lock-out; one that may have been
-  copied is removed from another device instead, which renews. If
+  copied is removed from another device instead, which renews. A copy of a
+  signed-out device can't hand the other devices a key of its own either
+  ("Keys", security review H4). If
   signing out fails (offline), "Erase without signing out" erases
   alone; the device then stays listed until another one removes it.
 - **Restoring:** the recovery key counts as one more device — file keys
@@ -303,8 +314,12 @@ the first sync round.
   that file and the device keeps its key. A device that signed itself out
   counts because signing out doesn't renew the keys, so the wraps it made
   stay in use (without it, restoring after the last device signed out
-  failed); one removed by another device doesn't, its removal renewed
-  every key it signed. Why: unsigned, a server could wrap a key of
+  failed) — but only for the key a device has already, or for a device
+  without one, which renews that key at once; it never replaces a key
+  (security review H4: a copy of it, with the server's help, would otherwise
+  hand every device a key of its own and read everything after). One
+  removed by another device doesn't count, its removal renewed every key
+  it signed. Why: unsigned, a server could wrap a key of
   its own for a device — the public keys are no secret — and the device
   would have encrypted everything after with it; Signal authenticates
   every sender the same way. The generation keeps an older key, which a
@@ -336,7 +351,9 @@ the first sync round.
   pick up their wrapped key with the file on their next sync.
 - Files are compressed (DEFLATE) and then encrypted with AES-256-GCM, a
   fresh nonce per upload, which also detects any change to the
-  ciphertext. All primitives are in
+  ciphertext; the file's ID and the version the upload creates are its
+  associated data, so a state opens only as the very version it was
+  uploaded as (security review H2). All primitives are in
   WebCrypto in current browsers and in the app's web view.
 
 ## Sync
@@ -361,8 +378,13 @@ the first sync round.
   device with the synced ones; welcome notes never edited are dropped, so
   only one set remains.
 - Each device keeps, per file, the last state it synced (the **base**).
-  A device rejects a version older than the one it has seen, so the
-  server can't roll a file back unnoticed.
+  A device rejects a version older than the one it has seen, and every
+  state is bound to its version ("Keys"), so the server can't roll a file
+  back unnoticed — before that binding it could hand out an older state
+  as a newer version, and the merge dropped every note added since. A
+  file uploaded before the binding opens only on a device that never saw
+  a bound version of it, or merges from scratch, and is uploaded again
+  bound.
 
 ## Version history
 
@@ -486,8 +508,8 @@ devices don't keep re-uploading the same notes in each other's order.
   and records nothing new about identities or devices. A restored backup
   gives the server a new **restore epoch**; a device that sees a new
   epoch, or a file version older than one it has seen, merges all its
-  files into the server's anew, so its notes survive the rollback
-  (`docs/server-api.md` → "Admin").
+  files into the server's anew, so its notes survive the rollback, and
+  puts back what its device list lost (`docs/server-api.md` → "Admin").
 - Creating a file for a member set that already has one returns the
   existing file, so two devices sharing at the same time don't split it.
 - Built to scale as a stateless API (Python, FastAPI) with Postgres for

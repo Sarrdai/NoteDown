@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.parse import urlencode
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PrivateKey
@@ -20,7 +21,8 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from .. import auth
-from ..protocol import b64u, canonical, entry_hash, from_b64u, invitation_message, key_id, verify_chain, verify_signature
+from ..protocol import (b64u, canonical, entry_hash, file_binding, from_b64u, invitation_message, key_id, verify_chain,
+                        verify_signature)
 
 SECRET_BYTES = 16
 NAME = "TRMNL"            # the name the invitation suggests for the contact
@@ -142,10 +144,15 @@ class SignedWrap:
                           "signer": self.signer, "wrap": self.wrap})
 
 
-def decrypt_file(file_key: bytes, ciphertext: str) -> str:
-    """A file's text: AES-GCM, then the padding stripped and the DEFLATE stream inflated (docs/server-api.md → "Keys")."""
+def decrypt_file(file_key: bytes, ciphertext: str, file_id: str, version: int) -> str:
+    """A file's text: AES-GCM bound to the file and its version (a file uploaded before that opens without; the
+    plugin only shows it), then the padding stripped and the DEFLATE stream inflated (docs/server-api.md → "Keys")."""
     data = from_b64u(ciphertext)
-    body = AESGCM(file_key).decrypt(data[:12], data[12:], None).rstrip(b"\x00")
+    try:
+        body = AESGCM(file_key).decrypt(data[:12], data[12:], file_binding(file_id, version))
+    except InvalidTag:
+        body = AESGCM(file_key).decrypt(data[:12], data[12:], None)
+    body = body.rstrip(b"\x00")
     if body.endswith(b"\x80"):
         body = body[:-1]
     if body[:1] == b"\x01":
@@ -160,10 +167,11 @@ Send = Callable[[str, str, Any, dict], tuple[int, Any]]
 
 
 class Client:
-    """The plugin's identity talking to the sync server through `send`."""
+    """The plugin's identity talking to the sync server through `send`; `host` is the server's host as `send`
+    reaches it, which every sign-in names (docs/server-api.md → "Authentication")."""
 
-    def __init__(self, send: Send, keys: Keys):
-        self.send, self.keys = send, keys
+    def __init__(self, send: Send, keys: Keys, host: str):
+        self.send, self.keys, self.host = send, keys, host
         self.token: str | None = None
 
     def call(self, method: str, path: str, body: Any = None, ok: tuple[int, ...] = (200,)) -> Any:
@@ -180,7 +188,8 @@ class Client:
 
     def sign_in(self) -> None:
         challenge = self.call("GET", "/v1/auth/challenge")["challenge"]
-        sig = b64u(self.keys.device.sign_key.sign(auth.auth_message(challenge)))
+        message = auth.auth_message(self.host, self.keys.identity, self.keys.device.id, challenge)
+        sig = b64u(self.keys.device.sign_key.sign(message))
         self.token = self.call("POST", "/v1/auth/token", {"identity": self.keys.identity, "device": self.keys.device.id,
                                                           "challenge": challenge, "sig": sig})["token"]
 
@@ -236,7 +245,7 @@ class Client:
         if not any(self.signed_by(m, signed, file_id) for m in members):
             raise ClientError("the file key isn't signed by a member's device")
         file_key = open_sealed(b"notedown-wrap", signed.wrap, self.keys.device)
-        return decrypt_file(file_key, data["ciphertext"])
+        return decrypt_file(file_key, data["ciphertext"], file_id, data["version"])
 
     def signed_by(self, member: str, signed: SignedWrap, file_id: str) -> bool:
         listed = self.call("GET", f"/v1/identities/{member}")
@@ -250,6 +259,6 @@ class Client:
     def delete(self) -> None:
         """Deletes the identity with its identity key (docs/server-api.md → "Blocked and deleted identities")."""
         challenge = self.call("GET", "/v1/auth/challenge")["challenge"]
-        sig = b64u(self.keys.identity_key.sign(auth.delete_message(challenge)))
+        sig = b64u(self.keys.identity_key.sign(auth.delete_message(self.host, self.keys.identity, challenge)))
         self.call("POST", f"/v1/identities/{self.keys.identity}/delete", {"challenge": challenge, "sig": sig},
                   ok=(204, 404))

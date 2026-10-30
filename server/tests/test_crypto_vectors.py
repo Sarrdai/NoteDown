@@ -8,12 +8,14 @@ import zlib
 from pathlib import Path
 
 import pytest
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from notedown_server import auth
 from notedown_server.app import MAX_WRAPPED_KEY
 from notedown_server.protocol import (
-    ProtocolError, b64u, canonical, entry_hash, from_b64u, invitation_message, key_id, verify_chain, verify_signature,
+    ProtocolError, b64u, canonical, entry_hash, file_binding, from_b64u, invitation_message, key_id, verify_chain,
+    verify_signature,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,11 +52,21 @@ def test_canonical_bytes_match(case):
     assert canonical(case["value"]).hex() == case["bytes"]
 
 
-def test_auth_signature_verifies_for_the_phone():
-    auth_vector = VECTORS["auth"]
-    assert auth.auth_message(auth_vector["challenge"]).decode() == auth_vector["message"]
-    assert verify_signature(from_b64u(VECTORS["phone"]["sign"], 32), from_b64u(auth_vector["signature"], 64),
-                            auth.auth_message(auth_vector["challenge"]))
+def test_auth_signature_verifies_for_the_phone_and_names_server_identity_and_device():
+    v = VECTORS["auth"]
+    message = auth.auth_message(v["server"], v["identity"], v["device"], v["challenge"])
+    assert message.decode() == v["message"]
+    phone = from_b64u(VECTORS["phone"]["sign"], 32)
+    assert verify_signature(phone, from_b64u(v["signature"], 64), message)
+    assert not verify_signature(phone, from_b64u(v["signature"], 64),
+                                auth.auth_message("evil.example", v["identity"], v["device"], v["challenge"]))
+
+
+def test_delete_signature_verifies_for_the_identity_key():
+    v = VECTORS["delete"]
+    message = auth.delete_message(v["server"], v["identity"], v["challenge"])
+    assert message.decode() == v["message"]
+    assert verify_signature(from_b64u(VECTORS["recovery"]["identity_sign"], 32), from_b64u(v["signature"], 64), message)
 
 
 def test_invitation_id_and_signature_match():
@@ -115,6 +127,17 @@ def test_compressed_file_is_0x01_then_raw_deflate_padded_and_the_previous_key_is
                                                                           b"notedown-previous-key")
     assert old.hex() == VECTORS["previous_key"]["old_key"]
     assert len(VECTORS["previous_key"]["sealed"]) <= 512
+
+
+def test_bound_file_opens_only_with_its_file_and_version():
+    v = VECTORS["bound_file"]
+    key, raw = bytes.fromhex(v["key"]), from_b64u(v["ciphertext"])
+    plain = AESGCM(key).decrypt(raw[:12], raw[12:], file_binding(v["file"], v["version"]))
+    assert len(plain) % 4096 == 0 and plain[0] == 1
+    assert zlib.decompress(plain.rstrip(b"\x00")[1:-1], -15).decode() == v["text"]
+    for binding in (file_binding(v["file"], v["version"] + 1), file_binding(VECTORS["phone"]["id"], v["version"]), None):
+        with pytest.raises(InvalidTag):
+            AESGCM(key).decrypt(raw[:12], raw[12:], binding)
 
 
 def test_tampered_fixture_chain_is_rejected():

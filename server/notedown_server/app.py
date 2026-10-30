@@ -316,7 +316,7 @@ def create_app(settings: Settings) -> FastAPI:
         return {"challenge": auth.new_challenge(settings.secret)}
 
     @app.post("/v1/auth/token")
-    def token(body: TokenRequest):
+    def token(body: TokenRequest, request: Request):
         auth.check_challenge(settings.secret, body.challenge)
         with pool.connection() as conn:
             refuse_closed(conn, body.identity)
@@ -326,8 +326,9 @@ def create_app(settings: Settings) -> FastAPI:
         if row is None:
             raise HTTPException(401, "unknown identity")
         device = verify_chain(row[0], entries).get(body.device)
-        if device is None or not device.active or not verify_signature(
-                device.sign, from_b64u(body.sig, 64), auth.auth_message(body.challenge)):
+        message = auth.auth_message(auth.server_host(request.headers.get("host")), body.identity, body.device,
+                                    body.challenge)
+        if device is None or not device.active or not verify_signature(device.sign, from_b64u(body.sig, 64), message):
             raise HTTPException(401, "signature does not match an active device")
         value, expires = auth.new_token(settings.secret, body.identity, body.device)
         return {"token": value, "expires": expires}
@@ -376,7 +377,7 @@ def create_app(settings: Settings) -> FastAPI:
         return {"id": identity}
 
     @app.post("/v1/identities/{identity}/delete", status_code=204)
-    def delete_identity(identity: str, body: DeleteRequest):
+    def delete_identity(identity: str, body: DeleteRequest, request: Request):
         """The user deletes their identity: signed with the identity key, i.e. by whoever holds the recovery
         key, so it works without a device and while blocked (backlog #34)."""
         auth.check_challenge(settings.secret, body.challenge)
@@ -385,7 +386,8 @@ def create_app(settings: Settings) -> FastAPI:
             row = conn.execute("SELECT identity_key FROM identities WHERE id = %s", (identity,)).fetchone()
             if row is None:
                 raise HTTPException(404, "unknown identity")
-            if not verify_signature(row[0], sig, auth.delete_message(body.challenge)):
+            message = auth.delete_message(auth.server_host(request.headers.get("host")), identity, body.challenge)
+            if not verify_signature(row[0], sig, message):
                 raise HTTPException(403, "signature does not match the identity key")
             erase_identity(conn, identity)
 

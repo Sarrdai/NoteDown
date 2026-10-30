@@ -1,5 +1,5 @@
 // Client-side cryptography of sync (docs/server-api.md): encodings, keys, the
-// signed device list, authentication and file encryption. WebCrypto plus
+// signed device list and its pins, authentication and file encryption. WebCrypto plus
 // ML-KEM-768 (app/vendor/mlkem.js, libcrux as WebAssembly), no DOM;
 // byte-compatible with server/notedown_server/protocol.py and
 // scripts/crypto-vectors.py (pinned by tests/fixtures/crypto-vectors.json).
@@ -281,28 +281,53 @@ function applyRemove(device, signer, devices, fail) {
   target.signedOut = signer === device.id;
 }
 
-// ---------- authentication ----------
-
-/** The bytes a device signs to authenticate: `notedown-auth-v1:<challenge>`. */
-export function authMessage(challenge) {
-  return utf8(`notedown-auth-v1:${challenge}`);
+/** What a device remembers of a verified device list: its length and the hash of its last entry. */
+export async function chainPin(entries) {
+  return { n: entries.length, head: entries.length ? await entryHash(entries[entries.length - 1]) : "" };
 }
 
-/** b64u Ed25519 signature of the auth message, for `POST /v1/auth/token`. */
-export async function signChallenge(privateKey, challenge) {
-  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, privateKey, authMessage(challenge))));
+/**
+ * Throws unless `entries` go on from the list `pin` describes (`chainPin`; none: nothing seen yet): at least as
+ * long, with the same entry where the pinned list ended. A device list only grows, so a server can't hand out an
+ * older one, in which a removed device is active again (security review H3).
+ */
+export async function checkPin(pin, entries) {
+  if (!pin || !pin.n) return;
+  if (entries.length < pin.n) throw new ProtocolError("the device list is shorter than one this device has seen");
+  if (await entryHash(entries[pin.n - 1]) !== pin.head) throw new ProtocolError("the device list differs from one this device has seen");
+}
+
+// ---------- authentication ----------
+
+/**
+ * The bytes a device signs to authenticate: canonical JSON naming the server (`server`, the host the app calls
+ * it at), the identity, the device and the challenge — so a server the device talked to, which passed on another
+ * server's challenge, gets no sign-in there (security review H1).
+ */
+export function authMessage({ server, identity, device, challenge }) {
+  return canonicalJson({ label: "notedown-auth-v2", server, identity, device, challenge });
+}
+
+/** b64u Ed25519 signature of the auth message (`statement`: `{ server, identity, device, challenge }`), for `POST /v1/auth/token`. */
+export async function signChallenge(privateKey, statement) {
+  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, privateKey, authMessage(statement))));
+}
+
+/** What the identity key signs to delete the identity: canonical JSON naming the server, the identity and the challenge. */
+export function deletionMessage({ server, identity, challenge }) {
+  return canonicalJson({ label: "notedown-delete-v2", server, identity, challenge });
 }
 
 /** The identity key's signature that deletes the identity (docs/server-api.md → "Blocked and deleted identities"). */
-export async function signDeletion(identityPrivateKey, challenge) {
-  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, identityPrivateKey, utf8(`notedown-delete-v1:${challenge}`))));
+export async function signDeletion(identityPrivateKey, statement) {
+  return b64u(new Uint8Array(await subtle().sign({ name: "Ed25519" }, identityPrivateKey, deletionMessage(statement))));
 }
 
 // ---------- files ----------
 
 const aesKey = (bytes, usage) => subtle().importKey("raw", bytes, "AES-GCM", false, [usage]);
 
-// `aad`: additional authenticated data, only for what isn't a file (the previous key of the key chain).
+// `aad`: additional authenticated data (a file's binding, the previous key of the key chain).
 async function seal(keyBytes, plain, aad) {
   const nonce = globalThis.crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
   const params = aad ? { name: "AES-GCM", iv: nonce, additionalData: aad } : { name: "AES-GCM", iv: nonce };
@@ -348,19 +373,40 @@ async function through(bytes, stream) {
   return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 }
 
-/** b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded 0x01 ‖ DEFLATE of the UTF-8 text. */
-export async function encryptFile(fileKey, text) {
+// The associated data that binds a file's ciphertext to the file and the version it is uploaded as (`{ file, version }`,
+// the version the upload creates: base_version + 1), so a server can't hand out an older state as a newer version or
+// one file's state as another's (security review H2).
+function fileBinding({ file, version } = {}) {
+  if (!isId(file) || !Number.isSafeInteger(version) || version < 1) throw new ProtocolError("a file is bound to its file and version");
+  return canonicalJson({ label: "notedown-file", file, version });
+}
+
+/**
+ * b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded 0x01 ‖ DEFLATE of the UTF-8 text, the file ID
+ * and the version it is uploaded as (`binding`: `{ file, version }`) as associated data.
+ */
+export async function encryptFile(fileKey, text, binding) {
+  const aad = fileBinding(binding);
   const packed = concat(Uint8Array.of(COMPRESSED), await through(utf8(text), new CompressionStream("deflate-raw")));
-  const { nonce, sealed } = await seal(fileKey, pad(packed));
+  const { nonce, sealed } = await seal(fileKey, pad(packed), aad);
   return b64u(concat(nonce, sealed));
 }
 
-/** The text of `encryptFile`'s output (or of an older, uncompressed or unpadded file); throws when the key is wrong or the data was changed. */
-export async function decryptFile(fileKey, ciphertext) {
+async function openFile(fileKey, ciphertext, aad) {
   const raw = fromB64u(ciphertext);
-  const body = unpad(await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES)));
+  const body = unpad(await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES), aad));
   const bytes = body[0] === COMPRESSED ? await through(body.subarray(1), new DecompressionStream("deflate-raw")) : body;
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+/** The text of `encryptFile`'s output for that file and version (`binding`); throws when the key, the file or the version is another or the data was changed. */
+export async function decryptFile(fileKey, ciphertext, binding) {
+  return openFile(fileKey, ciphertext, fileBinding(binding));
+}
+
+/** The text of a file uploaded before files were bound to their version (no associated data; also uncompressed or unpadded ones). */
+export async function decryptLegacyFile(fileKey, ciphertext) {
+  return openFile(fileKey, ciphertext);
 }
 
 const PREVIOUS_KEY = utf8("notedown-previous-key");

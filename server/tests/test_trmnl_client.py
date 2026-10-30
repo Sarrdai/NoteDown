@@ -51,10 +51,16 @@ def test_opens_the_apps_hybrid_seals():
         open_sealed(b"notedown-wrap", VECTORS["wrap"]["wrapped"], phone())   # X25519 only: refused
 
 
-@pytest.mark.parametrize("name", ["file", "legacy_file", "compressed_file"])
+@pytest.mark.parametrize("name", ["bound_file", "file", "legacy_file", "compressed_file"])
 def test_decrypts_files_in_every_format(name):
-    vector = VECTORS[name]
-    assert decrypt_file(bytes.fromhex(vector["key"]), vector["ciphertext"]) == vector["text"]
+    vector, bound = VECTORS[name], VECTORS["bound_file"]
+    assert decrypt_file(bytes.fromhex(vector["key"]), vector["ciphertext"], bound["file"], bound["version"]) == vector["text"]
+
+
+def test_a_bound_file_opens_only_as_its_version():
+    v = VECTORS["bound_file"]
+    with pytest.raises(Exception):
+        decrypt_file(bytes.fromhex(v["key"]), v["ciphertext"], v["file"], v["version"] + 1)
 
 
 def test_signed_wrap_reads_its_parts():

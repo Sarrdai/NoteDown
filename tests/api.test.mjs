@@ -75,7 +75,7 @@ test("a block and a deletion get readable messages", () => {
   assert.equal(new ApiError(410, { detail: "identity deleted" }).message, "Your sync data was deleted from the server.");
 });
 
-test("deleteWithRecoveryKey signs a challenge with the identity key", async () => {
+test("deleteWithRecoveryKey signs a challenge with the identity key, for this server and identity only", async () => {
   const { deleteWithRecoveryKey } = await import("../app/js/sync/delete-identity.js");
   const c = await import("../app/js/core/crypto.js");
   const { generateRecoveryKey } = await import("../app/js/core/sharing.js");
@@ -83,12 +83,14 @@ test("deleteWithRecoveryKey signs a challenge with the identity key", async () =
   const { identity } = await c.deriveRecovery(c.recoveryKeyBytes(key));
   const id = await c.keyId(identity.publicKey);
   const sent = [];
-  const api = { challenge: async () => ({ challenge: "abc" }), deleteIdentity: async (...args) => { sent.push(args); } };
+  const api = { host: "api.example", challenge: async () => ({ challenge: "abc" }), deleteIdentity: async (...args) => { sent.push(args); } };
   assert.equal(await deleteWithRecoveryKey(api, key.toLowerCase()), id);
   const [[to, challenge, sig]] = sent;
   assert.deepEqual([to, challenge], [id, "abc"]);
   const publicKey = await crypto.subtle.importKey("raw", identity.publicKey, { name: "Ed25519" }, false, ["verify"]);
-  assert.ok(await crypto.subtle.verify({ name: "Ed25519" }, publicKey, c.fromB64u(sig, 64), new TextEncoder().encode("notedown-delete-v1:abc")));
+  const signedFor = server => crypto.subtle.verify({ name: "Ed25519" }, publicKey, c.fromB64u(sig, 64), c.deletionMessage({ server, identity: id, challenge: "abc" }));
+  assert.ok(await signedFor("api.example"));
+  assert.equal(await signedFor("evil.example"), false, "another server can't pass it on (security review H1)");
   await assert.rejects(deleteWithRecoveryKey(api, key, "someone-else"), /not the recovery key/);
   await assert.rejects(deleteWithRecoveryKey(api, "nonsense"), /doesn't look like a recovery key/);
   const missing = { ...api, deleteIdentity: async () => { throw Object.assign(new Error("404"), { status: 404 }); } };

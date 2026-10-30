@@ -11,6 +11,7 @@ import { nextColor } from "../core/sharing.js";
 import { invitationLink, parseInvitationLink, contactCard, parseContactCard } from "../core/linking.js";
 import * as c from "../core/crypto.js";
 import { ApiError } from "./api.js";
+import { pinnedChain } from "./pins.js";
 
 const MAX_NAME = 40;
 const CODE_MARGIN_MS = 30000;     // a code with less time left is replaced by a new one
@@ -108,7 +109,7 @@ export async function sendRequest(text, name, { verified = false } = {}) {
     const { identity_key: identityKey, entries } = await api.getIdentity(invite.identity, id);
     const key = c.fromB64u(identityKey, 32);
     if (await c.keyId(key) !== invite.identity) throw new c.ProtocolError("wrong identity key");
-    targets = [...(await c.verifyChain(key, entries)).values()].filter(d => d.active && d.kind === "device");
+    targets = [...(await pinnedChain(invite.identity, key, entries)).values()].filter(d => d.active && d.kind === "device");
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) throw new Error(GONE);
     if (e instanceof c.ProtocolError) throw new Error("This invitation can't be trusted.");

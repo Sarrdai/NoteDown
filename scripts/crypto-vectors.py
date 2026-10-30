@@ -30,8 +30,9 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF  # noqa: E402
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # noqa: E402
 from kyber_py.ml_kem import ML_KEM_768  # noqa: E402
 
-from notedown_server.auth import auth_message  # noqa: E402
-from notedown_server.protocol import b64u, canonical, entry_hash, invitation_message, key_id, verify_chain  # noqa: E402
+from notedown_server.auth import auth_message, delete_message  # noqa: E402
+from notedown_server.protocol import (b64u, canonical, entry_hash, file_binding, invitation_message, key_id,  # noqa: E402
+                                      verify_chain)
 
 OUT = ROOT / "tests" / "fixtures" / "crypto-vectors.json"
 
@@ -159,9 +160,13 @@ def build() -> dict:
     assert [d.active for d in devices.values()] == [True, True, False]
     assert all(d.kem for d in devices.values())
 
-    # Authentication: the phone signs a fixed challenge.
+    # Authentication: the phone signs a fixed challenge for a server; the identity key signs a deletion there.
     challenge = b64u(seed("challenge") + seed("challenge-mac")[:8])
-    auth_signature = phone.sign_key.sign(auth_message(challenge))
+    server = "api.notedown.example"
+    signed_in = auth_message(server, identity_id, phone.id, challenge)
+    auth_signature = phone.sign_key.sign(signed_in)
+    deletion = delete_message(server, identity_id, challenge)
+    delete_signature = identity_key.sign(deletion)
 
     # A file key wrapped for the phone, with a fixed ephemeral key and nonce.
     file_key = seed("file-key")
@@ -181,14 +186,23 @@ def build() -> dict:
     legacy_nonce = seed("file-nonce")[:12]
     legacy_ciphertext = b64u(legacy_nonce + AESGCM(file_key).encrypt(legacy_nonce, plain, None))
 
-    # The current format: 0x01, then the raw DEFLATE stream of the text, padded like above. The file key
-    # renewed: the old key sealed with the new one (associated data notedown-previous-key).
+    # Compressed: 0x01, then the raw DEFLATE stream of the text, padded like above, as uploaded before files were
+    # bound to their version.
     long_text = file_text * 40
     deflate = zlib.compressobj(9, zlib.DEFLATED, -15)
     packed = b"\x01" + deflate.compress(long_text.encode()) + deflate.flush()
     compressed_nonce = seed("file-nonce-compressed")[:12]
     compressed_ciphertext = b64u(compressed_nonce + AESGCM(file_key).encrypt(
         compressed_nonce, packed + b"\x80" + b"\x00" * (-(len(packed) + 1) % 4096), None))
+    # Today's format: the same, bound to the file and the version it is uploaded as (associated data).
+    bound_id, bound_version = b64u(seed("bound-file-id")[:16]), 3
+    bound_nonce = seed("file-nonce-bound")[:12]
+    deflate = zlib.compressobj(9, zlib.DEFLATED, -15)
+    bound_packed = b"\x01" + deflate.compress(file_text.encode()) + deflate.flush()
+    bound_padded = bound_packed + b"\x80" + b"\x00" * (-(len(bound_packed) + 1) % 4096)
+    bound_ciphertext = b64u(bound_nonce + AESGCM(file_key).encrypt(bound_nonce, bound_padded,
+                                                                   file_binding(bound_id, bound_version)))
+    # The file key renewed: the old key sealed with the new one (associated data notedown-previous-key).
     new_key, previous_nonce = seed("file-key-renewed"), seed("previous-key-nonce")[:12]
     previous_key = b64u(previous_nonce + AESGCM(new_key).encrypt(previous_nonce, file_key, b"notedown-previous-key"))
 
@@ -224,8 +238,10 @@ def build() -> dict:
         "chain": chain,
         "chain_hashes": [entry_hash(e) for e in chain],
         "canonical": [{"value": v, "bytes": canonical(v).hex()} for v in CANONICAL_CASES],
-        "auth": {"challenge": challenge, "message": auth_message(challenge).decode(),
-                 "signature": b64u(auth_signature)},
+        "auth": {"server": server, "identity": identity_id, "device": phone.id, "challenge": challenge,
+                 "message": signed_in.decode(), "signature": b64u(auth_signature)},
+        "delete": {"server": server, "identity": identity_id, "challenge": challenge, "message": deletion.decode(),
+                   "signature": b64u(delete_signature)},
         "wrap": {"file_key": file_key.hex(), "recipient_enc": b64u(phone.enc), "wrapped": wrapped},
         "hybrid_wrap": {"file_key": file_key.hex(), **hybrid_seal(b"notedown-wrap", phone, file_key, "hybrid-wrap")},
         "hybrid_contact_card": {"card": card, **hybrid_seal(b"notedown-contact", phone, card_plain, "hybrid-card")},
@@ -236,6 +252,8 @@ def build() -> dict:
         "file": {"key": file_key.hex(), "text": file_text, "ciphertext": ciphertext},
         "legacy_file": {"key": file_key.hex(), "text": file_text, "ciphertext": legacy_ciphertext},
         "compressed_file": {"key": file_key.hex(), "text": long_text, "ciphertext": compressed_ciphertext},
+        "bound_file": {"key": file_key.hex(), "text": file_text, "file": bound_id, "version": bound_version,
+                       "ciphertext": bound_ciphertext},
         "previous_key": {"new_key": new_key.hex(), "old_key": file_key.hex(), "sealed": previous_key},
     }
 

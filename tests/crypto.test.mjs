@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import {
   b64u, fromB64u, canonicalJson, keyId, entryHash, recoveryKeyBytes, deriveRecovery, generateDeviceKeys,
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
-  decryptFile, sealPreviousKey, openPreviousKey, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
+  decryptFile, decryptLegacyFile, sealPreviousKey, openPreviousKey, wrapFileKey, unwrapFileKey, importSigningSeed, importEncSeed, MAX_DEVICES,
+  deletionMessage, signDeletion, chainPin, checkPin,
   newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
   importKemSeed, deviceKeysFromSeeds, recipientOf, isHybrid, kemHash, sealRelayMessage, openRelayMessage,
 } from "../app/js/core/crypto.js";
@@ -213,6 +214,31 @@ test("verifyChain: a removed device can't sign any more", async () => {
   await rejects(verifyChain(chain.identityKey, chain.entries), "entry 4: signer is not on the list");
 });
 
+test("chain pin: a list cut back before a removal or with another past is refused (security review H3)", async () => {
+  const chain = await freshChain();
+  const tablet = await generateDeviceKeys();
+  const tabletRecord = await deviceRecord(tablet, "device");
+  await chain.append("add", tabletRecord, chain.phoneRecord.id, chain.phone.sign.privateKey);
+  await chain.append("remove", { id: tabletRecord.id }, chain.phoneRecord.id, chain.phone.sign.privateKey);
+  const pin = await chainPin(chain.entries);
+  assert.deepEqual(pin, { n: 4, head: await entryHash(chain.entries[3]) });
+  await checkPin(pin, chain.entries);
+  await checkPin(null, chain.entries.slice(0, 2));   // nothing seen of this list yet
+  // The server leaves out the removal: verifyChain alone takes it, with the removed tablet active again.
+  const cut = chain.entries.slice(0, 3);
+  assert.equal((await verifyChain(chain.identityKey, cut)).get(tabletRecord.id).active, true);
+  await rejects(checkPin(pin, cut), "the device list is shorter than one this device has seen");
+  // Another past of the same length: the identity re-adds the tablet instead of the removal.
+  const other = await signEntry(await newEntry(chain.identityId, cut, "add", await deviceRecord(await generateDeviceKeys(), "device")),
+    "identity", chain.rec.identity.privateKey);
+  await rejects(checkPin(pin, [...cut, other]), "the device list differs from one this device has seen");
+  // A list that goes on from the pinned one is fine, and pins further.
+  await chain.append("add", await deviceRecord(await generateDeviceKeys(), "device"), chain.phoneRecord.id, chain.phone.sign.privateKey);
+  await checkPin(pin, chain.entries);
+  assert.equal((await chainPin(chain.entries)).n, 5);
+  assert.deepEqual(await chainPin([]), { n: 0, head: "" });
+});
+
 test("verifyChain: a device removes itself, and the identity can remove too", async () => {
   const chain = await freshChain();
   const tablet = await generateDeviceKeys();
@@ -268,29 +294,65 @@ test("verifyChain: at most 20 active devices", async () => {
   await rejects(verifyChain(chain.identityKey, [...chain.entries, entry]), `entry ${MAX_DEVICES}: too many devices`);
 });
 
-test("auth: message and signature match Python", async () => {
-  assert.equal(text(authMessage(vectors.auth.challenge)), vectors.auth.message);
+test("auth: the signature names the server, the identity and the device; message and signature match Python", async () => {
+  const { server, identity, device, challenge, message, signature } = vectors.auth;
+  const statement = { server, identity, device, challenge };
+  assert.equal(text(authMessage(statement)), message);
   const phone = await deviceFrom(vectors.phone);
-  assert.equal(await signChallenge(phone.sign.privateKey, vectors.auth.challenge), vectors.auth.signature);
+  assert.equal(await signChallenge(phone.sign.privateKey, statement), signature);
+  // Security review H1: a signature a device gave another server (which passed on this server's challenge) isn't one
+  // for this server, nor for another identity or device.
+  const key = await globalThis.crypto.subtle.importKey("raw", fromB64u(vectors.phone.sign, 32), { name: "Ed25519" }, false, ["verify"]);
+  const verifies = s => globalThis.crypto.subtle.verify({ name: "Ed25519" }, key, fromB64u(signature, 64), authMessage(s));
+  assert.equal(await verifies(statement), true);
+  for (const other of [{ server: "evil.example" }, { identity: vectors.tablet.id }, { device: vectors.tablet.id }]) {
+    assert.equal(await verifies({ ...statement, ...other }), false, JSON.stringify(other));
+  }
 });
+
+test("delete: the identity key's signature names the server and the identity; matches Python", async () => {
+  const { server, identity, challenge, message, signature } = vectors.delete;
+  assert.equal(text(deletionMessage({ server, identity, challenge })), message);
+  const { identity: identityKey } = await deriveRecovery(recoveryKeyBytes(vectors.recovery.text));
+  assert.equal(await signDeletion(identityKey.privateKey, { server, identity, challenge }), signature);
+  assert.notEqual(text(deletionMessage({ server, identity, challenge })), text(authMessage({ server, identity, device: identity, challenge })));
+});
+
+// The binding of the file and the version a ciphertext is uploaded as (docs/server-api.md → "Keys").
+const at = { file: vectors.bound_file.file, version: vectors.bound_file.version };
 
 test("file: decrypts the Python ciphertext, round trips, fresh nonce each time", async () => {
-  const key = hex(vectors.file.key);
-  assert.equal(await decryptFile(key, vectors.file.ciphertext), vectors.file.text);
-  const a = await encryptFile(key, vectors.file.text), b = await encryptFile(key, vectors.file.text);
+  const key = hex(vectors.bound_file.key);
+  assert.equal(await decryptFile(key, vectors.bound_file.ciphertext, at), vectors.bound_file.text);
+  const a = await encryptFile(key, vectors.bound_file.text, at), b = await encryptFile(key, vectors.bound_file.text, at);
   assert.notEqual(a, b);
   assert.notEqual(fromB64u(a).subarray(0, 12).join(), fromB64u(b).subarray(0, 12).join());
-  assert.equal(await decryptFile(key, a), vectors.file.text);
-  assert.equal(await decryptFile(key, await encryptFile(key, "")), "");
+  assert.equal(await decryptFile(key, a, at), vectors.bound_file.text);
+  assert.equal(await decryptFile(key, await encryptFile(key, "", at), at), "");
   assert.equal(fromB64u(a).length, 12 + 4096 + 16);
-  assert.equal(fromB64u(vectors.file.ciphertext).length, 12 + 4096 + 16);
+  assert.equal(fromB64u(vectors.bound_file.ciphertext).length, 12 + 4096 + 16);
 });
 
-test("file: an unpadded ciphertext from before padding still decrypts", async () => {
-  const key = hex(vectors.legacy_file.key);
+test("file: bound to its file and version — no replay as a later version, no other file (security review H2)", async () => {
+  const key = hex(vectors.bound_file.key);
+  const { ciphertext } = vectors.bound_file;
+  await assert.rejects(decryptFile(key, ciphertext, { ...at, version: at.version + 2 }), "an old state served as a newer version");
+  await assert.rejects(decryptFile(key, ciphertext, { ...at, file: vectors.recovery.identity_id }), "another file's state");
+  await assert.rejects(decryptLegacyFile(key, ciphertext), "not without its binding either");
+  await assert.rejects(encryptFile(key, "text"), /bound to its file and version/);
+  await assert.rejects(encryptFile(key, "text", { file: at.file, version: 0 }), /bound to its file and version/);
+  await assert.rejects(decryptFile(key, ciphertext, { file: "not an id", version: at.version }), /bound to its file and version/);
+});
+
+test("file: unbound files from before the binding open with decryptLegacyFile only", async () => {
+  for (const name of ["file", "legacy_file", "compressed_file"]) {
+    const v = vectors[name];
+    assert.equal(await decryptLegacyFile(hex(v.key), v.ciphertext), v.text, name);
+    await assert.rejects(decryptFile(hex(v.key), v.ciphertext, at), `${name} has no binding`);
+  }
   const legacy = fromB64u(vectors.legacy_file.ciphertext);
-  assert.equal(legacy.length, 12 + new TextEncoder().encode(vectors.legacy_file.text).length + 16);
-  assert.equal(await decryptFile(key, vectors.legacy_file.ciphertext), vectors.legacy_file.text);
+  assert.equal(legacy.length, 12 + new TextEncoder().encode(vectors.legacy_file.text).length + 16, "unpadded, from before padding");
+  assert.equal(fromB64u(vectors.compressed_file.ciphertext).length, 12 + 4096 + 16);
 });
 
 // The AES-GCM plaintext of an encryptFile result, to look at the padding itself.
@@ -298,7 +360,7 @@ async function plaintextOf(key, ciphertext) {
   const raw = fromB64u(ciphertext);
   const aes = await globalThis.crypto.subtle.importKey("raw", key, "AES-GCM", false, ["decrypt"]);
   return new Uint8Array(await globalThis.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: raw.subarray(0, 12) }, aes, raw.subarray(12)));
+    { name: "AES-GCM", iv: raw.subarray(0, 12), additionalData: canonicalJson({ label: "notedown-file", ...at }) }, aes, raw.subarray(12)));
 }
 
 test("file: the plaintext is 0x01, the DEFLATE stream, then 0x80 and zeros up to the next multiple of 4096 bytes", async () => {
@@ -306,7 +368,7 @@ test("file: the plaintext is 0x01, the DEFLATE stream, then 0x80 and zeros up to
   const random = n => Array.from(globalThis.crypto.getRandomValues(new Uint8Array(n)), b => String.fromCharCode(33 + (b % 90))).join("");
   const cases = [["", 4096], ["a", 4096], ["a".repeat(100000), 4096], [random(4000), 4096], [random(9000), 8192]];
   for (const [text, size] of cases) {
-    const ciphertext = await encryptFile(key, text);
+    const ciphertext = await encryptFile(key, text, at);
     const plain = await plaintextOf(key, ciphertext);
     assert.equal(fromB64u(ciphertext).length, 12 + size + 16, `${text.length} characters`);
     assert.equal(plain[0], 0x01);
@@ -316,15 +378,8 @@ test("file: the plaintext is 0x01, the DEFLATE stream, then 0x80 and zeros up to
     const inflated = await new Response(new Blob([plain.subarray(1, end - 1)]).stream()
       .pipeThrough(new DecompressionStream("deflate-raw"))).text();
     assert.equal(inflated, text);
-    assert.equal(await decryptFile(key, ciphertext), text);
+    assert.equal(await decryptFile(key, ciphertext, at), text);
   }
-});
-
-test("file: decrypts the Python compressed ciphertext; uncompressed files from before still decrypt", async () => {
-  const key = hex(vectors.compressed_file.key);
-  assert.equal(await decryptFile(key, vectors.compressed_file.ciphertext), vectors.compressed_file.text);
-  assert.equal(fromB64u(vectors.compressed_file.ciphertext).length, 12 + 4096 + 16);
-  assert.equal(await decryptFile(hex(vectors.file.key), vectors.file.ciphertext), vectors.file.text);
 });
 
 test("previous key: opens the Python sealed key, round trips, the wrong key is rejected", async () => {
@@ -340,18 +395,19 @@ test("previous key: opens the Python sealed key, round trips, the wrong key is r
 
 test("file: texts ending in a multi-byte character or in a 0x80 byte round trip", async () => {
   const key = generateFileKey();
-  // " " is E2 80 80: it ends in the marker byte itself.
-  for (const text of ["Zoë\n", "ends in an emoji \u{1f600}", "ends in 0x80  ", "a".repeat(4094) + "ä", " ".repeat(1366)]) {
-    assert.equal(await decryptFile(key, await encryptFile(key, text)), text);
+  // " " is E2 80 80: it ends in the marker byte itself.
+  for (const text of ["Zoë\n", "ends in an emoji \u{1f600}", "ends in 0x80  ", "a".repeat(4094) + "ä", " ".repeat(1366)]) {
+    assert.equal(await decryptFile(key, await encryptFile(key, text, at), at), text);
   }
 });
 
 test("file: wrong key or changed data is rejected", async () => {
-  const key = hex(vectors.file.key);
-  await assert.rejects(decryptFile(generateFileKey(), vectors.file.ciphertext));
-  const raw = fromB64u(vectors.file.ciphertext);
+  const key = hex(vectors.bound_file.key);
+  await assert.rejects(decryptFile(generateFileKey(), vectors.bound_file.ciphertext, at));
+  const raw = fromB64u(vectors.bound_file.ciphertext);
   raw[20] ^= 1;
-  await assert.rejects(decryptFile(key, b64u(raw)));
+  await assert.rejects(decryptFile(key, b64u(raw), at));
+  await assert.rejects(decryptLegacyFile(generateFileKey(), vectors.file.ciphertext));
 });
 
 test("file key: opens Python's hybrid wrap; JS hybrid wrap round trips and fits the limit", async () => {

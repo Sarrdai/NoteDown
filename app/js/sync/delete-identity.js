@@ -13,7 +13,7 @@ export async function deleteWithRecoveryKey(api, recoveryKey, expected = null) {
   if (expected && identity !== expected) throw new Error("That's not the recovery key of these notes.");
   const { challenge } = await api.challenge();
   try {
-    await api.deleteIdentity(identity, challenge, await c.signDeletion(key.privateKey, challenge));
+    await api.deleteIdentity(identity, challenge, await c.signDeletion(key.privateKey, { server: api.host, identity, challenge }));
   } catch (e) {
     if (e.status === 404) throw new Error("No notes are synced with this recovery key on this server.");
     throw e;

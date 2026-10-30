@@ -98,7 +98,9 @@ online, and its reminders show no note text unless chosen. The **web app** is av
 convenient, but like any web app it is only as trustworthy as the host
 that serves its code — which is why Signal has no web client. The
 Android app is the secure way; a **desktop client** with signed updates
-is planned.
+is planned. The security review of 2026-10-30
+([docs/security-review.md](docs/security-review.md)) lists what holds,
+what it fixed and what is still open.
 
 Right now this repository holds the requirements and a clickable
 prototype that works out what NoteDown does and how it is operated on

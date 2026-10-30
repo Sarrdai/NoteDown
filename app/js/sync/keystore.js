@@ -1,5 +1,6 @@
 // This device's secrets (docs/sync-and-sharing.md → "Where the files live"): the
-// seeds of the device keys, the file keys and every other secret, as `secret:<key>`
+// seeds of the device keys, the file keys, the device-list pins (pins.js) and the own
+// device list and every other secret of the identity, as `secret:<key>`
 // in the encrypted vault (app/js/vault.js; on Android its data key is sealed by the
 // Keystore). Secrets are plain data; the device keys are imported from their seeds
 // as non-extractable CryptoKeys in memory only (core/crypto.js → deviceKeysFromSeeds).
