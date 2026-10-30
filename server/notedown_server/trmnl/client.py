@@ -21,8 +21,8 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from .. import auth
-from ..protocol import (b64u, canonical, entry_hash, file_binding, from_b64u, invitation_message, key_id, verify_chain,
-                        verify_signature)
+from ..protocol import (MAX_TEXT_BYTES, b64u, canonical, entry_hash, file_binding, from_b64u, invitation_message,
+                        key_id, verify_chain, verify_signature)
 
 SECRET_BYTES = 16
 NAME = "TRMNL"            # the name the invitation suggests for the contact
@@ -144,9 +144,28 @@ class SignedWrap:
                           "signer": self.signer, "wrap": self.wrap})
 
 
+TOO_LARGE = f"a file's text is larger than {MAX_TEXT_BYTES // 2 ** 20} MiB"
+
+
+def inflate(stream: bytes) -> bytes:
+    """A raw DEFLATE stream inflated. ValueError when the text is over MAX_TEXT_BYTES, or the stream is damaged or
+    cut off: a few MB of DEFLATE inflate to gigabytes, and this server has little memory (security review M4)."""
+    inflater = zlib.decompressobj(-15)
+    try:
+        text = inflater.decompress(stream, MAX_TEXT_BYTES + 1)
+    except zlib.error as error:
+        raise ValueError(f"the file's DEFLATE stream is damaged: {error}") from error
+    if len(text) > MAX_TEXT_BYTES or inflater.unconsumed_tail:
+        raise ValueError(TOO_LARGE)
+    if not inflater.eof:
+        raise ValueError("the file's DEFLATE stream is cut off")
+    return text
+
+
 def decrypt_file(file_key: bytes, ciphertext: str, file_id: str, version: int) -> str:
     """A file's text: AES-GCM bound to the file and its version (a file uploaded before that opens without; the
-    plugin only shows it), then the padding stripped and the DEFLATE stream inflated (docs/server-api.md → "Keys")."""
+    plugin only shows it), then the padding stripped and the DEFLATE stream inflated (docs/server-api.md → "Keys").
+    ValueError for a text over MAX_TEXT_BYTES, which the plugin handles like any file it can't read."""
     data = from_b64u(ciphertext)
     try:
         body = AESGCM(file_key).decrypt(data[:12], data[12:], file_binding(file_id, version))
@@ -155,9 +174,10 @@ def decrypt_file(file_key: bytes, ciphertext: str, file_id: str, version: int) -
     body = body.rstrip(b"\x00")
     if body.endswith(b"\x80"):
         body = body[:-1]
-    if body[:1] == b"\x01":
-        body = zlib.decompress(body[1:], -15)
-    return body.decode("utf-8")
+    text = inflate(body[1:]) if body[:1] == b"\x01" else body
+    if len(text) > MAX_TEXT_BYTES:   # an uncompressed body; `inflate` stops by itself
+        raise ValueError(TOO_LARGE)
+    return text.decode("utf-8")
 
 
 # --- talking to the server -----------------------------------------------------------------------------------------

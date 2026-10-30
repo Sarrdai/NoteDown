@@ -102,7 +102,8 @@ it again bound; the version history shows older states as they are.
 Compressed: one `0x01` byte, then the raw DEFLATE stream (RFC 1951, no
 zlib header) of the UTF-8 text (`CompressionStream("deflate-raw")` in
 the browser); Markdown shrinks to about a third,
-which saves storage and quota. Padding (ISO/IEC 7816-4 style, so the
+which saves storage and quota. The text is at most 16 MiB of UTF-8 ("Limits"): a few MB of DEFLATE inflate to
+gigabytes, so clients stop inflating at the limit and seal no more (security review M4). Padding (ISO/IEC 7816-4 style, so the
 server sees sizes only in 4 KiB steps): one `0x80` byte, then `0x00`
 bytes up to the next multiple of 4096 bytes (a plaintext that already is
 a multiple gets a full extra block); decrypting strips trailing `0x00`s
@@ -574,7 +575,9 @@ default (error 1010).
 - **Reading:** the plugin signs in like a device, lists its files and
   takes a file's key only when it is signed by an active device on the
   verified list of one of the file's members; it doesn't track the key
-  generation (it keeps no state between requests). It never uploads.
+  generation (it keeps no state between requests). It never uploads. A file whose
+  text is over 16 MiB ("Limits") is skipped like any it can't read: the settings
+  page lists it as not readable, `POST /trmnl/markup` answers 503.
 - Its requests to the API go to the same container
   (`http://127.0.0.1:$PORT`, the host its sign-in names) with the user's
   address in `X-Forwarded-For`, so the per-IP limits count the user.
@@ -585,6 +588,7 @@ default (error 1010).
 |---|---|
 | Storage per identity (decoded ciphertext of all files it is a member of, shared ones in full) | 2 MB, or the admin's override per identity (1 byte to 1 GiB) |
 | Files per identity (it is a member of) | 50 |
+| Text of a file (inflated) | 16 MiB of UTF-8, enforced by the clients and the TRMNL plugin (the server can't read files) |
 | Open invitations per identity | 20 |
 | Members per file | 20, or what the admin sets for the server or the creating identity (2 to 50) |
 | Wrapped key, sealed card | 2048 characters each (a hybrid wrapped key is 1575) |

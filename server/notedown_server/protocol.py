@@ -112,6 +112,11 @@ def check_members(members: object, caller: str) -> list[str]:
     return sorted(members)
 
 
+# The longest text of a file, in bytes of UTF-8 once inflated (docs/server-api.md → "Limits"). The server can't read
+# files; the clients and the TRMNL plugin refuse more: a few MB of DEFLATE inflate to gigabytes (security review M4).
+MAX_TEXT_BYTES = 16 * 1024 * 1024
+
+
 def file_binding(file_id: str, version: int) -> bytes:
     """The associated data of a file's ciphertext: the file and the version it was uploaded as (security review H2)."""
     return canonical({"label": "notedown-file", "file": file_id, "version": version})

@@ -24,6 +24,20 @@ const KEM_CT_BYTES = 1088;      // ML-KEM-768 ciphertext
 /** A request or chain that breaks the protocol (the server answers 400). */
 export class ProtocolError extends Error {}
 
+/**
+ * The longest text of a file, in bytes of UTF-8 (docs/server-api.md → "Limits"). A few MB of DEFLATE inflate to
+ * gigabytes, so a member of a shared file could crash the others' apps: every client and the TRMNL plugin refuse
+ * more (`server/notedown_server/protocol.py`, security review M4).
+ */
+export const MAX_TEXT_BYTES = 16 * 1024 * 1024;
+
+/** A file's text over `MAX_TEXT_BYTES`: refused when opening a file and when sealing one. */
+export class TextTooLargeError extends ProtocolError {
+  constructor() {
+    super(`a file's text is larger than ${MAX_TEXT_BYTES / 2 ** 20} MiB`);
+  }
+}
+
 // ---------- encodings ----------
 
 /** Base64url without padding. */
@@ -373,6 +387,38 @@ async function through(bytes, stream) {
   return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 }
 
+const INFLATE_SLICE = 16 * 1024;
+
+// The raw DEFLATE stream `bytes` inflated, cancelled with a TextTooLargeError as soon as its output passes MAX_TEXT_BYTES.
+// DEFLATE inflates up to 1032 times over, and a browser inflates the whole chunk it is given before anything can count
+// it (Chromium: a 1 MB chunk of a bomb is 1 GB), so the stream goes in slices of 16 KiB: at most about 16 MB are
+// inflated past the limit.
+async function inflate(bytes) {
+  let at = 0;
+  const slices = new ReadableStream({
+    pull(controller) {
+      if (at >= bytes.length) return controller.close();
+      const end = Math.min(at + INFLATE_SLICE, bytes.length);
+      controller.enqueue(bytes.subarray(at, end));
+      at = end;
+    },
+  });
+  const reader = slices.pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+  const parts = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > MAX_TEXT_BYTES) {
+      await reader.cancel().catch(() => {});
+      throw new TextTooLargeError();
+    }
+    parts.push(value);
+  }
+  return new Uint8Array(await new Blob(parts).arrayBuffer());
+}
+
 // The associated data that binds a file's ciphertext to the file and the version it is uploaded as (`{ file, version }`,
 // the version the upload creates: base_version + 1), so a server can't hand out an older state as a newer version or
 // one file's state as another's (security review H2).
@@ -383,11 +429,14 @@ function fileBinding({ file, version } = {}) {
 
 /**
  * b64u of nonce (12 bytes, fresh each call) ‖ AES-256-GCM of the padded 0x01 ‖ DEFLATE of the UTF-8 text, the file ID
- * and the version it is uploaded as (`binding`: `{ file, version }`) as associated data.
+ * and the version it is uploaded as (`binding`: `{ file, version }`) as associated data. A text of more than
+ * MAX_TEXT_BYTES of UTF-8 is refused (TextTooLargeError), so no file is uploaded that the others can't open.
  */
 export async function encryptFile(fileKey, text, binding) {
   const aad = fileBinding(binding);
-  const packed = concat(Uint8Array.of(COMPRESSED), await through(utf8(text), new CompressionStream("deflate-raw")));
+  const bytes = utf8(text);
+  if (bytes.length > MAX_TEXT_BYTES) throw new TextTooLargeError();
+  const packed = concat(Uint8Array.of(COMPRESSED), await through(bytes, new CompressionStream("deflate-raw")));
   const { nonce, sealed } = await seal(fileKey, pad(packed), aad);
   return b64u(concat(nonce, sealed));
 }
@@ -395,11 +444,12 @@ export async function encryptFile(fileKey, text, binding) {
 async function openFile(fileKey, ciphertext, aad) {
   const raw = fromB64u(ciphertext);
   const body = unpad(await open(fileKey, raw.subarray(0, NONCE_BYTES), raw.subarray(NONCE_BYTES), aad));
-  const bytes = body[0] === COMPRESSED ? await through(body.subarray(1), new DecompressionStream("deflate-raw")) : body;
+  const bytes = body[0] === COMPRESSED ? await inflate(body.subarray(1)) : body;
+  if (bytes.length > MAX_TEXT_BYTES) throw new TextTooLargeError();   // an uncompressed body; `inflate` stops by itself
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
-/** The text of `encryptFile`'s output for that file and version (`binding`); throws when the key, the file or the version is another or the data was changed. */
+/** The text of `encryptFile`'s output for that file and version (`binding`); throws when the key, the file or the version is another or the data was changed, and TextTooLargeError for a text over MAX_TEXT_BYTES. */
 export async function decryptFile(fileKey, ciphertext, binding) {
   return openFile(fileKey, ciphertext, fileBinding(binding));
 }

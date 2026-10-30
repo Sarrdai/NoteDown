@@ -10,6 +10,7 @@ import {
   deletionMessage, signDeletion, chainPin, checkPin,
   newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
   importKemSeed, deviceKeysFromSeeds, recipientOf, isHybrid, kemHash, sealRelayMessage, openRelayMessage,
+  MAX_TEXT_BYTES, TextTooLargeError, ProtocolError,
 } from "../app/js/core/crypto.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./fixtures/crypto-vectors.json", import.meta.url), "utf8"));
@@ -408,6 +409,88 @@ test("file: wrong key or changed data is rejected", async () => {
   raw[20] ^= 1;
   await assert.rejects(decryptFile(key, b64u(raw), at));
   await assert.rejects(decryptLegacyFile(generateFileKey(), vectors.file.ciphertext));
+});
+
+// ---------- a file's text is at most 16 MiB (security review M4) ----------
+
+// The ciphertext of `plain` as encryptFile makes it (padded, AES-GCM with the file's binding; `binding` null: a file
+// from before the binding), so a test can seal what encryptFile refuses.
+async function sealRaw(key, plain, binding = at) {
+  const padded = new Uint8Array(Math.ceil((plain.length + 1) / 4096) * 4096);
+  padded.set(plain);
+  padded[plain.length] = 0x80;
+  const nonce = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const params = { name: "AES-GCM", iv: nonce, ...(binding && { additionalData: canonicalJson({ label: "notedown-file", ...binding }) }) };
+  const aes = await globalThis.crypto.subtle.importKey("raw", key, "AES-GCM", false, ["encrypt"]);
+  const sealed = new Uint8Array(await globalThis.crypto.subtle.encrypt(params, aes, padded));
+  return Buffer.concat([nonce, sealed]).toString("base64url");
+}
+
+// 0x01 ‖ the raw DEFLATE stream of `chunks`, which are written one after another (a plaintext's compressed form).
+async function compressed(...chunks) {
+  const stream = new CompressionStream("deflate-raw");
+  const writer = stream.writable.getWriter();
+  const done = new Response(stream.readable).arrayBuffer();
+  for (const chunk of chunks) await writer.write(chunk);
+  await writer.close();
+  const deflate = new Uint8Array(await done);
+  const body = new Uint8Array(1 + deflate.length);
+  body[0] = 0x01;
+  body.set(deflate, 1);
+  return body;
+}
+
+test("file: a text of exactly 16 MiB of UTF-8 round trips, one byte more is refused when sealing", async () => {
+  const key = generateFileKey();
+  assert.equal(MAX_TEXT_BYTES, 16 * 1024 * 1024);
+  const full = "a".repeat(MAX_TEXT_BYTES);
+  assert.equal(await decryptFile(key, await encryptFile(key, full, at), at), full);
+  await assert.rejects(encryptFile(key, full + "a", at), TextTooLargeError);
+  await assert.rejects(encryptFile(key, full + "a", at), /a file's text is larger than 16 MiB/);
+  // The limit is in bytes of UTF-8, not characters: "é" is two.
+  const wide = "é".repeat(MAX_TEXT_BYTES / 2);
+  await encryptFile(key, wide, at);
+  await assert.rejects(encryptFile(key, wide + "a", at), TextTooLargeError);
+  await assert.rejects(encryptFile(key, "é".repeat(MAX_TEXT_BYTES / 2 + 1), at), TextTooLargeError);
+  // It is a ProtocolError, and the binding is still checked first.
+  await assert.rejects(encryptFile(key, full + "a", at), ProtocolError);
+  await assert.rejects(encryptFile(key, full + "a"), /bound to its file and version/);
+});
+
+test("file: a text of a MB that hardly compresses comes back whole, slice by slice", async () => {
+  const key = generateFileKey();
+  const random = new Uint8Array(1024 * 1024 + 123);
+  for (let start = 0; start < random.length; start += 65536) globalThis.crypto.getRandomValues(random.subarray(start, start + 65536));
+  const text = Array.from(random, b => String.fromCharCode(33 + (b % 90))).join("");   // printable, hardly any redundancy
+  const ciphertext = await encryptFile(key, text, at);
+  assert.ok(fromB64u(ciphertext).length > 512 * 1024, "hundreds of KB of DEFLATE: inflated in dozens of 16 KiB slices");
+  assert.equal(await decryptFile(key, ciphertext, at), text);
+});
+
+test("file: a DEFLATE stream that inflates past 16 MiB is refused, not inflated (security review M4)", async () => {
+  const key = generateFileKey();
+  const zeros = new Uint8Array(MAX_TEXT_BYTES + 1024 * 1024);
+  const body = await compressed(zeros);
+  assert.ok(body.length < 40000, "17 MiB of zeros are a few KB of DEFLATE: a bomb");
+  const ciphertext = await sealRaw(key, body);
+  await assert.rejects(decryptFile(key, ciphertext, at), TextTooLargeError);
+  await assert.rejects(decryptFile(key, ciphertext, at), /a file's text is larger than 16 MiB/);
+  // Exactly the limit still opens (the same stream shape).
+  const exact = await sealRaw(key, await compressed(new Uint8Array(MAX_TEXT_BYTES)));
+  assert.equal((await decryptFile(key, exact, at)).length, MAX_TEXT_BYTES);
+  // The files from before the binding go through the same check.
+  await assert.rejects(decryptLegacyFile(key, await sealRaw(key, body, null)), TextTooLargeError);
+});
+
+test("file: the count stops the inflating at the limit: a stream that is over it and cut off is refused for its size", async () => {
+  const key = generateFileKey();
+  const whole = await compressed(new Uint8Array(2 * MAX_TEXT_BYTES));
+  // Without its last bytes the stream is damaged, which inflating all of it would report instead of the size.
+  const cut = whole.subarray(0, whole.length - 6);
+  await assert.rejects(decryptFile(key, await sealRaw(key, cut), at), TextTooLargeError);
+  // Under the limit the same damage is what it is: an error, but not the size.
+  const short = (await compressed(new Uint8Array(1 << 20))).subarray(0, -6);
+  await assert.rejects(decryptFile(key, await sealRaw(key, short), at), e => !(e instanceof TextTooLargeError));
 });
 
 test("file key: opens Python's hybrid wrap; JS hybrid wrap round trips and fits the limit", async () => {

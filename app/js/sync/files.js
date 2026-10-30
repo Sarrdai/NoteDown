@@ -171,15 +171,21 @@ async function acceptKey(server, id, slot, wrapped, members, run) {
   return got.key;
 }
 
+// A file's text over the limit (core/crypto.js → MAX_TEXT_BYTES), a member's upload or this device's own text: that
+// file's sync stops with this message, the others go on (security review M4). `refuseLarge` is for `.catch`.
+const tooLarge = () => new Error(`A file's text is larger than ${c.MAX_TEXT_BYTES / 2 ** 20} MiB; sync stopped for it`);
+const refuseLarge = e => { throw e instanceof c.TextTooLargeError ? tooLarge() : e; };
+
 // A file's text, bound to the file and its version (docs/server-api.md → "Keys"), or one uploaded before files were
 // bound where core/sync-state.js → legacyFileAllowed lets it in (`legacy`). → { text, bound }
 async function openText(key, ciphertext, binding, legacy) {
   try {
     return { text: await c.decryptFile(key, ciphertext, binding), bound: true };
   } catch (e) {
+    if (e instanceof c.TextTooLargeError) throw tooLarge();
     if (!legacy) throw new Error("A file from the server doesn't match its version; sync stopped for it");
   }
-  return { text: await c.decryptLegacyFile(key, ciphertext), bound: false };
+  return { text: await c.decryptLegacyFile(key, ciphertext).catch(refuseLarge), bound: false };
 }
 
 /** Wraps the key of every file this device can read for a new device of this identity (linking); `recipient`: its `{ enc, kem }`. */
@@ -423,7 +429,7 @@ async function upload(key, run) {
   const fileKey = await keyOf(r.server, r.id);
   if (!fileKey) throw new Error("No key for this device on the server");
   ctx.busy();
-  const body = { base_version: r.version, ciphertext: await c.encryptFile(fileKey, text, { file: r.id, version: r.version + 1 }) };
+  const body = { base_version: r.version, ciphertext: await c.encryptFile(fileKey, text, { file: r.id, version: r.version + 1 }).catch(refuseLarge) };
   if (restoring) body.restore = true;
   if (await put(key, r.server, r.id, body, text, run)) { restored(); return true; }
   run.done = false;
@@ -438,7 +444,7 @@ async function create(key, run) {
   const id = c.b64u(globalThis.crypto.getRandomValues(new Uint8Array(16)));
   const fileKey = c.generateFileKey();
   const body = {
-    base_version: 0, ciphertext: await c.encryptFile(fileKey, text, { file: id, version: 1 }),
+    base_version: 0, ciphertext: await c.encryptFile(fileKey, text, { file: id, version: 1 }).catch(refuseLarge),
     keys: await wrapFor(await holdersFor(key, run), fileKey, id, 1),
   };
   if (key !== PRIVATE) body.members = fileMembers(state.sync.identity, circle(key));
@@ -501,7 +507,7 @@ async function renewPending(run) {
         ctx.busy();
         const gen = await genOf(r.server, r.id) + 1;
         const body = {
-          base_version: r.version, ciphertext: await c.encryptFile(fileKey, text, { file: r.id, version: r.version + 1 }),
+          base_version: r.version, ciphertext: await c.encryptFile(fileKey, text, { file: r.id, version: r.version + 1 }).catch(refuseLarge),
           keys: await wrapFor(await holdersFor(key, run), fileKey, r.id, gen),
           previous_key: await c.sealPreviousKey(fileKey, oldKey),   // keeps the file's history readable
         };

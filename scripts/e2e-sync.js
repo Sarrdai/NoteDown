@@ -3,7 +3,7 @@
 // server on 127.0.0.1:8765. Browser contexts stand in for devices: A turns
 // sync on, B joins with the recovery key, D links by QR code (A really scans
 // it: Chromium's fake camera plays a video of D's code; an answer from another identity without the code's secret
-// is refused), all edit (also the same note at once), a key or an older state a server swaps in is refused, A removes B, and C restores. Then contacts: E (Lea) pastes
+// is refused), all edit (also the same note at once), a key or an older state a server swaps in is refused, a text over 16 MiB is neither opened nor uploaded, A removes B, and C restores. Then contacts: E (Lea) pastes
 // A's invitation link, A confirms the request on the card above the notes; F (Tom)
 // scans A's "My code" with the fake camera and A declines; stale, own and
 // repeated invitations are refused. Then shared files: A shares notes with Lea, both edit (also at once),
@@ -478,6 +478,73 @@ async function main() {
       });
       await converge(a, b);
       assert.ok((await bodies(b)).includes(sample.s20));
+    });
+
+    await step("a file that inflates past 16 MiB is refused and stops that file's sync; the next good version brings it back (security review M4)", async () => {
+      // A member of a file (here A, which holds the key and signs in as itself) uploads a few KB of DEFLATE that inflate to 17 MiB.
+      const before = await fileText(b);
+      await a.evaluate(async () => {
+        const c = window.__crypto, s = window.__store.state.sync, keys = await c.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
+        const { createApis } = await import("/app/js/sync/api.js");
+        const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
+        const key = await window.__keystore.getSecret("file:" + s.server + "/" + s.file.id);
+        const current = await api.getFile(s.file.id);
+        const stream = new CompressionStream("deflate-raw"), writer = stream.writable.getWriter();
+        const deflated = new Response(stream.readable).arrayBuffer();
+        await writer.write(new Uint8Array(17 * 1024 * 1024));
+        await writer.close();
+        const body = new Uint8Array(await deflated);
+        const plain = new Uint8Array(Math.ceil((body.length + 2) / 4096) * 4096);   // 0x01 ‖ DEFLATE ‖ 0x80, zeros up to 4 KiB
+        plain.set(body, 1);
+        plain[0] = 0x01;
+        plain[body.length + 1] = 0x80;
+        const nonce = crypto.getRandomValues(new Uint8Array(12));
+        const additionalData = c.canonicalJson({ label: "notedown-file", file: s.file.id, version: current.version + 1 });
+        const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, additionalData },
+          await crypto.subtle.importKey("raw", key, "AES-GCM", false, ["encrypt"]), plain));
+        await api.putFile(s.file.id, { base_version: current.version, ciphertext: c.b64u(Uint8Array.from([...nonce, ...sealed])) });
+      });
+      await sync(b);
+      const st = await syncState(b);
+      assert.equal(st.status, "error");
+      assert.equal(st.error, "A file's text is larger than 16 MiB; sync stopped for it");
+      assert.equal(await fileText(b), before, "B keeps its notes");
+      for (const [page, name] of [[b, "file-too-large-desktop"], [a, "file-too-large-phone"]]) {   // the message in the status line
+        await sync(page);
+        await openPanel(page);
+        await page.locator("#syncFoot", { hasText: "larger than 16 MiB; sync stopped for it" }).waitFor();
+        await shot(page, name);
+        await page.keyboard.press("Escape");
+      }
+      // A uploads its notes again on top: both sync on.
+      await a.evaluate(async () => {
+        const c = window.__crypto, s = window.__store.state.sync, keys = await window.__crypto.deviceKeysFromSeeds(await window.__keystore.getSecret("device"));
+        const { createApis } = await import("/app/js/sync/api.js");
+        const api = createApis(() => ({ identity: s.identity, device: s.device, sign: keys.sign.privateKey }))(s.server);
+        const current = await api.getFile(s.file.id);
+        const key = await window.__keystore.getSecret("file:" + s.server + "/" + s.file.id);
+        await api.putFile(s.file.id, { base_version: current.version, ciphertext: await c.encryptFile(key, window.__store.fileText(), { file: s.file.id, version: current.version + 1 }) });
+      });
+      await converge(a, b);
+    });
+
+    await step("a text over 16 MiB is not uploaded: that file's sync stops with a message and goes on once the text is shorter (security review M4)", async () => {
+      // Dora has an identity of her own, so no note of the others is touched.
+      const x = await device(browser, "O", { width: 820, height: 1180 });
+      await turnOnSync(x, "Dora");
+      const id = await x.evaluate(() => window.__store.addNote("x".repeat(17 * 1024 * 1024)).id);
+      await sync(x);
+      const st = await syncState(x);
+      assert.equal(st.status, "error");
+      assert.equal(st.error, "A file's text is larger than 16 MiB; sync stopped for it");
+      await openPanel(x);
+      await x.locator("#syncFoot", { hasText: "larger than 16 MiB; sync stopped for it" }).waitFor();
+      await shot(x, "file-too-large-tablet");
+      await x.keyboard.press("Escape");
+      await x.evaluate(i => window.__store.purgeNotes([i]), id);
+      await sync(x);
+      assert.equal((await syncState(x)).status, "synced");
+      await x.context().close();
     });
 
     await step("the same note edited on both: lines added on both combine, the same line changed on both keeps both versions", async () => {

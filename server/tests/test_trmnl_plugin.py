@@ -7,6 +7,7 @@ import json
 import os
 import re
 import time
+import zlib
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -117,8 +118,9 @@ def add_contact(user: Person, invite: dict) -> None:
     assert r.status_code == 204, r.text
 
 
-def share(user: Person, plugin: str, text: str, signer=None) -> str:
-    """Creates the file of the user and the plugin, its key wrapped and signed for the plugin's device."""
+def share(user: Person, plugin: str, text: str | bytes, signer=None) -> str:
+    """Creates the file of the user and the plugin, its key wrapped and signed for the plugin's device; `text` is the
+    plaintext as it is (bytes), or Markdown (a file as the first test versions wrote it: unbound, uncompressed)."""
     file_id, file_key = b64u(os.urandom(16)), os.urandom(32)
     signer = signer or user.phone
     keys = {user.phone.id: b64u(b"own-key")}
@@ -127,7 +129,7 @@ def share(user: Person, plugin: str, text: str, signer=None) -> str:
         sig = signer.sign_key.sign(canonical({"label": "notedown-wrap-sig", "file": file_id, "to": device["id"],
                                               "gen": 1, "signer": signer.id, "wrap": wrap}))
         keys[device["id"]] = b64u(b"\x02" + (1).to_bytes(4, "big") + from_b64u(signer.id) + sig + from_b64u(wrap))
-    padded = text.encode() + b"\x80"
+    padded = (text.encode() if isinstance(text, str) else text) + b"\x80"
     padded += b"\x00" * (-len(padded) % 4096)
     nonce = os.urandom(12)
     r = user.client.put(f"/v1/files/{file_id}", headers=user.h, json={
@@ -210,6 +212,24 @@ def test_a_key_not_signed_by_a_member_is_refused(client):
     screen(client)
     share(user, invite["id"], notes("s01"), signer=stranger.phone)
     assert client.post("/trmnl/markup", headers=bearer("token-abc")).status_code == 503
+
+
+def test_a_file_that_inflates_past_16_mib_is_not_read(client):
+    """A member's few KB of DEFLATE that inflate to 17 MiB or more are refused like any file the plugin can't read
+    (security review M4): no screen for TRMNL to replace the last picture with, the settings page lists it as not
+    readable yet instead of failing."""
+    install(client)
+    invite = invitation(client)
+    user = Person(client)
+    add_contact(user, invite)
+    screen(client)
+    compressor = zlib.compressobj(9, zlib.DEFLATED, -15)
+    bomb = b"\x01" + compressor.compress(bytes(protocol.MAX_TEXT_BYTES + 1)) + compressor.flush()
+    assert len(bomb) < 40_000
+    file_id = share(user, invite["id"], bomb)
+    assert client.post("/trmnl/markup", headers=bearer("token-abc")).status_code == 503
+    page = settings(client)
+    assert page.status_code == 200 and "noch nicht lesbar" in page.text and file_id in page.text
 
 
 def test_a_changed_server_secret_asks_to_reconnect(client):
