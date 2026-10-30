@@ -626,17 +626,31 @@ export async function openContactCard(sealed, keys) {
 // ---------- safety codes (docs/sync-and-sharing.md → "Contacts") ----------
 
 const SAFETY_ITERATIONS = 100000;
-const SAFETY_GROUPS = 5;
+const SAFETY_GROUP_BYTES = 5;   // a group of 5 digits: 5 bytes as a big-endian 40-bit number, mod 100000
+const SAFETY_MAX_GROUPS = 6;    // what the 256 bits of PBKDF2 output hold: 6 × 5 bytes
+
+// One identity's part: `groups` groups of 5 digits from PBKDF2-SHA256 over its ID alone.
+async function safetyPart(identity, groups) {
+  const key = await subtle().importKey("raw", utf8(identity), "PBKDF2", false, ["deriveBits"]);
+  const bytes = new Uint8Array(await subtle().deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: utf8("notedown-safety-code-v2"), iterations: SAFETY_ITERATIONS }, key, 256));
+  return Array.from({ length: groups }, (_, i) => {
+    const number = bytes.subarray(SAFETY_GROUP_BYTES * i, SAFETY_GROUP_BYTES * (i + 1)).reduce((n, b) => n * 256 + b, 0);
+    return String(number % 100000).padStart(5, "0");
+  });
+}
 
 /**
- * The safety code of two identities, the same on both phones: 20 digits in groups of four, from
- * PBKDF2-SHA256 over both identity IDs in sorted order. 66 bits and the slow hash make a forged contact
- * whose code matches too costly to find (someone in the middle needs two identities with equal codes).
+ * The safety code of two identities, the same on both phones: [part of the first, part of the second], the identities in
+ * code point order, each part `groups` (1 to 6) groups of 5 digits from PBKDF2-SHA256 over that identity's ID alone (4
+ * groups are 20 digits, 6 are 30 as in Signal). Someone in the middle who wants a forged contact to pass has to match the
+ * real identity's own part, a second preimage (about 2^66 PBKDF2 runs for 4 groups, 2^100 for 6), and comparing only one
+ * part stays one. One hash over both IDs would let them search for two forged identities with equal codes instead, a
+ * birthday search of about 2·10^10 runs, some 60 hours on one GPU (security review M1).
  */
-export async function safetyCode(identityA, identityB) {
-  const pair = [identityA, identityB].sort(byCodePoint).join(":");
-  const key = await subtle().importKey("raw", utf8(pair), "PBKDF2", false, ["deriveBits"]);
-  const bits = new DataView(await subtle().deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: utf8("notedown-safety-code-v1"), iterations: SAFETY_ITERATIONS }, key, 32 * SAFETY_GROUPS));
-  return Array.from({ length: SAFETY_GROUPS }, (_, i) => String(bits.getUint32(4 * i) % 10000).padStart(4, "0")).join(" ");
+export async function safetyCode(identityA, identityB, groups) {
+  if (!Number.isInteger(groups) || groups < 1 || groups > SAFETY_MAX_GROUPS) {
+    throw new RangeError(`a part of the safety code has 1 to ${SAFETY_MAX_GROUPS} groups`);
+  }
+  return Promise.all([identityA, identityB].sort(byCodePoint).map(identity => safetyPart(identity, groups)));
 }

@@ -1042,8 +1042,10 @@ a.row-open { text-decoration: none; }
 .verify-state .icon { width: 18px; height: 18px; }
 .safety-code {
   margin: 4px 0 0; padding: 14px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
-  font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; text-align: center; white-space: nowrap; word-spacing: 0.1em;
+  font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; line-height: 1.35; text-align: center; white-space: nowrap; word-spacing: 0.1em;
+  display: flex; flex-direction: column; gap: 0.8em;   /* a gap between the two identities' parts */
 }
+.safety-line { display: block; }
 .share-notices { display: flex; flex-direction: column; gap: 8px; }
 .share-notices:empty { display: none; }
 .share-notice {

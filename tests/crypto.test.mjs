@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { pbkdf2Sync } from "node:crypto";
 import {
   b64u, fromB64u, canonicalJson, keyId, entryHash, recoveryKeyBytes, deriveRecovery, generateDeviceKeys,
   deviceRecord, newEntry, signEntry, verifyChain, authMessage, signChallenge, generateFileKey, encryptFile,
@@ -10,7 +11,7 @@ import {
   deletionMessage, signDeletion, chainPin, checkPin,
   newInvitationSecret, invitationId, invitationMessage, signInvitation, verifyInvitation, sealContactCard, openContactCard,
   importKemSeed, deviceKeysFromSeeds, recipientOf, isHybrid, kemHash, sealRelayMessage, openRelayMessage,
-  MAX_TEXT_BYTES, TextTooLargeError, ProtocolError,
+  MAX_TEXT_BYTES, TextTooLargeError, ProtocolError, safetyCode,
 } from "../app/js/core/crypto.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./fixtures/crypto-vectors.json", import.meta.url), "utf8"));
@@ -583,14 +584,61 @@ test("contact card: opens Python's sealed cards; JS seal round trips, fits the l
   await assert.rejects(openRelayMessage(sealed, phone));
 });
 
-test("safetyCode: the same for both sides, 5 groups of 4 digits, different per pair", async () => {
-  const { safetyCode } = await import("../app/js/core/crypto.js");
-  const a = "TGVhSWRlbnRpdHkxMjM0NQ", b = "VG9tSWRlbnRpdHkxMjM0NTY", c = "U2FtSWRlbnRpdHkxMjM0NTY";
-  const ab = await safetyCode(a, b);
-  assert.equal(ab, "0236 6534 4560 2936 6818");   // pinned: both phones must keep computing the same code
-  assert.equal(await safetyCode(b, a), ab);
-  assert.notEqual(await safetyCode(a, c), ab);
-  assert.equal(await safetyCode(a, b), ab);
+// Security review M1: each identity has its own part, from its ID alone, so a forger has to match a real part.
+const safetyIds = { a: "TGVhSWRlbnRpdHkxMjM0NQ", b: "VG9tSWRlbnRpdHkxMjM0NTY", c: "U2FtSWRlbnRpdHkxMjM0NTY" };
+
+// The part of one identity as the spec words it, from node:crypto (not WebCrypto): PBKDF2-SHA256, salt notedown-safety-code-v2,
+// 100000 iterations, 256 bits; group i = bytes [5i, 5i + 5) as a big-endian 40-bit number, mod 100000, 5 digits.
+const referencePart = (id, groups) => {
+  const bits = pbkdf2Sync(Buffer.from(id, "utf8"), "notedown-safety-code-v2", 100000, 32, "sha256");
+  return Array.from({ length: groups }, (_, i) => String(bits.readUIntBE(5 * i, 5) % 100000).padStart(5, "0"));
+};
+
+test("safetyCode: each part is PBKDF2 over one identity ID, 5-digit groups; matches node:crypto for 4 and 6 groups", async () => {
+  const { a, b } = safetyIds;
+  const [first, second] = [a, b].sort();   // IDs of b64u characters: code point order is the sort order
+  for (const groups of [4, 6]) {
+    assert.deepEqual(await safetyCode(a, b, groups), [referencePart(first, groups), referencePart(second, groups)], `${groups} groups`);
+  }
+  // Pinned: both phones must keep computing the same code.
+  assert.deepEqual(await safetyCode(a, b, 4), [["74638", "17512", "31883", "00112"], ["24419", "48111", "77208", "33351"]]);
+  assert.deepEqual((await safetyCode(a, b, 6)).map(part => part.slice(4)), [["64520", "28939"], ["71100", "96774"]]);
+});
+
+test("safetyCode: the same on both phones, identities in code point order; a part depends on its identity alone", async () => {
+  const { a, b, c } = safetyIds;
+  const ab = await safetyCode(a, b, 4);
+  assert.deepEqual(await safetyCode(b, a, 4), ab, "order of the arguments doesn't matter");
+  assert.deepEqual(await safetyCode(a, b, 4), ab);
+  // The shared identity's part is the same in both pairs, the other part is not.
+  const ac = await safetyCode(a, c, 4);
+  const [partOfA] = ab.filter(part => part.join() === referencePart(a, 4).join());
+  assert.ok(partOfA && ac.some(part => part.join() === partOfA.join()), "a's part is the same next to b and next to c");
+  assert.notDeepEqual(ab, ac);
+  assert.notDeepEqual(ab[0], ab[1]);
+  // Code point order, not UTF-16 order: U+FF5E sorts before U+1F600 as code points, after it as UTF-16 units.
+  const [x, y] = ["\u{1F600}", "\uFF5E"];
+  assert.ok(x < y, "UTF-16 order puts the emoji first");
+  assert.deepEqual(await safetyCode(x, y, 4), [referencePart(y, 4), referencePart(x, 4)]);
+});
+
+test("safetyCode: every group is 5 digits; 4 groups are the first 4 of 6; other counts are refused", async () => {
+  const { a, b, c } = safetyIds;
+  for (const [one, two] of [[a, b], [a, c], [b, c], ["sample:Sam", a]]) {
+    for (const groups of [1, 4, 6]) {
+      const code = await safetyCode(one, two, groups);
+      assert.equal(code.length, 2);
+      for (const part of code) {
+        assert.equal(part.length, groups);
+        for (const group of part) assert.match(group, /^\d{5}$/);
+      }
+    }
+    const [short, long] = [await safetyCode(one, two, 4), await safetyCode(one, two, 6)];
+    assert.deepEqual(long.map(part => part.slice(0, 4)), short, "the shorter code is the start of the longer");
+  }
+  for (const groups of [0, 7, 4.5, -1, "4", undefined, null, NaN]) {
+    await assert.rejects(safetyCode(a, b, groups), RangeError, String(groups));
+  }
 });
 
 test("signed wrap: binds file, recipient, generation and signer; any change fails", async () => {

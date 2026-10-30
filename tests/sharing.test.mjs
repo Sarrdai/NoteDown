@@ -6,7 +6,7 @@ import { parseNotesFile } from "../app/js/core/notes-file.js";
 import {
   circleKey, circleLabel, circleEntries, groupsWith, shareState, groupFull, initials, splitIntoCircles, generateRecoveryKey,
   normalizeRecoveryKey, inviteLink, contactId, uniqueName, syncedAgo,
-  colorIndex, nextColor, visibleMembers, mergeCircle,
+  colorIndex, nextColor, visibleMembers, mergeCircle, SAFETY_VARIANTS, safetyVariant, safetyLines,
 } from "../app/js/core/sharing.js";
 
 const read = name => readFileSync(new URL("../app/sample/" + name, import.meta.url), "utf8");
@@ -174,4 +174,21 @@ test("groupFull: a contact can't be added once a note's group would grow past th
   assert.equal(groupFull([["lea"], ["lea", "tom"]], "sam", 3), true);   // one note is enough
   assert.equal(groupFull([["lea", "tom", "sam"]], "mia", 20), false);
   assert.equal(groupFull([["lea", "tom"]], "sam", null), false);         // no limit known yet
+});
+
+test("safety code variants: A is 2 × 20 digits on a line each, B is 2 × 30 digits on two lines each", () => {
+  const part = n => Array.from({ length: n }, (_, i) => String(10000 * (i + 1) + i).padStart(5, "0"));
+  assert.deepEqual(Object.keys(SAFETY_VARIANTS), ["a", "b"]);
+  assert.deepEqual(safetyLines(part(SAFETY_VARIANTS.a.groups), SAFETY_VARIANTS.a.perLine), ["10000 20001 30002 40003"]);
+  assert.deepEqual(safetyLines(part(SAFETY_VARIANTS.b.groups), SAFETY_VARIANTS.b.perLine), ["10000 20001 30002", "40003 50004 60005"]);
+  assert.equal(SAFETY_VARIANTS.a.groups * 5, 20);
+  assert.equal(SAFETY_VARIANTS.b.groups * 5, 30);
+  assert.deepEqual(safetyLines([], 3), []);
+  assert.deepEqual(safetyLines(["00001", "00002", "00003", "00004"], 3), ["00001 00002 00003", "00004"], "a last short line");
+});
+
+test("safetyVariant: the setting's variant, A for anything else", () => {
+  assert.equal(safetyVariant("a"), "a");
+  assert.equal(safetyVariant("b"), "b");
+  for (const value of [undefined, null, "", "c", "A", "constructor", "toString", 1]) assert.equal(safetyVariant(value), "a", String(value));
 });

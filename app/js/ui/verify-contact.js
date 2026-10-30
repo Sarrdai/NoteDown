@@ -4,12 +4,12 @@
 // by scanning the contact's code or by comparing the safety code both phones
 // compute from the two identities. The page lives in the Sync & sharing
 // panel's container and is reached from the contact list and the share dialog.
-import { state, setSync, contacts, updateContact, sharedCircles } from "../store.js";
+import { state, setSync, contacts, updateContact, sharedCircles, subscribe } from "../store.js";
 import { timestamp } from "../core/notes-file.js";
 import { safetyCode } from "../core/crypto.js";
 import { readInvite } from "../sync/contacts.js";
 import { registerPage, go, popPage, onLeave, panelPage, refreshPage, resetPanel, closePanel, section } from "./sync-panel.js";
-import { groupsWith, circleKey } from "../core/sharing.js";
+import { groupsWith, circleKey, SAFETY_VARIANTS, safetyVariant, safetyLines } from "../core/sharing.js";
 import { circleName, pickCircle } from "./people-list.js";
 import { h, text, button } from "./dom.js";
 import { scannerView, cameraScanner } from "./qr.js";
@@ -17,16 +17,20 @@ import { avatarHtml, avatarStackHtml } from "./people.js";
 import { icon } from "./icons.js";
 import { showSnackbar } from "./snackbar.js";
 
-const codes = new Map();   // contact id → promise of the safety code
+const codes = new Map();   // "<variant>:<contact id>" → promise of the safety code
 
 const contactOf = id => contacts().find(c => c.id === id);
 
 // The user's own identity: the real identity ID, in the sample a stand-in from the sample name.
 const me = () => state.sync.identity || "sample:" + state.sync.name;
 
-function codeOf(id) {
-  if (!codes.has(id)) codes.set(id, safetyCode(me(), id));
-  return codes.get(id);
+// The safety code's length: a prototype variant (⋮ → "Prototype: Safety code", core/sharing.js → SAFETY_VARIANTS).
+const variant = () => safetyVariant(state.settings.safetyCode);
+
+function codeOf(id, v) {
+  const key = `${v}:${id}`;
+  if (!codes.has(key)) codes.set(key, safetyCode(me(), id, SAFETY_VARIANTS[v].groups));
+  return codes.get(key);
 }
 
 /** Marks contact `id` as verified, leaves the verify pages and says so, with Undo. */
@@ -38,12 +42,23 @@ export function markVerified(id) {
   showSnackbar(`${c.name} verified`, () => updateContact(id, { verified: undefined }));
 }
 
-// The safety code, filled in once computed.
+// The safety code: each identity's part on a line of its own or on several, the identities in the order of their IDs
+// (so both phones show the same); dots in the same shape until it is computed.
 function codeView(id) {
-  const el = h("p", { class: "safety-code", "aria-label": "Safety code" }, "···· ···· ···· ···· ····");
-  codeOf(id).then(code => { el.textContent = code; el.setAttribute("aria-label", "Safety code " + code); });
+  const v = variant(), { groups, perLine } = SAFETY_VARIANTS[v];
+  const el = h("p", { class: "safety-code", "aria-label": "Safety code" });
+  const draw = parts => el.replaceChildren(...parts.map(part =>
+    h("span", { class: "safety-part" }, safetyLines(part, perLine).map(line => h("span", { class: "safety-line" }, line)))));
+  draw([0, 1].map(() => Array(groups).fill("·····")));
+  codeOf(id, v).then(parts => { draw(parts); el.setAttribute("aria-label", "Safety code " + parts.flat().join(" ")); });
   return el;
 }
+
+// Switching the variant redraws an open Verify contact page.
+let drawn = null;   // the variant the page on screen was drawn with
+subscribe(kind => {
+  if (kind === "structure" && panelPage() === "verifyContact" && drawn !== variant()) refreshPage({ keepScroll: true });
+});
 
 function hero(c) {
   return h("div", { class: "request-hero" },
@@ -123,6 +138,7 @@ function layout(c, data) {
 registerPage("verifyContact", {
   title: data => contactOf(data.id)?.verified ? "Contact" : "Verify contact",
   render: data => {
+    drawn = variant();
     const c = contactOf(data.id);
     if (!c) return [text("This contact is no longer in your list.", "sheet-text muted")];
     return [hero(c), ...groups(c), ...layout(c, data)];
