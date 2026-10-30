@@ -275,8 +275,8 @@ it can't read.
 - A change that older apps can't read or would break (a file format, the
   key scheme) raises `CLIENT_LEVEL` and `MIN_CLIENT` in the same commit.
   Today the app sends 3 and `MIN_CLIENT` is 3: level 2 apps sign in
-  without naming the server and upload files unbound (security review
-  2026-10-30), and their failed sign-in would end their sync as if the
+  without naming the server, upload files unbound and link devices without
+  a secret (security review 2026-10-30), and their failed sign-in would end their sync as if the
   device were removed; level 1 apps can't read device records with `kem` or
   hybrid wraps (backlog #20).
 - The app keeps its notes and its changes and shows a card ("Update
@@ -337,30 +337,37 @@ it can't read.
   state: the state it replaces is pinned ("Version history").
 - Removing a device also deletes its wrapped keys in every file.
 - **Linking a device:** the new device creates a relay slot and shows a
-  QR code with its device keys and the slot; its ML-KEM key, too long
+  QR code with its device keys, the slot and a secret; its ML-KEM key, too long
   for the code, waits at the slot (`POST /v1/relay`). The linked device appends
   the new device to the list, adds its wrapped file keys and puts the
-  identity ID and the display name, encrypted for the new device's
+  identity ID, the display name and the code's secret, encrypted for the new device's
   `enc` and `kem` keys, into the slot. The new device polls the slot (every 2 s),
   then authenticates normally. Formats (client side,
   `app/js/core/linking.js`):
-  - **QR code text:** `notedown:link?v=1&slot=<slot>&sign=<b64u>&enc=<b64u>&kem=<b64u>&name=<name>&srv=<server>`
+  - **QR code text:** `notedown:link?v=2&slot=<slot>&sign=<b64u>&enc=<b64u>&kem=<b64u>&s=<secret>&name=<name>&srv=<server>`
     — a URL query (form-encoded), the device's public Ed25519 and X25519
     keys, `kem` the SHA-256 of its ML-KEM key (so the server can't swap
-    the key it keeps), its suggested name (at most 40 characters, may be
+    the key it keeps), `s` the link secret (16 random bytes, b64u, new for
+    every code), its suggested name (at most 40 characters, may be
     empty) and `srv`, the server the slot is on (missing = the default
-    server). About 270 characters: QR version 12 at error correction M.
+    server). Only `v=2` is read (a `v=1` code can only come from an app below
+    `CLIENT_LEVEL` 3, which the server refuses). About 290 characters: QR
+    version 12 or 13 at error correction M.
   - **Relay payload:** built like a wrapped file key (hybrid) but with
     the HKDF label `notedown-relay` instead of `notedown-wrap`; the plaintext
-    is the UTF-8 JSON `{"v": 1, "identity": "<id>", "name": "<display name>", "server": "<home server>"}`;
+    is the UTF-8 JSON `{"v": 2, "identity": "<id>", "name": "<display name>", "server": "<home server>", "secret": "<s of the code>"}`;
     `server` is where the identity lives, where the new device signs in
-    (missing = the default server).
+    (missing = the default server). `v` must be 2 and `secret` 22 characters of b64u.
   - The linked device first reads the slot's ML-KEM key (`GET
     /v1/relay/{slot}/kem`; 404 = expired or used) and checks it against
     the code's hash, so an expired code fails before the device list
-    changes. The new device
-    joins only if its own device is active on the verified list of
-    that identity.
+    changes. The new device compares `secret` with the `s` of its own
+    code first, before it signs in or reads any list; a different, missing
+    or malformed one is refused like an answer it can't read, and nothing is
+    adopted. The server never sees the code, so it can't produce an answer
+    the device takes (the payload itself is signed by nobody; security
+    review M6). Then the device joins only if its own device is active on
+    the verified list of that identity.
 - **Restoring with the recovery key:** derive the identity and recovery
   device keys, authenticate as the recovery device, append the new
   device, wrap the file keys for it.

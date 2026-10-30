@@ -201,14 +201,16 @@ the first sync round.
   list would make a removed device active again and get it the renewed keys. Its own list it
   keeps whole and puts back what a restored server lost ("Server").
 - **Linking a device:** the new device (e.g. the web app on the desktop)
-  shows a QR code with its public device keys, a relay slot and its
-  suggested name; a linked device (e.g. the phone) scans it, asks for
+  shows a QR code with its public device keys, a relay slot, a secret
+  and its suggested name; a linked device (e.g. the phone) scans it, asks for
   confirmation, adds the key to the device list, wraps the file keys for
-  it and leaves the identity, sealed for the new device, in the slot
+  it and leaves the identity and the code's secret, sealed for the new device, in the slot
   (format: `docs/server-api.md` → "Linking a device"). The desktop needs
   no camera, and since the key comes from the QR code, the server can't
   slip in its own; a forged slot answer fails, because the new device
-  only joins a verified device list that holds it.
+  first checks that it holds the code's secret, which the server never
+  sees (security review M6), and only joins a verified device list that
+  holds it.
 - **Removing a device** (lost, stolen, sold) from another one takes it
   off the device list, so the server refuses it, and **renews the keys**:
   the remaining device creates new file keys for every file the removed

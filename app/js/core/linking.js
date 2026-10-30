@@ -7,6 +7,7 @@
 const PREFIX = "notedown:link?";
 const KEY = /^[A-Za-z0-9_-]{43}$/;     // b64u of 32 bytes
 const SLOT = /^[A-Za-z0-9_-]{22}$/;    // b64u of 16 bytes
+const SECRET = /^[A-Za-z0-9_-]{22}$/;  // b64u of 16 bytes: the link secret
 export const MAX_NAME = 40;
 
 /**
@@ -32,34 +33,39 @@ const withServer = (params, server) => (server ? { ...params, srv: serverUrl(ser
 
 /**
  * The text of the new device's QR code: relay slot, public device keys (b64u; `kem` the SHA-256 of its ML-KEM key,
- * which waits at the slot), its suggested name and the server the slot is on (`server`).
+ * which waits at the slot), the link secret `s` (b64u of 16 random bytes: only this code holds it, so only the device
+ * that scanned it can make an answer the new device takes), its suggested name and the server the slot is on (`server`).
  */
-export function linkCode({ slot, sign, enc, kem, name, server }) {
-  return PREFIX + new URLSearchParams(withServer({ v: "1", slot, sign, enc, kem, name: cleanName(name) }, server));
+export function linkCode({ slot, sign, enc, kem, secret, name, server }) {
+  return PREFIX + new URLSearchParams(withServer({ v: "2", slot, sign, enc, kem, s: secret, name: cleanName(name) }, server));
 }
 
-/** `{ slot, sign, enc, kem, name, server }` of a scanned link code (`server` "" = the default server), or null when the text is not one. */
+/** `{ slot, sign, enc, kem, secret, name, server }` of a scanned link code (`server` "" = the default server), or null when the text is not one (version 2 only). */
 export function parseLinkCode(text) {
   if (typeof text !== "string" || !text.startsWith(PREFIX)) return null;
   const p = new URLSearchParams(text.slice(PREFIX.length));
-  const [slot, sign, enc, kem] = ["slot", "sign", "enc", "kem"].map(k => p.get(k) || "");
-  if (p.get("v") !== "1" || !SLOT.test(slot) || ![sign, enc, kem].every(k => KEY.test(k))) return null;
+  const [slot, sign, enc, kem, secret] = ["slot", "sign", "enc", "kem", "s"].map(k => p.get(k) || "");
+  if (p.get("v") !== "2" || !SLOT.test(slot) || ![sign, enc, kem].every(k => KEY.test(k)) || !SECRET.test(secret)) return null;
   const server = serverUrl(p.get("srv") || "");
   if (server === null) return null;
-  return { slot, sign, enc, kem, name: cleanName(p.get("name")), server };
+  return { slot, sign, enc, kem, secret, name: cleanName(p.get("name")), server };
 }
 
-/** What the linked device seals into the slot: the identity's ID, the user's display name and the identity's home server. */
-export function relayMessage(identity, name, server) {
-  return { v: 1, identity, name: cleanName(name), ...(server && { server: serverUrl(server) }) };
+/**
+ * What the linked device seals into the slot: the identity's ID, the user's display name, the identity's home server
+ * and the secret of the scanned link code, which the new device checks before it believes anything else.
+ */
+export function relayMessage(identity, name, server, secret) {
+  return { v: 2, identity, name: cleanName(name), ...(server && { server: serverUrl(server) }), secret };
 }
 
-/** `{ identity, name, server }` of an opened relay message (`server` "" = the default server), or null when it is malformed. */
+/** `{ identity, name, server, secret }` of an opened relay message (`server` "" = the default server), or null when it is malformed (version 2 only, with a well-formed secret). */
 export function parseRelayMessage(message) {
-  if (!message || message.v !== 1 || typeof message.identity !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(message.identity)) return null;
+  if (!message || message.v !== 2 || typeof message.identity !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(message.identity)) return null;
+  if (typeof message.secret !== "string" || !SECRET.test(message.secret)) return null;
   const server = serverUrl(message.server);
   if (server === null) return null;
-  return { identity: message.identity, name: cleanName(message.name), server };
+  return { identity: message.identity, name: cleanName(message.name), server, secret: message.secret };
 }
 
 // ---------- contact invitations ----------

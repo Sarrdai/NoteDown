@@ -534,7 +534,7 @@ export async function openRelayMessage(payload, keys) {
 
 const SECRET_BYTES = 16;
 
-/** A new invitation secret: 16 random bytes. */
+/** A new invitation secret: 16 random bytes (also the secret of a link code, `core/linking.js`). */
 export function newInvitationSecret() {
   return globalThis.crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
 }

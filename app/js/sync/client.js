@@ -303,28 +303,31 @@ export async function restore(recoveryKey) {
 }
 
 /**
- * The new device's side of linking by QR code: new device keys and a relay
- * slot; `code` is the text of the QR code to show. Then `waitForLink`.
+ * The new device's side of linking by QR code: new device keys, a relay
+ * slot and a secret for this code alone; `code` is the text of the QR code
+ * to show. Then `waitForLink` with the whole result.
  */
 export async function startLinking() {
   const device = await c.generateDeviceKeys();
   // The ML-KEM key is too long for a QR code: it waits at the slot, the code holds its hash.
   const { slot, expires } = await api.createSlot(c.b64u(device.kem.publicKey));
+  const secret = c.b64u(c.newInvitationSecret());   // the server never sees the code, so only the scanning device can answer with it
   const code = linkCode({
     slot, sign: c.b64u(device.sign.publicKey), enc: c.b64u(device.enc.publicKey), kem: await c.kemHash(device.kem.publicKey),
-    name: deviceLabel(navigator.userAgent), server: defaultServer,
+    secret, name: deviceLabel(navigator.userAgent), server: defaultServer,
   });
-  return { device, slot, code, expires: Date.parse(expires) };
+  return { device, slot, code, expires: Date.parse(expires), secret };
 }
 
 /**
  * Polls the slot of `startLinking` until a linked device has filled it, then
- * joins that identity: checks that the verified device list holds this
- * device, takes over the keys and merges the notes on the next sync round.
- * Resolves false when `cancelled()` became true; throws when the slot
- * expired (ApiError 404) or the answer doesn't add up.
+ * joins that identity: checks that the answer holds the code's secret and
+ * that the verified device list holds this device, takes over the keys and
+ * merges the notes on the next sync round. Resolves false when `cancelled()`
+ * became true; throws when the slot expired (ApiError 404) or the answer
+ * doesn't add up.
  */
-export async function waitForLink({ device, slot }, cancelled) {
+export async function waitForLink({ device, slot, secret }, cancelled) {
   let payload = null;
   while (!payload) {
     if (cancelled()) return false;
@@ -339,7 +342,9 @@ export async function waitForLink({ device, slot }, cancelled) {
   try {
     message = parseRelayMessage(await c.openRelayMessage(payload, device));
   } catch { /* not sealed for this device */ }
-  if (!message) throw new Error("The other device sent an answer this device can't read");
+  // Before anything else: the sealed answer isn't signed, so a server with an identity of its own could seal one
+  // that puts this device on that identity (security review M6). Only the device that scanned the code has the secret.
+  if (!message || message.secret !== secret) throw new Error("The other device sent an answer this device can't read");
   // Reading a list needs a token: this device signs in as itself, which works only once it is on the list.
   const deviceId = await c.keyId(device.sign.publicKey);
   caller = { identity: message.identity, device: deviceId, sign: device.sign.privateKey };
@@ -375,8 +380,8 @@ export function readLinkCode(text) {
 /**
  * The linked device's side: appends the device of a scanned link code to the
  * device list, wraps the file key for it, writes its name into the private
- * file and leaves the identity ID and display name, sealed for the new
- * device, in its relay slot.
+ * file and leaves the identity ID and display name, with the code's secret
+ * and sealed for the new device, in its relay slot.
  */
 export async function linkDevice(text) {
   const code = parseLinkCode(text);
@@ -413,7 +418,7 @@ export async function linkDevice(text) {
     await syncNow();
   }
   try {
-    await slotApi.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name, home()), recipient));
+    await slotApi.fillSlot(code.slot, await c.sealRelayMessage(relayMessage(state.sync.identity, state.sync.name, home(), code.secret), recipient));
   } catch (e) {
     throw e instanceof ApiError && e.status === 409 ? expired : e;
   }

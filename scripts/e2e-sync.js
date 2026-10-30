@@ -2,8 +2,8 @@
 // End-to-end test of real sync, run by scripts/test-sync.sh against a local
 // server on 127.0.0.1:8765. Browser contexts stand in for devices: A turns
 // sync on, B joins with the recovery key, D links by QR code (A really scans
-// it: Chromium's fake camera plays a video of D's code), all edit (also the
-// same note at once), a key or an older state a server swaps in is refused, A removes B, and C restores. Then contacts: E (Lea) pastes
+// it: Chromium's fake camera plays a video of D's code; an answer from another identity without the code's secret
+// is refused), all edit (also the same note at once), a key or an older state a server swaps in is refused, A removes B, and C restores. Then contacts: E (Lea) pastes
 // A's invitation link, A confirms the request on the card above the notes; F (Tom)
 // scans A's "My code" with the fake camera and A declines; stale, own and
 // repeated invitations are refused. Then shared files: A shares notes with Lea, both edit (also at once),
@@ -304,7 +304,7 @@ async function main() {
       await openPanel(d);
       await d.getByRole("button", { name: "Link to an existing device" }).click();
       const code = await d.locator(".qr[data-code]").getAttribute("data-code");
-      assert.match(code, /^notedown:link\?v=1&slot=[\w-]{22}&sign=[\w-]{43}&enc=[\w-]{43}&kem=[\w-]{43}&name=NoteDown\+app\+on\+Android&srv=[\w%.-]+$/);
+      assert.match(code, /^notedown:link\?v=2&slot=[\w-]{22}&sign=[\w-]{43}&enc=[\w-]{43}&kem=[\w-]{43}&s=[\w-]{22}&name=NoteDown\+app\+on\+Android&srv=[\w%.-]+$/);
       await shot(d, "link-qr-phone");
       await showToCamera("https://example.org");   // first some other QR code: refused
       await openPanel(a);
@@ -332,8 +332,42 @@ async function main() {
       await assert.rejects(a.evaluate(() => window.__sync.linkDevice("https://example.org")), /not the code/);
       const used = await d.evaluate(() => document.querySelector(".qr[data-code]")?.dataset.code);
       assert.equal(used, undefined, "D shows no code any more");
-      const stale = "notedown:link?v=1&slot=AAAAAAAAAAAAAAAAAAAAAA&sign=" + "A".repeat(43) + "&enc=" + "A".repeat(43) + "&kem=" + "A".repeat(43) + "&name=x";
+      const stale = "notedown:link?v=2&slot=AAAAAAAAAAAAAAAAAAAAAA&sign=" + "A".repeat(43) + "&enc=" + "A".repeat(43) + "&kem=" + "A".repeat(43) + "&s=" + "A".repeat(22) + "&name=x";
       await assert.rejects(a.evaluate(t => window.__sync.linkDevice(t), stale), /expired/);
+      // A code of version 1 (no secret) is no code any more, however it looks otherwise.
+      await assert.rejects(a.evaluate(t => window.__sync.linkDevice(t), stale.replace("v=2", "v=1").replace(/&s=A+/, "")), /not the code/);
+    });
+
+    await step("a relay answer without the code's secret is refused (security review M6)", async () => {
+      // Mallory stands for a malicious server with an identity of its own: it knows the new device's public keys (from the real
+      // device list), puts the device on its own list, seals a well-formed answer naming its identity and fills the slot. Only the
+      // code held the secret, so it has to guess one: linkDevice does all of that when it is given the code with another secret.
+      const m = await device(browser, "O", { width: 1440, height: 900 });
+      await turnOnSync(m, "Mallory");
+      const n = await device(browser, "P", { width: 820, height: 1180 });
+      const notes = await bodies(n);
+      await openPanel(n);
+      await n.getByRole("button", { name: "Link to an existing device" }).click();
+      const code = await n.locator(".qr[data-code]").getAttribute("data-code");
+      const secret = /&s=([\w-]{22})&/.exec(code)[1];
+      const guess = "W".repeat(22);
+      assert.notEqual(secret, guess);
+      await m.evaluate(t => window.__sync.linkDevice(t), code.replace("&s=" + secret, "&s=" + guess));
+      // The new device is on Mallory's verified list: without the secret check it would find itself active there and join.
+      const sign = new URLSearchParams(code.slice("notedown:link?".length)).get("sign");
+      assert.equal(await m.evaluate(async s => {
+        const devices = await window.__sync.loadDevices();
+        return devices.get(await window.__crypto.keyId(window.__crypto.fromB64u(s, 32)))?.active;
+      }, sign), true, "the new device is on Mallory's list");
+      // The answer is as well-formed as the one in D's step, which joins; the secret is all that differs.
+      await n.getByText("Couldn't link: The other device sent an answer this device can't read").waitFor({ timeout: 15000 });
+      await shot(n, "link-refused-tablet");
+      const s = await syncState(n);
+      assert.deepEqual([s.enabled, s.identity, s.identityKey, s.device], [false, "", "", ""], "sync stays off, no identity adopted");
+      assert.equal(await n.evaluate(async () => (await window.__keystore.getSecret("device")) ?? null), null, "no device keys were taken over");
+      assert.deepEqual(await bodies(n), notes, "the new device's notes are untouched");
+      await m.context().close();
+      await n.context().close();
     });
 
     await step("a note added on A arrives on B", async () => {

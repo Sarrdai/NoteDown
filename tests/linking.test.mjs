@@ -13,39 +13,83 @@ import * as c from "../app/js/core/crypto.js";
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const slot = "AAAAAAAAAAAAAAAAAAAAAA";
 const sign = "S".repeat(43), enc = "E".repeat(43), kem = "K".repeat(43);
+const linkSecret = "L".repeat(22);
 
-test("link code: round-trips slot, keys and name; stays short enough for a phone camera", () => {
-  const text = linkCode({ slot, sign, enc, kem, name: "Chrome on Windows", server: "" });
-  assert.ok(text.startsWith("notedown:link?"));
-  assert.ok(text.length < 250, text.length);   // the ML-KEM key itself waits at the slot, only its hash is here
-  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, kem, name: "Chrome on Windows", server: "" });
+test("link code: round-trips slot, keys, secret and name; stays short enough for a phone camera", () => {
+  const text = linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "Chrome on Windows", server: "" });
+  assert.ok(text.startsWith("notedown:link?v=2&"));
+  assert.ok(text.length < 275, text.length);   // 238 characters = QR version 11 at error correction M; the ML-KEM key itself waits at the slot, only its hash is here
+  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, kem, secret: linkSecret, name: "Chrome on Windows", server: "" });
+});
+
+test("link code: the secret is b64u of 16 random bytes, new for every code", () => {
+  const secrets = Array.from({ length: 5 }, () => c.b64u(c.newInvitationSecret()));
+  assert.equal(new Set(secrets).size, 5);
+  for (const secret of secrets) {
+    assert.match(secret, /^[A-Za-z0-9_-]{22}$/);
+    assert.equal(parseLinkCode(linkCode({ slot, sign, enc, kem, secret, name: "x" })).secret, secret);
+  }
 });
 
 test("link code: anything else is rejected", () => {
-  const good = linkCode({ slot, sign, enc, kem, name: "x" });
+  const good = linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "x" });
   assert.equal(parseLinkCode("https://example.org"), null);
-  assert.equal(parseLinkCode(good.replace("v=1", "v=2")), null);
+  assert.equal(parseLinkCode(good.replace("v=2", "v=3")), null);
   assert.equal(parseLinkCode(good.replace(slot, "short")), null);
   assert.equal(parseLinkCode(good.replace(sign, "S".repeat(42))), null);
   assert.equal(parseLinkCode(good.replace("&kem=" + kem, "")), null);   // from before post-quantum keys
   assert.equal(parseLinkCode(null), null);
 });
 
+test("link code: version 1 and a missing or malformed secret are refused (security review M6)", () => {
+  const good = linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "x" });
+  assert.ok(parseLinkCode(good));
+  assert.equal(parseLinkCode(good.replace("v=2", "v=1")), null, "version 1, whatever it holds");
+  const v1 = `notedown:link?v=1&slot=${slot}&sign=${sign}&enc=${enc}&kem=${kem}&name=x`;   // a real v=1 code: no secret
+  assert.equal(parseLinkCode(v1), null);
+  assert.equal(parseLinkCode(good.replace("&s=" + linkSecret, "")), null, "no secret");
+  assert.equal(parseLinkCode(good.replace("&s=" + linkSecret, "&s=")), null, "empty secret");
+  assert.equal(parseLinkCode(good.replace(linkSecret, "L".repeat(21))), null, "too short");
+  assert.equal(parseLinkCode(good.replace(linkSecret, "L".repeat(23))), null, "too long");
+  assert.equal(parseLinkCode(good.replace(linkSecret, "L".repeat(21) + "!")), null, "not b64u");
+  assert.equal(parseLinkCode(linkCode({ slot, sign, enc, kem, name: "x" })), null, "linkCode without a secret makes no code");
+});
+
 test("link code: the name is trimmed and capped", () => {
-  const parsed = parseLinkCode(linkCode({ slot, sign, enc, kem, name: "  a\n b " + "x".repeat(60) }));
+  const parsed = parseLinkCode(linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "  a\n b " + "x".repeat(60) }));
   assert.equal(parsed.name.length, MAX_NAME);
   assert.ok(parsed.name.startsWith("a b x"));
 });
 
-test("relay message: sealed for the new device's keys, unreadable for another", async () => {
+test("relay message: sealed for the new device's keys, unreadable for another; holds the code's secret", async () => {
   const newDevice = await c.generateDeviceKeys(), other = await c.generateDeviceKeys();
   const identity = "I".repeat(22);
-  const payload = await c.sealRelayMessage(relayMessage(identity, "Sam"), c.recipientOf(newDevice));
-  assert.deepEqual(parseRelayMessage(await c.openRelayMessage(payload, newDevice)), { identity, name: "Sam", server: "" });
+  const payload = await c.sealRelayMessage(relayMessage(identity, "Sam", "", linkSecret), c.recipientOf(newDevice));
+  assert.deepEqual(parseRelayMessage(await c.openRelayMessage(payload, newDevice)), { identity, name: "Sam", server: "", secret: linkSecret });
   await assert.rejects(c.openRelayMessage(payload, other));
   // A wrapped file key is no relay message (separate HKDF labels).
   await assert.rejects(c.openRelayMessage(await c.wrapFileKey(c.generateFileKey(), c.recipientOf(newDevice)), newDevice));
-  assert.equal(parseRelayMessage({ v: 1, identity: "bad" }), null);
+  assert.equal(parseRelayMessage({ v: 2, identity: "bad", secret: linkSecret }), null);
+});
+
+test("link: the secret of the scanned code is the one in the answer", () => {
+  const code = parseLinkCode(linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "x" }));
+  assert.equal(parseRelayMessage(relayMessage("I".repeat(22), "Sam", "", code.secret)).secret, linkSecret);
+});
+
+test("relay message: version 1 and a missing or malformed secret are refused (security review M6)", () => {
+  const identity = "I".repeat(22);
+  const good = relayMessage(identity, "Sam", "", linkSecret);
+  assert.deepEqual(good, { v: 2, identity, name: "Sam", secret: linkSecret });
+  assert.ok(parseRelayMessage(good));
+  assert.equal(parseRelayMessage({ ...good, v: 1 }), null, "version 1, whatever it holds");
+  assert.equal(parseRelayMessage({ v: 1, identity, name: "Sam" }), null, "a real v=1 message: no secret");
+  assert.equal(parseRelayMessage({ ...good, v: 3 }), null);
+  assert.equal(parseRelayMessage({ v: 2, identity, name: "Sam" }), null, "no secret");
+  assert.equal(parseRelayMessage(relayMessage(identity, "Sam")), null, "relayMessage without a secret makes no answer");
+  for (const secret of [null, "", "L".repeat(21), "L".repeat(23), "L".repeat(21) + "!", 7, [linkSecret], { toString: () => linkSecret }]) {
+    assert.equal(parseRelayMessage({ ...good, secret }), null, JSON.stringify(secret));
+  }
 });
 
 test("deviceLabel: browser and system from the user agent; the Android app by its web view", () => {
@@ -133,19 +177,19 @@ test("serverUrl: one written form, empty for none, null for anything but http(s)
 });
 
 test("link code: carries the server the slot is on; missing reads as the default server", () => {
-  const text = linkCode({ slot, sign, enc, kem, name: "x", server: S + "/" });
-  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, kem, name: "x", server: S });
-  assert.equal(parseLinkCode(linkCode({ slot, sign, enc, kem, name: "x" })).server, "");
+  const text = linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "x", server: S + "/" });
+  assert.deepEqual(parseLinkCode(text), { slot, sign, enc, kem, secret: linkSecret, name: "x", server: S });
+  assert.equal(parseLinkCode(linkCode({ slot, sign, enc, kem, secret: linkSecret, name: "x" })).server, "");
   assert.equal(parseLinkCode(text.replace(encodeURIComponent(S), "ftp%3A%2F%2Fx")), null);
 });
 
-test("relay message: carries the identity's home server; old messages read as the default server", () => {
+test("relay message: carries the identity's home server; a missing one reads as the default server", () => {
   const identity = "A".repeat(22);
-  assert.deepEqual(relayMessage(identity, "Sam", S), { v: 1, identity, name: "Sam", server: S });
-  assert.deepEqual(parseRelayMessage(relayMessage(identity, "Sam", S)), { identity, name: "Sam", server: S });
-  assert.deepEqual(parseRelayMessage({ v: 1, identity, name: "Sam" }), { identity, name: "Sam", server: "" });
-  assert.equal("server" in relayMessage(identity, "Sam"), false);
-  assert.equal(parseRelayMessage({ v: 1, identity, name: "Sam", server: "javascript:1" }), null);
+  assert.deepEqual(relayMessage(identity, "Sam", S, linkSecret), { v: 2, identity, name: "Sam", server: S, secret: linkSecret });
+  assert.deepEqual(parseRelayMessage(relayMessage(identity, "Sam", S, linkSecret)), { identity, name: "Sam", server: S, secret: linkSecret });
+  assert.deepEqual(parseRelayMessage({ v: 2, identity, name: "Sam", secret: linkSecret }), { identity, name: "Sam", server: "", secret: linkSecret });
+  assert.equal("server" in relayMessage(identity, "Sam", "", linkSecret), false);
+  assert.equal(parseRelayMessage({ v: 2, identity, name: "Sam", server: "javascript:1", secret: linkSecret }), null);
 });
 
 test("invitation link: carries the inviter's home server; old links read as the default server", () => {
