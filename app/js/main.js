@@ -1,7 +1,7 @@
 // NoteDown prototype: wires the store to the views.
 import { viewNotes, inViewOf, doneOn, SORT_KEYS, DIR_LABELS, customSplit, orderSections, sectionTitle, sectionId, isSectionId, placeInOrder, TRASH_DAYS, PILE_ID } from "./core/query.js";
 import { pileState, tidyConfig, tidyCounted } from "./core/tidy.js";
-import { circleKey, circleEntries, SAFETY_VARIANTS, safetyVariant } from "./core/sharing.js";
+import { circleKey, circleEntries } from "./core/sharing.js";
 import { state, note, load, followOtherTabs, subscribe, updateSettings, setUi, addNote, purgeNotes, removeNotes, replaceFiles, setSync, allNotes, trashNotes, purgeExpiredTrash, circleOf, circleNotes, activeCircle, customOrder, setCustomOrder, circleOrder, setCircleOrder, sharedFiles, newsNotes, contacts, sharedCircles, applyMerge } from "./store.js";
 import { NEWS, freshCount } from "./core/news.js";
 import { trackNews } from "./ui/news-seen.js";
@@ -736,8 +736,6 @@ function moreMenu() {
     ...hidden,
     { label: "Export…", icon: "download", onSelect: exportDialog },
     trashEntry,
-    { section: "Prototype: Safety code" },
-    ...Object.entries(SAFETY_VARIANTS).map(([v, { label }]) => ({ label, checked: safetyVariant(s.safetyCode) === v, onSelect: () => updateSettings({ safetyCode: v }) })),
     { section: "Prototype" },
     s.storageHintHidden && { label: "Show storage hint again", onSelect: showHintAgain },
     sync.simulated && { label: sync.offline ? "Go online" : "Go offline", onSelect: () => setOffline(!sync.offline) },
@@ -940,8 +938,6 @@ function applyUrlOptions() {
   const p = new URLSearchParams(location.search);
   const patch = {};
   if (p.get("flavor") && FLAVORS[p.get("flavor")]) patch.flavor = p.get("flavor");
-  // ?safety=a|b: the safety code's length in Verify contact (a variant).
-  if (Object.hasOwn(SAFETY_VARIANTS, p.get("safety"))) patch.safetyCode = p.get("safety");
   // ?sort=custom starts the main view in Shelves (screenshots of the pile and shelves).
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);

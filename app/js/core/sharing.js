@@ -157,24 +157,6 @@ export function normalizeRecoveryKey(input) {
   return groupKey(raw);
 }
 
-// ---------- the safety code's two lengths (prototype variants, ⋮ → "Prototype: Safety code") ----------
-
-/** What crypto.js → safetyCode makes, as each variant shows it: `groups` groups of 5 digits per identity, `perLine` of them on a line. */
-export const SAFETY_VARIANTS = {
-  a: { label: "40 digits (A)", groups: 4, perLine: 4 },
-  b: { label: "60 digits (B)", groups: 6, perLine: 3 },
-};
-
-/** The variant a setting names; an unknown or missing one is A. */
-export const safetyVariant = value => (Object.hasOwn(SAFETY_VARIANTS, value) ? value : "a");
-
-/** One identity's part of the safety code as its lines: `perLine` groups each, separated by a space. */
-export function safetyLines(part, perLine) {
-  const lines = [];
-  for (let i = 0; i < part.length; i += perLine) lines.push(part.slice(i, i + perLine).join(" "));
-  return lines;
-}
-
 /** A fake invitation link; the real one carries a key fingerprint and a token. */
 export function inviteLink(random = randomInt) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";

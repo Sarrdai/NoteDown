@@ -626,15 +626,15 @@ export async function openContactCard(sealed, keys) {
 // ---------- safety codes (docs/sync-and-sharing.md → "Contacts") ----------
 
 const SAFETY_ITERATIONS = 100000;
-const SAFETY_GROUP_BYTES = 5;   // a group of 5 digits: 5 bytes as a big-endian 40-bit number, mod 100000
-const SAFETY_MAX_GROUPS = 6;    // what the 256 bits of PBKDF2 output hold: 6 × 5 bytes
+const SAFETY_GROUPS = 4;        // groups of 5 digits in an identity's part: 20 digits
+const SAFETY_GROUP_BYTES = 5;   // a group: 5 bytes as a big-endian 40-bit number, mod 100000
 
-// One identity's part: `groups` groups of 5 digits from PBKDF2-SHA256 over its ID alone.
-async function safetyPart(identity, groups) {
+// One identity's part: 4 groups of 5 digits from PBKDF2-SHA256 over its ID alone (256 bits, of which 20 bytes are used).
+async function safetyPart(identity) {
   const key = await subtle().importKey("raw", utf8(identity), "PBKDF2", false, ["deriveBits"]);
   const bytes = new Uint8Array(await subtle().deriveBits(
     { name: "PBKDF2", hash: "SHA-256", salt: utf8("notedown-safety-code-v2"), iterations: SAFETY_ITERATIONS }, key, 256));
-  return Array.from({ length: groups }, (_, i) => {
+  return Array.from({ length: SAFETY_GROUPS }, (_, i) => {
     const number = bytes.subarray(SAFETY_GROUP_BYTES * i, SAFETY_GROUP_BYTES * (i + 1)).reduce((n, b) => n * 256 + b, 0);
     return String(number % 100000).padStart(5, "0");
   });
@@ -642,15 +642,12 @@ async function safetyPart(identity, groups) {
 
 /**
  * The safety code of two identities, the same on both phones: [part of the first, part of the second], the identities in
- * code point order, each part `groups` (1 to 6) groups of 5 digits from PBKDF2-SHA256 over that identity's ID alone (4
- * groups are 20 digits, 6 are 30 as in Signal). Someone in the middle who wants a forged contact to pass has to match the
- * real identity's own part, a second preimage (about 2^66 PBKDF2 runs for 4 groups, 2^100 for 6), and comparing only one
- * part stays one. One hash over both IDs would let them search for two forged identities with equal codes instead, a
- * birthday search of about 2·10^10 runs, some 60 hours on one GPU (security review M1).
+ * code point order, each part 4 groups of 5 digits (20 digits) from PBKDF2-SHA256 over that identity's ID alone.
+ * Someone in the middle who wants a forged contact to pass has to match the real identity's own part, a second
+ * preimage: about 2^66 PBKDF2 runs, some 2^84 SHA-256 computations (comparing only one part stays one). One hash over
+ * both IDs was a birthday search for two forged identities with equal codes instead, about 2·10^10 runs, some 60 hours
+ * on one GPU (security review M1).
  */
-export async function safetyCode(identityA, identityB, groups) {
-  if (!Number.isInteger(groups) || groups < 1 || groups > SAFETY_MAX_GROUPS) {
-    throw new RangeError(`a part of the safety code has 1 to ${SAFETY_MAX_GROUPS} groups`);
-  }
-  return Promise.all([identityA, identityB].sort(byCodePoint).map(identity => safetyPart(identity, groups)));
+export async function safetyCode(identityA, identityB) {
+  return Promise.all([identityA, identityB].sort(byCodePoint).map(identity => safetyPart(identity)));
 }

@@ -1040,10 +1040,13 @@ a.row-open { text-decoration: none; }
 .verify-state { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 0; font-weight: 650; color: var(--warning); }
 .verify-state.ok { color: var(--done); }
 .verify-state .icon { width: 18px; height: 18px; }
+/* Verify contact has to fit the 680 px sheet with "Codes match" in view: a tighter hero and code box, one line per identity. */
+.verify-hero { padding-top: 0; }
+.verify-hero .request-title { margin-top: 4px; }
+.verify-actions { margin-top: 0; }
 .safety-code {
-  margin: 4px 0 0; padding: 14px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
-  font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; line-height: 1.35; text-align: center; white-space: nowrap; word-spacing: 0.1em;
-  display: flex; flex-direction: column; gap: 0.8em;   /* a gap between the two identities' parts */
+  margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 650; line-height: 1.4; text-align: center; white-space: nowrap; word-spacing: 0.1em;
 }
 .safety-line { display: block; }
 .share-notices { display: flex; flex-direction: column; gap: 8px; }
