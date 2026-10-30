@@ -5,13 +5,14 @@
 // the sample; both are in `state.sync.requests`. A request shows as a card above the open
 // notes until it is decided (chosen 2026-10-14 over a dialog that opens by
 // itself, which interrupts, and a dot on the sync icon, easy to miss), and
-// in Sync & sharing → "Contact requests".
-import { state, subscribe, setSync } from "../store.js";
+// in Sync & sharing → "Contact requests". Shared files from people who aren't contacts, held back until the user
+// accepts them (core/strangers.js), ask the same way: a card with "Show" and "Leave".
+import { state, subscribe, setSync, heldRequests, acceptShared, leaveHeld } from "../store.js";
 import { registerPage, openPanel, go, isPanelOpen, panelPage, panelData, addContact, contactAdded, closePanel, action } from "./sync-panel.js";
 import { confirmRequest, declineRequest } from "../sync/contacts.js";
 import { loadSharingSample } from "../sample.js";
 import { h, text, button } from "./dom.js";
-import { requestAvatarHtml, requestHow as how } from "./people.js";
+import { requestAvatarHtml, requestHow as how, membersLabel, avatarHtml, avatarStackHtml } from "./people.js";
 import { showSnackbar } from "./snackbar.js";
 
 const $ = id => document.getElementById(id);
@@ -23,9 +24,13 @@ export function initContactRequests() {
   update();
 }
 
+/** Shows the cards again once the stored files are loaded (the cards were set up before). */
+export const refreshContactRequests = update;
+
 function update() {
   const requests = state.sync.enabled ? state.sync.requests || [] : [];
-  renderCards(state.view === "open" ? requests : []);
+  const held = state.sync.enabled ? heldRequests() : [];
+  renderCards(state.view === "open" ? requests : [], state.view === "open" ? held : []);
   // On "My code" the request is what the user waits for: show it at once (the real code's own request).
   if (isPanelOpen() && panelPage() === "myCode") {
     const mine = state.sync.simulated ? requests[0] : requests.find(r => r.id === panelData().invite?.id);
@@ -33,13 +38,22 @@ function update() {
   }
 }
 
-function renderCards(requests) {
+const heldAvatar = members => h("span", { html: members.length === 1 ? avatarHtml(members[0]) : avatarStackHtml(members) }).firstChild;
+
+function renderCards(requests, held) {
   const box = $("requestCards");
-  const ids = requests.map(r => r.id).join();
+  const heldLabels = held.map(f => membersLabel(f.members));
+  const ids = [...requests.map(r => r.id), ...held.map((f, i) => `${f.key}:${heldLabels[i]}`)].join("|");
   if (box.dataset.ids === ids) return;
   box.dataset.ids = ids;
-  box.hidden = !requests.length;
-  box.replaceChildren(...requests.map(r => h("div", { class: "request-card", role: "group", "aria-label": `Contact request from ${r.name}` },
+  box.hidden = !requests.length && !held.length;
+  box.replaceChildren(...held.map((f, i) => h("div", { class: "request-card held-card", role: "group", "aria-label": `Note from ${heldLabels[i]}` },
+    heldAvatar(f.members),
+    h("span", { class: "row-text" }, h("span", { class: "row-title" }, `${heldLabels[i]} shared a note with you`)),
+    h("div", { class: "request-actions" },
+      button("Leave", "", () => leaveHeld(f.key)),
+      button("Show", "primary", () => acceptShared(f.key))))),
+  ...requests.map(r => h("div", { class: "request-card", role: "group", "aria-label": `Contact request from ${r.name}` },
     requestAvatar(r),
     h("span", { class: "row-text" }, h("span", { class: "row-title" }, `${r.name} wants to be your contact`), h("span", { class: "row-sub" }, how(r))),
     h("div", { class: "request-actions" },

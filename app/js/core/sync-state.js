@@ -235,7 +235,7 @@ export function detachedFile(file, shared, me) {
   const fromShared = shared.flatMap(s => s.file.notes.filter(n => !(n.left || []).includes(me)));
   return {
     preamble: file.preamble || "", notes: [...file.notes, ...fromShared].map(plain), moved: [], purged: [],
-    devices: [], contacts: [], members: [], news: file.news || [], sources: file.sources || [], order: file.order || null,
+    devices: [], contacts: [], members: [], news: file.news || [], sources: file.sources || [], accepted: [], order: file.order || null,
   };
 }
 

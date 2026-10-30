@@ -2,13 +2,18 @@
 // and the small avatars used by the share dialog and the shared markers.
 import { state, contacts, memberName } from "../store.js";
 import { circleLabel, colorIndex, initials, visibleMembers } from "../core/sharing.js";
+import { memberLabel } from "../core/strangers.js";
 import { icon } from "./icons.js";
 
 const contact = id => contacts().find(c => c.id === id);
 
 /** A contact's name (the user's own); for someone in a shared file who isn't a contact the name that member
- *  wrote into the file, else "Unknown". Someone who deleted their sync data gets " (deleted)" (backlog #34). */
-export const nameOf = id => (contact(id)?.name ?? memberName(id) ?? "Unknown") + (state.sync.deleted.includes(id) ? " (deleted)" : "");
+ *  wrote into the file, else "Unknown", with " (not a contact)". Someone who deleted their sync data gets " (deleted)"
+ *  instead of that (backlog #34, core/strangers.js). */
+export const nameOf = id => memberLabel({ contactName: contact(id)?.name, fileName: memberName(id), deleted: state.sync.deleted.includes(id) });
+
+// The name without a suffix, for initials.
+const bareName = id => contact(id)?.name ?? memberName(id) ?? "Unknown";
 
 /** "Lea & Tom" */
 export const membersLabel = members => circleLabel(members.map(nameOf));
@@ -21,8 +26,8 @@ const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&
 /** One initials circle, HTML (a display contact such as TRMNL shows a display instead, backlog #49). `cls` adds modifiers such as "small". */
 export function avatarHtml(id, cls = "") {
   if (contact(id)?.display) return `<span class="avatar person display ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${icon("display")}</span>`;
-  if (!contact(id)) return `<span class="avatar stranger ${cls}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;   // not a contact: neutral
-  return `<span class="avatar person ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(nameOf(id)))}</span>`;
+  if (!contact(id)) return `<span class="avatar stranger ${cls}" aria-hidden="true">${esc(initials(bareName(id)))}</span>`;   // not a contact: neutral
+  return `<span class="avatar person ${cls}" style="--c:${personColor(id)}" aria-hidden="true">${esc(initials(bareName(id)))}</span>`;
 }
 
 /** The avatar of someone asking to become a contact (no contact yet: color from the request id). */

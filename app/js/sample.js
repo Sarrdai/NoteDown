@@ -64,6 +64,10 @@ export async function loadSampleState({ sync = true } = {}) {
   for (const g of s.shared.filter(g => g.order)) {
     split.shared.find(c => circleKey(c.members) === circleKey(g.members)).file.order = { ids: [...g.order], modified: timestamp() };
   }
+  // Who isn't a contact shows with the name they wrote into the file (docs/file-format.md → "Members").
+  for (const g of s.shared.filter(g => g.names)) {
+    split.shared.find(c => circleKey(c.members) === circleKey(g.members)).file.members = Object.entries(g.names).map(([id, name]) => ({ id, name }));
+  }
   const news = await sampleNews(s.news || {});
   split.file.news = news.marks;
   return {

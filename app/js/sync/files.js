@@ -8,7 +8,7 @@
 // A problem with one shared file (no key, a device list that doesn't check out) is
 // reported after the others have been synced. The sample (`state.sync.simulated`)
 // never reaches this module. Slots are named by circleKey: "" is the private file.
-import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, contacts, setNewsFeed } from "../store.js";
+import { state, setSync, setPrivateFile, setSharedFile, sharedFiles, contacts, setNewsFeed, isHeldFile } from "../store.js";
 import { parseNotesFile, serializeNotesFile, timestamp } from "../core/notes-file.js";
 import { mergeNotesFiles, applyDisplaced, deletedFromShared, adoptNotes, movedAway, renameDuplicates, hasLeft, rehomeTarget, rehomeNote, moveTarget } from "../core/merge.js";
 import { circleKey } from "../core/sharing.js";
@@ -387,10 +387,11 @@ function rehomeLeft() {
   }
 }
 
-// Each member's devices keep their own display name in the shared file (docs/file-format.md → "Members").
+// Each member's devices keep their own display name in the shared file (docs/file-format.md → "Members"), but not in
+// one held back until the user accepts it (core/strangers.js): that would give the name to people who aren't contacts.
 function writeMemberName(key) {
   const me = state.sync.identity, name = state.sync.name, file = fileAt(key);
-  if (!name || (file.members || []).some(m => m.id === me && m.name === name)) return;
+  if (!name || isHeldFile(key) || (file.members || []).some(m => m.id === me && m.name === name)) return;
   putFile(key, { ...file, members: [...(file.members || []).filter(m => m.id !== me), { id: me, name }] });
 }
 

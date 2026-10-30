@@ -44,20 +44,21 @@ test("sample sharing: every listed note exists exactly once and members are cont
   const ids = sharing.shared.flatMap(g => g.notes);
   assert.equal(new Set(ids).size, ids.length);
   for (const id of ids) assert.ok(sample.notes.some(n => n.id === id), id);
+  // A member who isn't a contact has the name they wrote into the file (L1: a shared file from non-contacts is held back).
   const contacts = sharing.contacts.map(c => c.id);
-  for (const g of sharing.shared) for (const m of g.members) assert.ok(contacts.includes(m), m);
+  for (const g of sharing.shared) for (const m of g.members) assert.ok(contacts.includes(m) || g.names?.[m], m);
   // A shared order (backlog #25) only lists notes of its own circle.
   for (const g of sharing.shared.filter(g => g.order)) for (const id of g.order) assert.ok(g.notes.includes(id), id);
 });
 
 test("splitIntoCircles: notes leave the private file without markers", () => {
   const { file, shared } = splitIntoCircles(sample, sharing.shared);
-  assert.equal(shared.length, 3);
+  assert.equal(shared.length, 5);
   assert.deepEqual(shared[0].members, ["lea"]);
   assert.deepEqual(shared[0].file.notes.map(n => n.id), ["s01", "s09"]);
   assert.deepEqual(shared[1].file.notes.map(n => n.id), ["s18"]);
   assert.deepEqual(shared[2].members, ["trmnl"]);   // the display contact (backlog #49)
-  assert.equal(file.notes.length, sample.notes.length - 4);
+  assert.equal(file.notes.length, sample.notes.length - 6);
   assert.ok(!file.notes.some(n => ["s01", "s09", "s18", "s12"].includes(n.id)));
   assert.deepEqual(file.moved, []);
 });

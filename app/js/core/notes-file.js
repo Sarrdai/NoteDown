@@ -25,11 +25,11 @@
 // (core/folder-source.js).
 import { validColor, validDecor, validTexture } from "./look.js";
 
-const MARKER = /^<!-- (note|device|contact|member|news|source|order) ((?:[a-z]+=\S+ ?)*)-->$/;
+const MARKER = /^<!-- (note|device|contact|member|news|source|accepted|order) ((?:[a-z]+=\S+ ?)*)-->$/;
 
-/** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, sources, order }
+/** Parses a NoteDown file into { preamble, notes, moved, purged, devices, contacts, members, news, sources, accepted, order }
  *  (`purged`: [{ id, purged }], `devices`: [{ id, name?, title?, synced? }], `members`: [{ id, name }] of a shared file, `contacts`: [{ id, name, color, server?, pending?, verified?, display? }],
- *  `news`: [{ id, seen, status? }], `sources`: [{ id, name }], `order`: { ids, modified } or null). */
+ *  `news`: [{ id, seen, status? }], `sources`: [{ id, name }], `accepted`: [{ id, at }], `order`: { ids, modified } or null). */
 export function parseNotesFile(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const notes = [];
@@ -40,6 +40,7 @@ export function parseNotesFile(text) {
   const members = [];
   const news = [];
   const sources = [];
+  const accepted = [];
   let order = null;
   const finish = c => {
     if (c.kind === "order") { if (c.meta.modified) order = { ids: c.meta.ids ? c.meta.ids.split(",") : [], modified: c.meta.modified }; }
@@ -47,6 +48,7 @@ export function parseNotesFile(text) {
     else if (c.kind === "member") { if (c.meta.id && c.meta.name) members.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
     else if (c.kind === "news") { if (c.meta.id && c.meta.seen) news.push(finishNews(c.meta)); }
     else if (c.kind === "source") { if (c.meta.id && c.meta.name) sources.push({ id: c.meta.id, name: decodeName(c.meta.name) }); }
+    else if (c.kind === "accepted") { if (c.meta.id && c.meta.at) accepted.push({ id: c.meta.id, at: c.meta.at }); }
     else if (c.kind === "device") { if (c.meta.id && (c.meta.name || c.meta.title || c.meta.synced)) devices.push(finishDevice(c.meta)); }
     else if (c.meta.moved && c.meta.id) moved.push({ id: c.meta.id, moved: c.meta.moved, ...(c.meta.to && { to: c.meta.to.split("+") }) });
     else if (c.meta.purged && c.meta.id) purged.push({ id: c.meta.id, purged: c.meta.purged });
@@ -66,11 +68,11 @@ export function parseNotesFile(text) {
     }
   }
   if (current) finish(current);
-  return { preamble: preamble.join("\n").trim(), notes, moved, purged, devices, contacts, members, news, sources, order };
+  return { preamble: preamble.join("\n").trim(), notes, moved, purged, devices, contacts, members, news, sources, accepted, order };
 }
 
-/** Writes { preamble, notes, moved, purged, devices, contacts, members, news, sources, order } back into the file format. */
-export function serializeNotesFile({ preamble = "", notes, moved = [], purged = [], devices = [], contacts = [], members = [], news = [], sources = [], order = null }) {
+/** Writes { preamble, notes, moved, purged, devices, contacts, members, news, sources, accepted, order } back into the file format. */
+export function serializeNotesFile({ preamble = "", notes, moved = [], purged = [], devices = [], contacts = [], members = [], news = [], sources = [], accepted = [], order = null }) {
   const parts = preamble ? [preamble] : [];
   for (const n of notes) parts.push(`${noteMarker(n)}\n${n.body.trim()}`);
   for (const m of moved) parts.push(`<!-- note id=${m.id} moved=${m.moved}${m.to ? ` to=${m.to.join("+")}` : ""} -->`);
@@ -82,6 +84,7 @@ export function serializeNotesFile({ preamble = "", notes, moved = [], purged = 
   }
   for (const m of news) parts.push(`<!-- news id=${m.id} seen=${m.seen}${m.status ? " status=" + m.status : ""} -->`);
   for (const s of sources) parts.push(`<!-- source id=${s.id} name=${encodeURIComponent(s.name)} -->`);
+  for (const a of accepted) parts.push(`<!-- accepted id=${a.id} at=${a.at} -->`);
   if (order) parts.push(`<!-- order modified=${order.modified}${order.ids.length ? " ids=" + order.ids.join(",") : ""} -->`);
   return parts.join("\n\n") + "\n";
 }

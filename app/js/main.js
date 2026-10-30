@@ -16,7 +16,7 @@ import "./ui/history.js";
 import { initInviteLinks, webAddress } from "./invite-link.js";
 import { initQuickCapture } from "./quick-capture.js";
 import { sharedNoteBody } from "./core/shared-text.js";
-import { initContactRequests, simulateRequest } from "./ui/contact-requests.js";
+import { initContactRequests, refreshContactRequests, simulateRequest } from "./ui/contact-requests.js";
 import "./ui/verify-contact.js";
 import { initPullRefresh } from "./ui/pull-refresh.js";
 import { initViewSwipe } from "./ui/view-swipe.js";
@@ -985,6 +985,7 @@ async function start() {
   setAppInfo(config);
   initSync(readApi() || config.api, webAddress(config.web));
   render();
+  refreshContactRequests();
   initInviteLinks(openInvite);
   initQuickCapture({ new: quickNewNote, dictate: quickDictate, share: quickShare });
   // After the notes are loaded: a reminder tapped while the app was closed opens the Due page.

@@ -39,7 +39,7 @@ export function mergeNotesFiles(base, local, remote) {
     else if (out?.purged) purged.push(out);
   }
   const preamble = local.preamble === base.preamble ? remote.preamble : local.preamble;
-  return { file: { preamble, notes, moved, purged, devices: mergeDevices(base, local, remote), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), news: mergeMarkers(base, local, remote, "news"), sources: mergeMarkers(base, local, remote, "sources"), order: mergeOrder(base, local, remote) }, displaced };
+  return { file: { preamble, notes, moved, purged, devices: mergeDevices(base, local, remote), contacts: mergeMarkers(base, local, remote, "contacts"), members: mergeMarkers(base, local, remote, "members"), news: mergeMarkers(base, local, remote, "news"), sources: mergeMarkers(base, local, remote, "sources"), accepted: mergeMarkers(base, local, remote, "accepted"), order: mergeOrder(base, local, remote) }, displaced };
 }
 
 // A custom order (backlog #24, #25) is one list: the side that changed it

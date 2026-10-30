@@ -8,6 +8,7 @@ import { parseNotesFile, serializeNotesFile, createNote, timestamp } from "./cor
 import { moveNote, moveTarget, hasLeft } from "./core/merge.js";
 import { refOf, assignRefs } from "./core/note-ref.js";
 import { circleKey, mergeCircle } from "./core/sharing.js";
+import { isHeld, unrecordedKeys, withAccepted } from "./core/strangers.js";
 import { DEFAULT_SORT, expiredTrash, isSectionId } from "./core/query.js";
 import { returnDone } from "./core/tasks.js";
 import { privateCopy } from "./core/note-links.js";
@@ -21,6 +22,7 @@ const FILE_KEY = "notedown.file";
 const SHARED_KEY = "notedown.shared";
 const SYNC_KEY = "notedown.sync";
 const SETTINGS_KEY = "notedown.settings";
+const ACCEPTED_KEY = "notedown.accepted";   // set once this device has recorded the shared files it knew (acceptKnownFiles)
 
 export const DEFAULT_SETTINGS = {
   flavor: "system",          // system | latte | frappe | macchiato | mocha
@@ -124,7 +126,7 @@ export async function eraseStoredState() {
   vault = null;
 }
 
-const RECORDS = [FILE_KEY, SHARED_KEY, SYNC_KEY, SETTINGS_KEY];
+const RECORDS = [FILE_KEY, SHARED_KEY, SYNC_KEY, SETTINGS_KEY, ACCEPTED_KEY];
 
 async function readRecords(names = RECORDS) {
   for (const name of names) {
@@ -159,7 +161,21 @@ export async function load() {
     sync.storageFull = false;
     state.sync = sync;
   } catch { /* keep defaults */ }
-  return readFiles();
+  const known = readFiles();
+  acceptKnownFiles(known);
+  return known;
+}
+
+// A device that had its shared files before files from non-contacts were held back (core/strangers.js) counts them as
+// accepted: the first start with this code records them in the private file (marker "accepted"), which the user's
+// other devices get by sync. Only that first start: files that arrive later are held.
+function acceptKnownFiles(known) {
+  if (read(ACCEPTED_KEY) !== null) return;
+  if (known && state.shared.length) {
+    state.file.accepted = withAccepted(state.file.accepted || [], state.shared.map(s => circleKey(s.members)), timestamp());
+    saveFiles({ notify: false });
+  }
+  write(ACCEPTED_KEY, "1");
 }
 
 // The private and shared files from storage; false when there is no private file yet.
@@ -241,12 +257,52 @@ export function setSharedFile(memberIds, file) {
 
 const allFiles = () => [state.file, ...state.shared.map(s => s.file)];
 
+// ---------- shared files from non-contacts, held back until accepted (core/strangers.js) ----------
+
+const contactIds = () => contacts().filter(c => !c.pending).map(c => c.id);
+const isHeldEntry = s => isHeld(s.members, contactIds(), state.file.accepted || []);
+// The shared files the views show: not the held ones.
+const shownShared = () => state.shared.filter(s => !isHeldEntry(s));
+
+// A shared file with a contact among its members is recorded as accepted at once, so it stays as it is when the user
+// removes that contact later.
+function recordAccepted() {
+  const keys = unrecordedKeys(state.shared.map(s => s.members), contactIds(), state.file.accepted || []);
+  if (keys.length) state.file.accepted = withAccepted(state.file.accepted || [], keys, timestamp());
+}
+
+/** Whether the shared file of this circleKey is held back (the sync doesn't write the user's name into it). */
+export const isHeldFile = key => state.shared.some(s => circleKey(s.members) === key && isHeldEntry(s));
+
+/** The held files that have notes to show, [{ key, members }]: what the card above the notes asks about. */
+export function heldRequests() {
+  return state.shared.filter(s => isHeldEntry(s) && s.file.notes.some(n => visible(n) && !n.deleted))
+    .map(s => ({ key: circleKey(s.members), members: [...s.members] }));
+}
+
+/** Accepts a held shared file: from then on it is an ordinary shared file, on all of the user's devices. */
+export function acceptShared(key) {
+  state.file.accepted = withAccepted(state.file.accepted || [], [key], timestamp());
+  saveFiles();
+  emit("structure");
+}
+
+/** Leaves a held shared file: marks each of its notes as left (leaveNotes), in the sample just drops the file. */
+export function leaveHeld(key) {
+  const entry = state.shared.find(s => circleKey(s.members) === key);
+  if (!entry) return;
+  if (state.sync.simulated) state.shared = state.shared.filter(s => s !== entry);
+  else for (const n of entry.file.notes) if (!hasLeft(n, state.sync.identity)) n.left = [...(n.left || []), state.sync.identity];
+  saveFiles();
+  emit("structure");
+}
+
 // A note this user left stays in the shared file until a remaining member moves it; no view shows it.
 const visible = n => !hasLeft(n, state.sync.identity);
 
 /** Every note of every file (the ones this user left and the trash excluded). */
 export function allNotes() {
-  return allFiles().flatMap(f => f.notes).filter(n => visible(n) && !n.deleted);
+  return [state.file, ...shownShared().map(s => s.file)].flatMap(f => f.notes).filter(n => visible(n) && !n.deleted);
 }
 
 /** The trash: deleted notes, waiting in the private file for TRASH_DAYS (docs/sync-and-sharing.md → "Trash"). */
@@ -278,7 +334,7 @@ function holderOf(ref) {
   const find = f => f.notes.find(n => refOf(n) === ref);
   const own = find(state.file);
   if (own) return { members: [], file: state.file, note: own };
-  for (const s of state.shared) {
+  for (const s of shownShared()) {
     const n = find(s.file);
     if (n) return { members: s.members, file: s.file, note: n };
   }
@@ -297,8 +353,9 @@ export function memberName(id) {
 /** The member ids of every shared file, and of the circles trashed shared notes came from (`keptCircle`). */
 export function sharedCircles() {
   const keys = new Set(state.shared.map(s => circleKey(s.members)));
+  const shown = shownShared();
   const kept = [...new Set(state.file.notes.filter(n => n.kept && !keys.has(n.kept)).map(n => n.kept))];
-  return [...state.shared.map(s => [...s.members]), ...kept.map(k => k.split("+"))];
+  return [...shown.map(s => [...s.members]), ...kept.map(k => k.split("+"))];
 }
 
 /** The user's contacts, [{ id, name, color, server?, pending?, verified? }]: the markers of the private file (synced; the
@@ -410,7 +467,7 @@ export function circleNotes(key) {
   const source = sourceIdOf(key);
   if (source) return state.file.notes.filter(n => n.source === source && !n.kept);
   if (key === "") return state.file.notes.filter(n => !n.kept);
-  const shared = (state.shared.find(s => circleKey(s.members) === key)?.file.notes || []).filter(visible);
+  const shared = (shownShared().find(s => circleKey(s.members) === key)?.file.notes || []).filter(visible);
   return [...shared, ...state.file.notes.filter(n => n.kept === key)];
 }
 
@@ -481,6 +538,7 @@ function buildRefs() {
 
 function saveFiles({ notify = true } = {}) {
   buildRefs();
+  recordAccepted();
   write(FILE_KEY, serializeNotesFile(state.file));
   write(SHARED_KEY, JSON.stringify(state.shared.map(s => ({ members: s.members, text: serializeNotesFile(s.file) }))));
   if (notify) fileListeners.forEach(fn => fn());

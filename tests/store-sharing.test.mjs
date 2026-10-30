@@ -8,7 +8,10 @@ import { state, replaceFiles, shareNotes, applyMerge, applyMoveInto, circleOf, s
 
 const sample = parseNotesFile(readFileSync(new URL("../app/sample/notes.md", import.meta.url), "utf8"));
 const [n1, n2, n3] = sample.notes;
-const start = () => replaceFiles({
+// Bob and Lea are contacts here; a file of people who aren't contacts is held back (tests/strangers.test.mjs).
+const contactList = ["bob", "lea"].map((id, i) => ({ id, name: id, color: i + 1 }));
+const replace = args => replaceFiles({ ...args, file: { ...args.file, contacts: contactList } });
+const start = () => replace({
   file: { preamble: "", notes: [{ ...n3 }], moved: [] },
   shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }], moved: [] } }, { members: ["lea"], file: { preamble: "", notes: [{ ...n2 }], moved: [] } }],
   sync: { enabled: true },
@@ -42,7 +45,7 @@ test("sharing moves a note into the file of the new set and leaves a moved marke
 
 test("leaving marks the note, hides it everywhere here and Undo brings it back", () => {
   start();
-  replaceFiles({ file: state.file, shared: state.shared, sync: { enabled: true, identity: "me" } });
+  replace({ file: state.file, shared: state.shared, sync: { enabled: true, identity: "me" } });
   const undo = leaveNotes([n1.id]);
   assert.equal(allNotes().some(n => n.id === n1.id), false, "hidden");
   assert.equal(circleNotes("bob").length, 0);
@@ -140,7 +143,7 @@ test("move into a private note: a shared source gives its part up for everyone, 
 });
 
 test("move into a shared note: a private source gives its part up", () => {
-  replaceFiles({
+  replace({
     file: { preamble: "", notes: [{ ...n3 }], moved: [] },
     shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }], moved: [] } }],
     sync: { enabled: true },
@@ -154,7 +157,7 @@ test("move into a shared note: a private source gives its part up", () => {
 
 // ---------- the same note id in two shared files (backlog #63) ----------
 
-const twin = () => replaceFiles({
+const twin = () => replace({
   file: { preamble: "", notes: [{ ...n3 }], moved: [] },
   shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }], moved: [] } },
     { members: ["lea"], file: { preamble: "", notes: [{ ...n2, id: n1.id, body: "Lea's note" }], moved: [] } }],
@@ -206,7 +209,7 @@ test("deleting one of two notes with the same id leaves the other and restores t
 
 test("merge and leave address the right one of two notes with the same id", () => {
   twin();
-  replaceFiles({ file: state.file, shared: state.shared, sync: { enabled: true, identity: "me" } });
+  replace({ file: state.file, shared: state.shared, sync: { enabled: true, identity: "me" } });
   const b = circleNotes("lea")[0];
   leaveNotes([refOf(b)]);
   assert.equal(circleNotes("bob").length, 1, "the bob note still shows");
@@ -215,7 +218,7 @@ test("merge and leave address the right one of two notes with the same id", () =
 
 // ---------- merged sources leave moved markers (backlog #35) ----------
 
-const bobPair = () => replaceFiles({
+const bobPair = () => replace({
   file: { preamble: "", notes: [{ ...n3 }], moved: [] },
   shared: [{ members: ["bob"], file: { preamble: "", notes: [{ ...n1 }, { ...n2, id: "s-two" }], moved: [] } },
     { members: ["lea"], file: { preamble: "", notes: [{ ...n2 }], moved: [] } }],

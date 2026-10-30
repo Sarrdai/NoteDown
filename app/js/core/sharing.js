@@ -24,14 +24,15 @@ export function mergeCircle(circles, mode) {
  * The entries of the people overview (backlog #23), in order: everything,
  * the private file, each contact A–Z (the circle of only that person, even
  * before anything is shared with them) and each circle of several people,
- * A–Z by its label. `circles` holds the member ids of the shared files,
+ * A–Z by its label (a file of one non-contact too). `circles` holds the member ids of the shared files,
  * `nameOf` turns a contact id into a name. Each entry: { key, kind, members }
  * with `key` null for everything, otherwise the circleKey ("" = private).
  */
 export function circleEntries(contacts, circles, nameOf) {
   const byName = (a, b) => a.label.localeCompare(b.label);
   const people = contacts.map(c => ({ key: circleKey([c.id]), kind: "contact", members: [c.id], label: c.name }));
-  const groups = circles.filter(m => m.length > 1)
+  // A file of one person who isn't a contact (accepted, core/strangers.js) shows like a group: it has no contact entry.
+  const groups = circles.filter(m => m.length > 1 || !contacts.some(c => c.id === m[0]))
     .map(m => ({ key: circleKey(m), kind: "group", members: [...m].sort(), label: circleLabel([...m].sort().map(nameOf)) }));
   return [
     { key: null, kind: "all", members: [] },

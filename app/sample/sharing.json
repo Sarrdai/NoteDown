@@ -17,7 +17,9 @@
   "shared": [
     { "members": ["lea"], "notes": ["s01", "s09"], "order": ["s09", "s01"] },
     { "members": ["lea", "tom"], "notes": ["s18"] },
-    { "members": ["trmnl"], "notes": ["s12"] }
+    { "members": ["trmnl"], "notes": ["s12"] },
+    { "members": ["quinn"], "notes": ["s24"], "names": { "quinn": "Quinn" } },
+    { "members": ["lea", "quinn"], "notes": ["s25"], "names": { "quinn": "Quinn" } }
   ],
   "news": { "p02": "updated", "p01": "archived" },
   "history": {

@@ -133,6 +133,15 @@ From [Grandma's recipe box](https://recipes.example.com/lentil-soup)
 ## Wi-Fi at the cabin
 Network `Cabin-5G`, the password is on the router. Reset button only works when held for 10 seconds.
 
+<!-- note id=s24 status=open created=2026-10-12T19:10Z modified=2026-10-12T19:10Z -->
+## Neighbourhood flea market
+Stall booked for Saturday morning. Bring a folding table and small change.
+
+<!-- note id=s25 status=open created=2026-10-11T20:30Z modified=2026-10-11T20:30Z -->
+## Bike tour planning
+- [ ] Pick the route along the river
+- [ ] Book the picnic spot
+
 <!-- note id=s12 status=open created=2026-09-30T08:30Z modified=2026-10-02T17:00Z due=2026-10-31 -->
 ## Car
 - [ ] Winter tyres 📅 2026-10-24

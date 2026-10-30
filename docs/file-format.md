@@ -11,6 +11,7 @@
 - [Contacts](#contacts)
 - [News](#news)
 - [Folder sources](#folder-sources)
+- [Accepted shared files](#accepted-shared-files)
 - [Custom order](#custom-order)
 - [Open points](#open-points)
 <!-- /toc -->
@@ -191,8 +192,9 @@ everyone still shows by name:
 Each member's devices write only their own marker (the user's display
 name, percent-encoded) and keep it current; merging works per ID like
 device names. A contact keeps the name the user gave them; a member who
-isn't a contact shows with this name in a neutral color (decided
-2026-10-14 over "Unknown").
+isn't a contact shows with this name and " (not a contact)" in a neutral
+color (decided 2026-10-14 over "Unknown"). A device doesn't write its name
+into a shared file that is held back (see "Accepted shared files").
 
 ## Contacts
 
@@ -260,6 +262,28 @@ device shows them in the People overview:
 that reads it and is not in the file. Merging works per ID like device
 names: the side that changed a source wins, a removal stays. Any text
 after a source marker is dropped.
+
+## Accepted shared files
+
+A shared file in which none of the other members is one of the user's
+contacts is held back on a device that sees it for the first time: its
+notes show nowhere until the user accepts it with "Show" on the card above
+the notes (L1 in `docs/security-review.md`; "Leave" marks its notes as left
+instead, see "Leaving a shared note"). The private file remembers which
+files are accepted, one marker each after the source markers, so every
+device of the identity agrees and the server learns nothing about it:
+
+```markdown
+<!-- accepted id=lea+quinn at=2026-10-30T08:00Z -->
+```
+
+`id` is the shared file's circle (the other members' IDs joined with `+`,
+sorted, as in `kept`), `at` the time it was accepted (UTC). A shared file
+with a contact among its members gets its marker as soon as the device has
+it, so it stays as it is if the user removes that contact later; a device
+that updates to a version with this rule marks the shared files it already
+has once, at its first start. Merging works per ID like device names. Any
+text after an accepted marker is dropped.
 
 ## Custom order
 
