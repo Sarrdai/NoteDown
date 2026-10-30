@@ -1,9 +1,12 @@
 package io.github.sarrdai.notedown;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.PersistableBundle;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import androidx.biometric.BiometricManager;
@@ -25,7 +28,9 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * first frame of the next start, before the web code has loaded.
  *
  * get() → { screenSecurity, incognitoKeyboard, canLock }; set({ screenSecurity?, incognitoKeyboard? });
- * unlock({ title, subtitle }) resolves once the user unlocked, rejects with "canceled" or "unavailable".
+ * unlock({ title, subtitle }) resolves once the user unlocked, rejects with "canceled" or "unavailable";
+ * copySensitive({ text }) puts text on the clipboard marked as sensitive (the recovery and backup keys), so
+ * the keyboard's clipboard suggestions and the system's clipboard preview don't show it.
  */
 @CapacitorPlugin(name = "Privacy")
 public class PrivacyPlugin extends Plugin {
@@ -84,6 +89,27 @@ public class PrivacyPlugin extends Plugin {
             if (imm != null && getBridge().getWebView() != null) imm.restartInput(getBridge().getWebView());
             call.resolve();
         });
+    }
+
+    @PluginMethod
+    public void copySensitive(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.isEmpty()) {
+            call.reject("text is required");
+            return;
+        }
+        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            call.reject("No clipboard on this device");
+            return;
+        }
+        ClipData clip = ClipData.newPlainText("NoteDown", text);
+        // ClipDescription.EXTRA_IS_SENSITIVE from API 33; the same key is ignored below.
+        PersistableBundle extras = new PersistableBundle();
+        extras.putBoolean("android.content.extra.IS_SENSITIVE", true);
+        clip.getDescription().setExtras(extras);
+        clipboard.setPrimaryClip(clip);
+        call.resolve();
     }
 
     @PluginMethod

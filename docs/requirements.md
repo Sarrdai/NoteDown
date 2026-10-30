@@ -185,7 +185,7 @@ backup, a user without sync needs a way to a new device.
   the line under the row says when the last one was made on this device.
 - **The backup key** opens it: 30 digits, created with the first backup
   and shown once (with "I have stored the backup key", like the recovery
-  key), kept on the device for later backups. **New backup key** makes a
+  key; the Android app copies it as sensitive), kept on the device for later backups. **New backup key** makes a
   new one; older backups still need the old key. Its own key rather than
   the recovery key: a user without sync has none, and the recovery key
   hands over the whole identity.
@@ -280,7 +280,8 @@ before the first live test).
   used by real sync.*
 - **No accounts** (decided over email login: simpler, and keys come from
   the other person instead of the server): turning on sync creates an
-  anonymous identity with a **recovery key** shown once. Devices are
+  anonymous identity with a **recovery key** shown once (the Android app
+  copies it as sensitive). Devices are
   linked by scanning a QR code on the new device; **contacts** are added
   by scanning their QR code in person or by an invitation link. The
   server knows no names or emails. The app works fully without sync.

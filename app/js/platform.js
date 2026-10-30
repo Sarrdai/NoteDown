@@ -39,9 +39,10 @@ const fakePrivacy = {
   get: async () => ({ screenSecurity: true, incognitoKeyboard: true, canLock: true }),
   set: async () => {},
   unlock: () => new Promise(resolve => setTimeout(resolve, 600)),
+  copySensitive: ({ text }) => navigator.clipboard.writeText(text),
 };
 
-/** The Privacy plugin (screen security, incognito keyboard, system unlock), or its stand-in; null off Android. */
+/** The Privacy plugin (screen security, incognito keyboard, system unlock, copying a key as sensitive), or its stand-in; null off Android. */
 export const privacyPlugin = () => nativePrivacy || (simulated ? fakePrivacy : null);
 
 /** The ShareFile plugin (hands a file to the share sheet); null on the web and in the simulation (a download). */

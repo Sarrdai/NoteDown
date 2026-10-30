@@ -27,6 +27,7 @@ import { qrFigure, scannerView, cameraScanner } from "./qr.js";
 import { showSnackbar } from "./snackbar.js";
 import { icon } from "./icons.js";
 import { requestAvatarHtml, requestHow } from "./people.js";
+import { privacyPlugin } from "../platform.js";
 
 const $ = id => document.getElementById(id);
 const real = () => !state.sync.simulated;
@@ -225,7 +226,10 @@ export function row({ icon: ic, avatar, title, sub, remove, open, href, newTab, 
     remove && h("button", { class: "icon-btn", type: "button", "aria-label": `Remove ${title}`, html: icon("close"), onclick: remove }));
 }
 
-async function copyText(value) {
+// secret: a key. The Android app marks the clipboard entry as sensitive; the browser has no way to.
+async function copyText(value, secret = false) {
+  const privacy = secret ? privacyPlugin() : null;
+  if (privacy) { try { await privacy.copySensitive({ text: value }); return true; } catch { /* fall back below */ } }
   try { await navigator.clipboard.writeText(value); return true; } catch { /* fall back below */ }
   const area = h("textarea", { class: "visually-hidden", readonly: true });
   area.value = value;
@@ -520,7 +524,7 @@ const PAGES = {
         h("div", { class: "button-row" },
           h("button", {
             class: "btn outline", type: "button",
-            onclick: async () => showSnackbar(await copyText(data.key) ? "Recovery key copied" : "Copying is blocked here"),
+            onclick: async () => showSnackbar(await copyText(data.key, true) ? "Recovery key copied" : "Copying is blocked here"),
           }, h("span", { html: icon("copy") }), "Copy"),
           h("button", {
             class: "btn outline", type: "button",

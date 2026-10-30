@@ -6,7 +6,7 @@ import { getSecret, setSecret } from "../sync/keystore.js";
 import {
   generateBackupKey, normalizeBackupKey, backupContents, sealBackup, openBackup, notesToRestore, backupFileName, BackupError,
 } from "../core/backup.js";
-import { shareFilePlugin } from "../platform.js";
+import { privacyPlugin, shareFilePlugin } from "../platform.js";
 import { registerPage, refreshPage, go, popPage, resetPanel, action, panelPage } from "./sync-panel.js";
 import { openConfirm } from "./confirm.js";
 import { showSnackbar } from "./snackbar.js";
@@ -88,7 +88,10 @@ registerPage("settingsBackup", {
   },
 });
 
+// The backup key: the Android app marks the clipboard entry as sensitive; the browser has no way to.
 async function copy(value) {
+  const privacy = privacyPlugin();
+  if (privacy) { try { await privacy.copySensitive({ text: value }); return true; } catch { /* fall back below */ } }
   try { await navigator.clipboard.writeText(value); return true; } catch { return false; }
 }
 
