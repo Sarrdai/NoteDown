@@ -3,9 +3,20 @@
 // screen can be seen and screenshotted: every native call is then replaced by a stand-in kept in this file,
 // so the views never branch on the simulation themselves.
 import { Capacitor, registerPlugin } from "../vendor/capacitor-core.esm.js";
+import { isLocalAddress } from "./core/local-address.js";
 
 const native = Capacitor.isNativePlatform();
-const simulated = !native && new URLSearchParams(location.search).get("platform") === "android";
+
+/**
+ * Whether the prototype's URL switches count: `?sample`, `?sync=off`, `?api=` (and the sync server it made this browser
+ * remember), `?platform=android`, `?dictation=demo`. Only where the prototype is developed — served from this computer
+ * or the local network — and never in the Android app, whose web view runs on https://localhost. In the deployed web app
+ * they are ignored, so a link can't replace someone's notes or point the app at another server (docs/security-review.md,
+ * M3). `?flavor=`, `?sort=` and `?view=` only preset harmless display settings and work everywhere.
+ */
+export const prototypeSwitches = !native && isLocalAddress(location.hostname);
+
+const simulated = prototypeSwitches && new URLSearchParams(location.search).get("platform") === "android";
 
 /** The Android app, or its simulation in a browser. */
 export const isAndroidApp = () => native || simulated;

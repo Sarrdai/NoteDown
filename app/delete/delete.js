@@ -2,11 +2,13 @@
 // docs/requirements.md → "Deleting your sync data"): the recovery key gives the identity key, which signs
 // the deletion (sync/delete-identity.js). Works without a device of the identity — also in a browser that
 // never synced. The server is the app's: ?api=, then the one this browser remembers, then app/config.json.
-// `?sample` takes any well-formed key and deletes nothing.
+// `?sample` takes any well-formed key and deletes nothing. ?api=, the remembered server and ?sample count only
+// on a local address (platform.js → prototypeSwitches).
 import { createApi } from "../js/sync/api.js";
 import { deleteWithRecoveryKey } from "../js/sync/delete-identity.js";
 import { normalizeRecoveryKey } from "../js/core/sharing.js";
 import { serverUrl } from "../js/core/linking.js";
+import { prototypeSwitches } from "../js/platform.js";
 import { readStored } from "../js/vault.js";
 
 const $ = id => document.getElementById(id);
@@ -30,7 +32,7 @@ function applyTheme() {
 async function server() {
   let config = {};
   try { config = await (await fetch(new URL("../config.json", import.meta.url), { cache: "no-store" })).json(); } catch { /* none */ }
-  const raw = params.get("api") || readStore("notedown.api") || config.api;
+  const raw = (prototypeSwitches && (params.get("api") || readStore("notedown.api"))) || config.api;
   return raw ? serverUrl(new URL(raw, location.href).href) : "";
 }
 
@@ -41,7 +43,7 @@ function show(step) {
 async function start() {
   applyTheme();
   systemDark.addEventListener("change", applyTheme);
-  const sample = params.has("sample");
+  const sample = prototypeSwitches && params.has("sample");
   const url = sample ? "" : await server();
   if (!sample && !url) return show("noServer");
   $("host").textContent = sample ? "sample server" : new URL(url).host;

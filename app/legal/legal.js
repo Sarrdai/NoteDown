@@ -1,7 +1,9 @@
 // The privacy policy and the terms of use (`<web app>/privacy/`, `<web app>/terms/`; docs/requirements.md →
 // "Legal texts"). The texts are the same for every copy of NoteDown; who runs it comes from app/config.json
 // (`operator`: name, email and an optional postal address, written by the deploy workflows from repository
-// variables, docs/operations.md), so no personal data sits in the repository. `?sample` shows placeholders.
+// variables, docs/operations.md), so no personal data sits in the repository. `?sample` shows placeholders
+// (on a local address only, platform.js → prototypeSwitches).
+import { prototypeSwitches } from "../js/platform.js";
 import { readStored } from "../js/vault.js";
 
 const params = new URLSearchParams(location.search);
@@ -27,7 +29,7 @@ async function config() {
 }
 
 function fill(cfg) {
-  const op = params.has("sample") ? SAMPLE : cfg.operator || {};
+  const op = prototypeSwitches && params.has("sample") ? SAMPLE : cfg.operator || {};
   const missing = !op.name || !op.email;
   const host = cfg.api ? new URL(cfg.api).host : "";
   for (const el of document.querySelectorAll("[data-op]")) {

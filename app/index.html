@@ -2,6 +2,13 @@
 <html lang="en" data-flavor="latte">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <!-- Content-Security-Policy (docs/security-review.md, M2), so an escaping mistake in untrusted text can't run script.
+       Scripts only from the app itself, plus WebAssembly for the vendored ML-KEM. Inline styles stay: markup built in JS
+       sets style="--c:…". connect-src can't name one server (invitation links name other home servers, srv=), so it only
+       shuts out plain http except local test servers. frame-ancestors can't be set by a meta tag, and GitHub Pages sends
+       no headers. The tag stays directly after the charset: a meta policy governs only what follows it, and the Android
+       app's bridge script (Capacitor injects it first) has to stay out of its reach. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>NoteDown</title>
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">

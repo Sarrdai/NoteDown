@@ -5,13 +5,14 @@
 // (mobile/android/.../DictationPlugin.java), on the device or online as
 // Settings → Privacy → Speech recognition says. With ?dictation=demo the
 // prototype replays app/sample/dictation.md instead, so the flow can be
-// tried and tested without a microphone.
+// tried and tested without a microphone (on a local address only).
 import { Capacitor, registerPlugin } from "../../vendor/capacitor-core.esm.js";
+import { prototypeSwitches } from "../platform.js";
 import { state } from "../store.js";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const NativeDictation = Capacitor.isNativePlatform() ? registerPlugin("Dictation") : null;
-const demo = new URLSearchParams(location.search).get("dictation") === "demo";
+const demo = prototypeSwitches && new URLSearchParams(location.search).get("dictation") === "demo";
 
 export function dictationAvailable() {
   return demo || Boolean(NativeDictation) || Boolean(SpeechRecognition && window.isSecureContext);

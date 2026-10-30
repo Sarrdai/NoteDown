@@ -11,6 +11,7 @@ import { readExport, markExisting, exportToNoteDown } from "../js/core/export-im
 import { zipEntries } from "../js/core/zip.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { fillMedia } from "../js/ui/external.js";
+import { prototypeSwitches } from "../js/platform.js";
 import { state, load, importNotes, flushStored } from "../js/store.js";
 import { initConfirm, openConfirm } from "../js/ui/confirm.js";
 import { relativeTime } from "../js/ui/format.js";
@@ -197,11 +198,12 @@ async function start() {
   $("noneBtn").addEventListener("click", () => setAll(false));
   $("otherBtn").addEventListener("click", () => show("pickStep"));
   $("importBtn").addEventListener("click", confirmImport);
-  if (new URLSearchParams(location.search).get("sample") === "export") {
+  const sample = prototypeSwitches ? new URLSearchParams(location.search).get("sample") : null;   // local address only
+  if (sample === "export") {
     // The sample notes as an export with metadata (the app's own sample file).
     const text = await (await fetch(new URL("../sample/notes.md", import.meta.url))).text();
     preview(await readExport("NoteDown-sample.md", new TextEncoder().encode(text)), "export");
-  } else if (new URLSearchParams(location.search).has("sample")) {
+  } else if (sample !== null) {
     const { files } = await (await fetch(new URL("../sample/keep.json", import.meta.url))).json();
     preview(keepNotes(files.map(f => ({ name: f.name, text: JSON.stringify(f.json) }))), "keep");
   }

@@ -1,7 +1,8 @@
 // The admin dashboard of the server owner (`<web host>/admin/`): what the server stores,
 // the identities with devices and files, a storage limit per identity, backup and restore.
 // Signs in with this browser's linked device, like the app does; `?sample` runs on
-// app/sample/admin.json without a network. Logic without DOM access: app/js/core/admin.js.
+// app/sample/admin.json without a network, and `?api=` names another server (both on a local address only,
+// platform.js → prototypeSwitches). Logic without DOM access: app/js/core/admin.js.
 //
 // Four sections, Overview / Identities / News / Backup: a nav rail with list and detail side by side on the
 // desktop, tabs with the detail as a page of its own on tablet and phone.
@@ -15,6 +16,7 @@ import { createApi } from "../js/sync/api.js";
 import { getSecret } from "../js/sync/keystore.js";
 import { readStored } from "../js/vault.js";
 import { serverUrl } from "../js/core/linking.js";
+import { prototypeSwitches } from "../js/platform.js";
 import { deviceKeysFromSeeds } from "../js/core/crypto.js";
 import { renderMarkdown } from "../js/core/markdown.js";
 import { fillMedia } from "../js/ui/external.js";
@@ -32,7 +34,7 @@ const $ = id => document.getElementById(id);
 // ---------- state ----------
 
 const S = {
-  sample: params.has("sample"),
+  sample: prototypeSwitches && params.has("sample"),
   status: "loading",       // loading | ready | no-sync | not-admin | error
   error: "",
   host: "", identity: "",  // the server's host, the caller's identity ID
@@ -85,7 +87,7 @@ async function connect() {
   if (!keys || !keys.sign || !sync.device) { S.status = "no-sync"; return false; }
   let config = {};
   try { config = await (await fetch(new URL("../config.json", import.meta.url), { cache: "no-store" })).json(); } catch { /* none */ }
-  const raw = sync.server || params.get("api") || readStore("notedown.api") || config.api;
+  const raw = sync.server || (prototypeSwitches && (params.get("api") || readStore("notedown.api"))) || config.api;
   const server = raw && serverUrl(new URL(raw, location.href).href);
   if (!server) {
     S.status = "error";

@@ -48,7 +48,7 @@ import { openDue } from "./ui/due.js";
 import { dueItems, dueNowCount } from "./core/due-list.js";
 import { initAppLock } from "./ui/app-lock.js";
 import { initFolderSources } from "./ui/folder-sources.js";
-import { isNativeApp, privacyPlugin } from "./platform.js";
+import { isNativeApp, privacyPlugin, prototypeSwitches } from "./platform.js";
 import { initExport, openExport } from "./ui/export.js";
 import { initStorageHint, showHintAgain } from "./ui/storage-hint.js";
 import { initExternal } from "./ui/external.js";
@@ -942,6 +942,9 @@ function applyUrlOptions() {
   if (p.get("sort") === "custom") patch.sort = { ...state.settings.sort, open: { key: "custom", dir: "asc" } };
   if (Object.keys(patch).length) Object.assign(state.settings, patch);
   if (["closed", "trash"].includes(p.get("view"))) state.view = p.get("view");
+  // What follows replaces data or points the app at another server: only where the prototype is developed
+  // (platform.js → prototypeSwitches), so a link to the deployed app can't do either.
+  if (!prototypeSwitches) return null;
   // ?api=<url> points this browser at another sync server (local testing).
   if (p.get("api") !== null) writeApi(p.get("api"));
   // ?sample replaces the stored notes with the sample notes (screenshots,
@@ -956,7 +959,9 @@ function applyUrlOptions() {
 async function loadConfig() {
   try { return await (await fetch(new URL("../config.json", import.meta.url), { cache: "no-store" })).json(); } catch { return {}; }
 }
+// The server an earlier ?api= made this browser remember; off a local address it is ignored (and left in place).
 function readApi() {
+  if (!prototypeSwitches) return "";
   try { return localStorage.getItem("notedown.api") || ""; } catch { return ""; }
 }
 function writeApi(url) {

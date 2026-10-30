@@ -2,6 +2,7 @@
 <html lang="en" data-flavor="latte">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NoteDown invitation</title>
   <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
@@ -13,12 +14,7 @@
     main p { margin: 0 0 16px; color: var(--text-muted); }
     main a { display: inline-block; text-decoration: none; }
   </style>
-  <script>
-    // The link's fragment (identity, secret, name) never reaches a server: the app takes it from the address.
-    if (matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.flavor = "mocha";
-    addEventListener("DOMContentLoaded", () => { document.getElementById("open").href = "../" + location.hash; });
-    location.replace("../" + location.hash);
-  </script>
+  <script src="open.js"></script>
 </head>
 <body>
   <main>
