@@ -2,10 +2,12 @@
 // like Signal's voice messages — hold to record, release to save, slide
 // left to cancel, slide up to lock for hands-free recording (then tap the
 // button to finish or the bin to cancel).
-import { dictationAvailable, startDictation, downloadSpeechPack } from "./dictation.js";
+import { dictationAvailable, usesBrowserSpeech, startDictation, downloadSpeechPack } from "./dictation.js";
 import { showSnackbar } from "./snackbar.js";
 import { openSettings } from "./settings.js";
 import { icon } from "./icons.js";
+import { openConfirm } from "./confirm.js";
+import { state, updateSettings } from "../store.js";
 
 const HOLD_MS = 350;
 const CANCEL_DX = -110;
@@ -59,6 +61,17 @@ export function initRecorder({ onTap, canHold = () => true, holdBlocked = () => 
     if (!dictationAvailable()) {
       showSnackbar(window.isSecureContext ? "Dictation isn't available in this browser" : "Dictation needs https or localhost");
       press = null;
+      return;
+    }
+    // The browser's speech service gets the recording: said once before the first dictation. Cancel asks again next time.
+    if (usesBrowserSpeech() && !state.settings.speechNoticeSeen) {
+      press = null;
+      openConfirm({
+        title: "Dictation uses your browser's speech service",
+        text: "Your browser sends what you say to its speech service to turn it into text \u2014 Chrome uses Google's servers. NoteDown doesn't receive the recording.",
+        okLabel: () => "Continue", danger: false,
+        onConfirm: () => { updateSettings({ speechNoticeSeen: true }); begin({ handsFree: true }); },
+      });
       return;
     }
     vibrate(15);

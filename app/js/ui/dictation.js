@@ -18,6 +18,9 @@ export function dictationAvailable() {
   return demo || Boolean(NativeDictation) || Boolean(SpeechRecognition && window.isSecureContext);
 }
 
+/** Whether dictation goes to the browser's speech service (the web app; not the demo, not Android's recognizer). */
+export const usesBrowserSpeech = () => !demo && !NativeDictation;
+
 /**
  * Starts listening. Callbacks: onInterim(text) — the not yet final tail,
  * onFinal(text) — a finished segment, onLevel(0..1), onError(code).

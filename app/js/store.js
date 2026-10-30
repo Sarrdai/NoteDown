@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   privacy: { screenSecurity: true, incognitoKeyboard: true },   // Android: hide in recent apps / no keyboard learning (#59), this device only
   folders: {},               // folder sources read on this device (core/folder-source.js): sourceId → { uri, label, lost?, skip? }, this device only
   dictation: "device",       // Android: speech recognized "device" (nothing leaves the phone) or "online" (the phone's speech service), this device only
+  speechNoticeSeen: false,   // web: the one-time notice that the browser's speech service gets the recording was confirmed (ui/recorder.js), this device only
   lastBackup: null,          // ISO time of the last backup made on this device (#56)
   exportOptions: { archive: false, toc: false, metadata: true }, // the export dialog's last choices, this device only
   external: structuredClone(DEFAULT_EXTERNAL),   // links and embedded media (#30): { media, links, circles }, this device only, never synced

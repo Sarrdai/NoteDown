@@ -1413,6 +1413,9 @@ mark.hl, .cm-lp-hl { background: var(--highlight); color: inherit; border-radius
 }
 .panel-tab .news-badge { margin-left: 5px; vertical-align: 1px; }
 .toc-handle .news-badge { position: absolute; top: 4px; left: calc(50% + 30px); }
+.news-notice { flex-basis: 100%; font-weight: 400; color: var(--text-muted); }
+.list.notes-compact .note.news .note-meta { display: flex; }
+.list.notes-compact .note.news .note-meta > :not(.news-notice) { display: none; }
 .chip.news-chip { background: var(--accent); color: var(--on-accent); }
 
 .app[data-tab="people"] .people-pane { display: flex; flex: 1; }

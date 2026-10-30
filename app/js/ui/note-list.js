@@ -364,7 +364,9 @@ function markerHtml(n) {
 function newsMetaHtml(n) {
   const fresh = n.fresh ? `<span class="chip news-chip">${n.fresh === "new" ? "New" : "Updated"}</span>` : "";
   const edited = n.modified !== n.created;
-  return `${fresh}<span>${edited ? "Edited" : "Published"} ${relativeTime(edited ? n.modified : n.created)}</span>`;
+  // News come unsigned from the server: a fixed line says who they are from and what they never ask for.
+  return `${fresh}<span>${edited ? "Edited" : "Published"} ${relativeTime(edited ? n.modified : n.created)}</span>`
+    + `<span class="news-notice">From the operator of your sync server. NoteDown never asks for your recovery key in news, messages or on websites.</span>`;
 }
 
 // A private copy of a shared note (backlog #45): "Copy of …", marked while its original changed since; a tap

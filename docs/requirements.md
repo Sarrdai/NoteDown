@@ -1111,6 +1111,12 @@ this needs none of it.
   filter, the archive, or the app goes to the background), or at once
   when the card is tapped, closed or deleted — so the label stays while
   it is read. Seen is **per user**, synced across the user's devices.
+- **Every post carries a fixed line** (decided 2026-10-30, security review
+  L4): "From the operator of your sync server. NoteDown never asks for
+  your recovery key in news, messages or on websites." — muted, in the
+  card's meta line (also in the compact list), not on the admin page's
+  preview. Posts are unsigned, so someone who took over the server could
+  phish in the owner's name; the line says what no post will ever ask.
 - **What the user did is private:** which posts were seen, closed or
   deleted is kept in the encrypted private file
   (`docs/file-format.md` → "News"), one marker per post that is still in
@@ -1453,7 +1459,16 @@ that host its IP address and the reading time.
   before, the hint points to Android's speech settings). The web app has
   no such setting: the browser decides (Chrome sends the recording to
   Google's servers), and neither the web nor Chrome promises an on-device
-  mode we could rely on.
+  mode we could rely on. Instead, the web app asks once before the first
+  dictation that uses the browser's speech service (decided 2026-10-30,
+  security review L5; every way in, the + button's hold included): "Dictation uses your
+  browser's speech service — Your browser sends what you say to its speech
+  service to turn it into text — Chrome uses Google's servers. NoteDown
+  doesn't receive the recording." with **Continue** / **Cancel**. Continue
+  starts dictation and is remembered on this device (a setting, not
+  synced); Cancel starts nothing and asks again next time. Not shown in
+  the Android app, with `?dictation=demo`, or where the browser has no
+  speech recognition (the error shows as before).
 
 ### Multi-select
 
