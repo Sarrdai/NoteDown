@@ -33,10 +33,11 @@ for the server — replace them with subdomains of your own domain.
 
 Secrets never sit in the repository: the database URL and the server's
 token secret live in Google Secret Manager, the Android signing key in
-GitHub Actions secrets. Deploying from GitHub to Google uses workload
-identity federation (short-lived tokens, no stored key), limited to
-`main` of this repository. Until a step below is done, its deploy job is
-skipped, not failed.
+the GitHub environment `release`, which only jobs running from `main`
+can use (a branch build never gets it, section 5). Deploying from GitHub
+to Google uses workload identity federation (short-lived tokens, no
+stored key), limited to `main` of this repository. Until a step below is
+done, its deploy job is skipped, not failed.
 
 **Free-tier limits that matter:** Cloud Run 2 million requests per
 month (a synced app that is open polls every 5 s with two requests — the
@@ -189,16 +190,30 @@ The key is created once, by you, and kept like a password.
 2. Keep `notedown-release.jks` and the password in your password manager
    — losing them means users have to reinstall later. In Cloud Shell,
    download the file (⋮ → *Download*) and then delete both files there.
-3. GitHub → *Settings* → *Secrets and variables* → *Actions* →
-   *Secrets*:
+3. GitHub → *Settings* → *Environments* → *New environment* `release` →
+   *Deployment branches and tags* → **Selected branches and tags** → *Add
+   deployment branch or tag rule* → `main`. In that environment, *Add
+   environment secret*:
    - `ANDROID_KEYSTORE_BASE64` = content of `notedown-release.b64`,
    - `ANDROID_KEYSTORE_PASSWORD` = the password.
-4. *Actions* → *Android* → *Run workflow* on `main`.
 
+   **Then delete the repository secrets** of the same names (*Settings* →
+   *Secrets and variables* → *Actions*), if they exist: every branch's
+   workflow runs can read repository secrets, including a run whose
+   workflow file was changed on that branch, so anyone who can push a
+   branch could read the key that signs the app. An environment secret
+   with this rule goes only to jobs that run from `main`; the rule is
+   what protects it, since a branch's own workflow file could name
+   `release` too. The workflows pick the environment themselves: the
+   Android job runs in `release` on `main` and in `preview` (which GitHub
+   creates on first use) on every other branch. While the key is still a
+   repository secret, each branch build says so in a warning.
+4. *Actions* → *Android* → *Run workflow* on `main`.
 5. **Invitation links open the app** (Android App Link): nothing to do
-   by hand. The web deploy reads the certificate fingerprint from the
-   same keystore secret (step 3) and publishes it as
-   `https://notedown.example.com/.well-known/assetlinks.json`, which is
+   by hand. The `release-key` job of the web deploy (environment
+   `release`) reads the certificate fingerprint from the keystore
+   (step 3) and hands only that on to the deploy job, which publishes it
+   as `https://notedown.example.com/.well-known/assetlinks.json`. That is
    how Android checks that the app may open links of that host; the
    Android build takes the host from the repository variable `WEB_HOST`
    (step 1). The file exists only while the secret is set. Run *Actions*
@@ -208,8 +223,19 @@ The key is created once, by you, and kept like a password.
    the browser, and "Add contact" → "Paste link" takes it. Check on the
    phone after installing: `adb shell pm get-app-links
    io.github.sarrdai.notedown` shows the host as `verified`.
+6. **Optional: a preview key** for branch builds. NoteDown Preview
+   (see "Installing the test app") is never signed with the release
+   key. Repeat the two commands of step 1 with `notedown-preview` in
+   place of `notedown-release` (same alias `notedown`) and add
+   `ANDROID_PREVIEW_KEYSTORE_BASE64` = the content of
+   `notedown-preview.b64` and `ANDROID_PREVIEW_KEYSTORE_PASSWORD` = its
+   password, as repository secrets or as secrets of the environment
+   `preview`. Every branch build can read them, so the key must be good
+   for nothing but previews. Without it a preview is signed with a debug
+   key that is new in every build, and previews don't install over each
+   other.
 
-Without these secrets the workflow still builds a **debug** APK (as a
+Without the release secrets, `main` still builds a **debug** APK (as a
 workflow artifact) but publishes no release.
 
 ## 6. Alerts
@@ -311,8 +337,12 @@ branch that changes `app/` or `mobile/` builds **NoteDown Preview**, an app
 of its own (ID `io.github.sarrdai.notedown.preview`, its own data — link it
 as a further device to see your notes). *Actions* → *Android* → the branch's
 run → *Artifacts* → `notedown-apk` (a ZIP: unpack it, then install
-`notedown.apk`; signed with the release key when it is set up, else with a
-debug key). Later preview builds install over it; invitation links keep
+`notedown.apk`). Previews are signed with the preview key (section 5) when
+it is set up, so later preview builds install over it. Without it they are
+signed with a debug key that changes with every build: uninstall the
+previous preview first and link the new one again (it is a linked device).
+A preview installed before its own key existed was signed with the release
+key and has to be uninstalled the same way, once. Invitation links keep
 opening the test app.
 
 ## Checks
@@ -325,6 +355,7 @@ opening the test app.
 | Cloud Console → *Monitoring* → *Uptime checks* → `notedown-api live` | green in all 3 regions |
 | Cloud Console → *Monitoring* → *Alerting* | the policies `NoteDown server down` and `NoteDown server errors`, notifying your email |
 | *Actions* → latest *Server*, *Web*, *Android* runs on `main` | green; deploy jobs not skipped |
+| *Actions* → latest *Android* run of another branch | green, no warning about the release key (it would say the key is still readable by branch builds) |
 | Releases → `android-test` | `notedown.apk`, build number of the latest run |
 
 If a deploy job fails: its log names the step. Typical causes are a
@@ -336,6 +367,10 @@ checks; wait an hour).
 
 - Merging into `main` deploys whatever changed: `app/` → web app and
   Android release, `server/` → server.
+- Third-party actions in `.github/workflows/` are pinned by commit, with
+  the version as a comment (`uses: actions/checkout@<commit>  # v7.0.1`).
+  To update one, look up the commit its new tag points to (not the tag
+  object of an annotated tag) and keep the version comment.
 - Server logs: Cloud Console → *Cloud Run* → `notedown-api` → *Logs*.
 - The database schema is created and extended by the server at start
   (`server/notedown_server/schema.sql`, only additive statements).

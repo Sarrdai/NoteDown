@@ -13,7 +13,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The Android App Link check needs the SHA-256 fingerprint of the release key (docs/operations.md →
+  # "5. Android signing key"). The keystore is a secret of the environment `release`, which the deploy job
+  # (environment github-pages) can't read: this job reads it and hands on only the fingerprint, which is
+  # public anyway. It runs no action, has no token permissions and checks out no code, so only this
+  # script sees the key.
+  release-key:
+    # Skipped until the repository variable WEB_HOST exists.
+    if: vars.WEB_HOST != ''
+    runs-on: ubuntu-latest
+    environment: release
+    permissions: {}
+    env:
+      HAS_RELEASE_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    outputs:
+      # Empty without a release key.
+      fingerprint: ${{ steps.fingerprint.outputs.fingerprint }}
+    steps:
+      - name: Read the certificate fingerprint of the release key
+        id: fingerprint
+        if: env.HAS_RELEASE_KEY == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/release.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore"
+          fingerprint="$(keytool -list -v -keystore "$keystore" -alias notedown -storepass:env ANDROID_KEYSTORE_PASSWORD | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p')" || fingerprint=""
+          rm -f "$keystore"
+          if ! echo "$fingerprint" | grep -Eq '^([0-9A-F]{2}:){31}[0-9A-F]{2}$'; then
+            echo "::error::Could not read the SHA-256 fingerprint of the key 'notedown' from the keystore secret"
+            exit 1
+          fi
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+
   deploy:
+    needs: release-key
     # Skipped until the repository variable WEB_HOST exists.
     if: vars.WEB_HOST != ''
     runs-on: ubuntu-latest
@@ -21,19 +57,17 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    env:
-      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       # A placeholder or a URL instead of a host name breaks the deployed app.
       - run: scripts/check-host.sh API_HOST WEB_HOST
         env:
           API_HOST: ${{ vars.API_HOST }}
           WEB_HOST: ${{ vars.WEB_HOST }}
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: 22
       - run: node --test
@@ -48,23 +82,13 @@ jobs:
           OPERATOR_EMAIL: ${{ vars.OPERATOR_EMAIL }}
           OPERATOR_ADDRESS: ${{ vars.OPERATOR_ADDRESS }}
       # The Android App Link check (docs/operations.md) reads app/.well-known/assetlinks.json, which holds
-      # the SHA-256 fingerprint of the release key. It is generated from the same keystore secret the
-      # Android build signs with; without that secret no file is published (and none is in the repository).
+      # the SHA-256 fingerprint of the release key the Android build signs with, read by the release-key job
+      # (the keystore never reaches this job). Without that key no file is published (and none is in the repository).
       - name: Write assetlinks.json
-        if: env.HAS_KEY == 'true'
+        if: needs.release-key.outputs.fingerprint != ''
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          FINGERPRINT: ${{ needs.release-key.outputs.fingerprint }}
         run: |
-          set -euo pipefail
-          keystore="$RUNNER_TEMP/release.jks"
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore"
-          fingerprint="$(keytool -list -v -keystore "$keystore" -alias notedown -storepass:env ANDROID_KEYSTORE_PASSWORD | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p')" || fingerprint=""
-          rm -f "$keystore"
-          if ! echo "$fingerprint" | grep -Eq '^([0-9A-F]{2}:){31}[0-9A-F]{2}$'; then
-            echo "::error::Could not read the SHA-256 fingerprint of the key 'notedown' from the keystore secret"
-            exit 1
-          fi
           mkdir -p app/.well-known
           cat > app/.well-known/assetlinks.json <<EOF
           [
@@ -73,7 +97,7 @@ jobs:
               "target": {
                 "namespace": "android_app",
                 "package_name": "io.github.sarrdai.notedown",
-                "sha256_cert_fingerprints": ["$fingerprint"]
+                "sha256_cert_fingerprints": ["$FINGERPRINT"]
               }
             }
           ]
@@ -81,11 +105,11 @@ jobs:
       # actions/upload-pages-artifact leaves out hidden files, but the Android App Link
       # check reads app/.well-known/assetlinks.json (written above): the same tar, with only .git and .github excluded.
       - run: tar --dereference --hard-dereference --directory app -cvf "$RUNNER_TEMP/artifact.tar" --exclude=.git --exclude=.github .
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: github-pages
           path: ${{ runner.temp }}/artifact.tar
           retention-days: 1
           if-no-files-found: error
       - id: deploy
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
