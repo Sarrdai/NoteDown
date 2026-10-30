@@ -265,7 +265,14 @@ before the first live test).
   moves the note to the new set's file. All members are equal (edit,
   close, share further, remove, leave), and the whole note including its
   status is shared. Notes are shared with contacts; someone new gets an
-  invitation link first.
+  invitation link first. A shared note that arrives without any contact
+  among its other members — only a server someone took over can make one —
+  is held back: a card above the notes says "Quinn (not a contact) shared
+  a note with you" with **Show** and **Leave**, and its notes appear
+  nowhere until Show; the choice holds on all the user's devices. A member
+  who isn't a contact is always named with "(not a contact)", since the
+  name is the one they wrote themselves (security review L1, decided
+  2026-10-30 over showing such notes at once with a marker).
 - **Concurrent edits merge per note and per field;** when two devices
   changed the same note's text, their changes combine line by line —
   ticked tasks, counter steps (added up), stopwatches and added lines on

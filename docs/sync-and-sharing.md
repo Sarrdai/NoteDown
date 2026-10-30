@@ -82,8 +82,8 @@ and the sample simulates everything without a server.
   shared note, share it with further people, remove people, or leave.
   Leaving marks the note; a remaining member's device then moves it into
   the file without the leaver (`docs/file-format.md` → "Leaving a shared
-  note"). Members who aren't contacts show with their own display name
-  (`docs/file-format.md` → "Members").
+  note"). Members who aren't contacts show with their own display name and
+  "(not a contact)" (`docs/file-format.md` → "Members").
   The whole note is shared, including status and due date — closed for
   one means closed for all.
 - **Merging across circles** never takes a shared note away from the
@@ -118,7 +118,11 @@ and the sample simulates everything without a server.
 - **Removing someone** stops their access to every later change; what
   their devices already decrypted cannot be taken back.
 - Notes are shared with **contacts** only (see "Contacts"); someone who
-  doesn't use NoteDown yet gets an invitation link first.
+  doesn't use NoteDown yet gets an invitation link first. The server
+  enforces it when a file is created; the app also holds back a file that
+  arrives with no contact among its other members until the user accepts
+  it, since only a server someone took over can make one (security review
+  L1; `docs/file-format.md` → "Accepted shared files").
 - The main view shows the notes of all files together; which notes are
   shared and with whom is part of the UI round.
 

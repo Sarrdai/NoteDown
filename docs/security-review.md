@@ -14,7 +14,7 @@
   - [M4 — inflating without a limit (fixed)](#m4--inflating-without-a-limit-fixed)
   - [M5 — signing and CI (fixed in the repository)](#m5--signing-and-ci-fixed-in-the-repository)
   - [M6 — linking a device (fixed)](#m6--linking-a-device-fixed)
-  - [Low (open, or to disclose)](#low-open-or-to-disclose)
+  - [Low (fixed or disclosed)](#low-fixed-or-disclosed)
 - [What holds](#what-holds)
 - [The claim "at least as secure as Signal"](#the-claim-at-least-as-secure-as-signal)
 - [Play Store](#play-store)
@@ -23,9 +23,9 @@
 
 A review of whether NoteDown's end-to-end encryption holds what
 `docs/sync-and-sharing.md` promises, done on 2026-10-30 before a release in
-the Play Store. Findings H1–H4 and M1–M6 were fixed the same day (M5 takes
-effect once the signing secrets are moved in GitHub); the low findings are
-open. The other docs describe
+the Play Store. All findings were dealt with the same day: H1–H4 and M1–M6 fixed (M5
+takes effect once the signing secrets are moved in GitHub), L1–L6 fixed or
+disclosed (signed news, the fuller answer to L4, is backlog #69). The other docs describe
 the fixed state; this file keeps the findings, their status and why.
 
 ## Scope and method
@@ -68,7 +68,7 @@ code (a stated exception, "Principles").
 | M4 | Medium | Inflating a file has no size limit (app and TRMNL plugin) | Fixed 2026-10-30 |
 | M5 | Medium | The release signing key in every branch build; actions pinned by tag | Fixed in the repository 2026-10-30; the secrets still have to move (`docs/operations.md` → "5. Android signing key") |
 | M6 | Medium | The relay message of linking a device isn't authenticated | Fixed 2026-10-30 |
-| L1–L6 | Low | See "Low" | Open |
+| L1–L6 | Low | See "Low" | Fixed or disclosed 2026-10-30 |
 
 ### H1 — a sign-in relayed through another server (fixed)
 
@@ -233,24 +233,40 @@ code (a stated exception, "Principles").
 - **Tests:** `tests/linking.test.mjs`, `scripts/e2e-sync.js` ("a relay answer
   without the code's secret is refused").
 
-### Low (open, or to disclose)
+### Low (fixed or disclosed)
 
-- **L1:** "notes are shared with contacts only" is enforced by the server
-  alone; a malicious server can bring in a shared file of a non-contact with a
-  name of its choosing. Members who aren't contacts show as strangers;
-  consider marking such a file.
-- **L2:** the TRMNL plugin decrypts on the server (`docs/sync-and-sharing.md` →
-  "TRMNL"); in the Play Store's Data safety form those notes don't count as
-  end-to-end encrypted.
-- **L3:** copying the recovery key puts it on the clipboard: mark it sensitive
-  (`ClipDescription.EXTRA_IS_SENSITIVE`).
-- **L4:** news posts are plain text from the server, a phishing channel if the
-  server is taken over.
-- **L5:** dictation in the web app goes to the browser's speech service
-  (Chrome: Google); the web app should say so.
-- **L6:** `"restore": true` pins every state it replaces, and authenticated
-  endpoints have no rate limit: an identity with version history can grow the
-  database for 30 days.
+- **L1 — shared files from strangers (fixed):** "notes are shared with
+  contacts only" is enforced by the server alone, so a server someone took
+  over could bring in a shared file whose other members aren't contacts,
+  under names of its choosing. A file that arrives with no contact among the
+  other members is held back as a request (Show / Leave), the acceptance is
+  a marker of the private file (`docs/file-format.md` → "Accepted shared
+  files"), and a non-contact's name always carries "(not a contact)".
+  `app/js/core/strangers.js`, `tests/strangers.test.mjs`.
+- **L2 — TRMNL decrypts on the server (disclosed):** notes shared with a
+  display are decrypted by the server (`docs/sync-and-sharing.md` →
+  "TRMNL"); the share dialog says so, and now the privacy policy too. In the
+  Play Store's Data safety form those notes don't count as end-to-end
+  encrypted ("Play Store").
+- **L3 — the recovery key on the clipboard (fixed):** the Android app copies
+  the recovery key and the backup key with the extra
+  `android.content.extra.IS_SENSITIVE`, so the keyboard's suggestions and
+  the clipboard preview don't show them; a browser can't mark clipboard
+  data.
+- **L4 — news from a server someone took over (mitigated):** news stay
+  unsigned, so such a server can still post; every post now says it comes
+  from the operator and that NoteDown never asks for the recovery key in
+  news, messages or on websites. Signed news, which it couldn't fake:
+  backlog #69.
+- **L5 — dictation in the web app (disclosed):** the first dictation in the
+  browser says that the browser's speech service gets the recording (Chrome:
+  Google's servers), with Continue / Cancel; the privacy policy says the same.
+- **L6 — pins without a limit (fixed):** any member could pin every state it
+  replaced by flagging uploads as restores, and saved states were pinned
+  too; now at most 10 pinned states per file, the oldest beyond that thins
+  like any state (`docs/server-api.md` → "Version history"). Authenticated
+  calls still have no rate limit: the history is bounded by thinning and
+  this cap.
 
 ## What holds
 
