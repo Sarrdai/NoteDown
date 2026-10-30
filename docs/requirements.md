@@ -254,7 +254,11 @@ before the first live test).
   refused, so the bar shows what is enforced (backlog #27, over counting
   it only for its creator or splitting it); when someone else is over
   it, the status names them ("The sync storage of Lea is full, so this
-  shared note can't sync."). *Prototype: 2026-10-14.*
+  shared note can't sync."). *Prototype: 2026-10-14.* A file's text is
+  at most 16 MiB once unpacked; past that, that file's sync stops with
+  "A file's text is larger than 16 MiB; sync stopped for it" and the others
+  go on (a member could otherwise crash the others' apps with a small file
+  that unpacks to gigabytes; security review M4).
 - **Single notes can be shared** with other people. All notes shared with
   the same set of people live in one file for that set, encrypted so only
   its members can read it; sharing with one more person or removing one

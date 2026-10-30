@@ -8,7 +8,12 @@
   - [H2 — a file rolled back by the server (fixed)](#h2--a-file-rolled-back-by-the-server-fixed)
   - [H3 — a device list served cut back (fixed)](#h3--a-device-list-served-cut-back-fixed)
   - [H4 — a signed-out device handing out keys (fixed)](#h4--a-signed-out-device-handing-out-keys-fixed)
-  - [Medium (open)](#medium-open)
+  - [M1 — the safety code (decision open)](#m1--the-safety-code-decision-open)
+  - [M2 — no Content-Security-Policy (fixed)](#m2--no-content-security-policy-fixed)
+  - [M3 — prototype URL switches in the deployed app (fixed)](#m3--prototype-url-switches-in-the-deployed-app-fixed)
+  - [M4 — inflating without a limit (fixed)](#m4--inflating-without-a-limit-fixed)
+  - [M5 — signing and CI (fixed in the repository)](#m5--signing-and-ci-fixed-in-the-repository)
+  - [M6 — linking a device (fixed)](#m6--linking-a-device-fixed)
   - [Low (open, or to disclose)](#low-open-or-to-disclose)
 - [What holds](#what-holds)
 - [The claim "at least as secure as Signal"](#the-claim-at-least-as-secure-as-signal)
@@ -18,9 +23,10 @@
 
 A review of whether NoteDown's end-to-end encryption holds what
 `docs/sync-and-sharing.md` promises, done on 2026-10-30 before a release in
-the Play Store. Findings H1–H4 were fixed the same day; the others are open,
-each with what fixing it takes. The other docs describe the fixed state; this
-file keeps the findings, their status and why.
+the Play Store. Findings H1–H4 and M2–M6 were fixed the same day (M5 takes
+effect once the signing secrets are moved in GitHub); M1 waits for a decision
+between two code lengths; the low findings are open. The other docs describe
+the fixed state; this file keeps the findings, their status and why.
 
 ## Scope and method
 
@@ -56,12 +62,12 @@ code (a stated exception, "Principles").
 | H2 | High | A file's ciphertext wasn't bound to its file and version: the server could roll a file back | Fixed 2026-10-30 |
 | H3 | High | A device list could be served cut back: a removed device was trusted again | Fixed 2026-10-30 |
 | H4 | High | A signed-out device kept the power to hand out new file keys | Fixed 2026-10-30 |
-| M1 | Medium | The safety code is a birthday target | Open |
-| M2 | Medium | No Content-Security-Policy | Open |
-| M3 | Medium | Prototype URL switches work in the deployed web app | Open |
-| M4 | Medium | Inflating a file has no size limit (app and TRMNL plugin) | Open |
-| M5 | Medium | The release signing key in every branch build; actions pinned by tag | Open |
-| M6 | Medium | The relay message of linking a device isn't authenticated | Open |
+| M1 | Medium | The safety code is a birthday target | Decision open: two variants in the prototype |
+| M2 | Medium | No Content-Security-Policy | Fixed 2026-10-30 |
+| M3 | Medium | Prototype URL switches work in the deployed web app | Fixed 2026-10-30 |
+| M4 | Medium | Inflating a file has no size limit (app and TRMNL plugin) | Fixed 2026-10-30 |
+| M5 | Medium | The release signing key in every branch build; actions pinned by tag | Fixed in the repository 2026-10-30; the secrets still have to move (`docs/operations.md` → "5. Android signing key") |
+| M6 | Medium | The relay message of linking a device isn't authenticated | Fixed 2026-10-30 |
 | L1–L6 | Low | See "Low" | Open |
 
 ### H1 — a sign-in relayed through another server (fixed)
@@ -131,37 +137,98 @@ code (a stated exception, "Principles").
 - **Tests:** `tests/sync-state.test.mjs`, `scripts/e2e-sync.js` ("Lea signs
   out … and are renewed at once").
 
-### Medium (open)
+### M1 — the safety code (decision open)
 
-- **M1 — safety code:** 20 digits from one hash over *both* identity IDs.
-  Someone in the middle who knows both IDs beforehand needs two forged
-  identities with equal codes — a collision: about 2·10¹⁰ PBKDF2 runs, some
-  60 hours on one current GPU, not "too costly". Signal shows each identity's
-  fingerprint on its own (2 × 30 digits), so a forger needs a second preimage.
-  Fix: one half per identity.
-- **M2 — no Content-Security-Policy:** the escaping of untrusted text (shared
-  notes, news, names) is careful — the sinks that carry such data were
-  checked — but it is the only layer between a note and every key. A meta CSP:
-  `script-src 'self' 'wasm-unsafe-eval'`, `connect-src` only the API (which
-  would also have stopped H1), `object-src 'none'`, `base-uri 'none'`.
-- **M3 — URL switches in production:** `?sample` replaces the stored notes and
-  sync state (one link erases a browser's notes), `?api=` points the browser
-  at another server for good; `?sync=off` and `?platform=android` too. Off in
-  deployed builds.
-- **M4 — inflating without a limit:** `DecompressionStream` in `crypto.js` and
-  `zlib.decompress` in the TRMNL plugin inflate whatever a member uploaded: a
-  2 MB file becomes about 2 GB, so a member can crash the others' apps, and,
-  shared with a TRMNL display, the 512 MiB server instance. Cap the inflated
-  size.
-- **M5 — signing and CI:** pushes to `claude/**` build preview APKs with the
-  release keystore, and third-party actions are pinned by tag. For the Play
-  Store: Play App Signing (CI then holds only the upload key), the keystore
-  secret in an environment limited to `main`, actions pinned by commit.
-- **M6 — linking a device:** the relay message is sealed for the new device but
-  signed by nobody. A malicious server with an identity of its own can, once
-  the device was added to the real list, swap the message, so the new device
-  joins that identity and its notes and later input go there. Fix: a secret in
-  the QR code that the sealed message must hold.
+- **What:** 20 digits from one PBKDF2 over *both* identity IDs. Someone in the
+  middle who knows both IDs beforehand needs two forged identities with equal
+  codes — a birthday search: about 2·10¹⁰ PBKDF2 runs, some 60 hours on one
+  current GPU, not "too costly".
+- **Fix:** each identity gets its own part, PBKDF2 over its ID alone, and the
+  code shows both parts in the order of the IDs, so both phones still show the
+  same; a forger has to match each real part — a second preimage. Splitting
+  alone doesn't help at the same length (two second preimages of 10 digits
+  cost what the birthday search on 20 costs), but it keeps a comparison of
+  only one part a second preimage, where it was a birthday search on the
+  compared digits. So the code also gets longer, which the user decides
+  between two variants (⋮ → "Prototype: Safety code", `?safety=a|b`):
+  2 × 20 digits (about 2⁸⁴ SHA-256 computations to forge) or 2 × 30 digits,
+  Signal's length (about 2¹¹⁷).
+
+### M2 — no Content-Security-Policy (fixed)
+
+- **What:** the escaping of untrusted text (shared notes, news, names) is
+  careful — the sinks that carry such data were checked — but it was the only
+  layer between a note and every key.
+- **Fix:** every page carries a meta policy right after the charset: scripts
+  only from the app itself plus WebAssembly (no inline script, no `on…=`
+  handlers), no plugins, frames, forms or `<base>`. Inline styles stay
+  allowed (markup sets `style="--c:…"`). `connect-src` can't be narrowed to
+  the API as suggested first: invitation links name other home servers, so it
+  allows https and only the local test servers over http; H1 is fixed by its
+  signatures. `frame-ancestors` can't be set by a meta tag (GitHub Pages sends
+  no headers). In the Android app, Capacitor injects its bridge before the
+  policy or through the WebView, outside it (checked in Capacitor 8.5.3).
+  `PROJECT.md` → "Prototype".
+- **Tests:** `tests/csp.test.mjs` (every page: the policy, no inline script,
+  handler or `javascript:` address); a browser run over every page and the
+  main flows recorded no violation; `scripts/e2e-sync.js` runs under the
+  policy.
+
+### M3 — prototype URL switches in the deployed app (fixed)
+
+- **What:** `?sample` replaced the stored notes and sync state (one link
+  erased a browser's notes), `?api=` pointed the browser at another server for
+  good; `?sync=off` and `?platform=android` worked too.
+- **Fix:** those switches and `?dictation=demo` work only on a local address
+  (`localhost`, 127.0.0.0/8, `[::1]`, private IPv4) and never in the Android
+  app; a server an earlier `?api=` made the browser remember is ignored
+  elsewhere. `app/js/core/local-address.js`, `platform.js` →
+  `prototypeSwitches`; `PROJECT.md` → "Prototype options".
+- **Tests:** `tests/local-address.test.mjs`; the browser run above.
+
+### M4 — inflating without a limit (fixed)
+
+- **What:** `DecompressionStream` in `crypto.js` and `zlib.decompress` in the
+  TRMNL plugin inflated whatever a member uploaded: a 2 MB file becomes about
+  2 GB, so a member could crash the others' apps and, shared with a TRMNL
+  display, the 512 MiB server instance.
+- **Fix:** a file's text is at most 16 MiB of UTF-8: clients inflate in small
+  slices and stop past the limit, and seal no more; the plugin inflates with a
+  bound and skips such a file. The file's sync stops with a message, the
+  others go on. `docs/server-api.md` → "Limits". Backups and ZIP imports, which
+  the user picks, still inflate without a limit.
+- **Tests:** `tests/crypto.test.mjs`, `server/tests/test_trmnl_client.py`,
+  `test_trmnl_plugin.py`, `scripts/e2e-sync.js` (a bomb from a member, and an
+  own text over the limit).
+
+### M5 — signing and CI (fixed in the repository)
+
+- **What:** branch builds signed the preview APK with the release key from
+  repository secrets, which every branch's run can read — also one whose
+  workflow file was changed on that branch; third-party actions were pinned
+  by tag.
+- **Fix:** the release key belongs to the GitHub environment `release`,
+  which only `main` may use; branch builds sign with a preview key of their
+  own or a debug key, and warn while the release key is still a repository
+  secret; the web deploy gets only the certificate's fingerprint from a job in
+  `release`; every action is pinned by commit. It takes effect once the
+  secrets are moved (`docs/operations.md` → "5. Android signing key"). Play
+  App Signing, after which CI holds only the upload key: backlog #40.
+- **Open:** `server.yml` reads `ADMIN_IDENTITIES` and `TRMNL_CLIENT_ID` as
+  repository secrets (low sensitivity).
+
+### M6 — linking a device (fixed)
+
+- **What:** the relay message was sealed for the new device but signed by
+  nobody. A malicious server with an identity of its own could, once the
+  device was added to the real list, swap the message, so the new device
+  joined that identity and its notes and later input went there.
+- **Fix:** the link code (v=2) carries 16 random bytes the server never sees;
+  the linked device seals them into its answer, and the new device checks
+  them before it signs in or reads any list. `docs/server-api.md` → "Linking a
+  device".
+- **Tests:** `tests/linking.test.mjs`, `scripts/e2e-sync.js` ("a relay answer
+  without the code's secret is refused").
 
 ### Low (open, or to disclose)
 
@@ -213,7 +280,8 @@ stores only ciphertext", with the exceptions web app, TRMNL and metadata.
 - Google Play's Data safety form needn't list data that leaves the device
   end-to-end encrypted, readable only by sender and recipient. Notes qualify;
   notes shared with TRMNL, IP addresses and identifiers don't.
-- Signing as in M5 before the first upload.
+- Before the first upload: the signing secrets moved as in M5, and Play App
+  Signing (backlog #40).
 
 ## Not checked
 
