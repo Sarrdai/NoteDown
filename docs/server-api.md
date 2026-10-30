@@ -394,8 +394,11 @@ comparing and restoring happen on the device.
 - **Thinning** on every such upload: for states replaced in the last
   24 hours one per hour, before that one per UTC day — in each hour or
   day the first state replaced in it, i.e. the one from before that
-  hour's or day's changes. Pinned states stay; states saved by hand
-  don't count as the first of their hour or day. Nothing stays longer than
+  hour's or day's changes. Pinned states stay, at most 10 per file (restores
+  and states saved by hand together): pinning one more releases the oldest
+  pin, which then thins like any ordinary state (the server can't tell a real
+  restore from another upload, so the cap bounds what a member can pin).
+  States saved by hand don't count as the first of their hour or day. Nothing stays longer than
   30 days after it was replaced (listing and reading leave out what is
   older even before the next upload deletes it).
 - **Key chain:** a file's key has a generation, `key_gen`, 1 at creation
@@ -593,6 +596,7 @@ default (error 1010).
 | Members per file | 20, or what the admin sets for the server or the creating identity (2 to 50) |
 | Wrapped key, sealed card | 2048 characters each (a hybrid wrapped key is 1575) |
 | Sealed previous key (`previous_key`) | 512 characters |
+| Pinned states per file in the version history (restores and saved states) | 10, the oldest pin is released |
 | Devices on a list (active) | 20 |
 | Relay payload | 8 KB |
 | News post body | 1 byte to 16 KiB (UTF-8), not only white space |

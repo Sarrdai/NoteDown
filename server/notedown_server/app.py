@@ -41,6 +41,7 @@ INVITATION_LIVE = ("((requester IS NULL AND expires > now()) OR "
 # per day, and nothing replaced longer ago than this many days.
 HISTORY_HOURLY_HOURS = 24
 HISTORY_DAYS = 30
+MAX_PINNED = 10   # pinned states per file (restores and saved ones); storing one more releases the oldest pin
 # Per-IP limits on the unauthenticated endpoints that create something: (max requests, window seconds).
 LIMIT_IDENTITIES = (10, 24 * 3600)
 LIMIT_RELAY = (30, 3600)
@@ -297,6 +298,13 @@ def create_app(settings: Settings) -> FastAPI:
             "SELECT 1 FROM file_versions w WHERE w.file_id = v.file_id AND NOT w.saved AND w.replaced < v.replaced "
             f"AND date_trunc({bucket}, w.replaced, 'UTC') = date_trunc({bucket}, v.replaced, 'UTC'))))",
             {"file": file_id, "hours": HISTORY_HOURLY_HOURS, "days": HISTORY_DAYS})
+
+    def cap_pins(conn: psycopg.Connection, file_id: str) -> None:
+        """At most MAX_PINNED pinned states per file: the oldest ones beyond that become ordinary states."""
+        conn.execute(
+            "UPDATE file_versions SET pinned = false WHERE file_id = %(file)s AND pinned AND version NOT IN ("
+            "SELECT version FROM file_versions WHERE file_id = %(file)s AND pinned ORDER BY version DESC LIMIT %(max)s)",
+            {"file": file_id, "max": MAX_PINNED})
 
     # --- health and auth ---
 
@@ -593,6 +601,7 @@ def create_app(settings: Settings) -> FastAPI:
                         "SELECT id, version, ciphertext, updated, now(), key_gen, %s FROM files WHERE id = %s "
                         "ON CONFLICT (file_id, version) DO NOTHING",   # saved by hand already: that copy stays
                         (body.restore, file_id))
+                    cap_pins(conn, file_id)
                     thin_versions(conn, file_id)
                 renewed = body.keys is not None
                 if renewed:
@@ -641,6 +650,8 @@ def create_app(settings: Settings) -> FastAPI:
                 "INSERT INTO file_versions (file_id, version, ciphertext, updated, replaced, key_gen, pinned, saved) "
                 "SELECT id, version, ciphertext, updated, now(), key_gen, true, true FROM files WHERE id = %s "
                 "ON CONFLICT (file_id, version) DO NOTHING", (file_id,)).rowcount
+            if saved:
+                cap_pins(conn, file_id)
         return {"version": row[0], "saved": bool(saved)}
 
     @app.get("/v1/files/{file_id}/versions/{version}")

@@ -229,3 +229,33 @@ def test_a_backup_carries_saved_states(client, people, admin):
     # Only a saved state may be the current one.
     backup["tables"]["file_versions"][0]["saved"] = False
     assert client.post("/v1/admin/restore", json=backup, headers=admin.h).status_code == 400
+
+
+def test_pins_are_capped_per_file_and_the_oldest_is_released(client, people, admin):
+    alice = people()
+    switch(client, admin, alice)
+    f = put_private(alice, b"v0")
+    for base in range(12):   # twelve restores: each pins the state it replaces
+        upload(client, alice.h, base + 1, f"v{base + 1}".encode(), file_id=f, restore=True)
+    listed = versions(alice, f)["versions"]
+    assert sorted(v["version"] for v in listed if v["pinned"]) == list(range(3, 13))
+    assert len([v for v in listed if v["pinned"]]) == 10
+    # The two released pins are ordinary states now and thin like any: both fall into the current hour, so
+    # only the first one replaced in it stays once the next upload thins.
+    upload(client, alice.h, 13, b"v13", file_id=f)
+    listed = versions(alice, f)["versions"]
+    assert [v["version"] for v in listed if not v["pinned"]] == [1]
+    assert len([v for v in listed if v["pinned"]]) == 10
+
+
+def test_saved_states_count_against_the_same_cap(client, people, admin):
+    alice = people()
+    switch(client, admin, alice)
+    f = put_private(alice, b"v0")
+    for base in range(12):
+        assert client.post(f"/v1/files/{f}/versions", headers=alice.h).json()["saved"] is True
+        upload(client, alice.h, base + 1, f"v{base + 1}".encode(), file_id=f)
+    listed = versions(alice, f)["versions"]
+    pinned = sorted(v["version"] for v in listed if v["pinned"])
+    assert len(pinned) == 10 and pinned[0] > 2
+    assert all(v["saved"] for v in listed if v["version"] in (1, 2))
