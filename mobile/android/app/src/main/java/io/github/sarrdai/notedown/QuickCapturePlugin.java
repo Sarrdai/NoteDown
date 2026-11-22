@@ -11,17 +11,14 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * start MainActivity with one of the actions below; the share sheet starts it with ACTION_SEND and plain text. The
  * plugin hands it to the web code (app/js/quick-capture.js) as the event "action" with { action: "new" | "dictate" }
  * or { action: "share", text, subject }, retained on a cold start until the listener is there.
+ * Only handleOnNewIntent: Capacitor's BridgeActivity passes the launch intent to it too, so handling it in load()
+ * as well made every cold-start share a second note.
  */
 @CapacitorPlugin(name = "QuickCapture")
 public class QuickCapturePlugin extends Plugin {
 
     static final String ACTION_NEW_NOTE = "io.github.sarrdai.notedown.NEW_NOTE";
     static final String ACTION_DICTATE = "io.github.sarrdai.notedown.DICTATE";
-
-    @Override
-    public void load() {
-        handle(getActivity().getIntent());
-    }
 
     @Override
     protected void handleOnNewIntent(Intent intent) {
